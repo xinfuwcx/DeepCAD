@@ -35,7 +35,7 @@ app = FastAPI(
 # 配置CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # 允许前端开发服务器的源
+    allow_origins=["http://localhost:1000"],  # 允许前端开发服务器的源
     allow_credentials=True,
     allow_methods=["*"],  # 允许所有方法
     allow_headers=["*"],  # 允许所有头
@@ -71,4 +71,4 @@ async def root():
 
 # 如果直接运行此文件，则启动API服务器
 if __name__ == "__main__":
-    uvicorn.run("src.server.app:app", host="0.0.0.0", port=8000, reload=True) 
+    uvicorn.run("src.server.app:app", host="0.0.0.0", port=6000, reload=True) 

@@ -34,7 +34,7 @@ except ImportError:
 class TrameVisServer:
     """Trame visualization server for deep excavation CAE post-processing"""
     
-    def __init__(self, port: int = 8080):
+    def __init__(self, port: int = 6000):
         """Initialize Trame visualization server"""
         if not HAS_TRAME:
             print("Trame not available, running in simulation mode")
