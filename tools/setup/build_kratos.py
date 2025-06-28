@@ -77,6 +77,9 @@ def run_command(command, cwd=None, env=None, shell=True):
     """运行命令并返回结果"""
     try:
         print_status(f"执行命令: {command}", "INFO")
+        if env and len(env) > len(os.environ):
+            print_status(f"使用自定义环境变量 (总数: {len(env)})", "INFO")
+        
         result = subprocess.run(
             command,
             stdout=subprocess.PIPE,
@@ -137,7 +140,7 @@ class KratosBuilder:
             return None
             
         # 执行vcvarsall.bat并获取环境变量
-        cmd = f'"{vcvarsall}" x64 && set'
+        cmd = f'cmd /c ""{vcvarsall}" x64 && set"'
         try:
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True, 
                                   encoding='utf-8', errors='ignore')
@@ -150,6 +153,8 @@ class KratosBuilder:
                         env[key] = value
                 print_status("Visual Studio环境变量设置成功", "OK")
                 return env
+            else:
+                print_status(f"vcvarsall.bat执行失败: {result.stderr}", "WARNING")
         except Exception as e:
             print_status(f"设置Visual Studio环境失败: {e}", "WARNING")
         
@@ -166,23 +171,37 @@ class KratosBuilder:
             return False
         print_status("CMake可用", "OK", output.split('\n')[0])
         
+    def check_prerequisites(self):
+        """检查编译前提条件"""
+        print_status("检查编译前提条件", "INFO")
+        
+        # 检查CMake
+        success, output = run_command("cmake --version")
+        if not success:
+            print_status("CMake未安装", "ERROR", "请安装CMake 3.16或更高版本")
+            return False
+        print_status("CMake可用", "OK", output.split('\n')[0])
+        
         # 检查编译器
         if self.is_windows:
             # 先尝试直接检查cl命令
             success, output = run_command("cl /?", shell=True)
             if not success:
-                # 如果直接检查失败，尝试设置VS环境
+                # 如果直接检查失败，尝试设置VS环境并直接测试
                 print_status("正在查找并设置Visual Studio环境...", "INFO")
-                vs_env = self.setup_vs_environment()
-                if vs_env:
-                    # 使用VS环境重新检查
-                    success, output = run_command("cl /?", shell=True, env=vs_env)
+                vs_path, vcvarsall = self.find_visual_studio()
+                if vs_path:
+                    # 直接在cmd中执行vcvarsall.bat和cl命令
+                    test_cmd = f'cmd /c ""{vcvarsall}" x64 && cl /? > nul"'
+                    success, output = run_command(test_cmd, shell=True)
                     if success:
                         print_status("Visual Studio编译器可用 (通过环境设置)", "OK")
-                        # 保存环境变量供后续使用
-                        self.vs_env = vs_env
+                        # 保存VS信息供后续使用
+                        self.vs_path = vs_path
+                        self.vcvarsall = vcvarsall
                     else:
                         print_status("Visual Studio编译器仍然不可用", "ERROR")
+                        print_status(f"错误信息: {output}", "ERROR")
                         return False
                 else:
                     print_status("未找到Visual Studio安装", "ERROR", 
@@ -190,7 +209,8 @@ class KratosBuilder:
                     return False
             else:
                 print_status("Visual Studio编译器可用", "OK")
-                self.vs_env = None
+                self.vs_path = None
+                self.vcvarsall = None
         else:
             # 检查GCC
             success, output = run_command("gcc --version")
@@ -363,18 +383,16 @@ class KratosBuilder:
         
         # 构建CMake命令
         cmake_cmd = ["cmake"] + cmake_config + [f"../{self.kratos_source}"]
-        
-        if self.is_windows:
-            # Windows下需要特殊处理
-            cmake_cmd_str = " ".join(cmake_cmd)
-        else:
-            cmake_cmd_str = " ".join(cmake_cmd)
+        cmake_cmd_str = " ".join(cmake_cmd)
         
         print_status(f"CMake配置命令: {cmake_cmd_str}", "INFO")
         
-        # 使用VS环境（如果有的话）
-        env = getattr(self, 'vs_env', None)
-        success, output = run_command(cmake_cmd_str, cwd=self.build_dir, env=env)
+        # 如果需要VS环境，在cmd中设置环境后执行
+        if self.is_windows and hasattr(self, 'vcvarsall') and self.vcvarsall:
+            full_cmd = f'cmd /c ""{self.vcvarsall}" x64 && {cmake_cmd_str}"'
+            success, output = run_command(full_cmd, cwd=self.build_dir, shell=True)
+        else:
+            success, output = run_command(cmake_cmd_str, cwd=self.build_dir)
         
         if success:
             print_status("CMake配置成功", "OK")
@@ -394,9 +412,12 @@ class KratosBuilder:
             # Linux下使用make
             build_cmd = f"make -j{self.num_cores}"
         
-        # 使用VS环境（如果有的话）
-        env = getattr(self, 'vs_env', None)
-        success, output = run_command(build_cmd, cwd=self.build_dir, env=env)
+        # 如果需要VS环境，在cmd中设置环境后执行
+        if self.is_windows and hasattr(self, 'vcvarsall') and self.vcvarsall:
+            full_cmd = f'cmd /c ""{self.vcvarsall}" x64 && {build_cmd}"'
+            success, output = run_command(full_cmd, cwd=self.build_dir, shell=True)
+        else:
+            success, output = run_command(build_cmd, cwd=self.build_dir)
         
         if success:
             print_status("编译Kratos成功", "OK")
@@ -414,9 +435,12 @@ class KratosBuilder:
         else:
             install_cmd = "make install"
         
-        # 使用VS环境（如果有的话）
-        env = getattr(self, 'vs_env', None)
-        success, output = run_command(install_cmd, cwd=self.build_dir, env=env)
+        # 如果需要VS环境，在cmd中设置环境后执行
+        if self.is_windows and hasattr(self, 'vcvarsall') and self.vcvarsall:
+            full_cmd = f'cmd /c ""{self.vcvarsall}" x64 && {install_cmd}"'
+            success, output = run_command(full_cmd, cwd=self.build_dir, shell=True)
+        else:
+            success, output = run_command(install_cmd, cwd=self.build_dir)
         
         if success:
             print_status("安装Kratos成功", "OK")
