@@ -1,0 +1,62 @@
+{
+  "kratos": {
+    "version": "10.2.1",
+    "path": "E:\\Multiphysics\\Python\\Lib\\site-packages\\KratosMultiphysics",
+    "applications": {
+      "StructuralMechanicsApplication": {
+        "name": "结构力学",
+        "available": true
+      },
+      "FluidDynamicsApplication": {
+        "name": "流体力学",
+        "available": true
+      },
+      "ContactStructuralMechanicsApplication": {
+        "name": "接触结构力学",
+        "available": true
+      },
+      "LinearSolversApplication": {
+        "name": "线性求解器",
+        "available": true
+      },
+      "MeshMovingApplication": {
+        "name": "网格移动",
+        "available": true
+      },
+      "MeshingApplication": {
+        "name": "网格生成",
+        "available": true
+      },
+      "FSIApplication": {
+        "name": "流固耦合",
+        "available": true
+      },
+      "ConvectionDiffusionApplication": {
+        "name": "对流扩散",
+        "available": true
+      }
+    }
+  },
+  "deep_excavation": {
+    "supported_analyses": [
+      "结构力学分析",
+      "渗流分析",
+      "接触非线性分析"
+    ],
+    "recommended_modules": [],
+    "missing_critical": [
+      {
+        "module": "GeomechanicsApplication",
+        "description": "地质力学"
+      },
+      {
+        "module": "IgaApplication",
+        "description": "IGA等几何分析"
+      },
+      {
+        "module": "OptimizationApplication",
+        "description": "结构优化"
+      }
+    ]
+  }
+}

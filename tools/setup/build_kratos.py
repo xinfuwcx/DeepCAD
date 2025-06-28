@@ -108,6 +108,53 @@ class KratosBuilder:
             self.cmake_generator = self.config.get('cmake_generator', 'Visual Studio 17 2022')
             self.vs_platform = self.config.get('vs_platform', 'x64')
         
+    def find_visual_studio(self):
+        """查找Visual Studio安装路径"""
+        vs_paths = [
+            r"D:\Program Files\Microsoft Visual Studio\2022\Professional",
+            r"D:\Program Files\Microsoft Visual Studio\2022\Community",
+            r"D:\Program Files\Microsoft Visual Studio\2022\Enterprise", 
+            r"C:\Program Files\Microsoft Visual Studio\2022\Professional",
+            r"C:\Program Files\Microsoft Visual Studio\2022\Community",
+            r"C:\Program Files\Microsoft Visual Studio\2022\Enterprise",
+            r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional",
+            r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community",
+            r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise"
+        ]
+        
+        for vs_path in vs_paths:
+            vcvarsall = os.path.join(vs_path, "VC", "Auxiliary", "Build", "vcvarsall.bat")
+            if os.path.exists(vcvarsall):
+                print_status(f"找到Visual Studio: {vs_path}", "OK")
+                return vs_path, vcvarsall
+        
+        return None, None
+    
+    def setup_vs_environment(self):
+        """设置Visual Studio环境"""
+        vs_path, vcvarsall = self.find_visual_studio()
+        if not vs_path:
+            return None
+            
+        # 执行vcvarsall.bat并获取环境变量
+        cmd = f'"{vcvarsall}" x64 && set'
+        try:
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, 
+                                  encoding='utf-8', errors='ignore')
+            if result.returncode == 0:
+                # 解析环境变量
+                env = os.environ.copy()
+                for line in result.stdout.split('\n'):
+                    if '=' in line and not line.startswith('_'):
+                        key, value = line.split('=', 1)
+                        env[key] = value
+                print_status("Visual Studio环境变量设置成功", "OK")
+                return env
+        except Exception as e:
+            print_status(f"设置Visual Studio环境失败: {e}", "WARNING")
+        
+        return None
+
     def check_prerequisites(self):
         """检查编译前提条件"""
         print_status("检查编译前提条件", "INFO")
@@ -121,13 +168,29 @@ class KratosBuilder:
         
         # 检查编译器
         if self.is_windows:
-            # 检查Visual Studio
+            # 先尝试直接检查cl命令
             success, output = run_command("cl /?", shell=True)
             if not success:
-                print_status("Visual Studio编译器未找到", "ERROR", 
-                           "请安装Visual Studio 2019或更高版本并设置环境变量")
-                return False
-            print_status("Visual Studio编译器可用", "OK")
+                # 如果直接检查失败，尝试设置VS环境
+                print_status("正在查找并设置Visual Studio环境...", "INFO")
+                vs_env = self.setup_vs_environment()
+                if vs_env:
+                    # 使用VS环境重新检查
+                    success, output = run_command("cl /?", shell=True, env=vs_env)
+                    if success:
+                        print_status("Visual Studio编译器可用 (通过环境设置)", "OK")
+                        # 保存环境变量供后续使用
+                        self.vs_env = vs_env
+                    else:
+                        print_status("Visual Studio编译器仍然不可用", "ERROR")
+                        return False
+                else:
+                    print_status("未找到Visual Studio安装", "ERROR", 
+                               "请确认Visual Studio 2019或更高版本已正确安装")
+                    return False
+            else:
+                print_status("Visual Studio编译器可用", "OK")
+                self.vs_env = None
         else:
             # 检查GCC
             success, output = run_command("gcc --version")
@@ -178,6 +241,18 @@ class KratosBuilder:
     def get_cmake_config(self):
         """获取CMake配置"""
         config = []
+        
+        # 获取项目根目录
+        project_root = Path(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        
+        # 检查并加载离线依赖选项
+        offline_options_file = project_root / "temp" / "cmake_offline_options.txt"
+        offline_options = []
+        if offline_options_file.exists():
+            print_status(f"加载离线依赖配置: {offline_options_file}", "INFO")
+            with open(offline_options_file, 'r', encoding='utf-8') as f:
+                offline_options = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+            print_status(f"找到 {len(offline_options)} 个离线配置选项", "INFO")
         
         # 基本配置
         config.extend([
@@ -269,6 +344,11 @@ class KratosBuilder:
         config.extend([f"-D{app}" for app in mpi_config])
         config.extend([f"-D{app}" for app in external_libs])
         
+        # 添加离线依赖选项（如果有的话）
+        if offline_options:
+            print_status("应用离线依赖配置", "INFO")
+            config.extend(offline_options)
+        
         return config
     
     def configure_cmake(self):
@@ -292,7 +372,9 @@ class KratosBuilder:
         
         print_status(f"CMake配置命令: {cmake_cmd_str}", "INFO")
         
-        success, output = run_command(cmake_cmd_str, cwd=self.build_dir)
+        # 使用VS环境（如果有的话）
+        env = getattr(self, 'vs_env', None)
+        success, output = run_command(cmake_cmd_str, cwd=self.build_dir, env=env)
         
         if success:
             print_status("CMake配置成功", "OK")
@@ -312,7 +394,9 @@ class KratosBuilder:
             # Linux下使用make
             build_cmd = f"make -j{self.num_cores}"
         
-        success, output = run_command(build_cmd, cwd=self.build_dir)
+        # 使用VS环境（如果有的话）
+        env = getattr(self, 'vs_env', None)
+        success, output = run_command(build_cmd, cwd=self.build_dir, env=env)
         
         if success:
             print_status("编译Kratos成功", "OK")
@@ -330,7 +414,9 @@ class KratosBuilder:
         else:
             install_cmd = "make install"
         
-        success, output = run_command(install_cmd, cwd=self.build_dir)
+        # 使用VS环境（如果有的话）
+        env = getattr(self, 'vs_env', None)
+        success, output = run_command(install_cmd, cwd=self.build_dir, env=env)
         
         if success:
             print_status("安装Kratos成功", "OK")
