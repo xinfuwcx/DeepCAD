@@ -11,8 +11,6 @@ from typing import Generator, Optional
 from sqlalchemy.orm import Session
 from src.database.session import SessionLocal
 from src.core.modeling.models import ModelingEngine
-from src.core.meshing.models import MeshEngine
-from src.core.meshing.gmsh_wrapper import GmshWrapper
 from src.core.simulation.models import ComputeEngine
 from src.core.visualization.models import VisualizationEngine
 
@@ -33,26 +31,6 @@ def get_modeling_engine() -> ModelingEngine:
     提供建模引擎实例
     """
     return ModelingEngine()
-
-# 网格引擎依赖
-def get_mesh_engine() -> MeshEngine:
-    """
-    提供网格引擎实例
-    """
-    return MeshEngine()
-
-# Gmsh包装器依赖
-def get_gmsh_wrapper(verbose: bool = False) -> GmshWrapper:
-    """
-    提供Gmsh包装器实例
-    
-    Args:
-        verbose: 是否打印详细信息
-        
-    Returns:
-        GmshWrapper: Gmsh包装器实例
-    """
-    return GmshWrapper(verbose=verbose)
 
 # 计算引擎依赖
 def get_compute_engine() -> ComputeEngine:

@@ -13,7 +13,7 @@ from src.database.models import (
     SoilLayer,
     Excavation,
     Wall,
-    Mesh,
+    GeometryModel,
     Computation,
     ComputationResult,
     MonitoringData,

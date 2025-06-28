@@ -7,9 +7,7 @@
 """
 
 import os
-import sys
-import json
-from typing import Dict, Any, List, Optional, Tuple, Union
+from typing import Dict, Any, List
 
 try:
     # Ensure trame is in the path
@@ -20,7 +18,6 @@ try:
     from vtkmodules.vtkRenderingCore import (
         vtkRenderer,
         vtkRenderWindow,
-        vtkRenderWindowInteractor,
         vtkDataSetMapper,
         vtkActor
     )

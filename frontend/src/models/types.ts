@@ -53,7 +53,7 @@ export interface Project {
 export enum ProjectStatus {
   DRAFT = 'draft',
   MODELING = 'modeling',
-  MESHING = 'meshing',
+  IGA_ANALYSIS = 'iga_analysis',
   COMPUTING = 'computing',
   COMPLETED = 'completed',
   FAILED = 'failed'
@@ -68,6 +68,7 @@ export interface ProjectMetadata {
   excavation?: ExcavationInfo;
   supports?: SupportStructure[];
   stages?: ExcavationStage[];
+  geometry_models?: GeometryModel[];
 }
 
 /**
@@ -146,6 +147,94 @@ export interface ExcavationStage {
 }
 
 /**
+ * 几何模型
+ */
+export interface GeometryModel {
+  id: string;
+  name: string;
+  model_type: 'nurbs' | 'brep';
+  control_points?: ControlPoint[];
+  knot_vectors?: KnotVector[];
+  weights?: number[];
+  degrees?: number[];
+  file_path?: string;
+  created_at: string;
+}
+
+/**
+ * NURBS控制点
+ */
+export interface ControlPoint {
+  id: string;
+  x: number;
+  y: number;
+  z: number;
+  weight?: number;
+}
+
+/**
+ * 节点矢量
+ */
+export interface KnotVector {
+  direction: 'u' | 'v' | 'w';
+  values: number[];
+}
+
+/**
+ * IGA分析配置
+ */
+export interface IgaConfig {
+  project_id: number;
+  geometry_model_id: string;
+  analysis_type: 'structural' | 'thermal' | 'coupled';
+  material_model: string;
+  solver: 'direct' | 'iterative' | 'amg';
+  integration: string;
+  nurbs_settings: NurbsSettings;
+  nonlinear_settings?: NonlinearSettings;
+  computation_settings: ComputationSettings;
+}
+
+/**
+ * NURBS设置
+ */
+export interface NurbsSettings {
+  refinement: 'h-refinement' | 'p-refinement' | 'k-refinement';
+  refinement_level: number;
+  boundary_conditions: BoundaryCondition[];
+}
+
+/**
+ * 非线性设置
+ */
+export interface NonlinearSettings {
+  use_nonlinear: boolean;
+  max_iterations: number;
+  tolerance: number;
+  load_steps: number;
+}
+
+/**
+ * 计算设置
+ */
+export interface ComputationSettings {
+  use_parallel: boolean;
+  num_cores?: number;
+  save_intermediate: boolean;
+}
+
+/**
+ * 边界条件
+ */
+export interface BoundaryCondition {
+  id: string;
+  type: 'fixed' | 'roller' | 'free' | 'prescribed';
+  surface: string;
+  value?: number;
+  direction?: 'x' | 'y' | 'z';
+}
+
+/**
  * 网格配置
  */
 export interface MeshConfig {
@@ -174,17 +263,6 @@ export interface RefinementRegion {
   depth?: number;
   points?: Point[];
   refinement_factor: number;
-}
-
-/**
- * 边界条件
- */
-export interface BoundaryCondition {
-  id: string;
-  type: 'fixed' | 'roller' | 'free' | 'prescribed';
-  surface: string;
-  value?: number;
-  direction?: 'x' | 'y' | 'z';
 }
 
 /**
@@ -261,7 +339,7 @@ export enum ComputationStatus {
 }
 
 /**
- * 计算结果类型
+ * 结果类型
  */
 export enum ResultType {
   DISPLACEMENT = 'displacement',
@@ -271,7 +349,7 @@ export enum ResultType {
 }
 
 /**
- * 计算结果数据
+ * 结果数据
  */
 export interface ResultData {
   project_id: number;
@@ -294,7 +372,7 @@ export interface ProjectStatistics {
 }
 
 /**
- * API响应基础接口
+ * API响应基本结构
  */
 export interface ApiResponse<T> {
   success: boolean;

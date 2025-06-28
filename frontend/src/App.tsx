@@ -18,8 +18,7 @@ import MainLayout from './components/layout/MainLayout';
 import WelcomePage from './pages/WelcomePage';
 import Dashboard from './pages/Dashboard';
 import ExcavationAnalysis from './pages/ExcavationAnalysis';
-import MeshingPage from './pages/MeshingPage';
-import ComputationPage from './pages/ComputationPage';
+import IgaAnalysisPage from './pages/IgaAnalysisPage';
 import ProjectManagement from './pages/ProjectManagement';
 import ResultVisualization from './pages/ResultVisualization';
 
@@ -57,8 +56,7 @@ const MainLayoutWrapper = () => {
         <Route path="/excavation-analysis/:projectId" element={<ExcavationAnalysis />} />
         <Route path="/tunnel-modeling/:projectId" element={<div>隧道建模模块</div>} />
         <Route path="/foundation-analysis/:projectId" element={<div>地基基础模块</div>} />
-        <Route path="/meshing/:projectId" element={<MeshingPage />} />
-        <Route path="/computation/:projectId" element={<ComputationPage />} />
+        <Route path="/iga-analysis/:projectId" element={<IgaAnalysisPage />} />
         <Route path="/results/:projectId" element={<ResultVisualization />} />
         <Route path="/data-management" element={<DataImportExport />} />
         <Route path="/settings" element={<div>设置模块</div>} />

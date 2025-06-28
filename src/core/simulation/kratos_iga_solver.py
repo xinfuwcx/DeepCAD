@@ -9,9 +9,8 @@
 import os
 import sys
 import json
-import tempfile
 import shutil
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 
 try:
     # Ensure Kratos is in the path

@@ -6,13 +6,14 @@
 @copyright 2025
 """
 
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, JSON, Text, Table
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, JSON, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
 from datetime import datetime
 
 from src.database.session import Base
+
 
 # 项目表
 class Project(Base):
@@ -27,7 +28,6 @@ class Project(Base):
     # 关系
     domains = relationship("Domain", back_populates="project", cascade="all, delete-orphan")
     soil_layers = relationship("SoilLayer", back_populates="project", cascade="all, delete-orphan")
-    meshes = relationship("Mesh", back_populates="project", cascade="all, delete-orphan")
     computations = relationship("Computation", back_populates="project", cascade="all, delete-orphan")
     monitoring_data = relationship("MonitoringData", back_populates="project", cascade="all, delete-orphan")
 
@@ -84,23 +84,24 @@ class Wall(Base):
     material_properties = Column(JSON, nullable=True)  # 材料属性JSON
     created_at = Column(DateTime, default=func.now())
 
-# 网格表
-class Mesh(Base):
-    __tablename__ = "meshes"
+# 几何模型表
+class GeometryModel(Base):
+    __tablename__ = "geometry_models"
     
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"))
-    element_size = Column(Float, nullable=False)
-    algorithm = Column(String(50), default="delaunay")
-    order = Column(Integer, default=2)
-    node_count = Column(Integer, nullable=True)
-    element_count = Column(Integer, nullable=True)
-    mesh_quality = Column(Float, nullable=True)
-    mesh_file_path = Column(String(255), nullable=True)
+    name = Column(String(100), nullable=False)
+    model_type = Column(String(50), default="nurbs")  # nurbs, brep等
+    control_points = Column(JSON, nullable=True)  # 控制点JSON
+    weights = Column(JSON, nullable=True)  # 权重JSON
+    knot_vectors = Column(JSON, nullable=True)  # 节点矢量JSON
+    degree = Column(JSON, nullable=True)  # 阶次JSON
+    file_path = Column(String(255), nullable=True)  # 几何文件路径
     created_at = Column(DateTime, default=func.now())
     
     # 关系
-    project = relationship("Project", back_populates="meshes")
+    project = relationship("Project")
+    computations = relationship("Computation", back_populates="geometry_model")
 
 # 计算任务表
 class Computation(Base):
@@ -108,7 +109,7 @@ class Computation(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"))
-    mesh_id = Column(Integer, ForeignKey("meshes.id"))
+    geometry_model_id = Column(Integer, ForeignKey("geometry_models.id"))
     analysis_type = Column(String(50), nullable=False)
     soil_model = Column(String(50), default="mohr-coulomb")
     max_iterations = Column(Integer, default=100)
@@ -123,7 +124,7 @@ class Computation(Base):
     
     # 关系
     project = relationship("Project", back_populates="computations")
-    mesh = relationship("Mesh")
+    geometry_model = relationship("GeometryModel", back_populates="computations")
     results = relationship("ComputationResult", back_populates="computation", cascade="all, delete-orphan")
 
 # 计算结果表
@@ -154,7 +155,7 @@ class MonitoringData(Base):
     location_z = Column(Float, nullable=False)
     value = Column(Float, nullable=False)
     sensor_id = Column(String(100), nullable=False)
-    metadata = Column(JSON, nullable=True)
+    additional_info = Column(JSON, nullable=True)  # 更改名称，彻底避免与metadata相似
     created_at = Column(DateTime, default=func.now())
     
     # 关系

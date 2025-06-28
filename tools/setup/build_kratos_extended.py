@@ -29,7 +29,7 @@ def run_cmd(cmd, cwd=None):
     print_status(f"执行: {cmd}")
     try:
         result = subprocess.run(cmd, shell=True, cwd=cwd, check=True, 
-                              capture_output=True, text=True)
+                              capture_output=True, text=True, encoding='utf-8')
         return True, result.stdout
     except subprocess.CalledProcessError as e:
         print_status(f"命令失败: {e}", "ERROR")
@@ -182,6 +182,10 @@ def build_kratos_extended():
                 cmake_args.extend(['-A', value])
         else:
             cmake_args.append(f'-D{key}={value}')
+    
+    # 添加下载超时和镜像源设置
+    cmake_args.append('-DFETCHCONTENT_TIMEOUT=600')
+    cmake_args.append('-DGOOGLETEST_URL=https://gitee.com/mirrors/googletest/archive/03597a01ee50ed33e9dfd6440b249b4be3799d395.zip')
     
     cmake_args.append(f'../{source_dir}')
     cmake_cmd = ' '.join(['cmake'] + cmake_args)
