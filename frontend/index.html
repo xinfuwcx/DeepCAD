@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deep Excavation CAE System</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header with Logo and Toolbar -->
+        <header class="app-header">
+            <div class="logo">
+                <img src="assets/images/nexus-logo.svg" alt="Nexus Logo">
+                <span>Deep Excavation CAE</span>
+            </div>
+            <div class="toolbar">
+                <button class="toolbar-btn" title="New"><i class="icon icon-new"></i></button>
+                <button class="toolbar-btn" title="Open"><i class="icon icon-open"></i></button>
+                <button class="toolbar-btn" title="Save"><i class="icon icon-save"></i></button>
+                <span class="separator"></span>
+                <button class="toolbar-btn" title="Undo"><i class="icon icon-undo"></i></button>
+                <button class="toolbar-btn" title="Redo"><i class="icon icon-redo"></i></button>
+            </div>
+        </header>
+
+        <!-- Ribbon Menu -->
+        <div class="ribbon-menu">
+            <div class="ribbon-tab active" data-tab="modeling">
+                <span>Modeling</span>
+            </div>
+            <div class="ribbon-tab" data-tab="meshing">
+                <span>Meshing</span>
+            </div>
+            <div class="ribbon-tab" data-tab="computation">
+                <span>Computation</span>
+            </div>
+            <div class="ribbon-tab" data-tab="visualization">
+                <span>Visualization</span>
+            </div>
+            <div class="ribbon-tab" data-tab="physical-ai">
+                <span>Physical AI</span>
+            </div>
+        </div>
+
+        <!-- Ribbon Content -->
+        <div class="ribbon-content">
+            <!-- Modeling Panel -->
+            <div class="ribbon-panel active" data-panel="modeling">
+                <div class="ribbon-group">
+                    <h3>Soil Domain</h3>
+                    <div class="ribbon-buttons">
+                        <button class="ribbon-btn" title="Create Domain">
+                            <i class="icon icon-domain"></i>
+                            <span>Create Domain</span>
+                        </button>
+                        <button class="ribbon-btn" title="Soil Layers">
+                            <i class="icon icon-layers"></i>
+                            <span>Soil Layers</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="ribbon-group">
+                    <h3>Excavation</h3>
+                    <div class="ribbon-buttons">
+                        <button class="ribbon-btn" title="Import DXF">
+                            <i class="icon icon-import"></i>
+                            <span>Import DXF</span>
+                        </button>
+                        <button class="ribbon-btn" title="Create Excavation">
+                            <i class="icon icon-excavation"></i>
+                            <span>Create Excavation</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="ribbon-group">
+                    <h3>Structures</h3>
+                    <div class="ribbon-buttons">
+                        <button class="ribbon-btn" title="Diaphragm Wall">
+                            <i class="icon icon-wall"></i>
+                            <span>Diaphragm Wall</span>
+                        </button>
+                        <button class="ribbon-btn" title="Tunnel">
+                            <i class="icon icon-tunnel"></i>
+                            <span>Tunnel</span>
+                        </button>
+                        <button class="ribbon-btn" title="Anchor">
+                            <i class="icon icon-anchor"></i>
+                            <span>Prestressed Anchor</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Meshing Panel -->
+            <div class="ribbon-panel" data-panel="meshing">
+                <div class="ribbon-group">
+                    <h3>Mesh Settings</h3>
+                    <div class="ribbon-buttons">
+                        <button class="ribbon-btn" title="Mesh Size">
+                            <i class="icon icon-mesh-size"></i>
+                            <span>Mesh Size</span>
+                        </button>
+                        <button class="ribbon-btn" title="Refinement">
+                            <i class="icon icon-refinement"></i>
+                            <span>Refinement</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="ribbon-group">
+                    <h3>Advanced</h3>
+                    <div class="ribbon-buttons">
+                        <button class="ribbon-btn" title="Gmsh Parameters">
+                            <i class="icon icon-parameters"></i>
+                            <span>Gmsh Parameters</span>
+                        </button>
+                        <button class="ribbon-btn" title="Fragment">
+                            <i class="icon icon-fragment"></i>
+                            <span>Fragment</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="ribbon-group">
+                    <h3>Generate</h3>
+                    <div class="ribbon-buttons">
+                        <button class="ribbon-btn primary" title="Generate Mesh">
+                            <i class="icon icon-generate"></i>
+                            <span>Generate Mesh</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Computation Panel -->
+            <div class="ribbon-panel" data-panel="computation">
+                <div class="ribbon-group">
+                    <h3>Materials</h3>
+                    <div class="ribbon-buttons">
+                        <button class="ribbon-btn" title="Material Library">
+                            <i class="icon icon-material"></i>
+                            <span>Material Library</span>
+                        </button>
+                        <button class="ribbon-btn" title="Assign Materials">
+                            <i class="icon icon-assign"></i>
+                            <span>Assign</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="ribbon-group">
+                    <h3>Boundary Conditions</h3>
+                    <div class="ribbon-buttons">
+                        <button class="ribbon-btn" title="Constraints">
+                            <i class="icon icon-constraints"></i>
+                            <span>Constraints</span>
+                        </button>
+                        <button class="ribbon-btn" title="Loads">
+                            <i class="icon icon-loads"></i>
+                            <span>Loads</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="ribbon-group">
+                    <h3>Solve</h3>
+                    <div class="ribbon-buttons">
+                        <button class="ribbon-btn" title="Element Type">
+                            <i class="icon icon-element"></i>
+                            <span>Element Type</span>
+                        </button>
+                        <button class="ribbon-btn" title="Analysis Type">
+                            <i class="icon icon-analysis"></i>
+                            <span>Analysis Type</span>
+                        </button>
+                        <button class="ribbon-btn primary" title="Run Terra">
+                            <i class="icon icon-run"></i>
+                            <span>Run Terra</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visualization Panel -->
+            <div class="ribbon-panel" data-panel="visualization">
+                <div class="ribbon-group">
+                    <h3>Display</h3>
+                    <div class="ribbon-buttons">
+                        <button class="ribbon-btn" title="Results Variables">
+                            <i class="icon icon-variables"></i>
+                            <span>Variables</span>
+                        </button>
+                        <button class="ribbon-btn" title="Color Map">
+                            <i class="icon icon-colormap"></i>
+                            <span>Color Map</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="ribbon-group">
+                    <h3>Cutting</h3>
+                    <div class="ribbon-buttons">
+                        <button class="ribbon-btn" title="X-Section">
+                            <i class="icon icon-section-x"></i>
+                            <span>X-Section</span>
+                        </button>
+                        <button class="ribbon-btn" title="Y-Section">
+                            <i class="icon icon-section-y"></i>
+                            <span>Y-Section</span>
+                        </button>
+                        <button class="ribbon-btn" title="Z-Section">
+                            <i class="icon icon-section-z"></i>
+                            <span>Z-Section</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="ribbon-group">
+                    <h3>Export</h3>
+                    <div class="ribbon-buttons">
+                        <button class="ribbon-btn" title="Export Image">
+                            <i class="icon icon-image"></i>
+                            <span>Export Image</span>
+                        </button>
+                        <button class="ribbon-btn" title="Export Data">
+                            <i class="icon icon-data"></i>
+                            <span>Export Data</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Physical AI Panel -->
+            <div class="ribbon-panel" data-panel="physical-ai">
+                <div class="ribbon-group">
+                    <h3>IoT Data</h3>
+                    <div class="ribbon-buttons">
+                        <button class="ribbon-btn" title="Connect Sensors">
+                            <i class="icon icon-sensors"></i>
+                            <span>Connect Sensors</span>
+                        </button>
+                        <button class="ribbon-btn" title="Import Data">
+                            <i class="icon icon-import-data"></i>
+                            <span>Import Data</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="ribbon-group">
+                    <h3>PDE-Constrained</h3>
+                    <div class="ribbon-buttons">
+                        <button class="ribbon-btn" title="Set Parameters">
+                            <i class="icon icon-parameters"></i>
+                            <span>Set Parameters</span>
+                        </button>
+                        <button class="ribbon-btn" title="Define Constraints">
+                            <i class="icon icon-constraints"></i>
+                            <span>Define Constraints</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="ribbon-group">
+                    <h3>Inversion</h3>
+                    <div class="ribbon-buttons">
+                        <button class="ribbon-btn" title="Data Processing">
+                            <i class="icon icon-process"></i>
+                            <span>Data Processing</span>
+                        </button>
+                        <button class="ribbon-btn primary" title="Run Inversion">
+                            <i class="icon icon-invert"></i>
+                            <span>Run Inversion</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area with Panels -->
+        <div class="main-content">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="sidebar-panel">
+                    <h3>Project</h3>
+                    <div class="tree-view">
+                        <ul>
+                            <li class="expanded"><span>Model</span>
+                                <ul>
+                                    <li><span>Soil Layers</span></li>
+                                    <li><span>Excavation</span></li>
+                                    <li><span>Structures</span></li>
+                                </ul>
+                            </li>
+                            <li><span>Mesh</span></li>
+                            <li><span>Analysis</span></li>
+                            <li><span>Results</span></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="sidebar-panel">
+                    <h3>Properties</h3>
+                    <div class="property-grid">
+                        <div class="property-group">
+                            <div class="property-header">General</div>
+                            <div class="property-row">
+                                <div class="property-name">Name</div>
+                                <div class="property-value">
+                                    <input type="text" value="Soil Layer 1">
+                                </div>
+                            </div>
+                            <div class="property-row">
+                                <div class="property-name">Material</div>
+                                <div class="property-value">
+                                    <select>
+                                        <option>Clay</option>
+                                        <option>Sand</option>
+                                        <option>Rock</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="property-group">
+                            <div class="property-header">Dimensions</div>
+                            <div class="property-row">
+                                <div class="property-name">Thickness</div>
+                                <div class="property-value">
+                                    <input type="number" value="5.0"> m
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3D Canvas Area -->
+            <div class="canvas-area">
+                <div class="canvas-container" id="3d-canvas">
+                    <!-- Three.js will render here -->
+                </div>
+                <div class="canvas-controls">
+                    <div class="viewcube" id="viewcube">
+                        <!-- ViewCube will be rendered here -->
+                    </div>
+                    <div class="navigation-tools">
+                        <button class="nav-btn" title="Pan"><i class="icon icon-pan"></i></button>
+                        <button class="nav-btn" title="Rotate"><i class="icon icon-rotate"></i></button>
+                        <button class="nav-btn" title="Zoom"><i class="icon icon-zoom"></i></button>
+                        <button class="nav-btn" title="Fit"><i class="icon icon-fit"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parameter Dialog (initially hidden) -->
+            <div class="dialog" id="domain-dialog">
+                <div class="dialog-header">
+                    <h2>Soil Domain Parameters</h2>
+                    <button class="close-btn">&times;</button>
+                </div>
+                <div class="dialog-content">
+                    <div class="form-group">
+                        <label>Domain Width (X):</label>
+                        <div class="input-group">
+                            <input type="number" value="100">
+                            <span class="unit">m</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Domain Length (Y):</label>
+                        <div class="input-group">
+                            <input type="number" value="100">
+                            <span class="unit">m</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Total Depth:</label>
+                        <div class="input-group">
+                            <input type="number" value="50">
+                            <span class="unit">m</span>
+                        </div>
+                    </div>
+
+                    <h3>Soil Layers</h3>
+                    <div class="soil-layers">
+                        <div class="soil-layer">
+                            <div class="layer-header">
+                                <span>Layer 1</span>
+                                <div class="layer-controls">
+                                    <button class="icon-btn" title="Delete layer"><i class="icon icon-delete"></i></button>
+                                </div>
+                            </div>
+                            <div class="layer-properties">
+                                <div class="form-group">
+                                    <label>Material:</label>
+                                    <select>
+                                        <option>Clay</option>
+                                        <option>Sand</option>
+                                        <option>Rock</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Thickness:</label>
+                                    <div class="input-group">
+                                        <input type="number" value="10">
+                                        <span class="unit">m</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="soil-layer">
+                            <div class="layer-header">
+                                <span>Layer 2</span>
+                                <div class="layer-controls">
+                                    <button class="icon-btn" title="Delete layer"><i class="icon icon-delete"></i></button>
+                                </div>
+                            </div>
+                            <div class="layer-properties">
+                                <div class="form-group">
+                                    <label>Material:</label>
+                                    <select>
+                                        <option>Clay</option>
+                                        <option selected>Sand</option>
+                                        <option>Rock</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Thickness:</label>
+                                    <div class="input-group">
+                                        <input type="number" value="15">
+                                        <span class="unit">m</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="add-layer-btn">
+                            <i class="icon icon-add"></i> Add Layer
+                        </button>
+                    </div>
+                </div>
+                <div class="dialog-footer">
+                    <button class="btn btn-secondary">Cancel</button>
+                    <button class="btn btn-primary">Create Domain</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-item">Ready</div>
+            <div class="status-item">Elements: 0</div>
+            <div class="status-item">Nodes: 0</div>
+            <div class="coordinates">X: 0.000 Y: 0.000 Z: 0.000</div>
+        </div>
+    </div>
+
+    <!-- Load Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html> 

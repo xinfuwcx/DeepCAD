@@ -1,0 +1,113 @@
+# Deep Excavation Project .gitignore
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ===== Virtual Environment =====
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ===== IDEs =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===== OS Generated =====
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.tmp
+
+# ===== Kratos Build Files =====
+kratos_build/
+kratos_build_*/
+kratos_install/
+Kratos/
+*.log
+
+# ===== Node.js =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== Temporary Files =====
+temp/
+tmp/
+*.bak
+*.orig
+
+# ===== Large Data Files =====
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# ===== Logs =====
+logs/*.log
+*.log
+
+# ===== Build Artifacts =====
+*.exe
+*.dll
+*.so
+*.dylib
+
+# ===== CMake =====
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# ===== Visual Studio =====
+.vs/
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# ===== Results & Output =====
+results/
+output/
+data/results/
+
+# ===== Sensitive Information =====
+config/secrets.py
+*.key
+*.pem
+*.p12
+.env

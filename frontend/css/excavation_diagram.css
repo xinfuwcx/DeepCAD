@@ -1,0 +1,201 @@
+/**
+ * @file excavation_diagram.css
+ * @description 深基坑二维示意图的CSS样式
+ * @author Deep Excavation Team
+ * @version 1.0.0
+ * @copyright 2025
+ */
+
+/* 
+ * 二维深基坑示意图CSS样式
+ * 使用Three.js的CSS 3D渲染
+ */
+
+.excavation-diagram-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #f0f0f0;
+}
+
+.excavation-diagram-3d {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* 土层样式 */
+.soil-layer {
+    position: absolute;
+    width: 100%;
+    left: 0;
+    background-color: #d9c8b4;
+    border-bottom: 1px solid #a89c8c;
+    transform-style: preserve-3d;
+    transform: translateZ(0);
+    transition: all 0.3s ease;
+}
+
+.soil-layer.layer-1 {
+    background-color: #d9c8b4; /* 填土层 */
+}
+
+.soil-layer.layer-2 {
+    background-color: #c2a887; /* 粉质粘土 */
+}
+
+.soil-layer.layer-3 {
+    background-color: #a88c6d; /* 砂层 */
+}
+
+.soil-layer.layer-4 {
+    background-color: #8d7558; /* 粘土 */
+}
+
+.soil-layer.layer-5 {
+    background-color: #6e5a42; /* 基岩 */
+}
+
+/* 基坑样式 */
+.excavation-pit {
+    position: absolute;
+    background-color: #f8f8f8;
+    border: 2px solid #333;
+    transform-style: preserve-3d;
+    transform: translateZ(1px);
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+/* 支护结构样式 */
+.retaining-structure {
+    position: absolute;
+    transform-style: preserve-3d;
+    transform: translateZ(2px);
+}
+
+/* 围护桩样式 */
+.retaining-pile {
+    position: absolute;
+    width: 10px;
+    background-color: #777;
+    border-radius: 5px;
+    transform-origin: center bottom;
+    transform: translateZ(3px);
+}
+
+/* 支撑样式 */
+.strut {
+    position: absolute;
+    height: 6px;
+    background-color: #555;
+    transform-origin: left center;
+    transform: translateZ(4px);
+}
+
+/* 锚杆样式 */
+.anchor {
+    position: absolute;
+    height: 4px;
+    background-color: #444;
+    transform-origin: left center;
+    transform: translateZ(3px);
+}
+
+/* 水位线样式 */
+.water-level {
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background-color: #0088ff;
+    border-top: 1px dashed #0066cc;
+    z-index: 10;
+    transform: translateZ(5px);
+}
+
+/* 标注样式 */
+.annotation {
+    position: absolute;
+    font-size: 12px;
+    color: #333;
+    pointer-events: none;
+    z-index: 20;
+    transform: translateZ(10px);
+}
+
+.annotation.depth-marker {
+    right: 10px;
+    border-left: 1px dashed #333;
+    padding-left: 5px;
+}
+
+.annotation.layer-name {
+    left: 10px;
+    transform: translateY(-50%) translateZ(10px);
+}
+
+/* 控制面板样式 */
+.excavation-controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+}
+
+.excavation-controls label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 12px;
+}
+
+.excavation-controls input,
+.excavation-controls select {
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 5px;
+    font-size: 12px;
+}
+
+/* 动画效果 */
+@keyframes excavate {
+    0% {
+        transform: scaleY(0);
+    }
+    100% {
+        transform: scaleY(1);
+    }
+}
+
+.excavation-pit.animate {
+    animation: excavate 1s ease-out forwards;
+    transform-origin: center top;
+}
+
+/* 响应式样式 */
+@media (max-width: 768px) {
+    .annotation {
+        font-size: 10px;
+    }
+    
+    .excavation-controls {
+        max-width: 150px;
+    }
+}
+
+/* 打印样式 */
+@media print {
+    .excavation-controls {
+        display: none;
+    }
+    
+    .excavation-diagram-container {
+        border: 1px solid #ccc;
+        page-break-inside: avoid;
+    }
+} 
