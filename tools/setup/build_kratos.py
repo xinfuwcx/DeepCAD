@@ -159,17 +159,6 @@ class KratosBuilder:
             print_status(f"设置Visual Studio环境失败: {e}", "WARNING")
         
         return None
-
-    def check_prerequisites(self):
-        """检查编译前提条件"""
-        print_status("检查编译前提条件", "INFO")
-        
-        # 检查CMake
-        success, output = run_command("cmake --version")
-        if not success:
-            print_status("CMake未安装", "ERROR", "请安装CMake 3.16或更高版本")
-            return False
-        print_status("CMake可用", "OK", output.split('\n')[0])
         
     def check_prerequisites(self):
         """检查编译前提条件"""
