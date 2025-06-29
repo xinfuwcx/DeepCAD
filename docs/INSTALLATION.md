@@ -1,373 +1,361 @@
-# 深基坑CAE系统安装指南
+# 深基坑分析系统安装指南
 
-本文档提供详细的安装和配置指南，帮助您正确设置深基坑CAE系统的开发和运行环境。
+本文档提供深基坑分析系统的详细安装步骤，包括环境配置、依赖安装和系统启动。
 
-## 系统要求
+## 1. 系统要求
 
-### 硬件要求
-- **CPU**: 推荐 Intel Core i7/i9 或 AMD Ryzen 7/9 系列
-- **内存**: 最低16GB，推荐32GB+
-- **存储**: 最低20GB可用空间，推荐SSD
-- **GPU**: 支持CUDA的NVIDIA显卡 (用于物理AI模型训练和加速)
+### 1.1 硬件要求
+- **处理器**: 至少4核CPU，推荐8核或更多
+- **内存**: 至少8GB RAM，推荐16GB或更多
+- **存储**: 至少20GB可用空间
+- **显卡**: 支持OpenGL 4.0的显卡（用于3D可视化）
 
-### 软件要求
-- **操作系统**: 
-  - Windows 10/11 (64位)
+### 1.2 软件要求
+- **操作系统**:
+  - Windows 10/11 64位
   - Ubuntu 20.04/22.04 LTS
-  - macOS 12+ (部分功能可能受限)
-- **编译工具**:
-  - Windows: Visual Studio 2019/2022 (含C++开发工具)
-  - Linux: GCC 9+ 和 build-essential
-  - macOS: Xcode命令行工具和Homebrew
-- **其他工具**:
-  - CMake 3.16+
-  - Git 2.0+
-  - Python 3.9+
-  - Node.js 18+
+  - macOS 11.0+
+- **Python**: 3.9+
+- **Node.js**: 18+
+- **C++编译器**: 
+  - Windows: Visual Studio 2019/2022 with C++ workload
+  - Linux: GCC 9.0+
+  - macOS: Clang 12.0+
 
-## 1. 基础环境配置
+## 2. 基础环境配置
 
-### 1.1 Python环境
+### 2.1 Python环境
 
-推荐使用Miniconda/Anaconda管理Python环境：
-
-**Windows:**
-```batch
-:: 下载并安装Miniconda
-curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe
-start /wait "" Miniconda3-latest-Windows-x86_64.exe /InstallationType=JustMe /RegisterPython=0 /S /D=%UserProfile%\Miniconda3
-
-:: 创建项目环境
-conda create -n deep_excavation python=3.9 -y
-conda activate deep_excavation
-```
-
-**Linux/macOS:**
+#### Windows
 ```bash
-# 下载并安装Miniconda
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-bash miniconda.sh -b -p $HOME/miniconda
-source $HOME/miniconda/bin/activate
+# 下载并安装Python 3.9+
+# 从 https://www.python.org/downloads/ 下载
 
-# 创建项目环境
-conda create -n deep_excavation python=3.9 -y
-conda activate deep_excavation
+# 验证安装
+python --version
+pip --version
+
+# 创建虚拟环境
+python -m venv env
+.\env\Scripts\activate
 ```
 
-### 1.2 安装基础依赖
-
+#### Linux/macOS
 ```bash
-# 克隆项目仓库
-git clone <repository-url>
-cd "Deep Excavation"
+# 安装Python
+sudo apt update
+sudo apt install python3 python3-pip python3-venv  # Ubuntu
+# 或
+brew install python  # macOS
 
-# 安装Python依赖
-pip install -r requirements.txt
+# 验证安装
+python3 --version
+pip3 --version
 
-# 安装PyTorch (GPU版本)
-pip install torch==2.0.0+cu118 torchvision==0.15.0+cu118 torchaudio==2.0.0+cu118 --index-url https://download.pytorch.org/whl/cu118
-
-# 安装VTK和PyVista
-pip install vtk pyvista trame
+# 创建虚拟环境
+python3 -m venv env
+source env/bin/activate
 ```
 
-### 1.3 安装前端依赖
+### 2.2 Node.js环境
 
+#### Windows
 ```bash
-# 进入前端目录
-cd frontend
+# 从 https://nodejs.org/ 下载并安装Node.js 18+
 
-# 安装Node.js依赖
-npm install
-
-# 返回项目根目录
-cd ..
+# 验证安装
+node --version
+npm --version
 ```
 
-## 2. OpenCascade Core (OCC) 安装
-
-### 2.1 使用预编译版本 (推荐)
-
-**Windows:**
-```batch
-pip install -U pythonocc-core
-```
-
-**Linux:**
+#### Linux/macOS
 ```bash
-sudo apt-get install libocct-visualization-dev
-pip install -U pythonocc-core
+# Ubuntu
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# macOS
+brew install node@18
+
+# 验证安装
+node --version
+npm --version
 ```
 
-**macOS:**
-```bash
-brew install opencascade
-pip install -U pythonocc-core
-```
+## 3. Netgen安装
 
-### 2.2 从源代码编译 (可选)
+Netgen是系统使用的网格生成工具，需要单独安装。
 
-如果需要特定版本或自定义功能，可以从源码编译：
+### 3.1 Windows安装
+
+1. 从官方网站下载Netgen安装包: https://ngsolve.org/downloads
+2. 运行安装程序，按照向导完成安装
+3. 将Netgen添加到系统PATH环境变量
+4. 验证安装:
+   ```bash
+   netgen --version
+   ```
+
+### 3.2 Linux安装
 
 ```bash
-# 克隆仓库
-git clone https://github.com/tpaviot/pythonocc-core.git
-cd pythonocc-core
+# Ubuntu
+sudo apt-get update
+sudo apt-get install netgen netgen-dev
 
-# 编译安装
+# 验证安装
+netgen --version
+```
+
+### 3.3 macOS安装
+
+```bash
+# 使用Homebrew安装
+brew install netgen
+
+# 验证安装
+netgen --version
+```
+
+### 3.4 从源码编译(高级用户)
+
+如果预编译版本不可用，可以从源码编译:
+
+```bash
+git clone https://github.com/NGSolve/netgen.git
+cd netgen
 mkdir build && cd build
 cmake ..
 make -j4
-make install
+sudo make install
 ```
 
-## 3. Kratos多物理场平台安装
+## 4. Kratos Multiphysics安装
 
-### 3.1 克隆Kratos仓库
+Kratos是系统的核心计算引擎，需要从源码编译。
+
+### 4.1 使用自动化脚本安装
+
+我们提供了自动化脚本简化Kratos的安装过程:
+
+#### Windows
+```bash
+# 确保已安装Visual Studio 2019/2022 with C++ workload
+scripts\build_kratos_extended.bat
+```
+
+#### Linux/macOS
+```bash
+# 确保已安装必要的编译工具
+bash scripts/build_kratos_extended.sh
+```
+
+### 4.2 手动安装
+
+如果自动化脚本不适用于您的环境，可以按照以下步骤手动安装:
+
+1. 安装依赖:
+   ```bash
+   # Windows (使用vcpkg)
+   vcpkg install boost-filesystem boost-system boost-program-options boost-python
+
+   # Ubuntu
+   sudo apt-get install libboost-all-dev python3-dev
+   
+   # macOS
+   brew install boost python
+   ```
+
+2. 克隆Kratos仓库:
+   ```bash
+   git clone https://github.com/KratosMultiphysics/Kratos.git
+   cd Kratos
+   ```
+
+3. 配置和编译:
+   ```bash
+   # 创建build目录
+   mkdir build
+   cd build
+   
+   # 配置
+   cmake .. \
+     -DCMAKE_BUILD_TYPE=Release \
+     -DUSE_MPI=OFF \
+     -DUSE_EIGEN_MKL=OFF \
+     -DUSE_METIS=OFF \
+     -DUSE_TRILINOS=OFF \
+     -DKRATOS_BUILD_TESTING=OFF \
+     -DKRATOS_APPLICATIONS="StructuralMechanicsApplication;ConvectionDiffusionApplication;FluidDynamicsApplication"
+   
+   # 编译
+   cmake --build . -j4
+   ```
+
+## 5. 系统安装
+
+### 5.1 克隆代码仓库
 
 ```bash
-git clone https://github.com/KratosMultiphysics/Kratos.git
-cd Kratos
+git clone https://github.com/your-organization/deep-excavation.git
+cd deep-excavation
 ```
 
-### 3.2 配置编译选项
-
-创建`configure.sh`(Linux/macOS)或`configure.bat`(Windows)文件:
-
-**Windows (configure.bat):**
-```batch
-@echo off
-set KRATOS_SOURCE=%CD%
-set KRATOS_BUILD=%CD%\build
-set KRATOS_APP_DIR="%KRATOS_SOURCE%\applications"
-
-if not exist "%KRATOS_BUILD%" mkdir "%KRATOS_BUILD%"
-cd "%KRATOS_BUILD%"
-
-cmake -G "Visual Studio 17 2022" -A x64 ^
-    -DCMAKE_BUILD_TYPE="Release" ^
-    -DCMAKE_CXX_FLAGS="/EHsc /MP" ^
-    -DCMAKE_C_FLAGS="/EHsc /MP" ^
-    -DUSE_MPI=ON ^
-    -DUSE_EIGEN_MKL=OFF ^
-    -DLAPACK_LIBRARIES="" ^
-    -DUSE_COTIRE=ON ^
-    -DINCLUDE_MMG=OFF ^
-    -DINCLUDE_FEAST=OFF ^
-    ..
-
-cmake --build "%KRATOS_BUILD%" --target install --config Release -j12
-```
-
-**Linux/macOS (configure.sh):**
-```bash
-#!/bin/bash
-KRATOS_SOURCE=$PWD
-KRATOS_BUILD=$PWD/build
-KRATOS_APP_DIR=$PWD/applications
-
-mkdir -p $KRATOS_BUILD
-cd $KRATOS_BUILD
-
-cmake \
-    -DCMAKE_BUILD_TYPE="Release" \
-    -DCMAKE_CXX_FLAGS="-O3 -std=c++11 -fopenmp" \
-    -DCMAKE_C_FLAGS="-O3 -fopenmp" \
-    -DUSE_MPI=ON \
-    -DUSE_EIGEN_MKL=OFF \
-    -DLAPACK_LIBRARIES="" \
-    -DUSE_COTIRE=ON \
-    -DINCLUDE_MMG=OFF \
-    -DINCLUDE_FEAST=OFF \
-    ..
-
-cmake --build "$KRATOS_BUILD" --target install -j$(nproc)
-```
-
-### 3.3 配置Kratos-IGA应用
-
-编辑configure文件，添加以下应用：
-
-```
--DUSE_IGA_APPLICATION=ON \
--DUSE_GEOMECHANICS_APPLICATION=ON \
--DUSE_STRUCTURAL_MECHANICS_APPLICATION=ON \
--DUSE_OPTIMIZATION_APPLICATION=ON \
-```
-
-### 3.4 执行编译
-
-**Windows:**
-```batch
-configure.bat
-```
-
-**Linux/macOS:**
-```bash
-chmod +x configure.sh
-./configure.sh
-```
-
-### 3.5 设置环境变量
-
-**Windows:**
-```batch
-set KRATOS_PATH=C:\path\to\Kratos
-set PYTHONPATH=%PYTHONPATH%;%KRATOS_PATH%
-```
-
-**Linux/macOS:**
-```bash
-export KRATOS_PATH=/path/to/Kratos
-export PYTHONPATH=$PYTHONPATH:$KRATOS_PATH
-```
-
-将上述命令添加到系统环境变量或启动脚本中。
-
-## 4. Trame可视化服务配置
-
-### 4.1 安装Trame
+### 5.2 安装Python依赖
 
 ```bash
-pip install trame trame-client trame-server trame-vtk trame-vuetify
+# 激活虚拟环境
+# Windows
+.\env\Scripts\activate
+# Linux/macOS
+source env/bin/activate
+
+# 安装依赖
+pip install -r requirements.minimal.txt
 ```
 
-### 4.2 配置Trame服务
-
-创建`trame_config.json`文件:
-
-```json
-{
-    "server": {
-        "host": "0.0.0.0",
-        "port": 8080,
-        "endpoint": "/trame"
-    },
-    "visualization": {
-        "renderer_type": "vtk",
-        "theme": "dark",
-        "default_colormap": "rainbow"
-    }
-}
-```
-
-## 5. 项目配置
-
-### 5.1 初始化项目配置
+### 5.3 安装前端依赖
 
 ```bash
-# 从项目根目录执行
-python tools/setup/init_project.py
+cd frontend
+npm install
+cd ..
 ```
 
-### 5.2 配置Kratos路径
+## 6. 配置系统
 
-编辑`kratos_config.json`:
+### 6.1 配置数据库
 
-```json
-{
-    "kratos_path": "/path/to/your/Kratos",
-    "applications": {
-        "IgaApplication": true,
-        "GeomechanicsApplication": true,
-        "StructuralMechanicsApplication": true,
-        "OptimizationApplication": true
-    }
-}
-```
+默认情况下，系统使用SQLite数据库，无需额外配置。如需使用PostgreSQL:
 
-## 6. 验证安装
+1. 安装PostgreSQL
+2. 创建数据库和用户
+3. 更新配置文件:
+   ```bash
+   # 编辑 src/server/config.py
+   DATABASE_URL = "postgresql://username:password@localhost/dbname"
+   ```
 
-运行系统检查脚本确认所有组件正常工作:
+### 6.2 配置计算引擎
+
+确保Kratos路径正确设置:
 
 ```bash
-python tools/setup/check_system.py
+# 编辑 src/config/excavation_config.py
+KRATOS_PATH = "/path/to/kratos"  # 修改为实际路径
 ```
 
-成功安装后，应该会看到类似以下的输出:
+### 6.3 配置Netgen
 
-```
-==== 深基坑CAE系统安装验证 ====
-√ Python环境: OK
-√ OpenCascade Core: OK
-√ Kratos Multiphysics: OK
-√ Kratos IgaApplication: OK
-√ Kratos GeomechanicsApplication: OK
-√ PyTorch: OK
-√ Trame: OK
-√ 项目配置: OK
-系统安装验证成功!
+确保Netgen可执行文件在系统PATH中，或在配置文件中指定路径:
+
+```bash
+# 编辑 src/config/excavation_config.py
+NETGEN_PATH = "/path/to/netgen"  # 修改为实际路径
 ```
 
 ## 7. 启动系统
 
-### 7.1 开发模式
+### 7.1 启动后端服务
 
-同时启动前端和后端服务:
-
-**Windows:**
-```batch
-scripts\start_dev.bat
-```
-
-**Linux/macOS:**
 ```bash
-./scripts/start_dev.sh
+# 激活虚拟环境
+# Windows
+.\env\Scripts\activate
+# Linux/macOS
+source env/bin/activate
+
+# 启动后端
+python -m src.server.app
 ```
 
-### 7.2 分别启动服务
+后端服务将在 http://localhost:8000 启动。
 
-**后端服务:**
-```bash
-python src/server/app.py
-```
+### 7.2 启动前端服务
 
-**前端开发服务器:**
 ```bash
 cd frontend
 npm run dev
 ```
 
-**Trame可视化服务:**
+前端服务将在 http://localhost:3000 启动。
+
+### 7.3 使用启动脚本
+
+我们提供了一键启动脚本:
+
+#### Windows
 ```bash
-python src/core/visualization/trame_server.py
+scripts\start_system.bat
 ```
 
-### 7.3 访问系统
+#### Linux/macOS
+```bash
+bash scripts/start_system.sh
+```
 
-成功启动后，可以通过以下URL访问系统:
+## 8. 验证安装
 
-- 前端界面: http://localhost:3000
-- API文档: http://localhost:8000/docs
-- Trame可视化: http://localhost:8080
+1. 打开浏览器访问 http://localhost:3000
+2. 登录系统 (默认用户名: admin, 密码: admin)
+3. 创建新项目并尝试简单的分析任务
 
-## 8. 常见问题解决
+## 9. 常见问题
 
-### 8.1 Kratos编译问题
+### 9.1 Netgen安装问题
 
-如果Kratos编译失败，可尝试:
+**问题**: Netgen安装后无法找到可执行文件
+**解决方案**: 确保Netgen已添加到系统PATH，或在配置文件中指定完整路径
 
-1. 确保安装了所有必需的开发库
-2. 对于Windows，确保Visual Studio包含C++开发工具
-3. 尝试禁用部分可选组件，简化编译过程
+### 9.2 Kratos编译问题
 
-### 8.2 OpenCascade问题
+**问题**: Kratos编译失败
+**解决方案**: 
+- 检查是否安装了所有依赖
+- 确保使用了兼容的编译器版本
+- 查看详细的编译日志定位问题
 
-如果PyOCCT安装失败:
+### 9.3 前端依赖安装问题
 
-1. 检查是否安装了所有系统依赖
-2. 尝试使用conda安装: `conda install -c conda-forge pythonocc-core`
+**问题**: npm install 报错
+**解决方案**:
+- 清除npm缓存: `npm cache clean --force`
+- 使用镜像源: `npm install --registry=https://registry.npm.taobao.org`
 
-### 8.3 物理AI模块问题
+### 9.4 系统启动问题
 
-如果PyTorch相关功能异常:
+**问题**: 后端服务无法启动
+**解决方案**:
+- 检查端口是否被占用
+- 检查Python依赖是否正确安装
+- 查看日志文件了解详细错误信息
 
-1. 确认CUDA版本与PyTorch版本兼容
-2. 运行`torch.cuda.is_available()`检查GPU支持
+## 10. 附录
 
-## 9. 其他资源
+### 10.1 系统目录结构
 
-- [Kratos官方文档](https://kratosmultiphysics.github.io/Documentation/)
-- [OpenCascade开发者文档](https://dev.opencascade.org/)
-- [PyTorch官方教程](https://pytorch.org/tutorials/)
-- [Trame文档](https://kitware.github.io/trame/) 
+```
+deep-excavation/
+├── data/               # 数据文件
+├── docs/               # 文档
+├── frontend/           # 前端代码
+├── logs/               # 日志文件
+├── scripts/            # 脚本文件
+├── src/                # 后端源代码
+├── tools/              # 工具脚本
+├── requirements.txt    # Python依赖
+└── README.md           # 项目说明
+```
+
+### 10.2 参考资源
+
+- [Netgen官方文档](https://ngsolve.org/docu/latest/)
+- [Kratos Multiphysics文档](https://kratosmultiphysics.github.io/Kratos/)
+- [FastAPI文档](https://fastapi.tiangolo.com/)
+- [React文档](https://reactjs.org/docs/getting-started.html)
+
+### 10.3 联系支持
+
+如遇到安装问题，请联系技术支持:
+- 邮箱: support@example.com
+- 问题追踪: https://github.com/your-organization/deep-excavation/issues 

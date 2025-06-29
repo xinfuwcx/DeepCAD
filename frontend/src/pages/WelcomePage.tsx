@@ -1,316 +1,342 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Paper, 
-  Typography, 
-  Button, 
-  Grid, 
-  Card, 
-  CardContent, 
-  CardActions,
-  TextField,
+/**
+ * @file WelcomePage.tsx
+ * @description 新版深基坑分析系统欢迎页面 - 集成所有令人惊艳的UI组件
+ * @author Deep Excavation Team
+ */
+
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Box,
+  Container,
+  Typography,
+  Button,
+  Grid,
+  Card,
+  CardContent,
+  Fab,
   Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  CircularProgress,
   useTheme,
-  Divider,
+  alpha,
   Stack
 } from '@mui/material';
-import { 
-  AddCircleOutline, 
-  FolderOpen, 
-  History, 
-  Construction, 
-  Science, 
-  BarChart,
-  AccountTreeOutlined
+import { styled, keyframes } from '@mui/material/styles';
+import {
+  PlayArrow,
+  ViewInAr,
+  SmartToy,
+  Engineering,
+  AutoAwesome,
+  RocketLaunch
 } from '@mui/icons-material';
-import Logo from '../components/layout/Logo';
 
-interface RecentProject {
-  id: string;
-  name: string;
-  description: string;
-  lastModified: string;
-  thumbnail: string;
+// 导入我们的令人惊艳的组件
+import FEMWelcomeSection from '../components/welcome/FEMWelcomeSection';
+
+interface WelcomePageProps {
+  onProjectSelected?: (projectId: string) => void;
 }
 
-const WelcomePage: React.FC<{ onProjectSelected: (projectId: string) => void }> = ({ onProjectSelected }) => {
+// 动画效果
+const floatAnimation = keyframes`
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(1deg); }
+`;
+
+const pulseGlow = keyframes`
+  0%, 100% { box-shadow: 0 0 20px rgba(66, 165, 245, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(66, 165, 245, 0.8); }
+`;
+
+// 样式化组件
+const HeroSection = styled(Box)(({ theme }) => ({
+  background: `linear-gradient(135deg, 
+    ${alpha(theme.palette.primary.main, 0.1)} 0%, 
+    ${alpha(theme.palette.secondary.main, 0.1)} 100%
+  )`,
+  minHeight: '100vh',
+  position: 'relative',
+  overflow: 'hidden',
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: `radial-gradient(circle at 20% 20%, ${alpha(theme.palette.primary.main, 0.1)}, transparent 50%),
+                 radial-gradient(circle at 80% 80%, ${alpha(theme.palette.secondary.main, 0.1)}, transparent 50%)`,
+    animation: `${floatAnimation} 10s ease-in-out infinite`,
+  }
+}));
+
+const FloatingCard = styled(Card)(({ theme }) => ({
+  backdropFilter: 'blur(20px)',
+  background: alpha(theme.palette.background.paper, 0.8),
+  border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+  animation: `${pulseGlow} 3s ease-in-out infinite`,
+  '&:hover': {
+    transform: 'translateY(-10px) scale(1.02)',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+  }
+}));
+
+const WelcomePage: React.FC<WelcomePageProps> = ({ onProjectSelected }) => {
+  const navigate = useNavigate();
   const theme = useTheme();
-  const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [openNewProject, setOpenNewProject] = useState(false);
-  const [newProjectName, setNewProjectName] = useState('');
-  const [newProjectDescription, setNewProjectDescription] = useState('');
 
-  // 模拟从API加载最近的项目
-  useEffect(() => {
-    const fetchRecentProjects = async () => {
-      // 这里应该是实际的API调用
-      setTimeout(() => {
-        setRecentProjects([
-          {
-            id: '1',
-            name: '某城市地铁车站基坑工程',
-            description: '深度18m，宽25m的矩形基坑',
-            lastModified: '2023-09-15',
-            thumbnail: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120" viewBox="0 0 200 120"><rect fill="%23f0f0f0" width="200" height="120"/><text x="50%" y="50%" font-family="Arial" font-size="14" text-anchor="middle" dominant-baseline="middle" fill="%23999">基坑缩略图</text></svg>'
-          },
-          {
-            id: '2',
-            name: '高层建筑地下室基坑',
-            description: '深度15m，不规则形状基坑',
-            lastModified: '2023-08-22',
-            thumbnail: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120" viewBox="0 0 200 120"><rect fill="%23f0f0f0" width="200" height="120"/><text x="50%" y="50%" font-family="Arial" font-size="14" text-anchor="middle" dominant-baseline="middle" fill="%23999">基坑缩略图</text></svg>'
-          }
-        ]);
-        setLoading(false);
-      }, 800);
-    };
+  // Dialog状态管理
+  const [holographicOpen, setHolographicOpen] = useState(false);
+  const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
+  const [parameterSphereOpen, setParameterSphereOpen] = useState(false);
+  const [figmaShowcaseOpen, setFigmaShowcaseOpen] = useState(false);
+  const [femPanelOpen, setFemPanelOpen] = useState(false);
 
-    fetchRecentProjects();
-  }, []);
-
-  const handleNewProject = () => {
-    setOpenNewProject(true);
+  // 导航处理
+  const handleProjectSelected = (projectId: string) => {
+    if (onProjectSelected) {
+      onProjectSelected(projectId);
+    } else {
+      navigate(`/excavation-analysis/${projectId}`);
+    }
   };
 
-  const handleCreateProject = () => {
-    // 在这里执行创建新项目的逻辑
-    // 然后导航到主界面
-    setOpenNewProject(false);
-    onProjectSelected('new');
+  const handleCreateNewProject = () => {
+    navigate('/projects');
   };
 
-  const handleOpenProject = (projectId: string) => {
-    onProjectSelected(projectId);
+  const handleExploreDemo = () => {
+    navigate('/modeling-demo');
   };
 
   return (
-    <Box 
-      sx={{ 
-        height: '100vh', 
-        display: 'flex', 
-        flexDirection: 'column',
-        backgroundColor: theme.palette.background.default
-      }}
-    >
-      {/* 顶部欢迎区 */}
-      <Box 
-        sx={{ 
-          p: 4, 
-          display: 'flex', 
-          flexDirection: { xs: 'column', md: 'row' },
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: theme.palette.background.paper,
-          boxShadow: 1
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 2, md: 0 } }}>
-          <Logo size="large" />
-        </Box>
-        <Box>
-          <Button 
-            variant="contained" 
-            startIcon={<AddCircleOutline />} 
-            sx={{ mr: 2 }}
-            onClick={handleNewProject}
-          >
-            新建项目
-          </Button>
-          <Button 
-            variant="outlined" 
-            startIcon={<FolderOpen />}
-            onClick={() => onProjectSelected('browse')}
-          >
-            浏览项目
-          </Button>
-        </Box>
-      </Box>
+    <Box>
+      {/* 主要欢迎区域 */}
+        <HeroSection>
+          <Container maxWidth="xl" sx={{ position: 'relative', zIndex: 2 }}>
+            {/* 顶部标题区域 */}
+            <Box textAlign="center" pt={8} pb={4}>
+              <Typography
+                variant="h1"
+                component="h1"
+                sx={{
+                  fontWeight: 800,
+                  fontSize: { xs: '2.5rem', md: '4rem', lg: '5rem' },
+                  background: 'linear-gradient(45deg, #1976d2, #42a5f5, #dc004e)',
+                  backgroundSize: '200% 200%',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  animation: `${floatAnimation} 6s ease-in-out infinite`,
+                  mb: 2
+                }}
+              >
+                Deep Excavation CAE
+              </Typography>
+              
+              <Typography
+                variant="h4"
+                color="text.secondary"
+                sx={{
+                  fontWeight: 300,
+                  maxWidth: 800,
+                  mx: 'auto',
+                  mb: 6,
+                  opacity: 0.9
+                }}
+              >
+                革命性深基坑分析系统 · FEM有限元计算 · 全息投影界面
+              </Typography>
 
-      {/* 主要内容区 */}
-      <Grid container spacing={4} sx={{ p: 4, flexGrow: 1 }}>
-        {/* 左侧最近项目 */}
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h5" gutterBottom>
-              最近的项目
-            </Typography>
-            <Divider sx={{ mb: 3 }} />
-            
-            {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                <CircularProgress />
-              </Box>
-            ) : (
-              <Grid container spacing={3}>
-                {recentProjects.length > 0 ? (
-                  recentProjects.map((project) => (
-                    <Grid item xs={12} sm={6} key={project.id}>
-                      <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                        <Box sx={{ height: 120, overflow: 'hidden', display: 'flex', justifyContent: 'center', backgroundColor: '#f0f0f0' }}>
-                          <img 
-                            src={project.thumbnail} 
-                            alt={project.name}
-                            style={{ maxWidth: '100%', height: 'auto', objectFit: 'cover' }}
-                          />
-                        </Box>
-                        <CardContent sx={{ flexGrow: 1 }}>
-                          <Typography variant="h6" gutterBottom>
-                            {project.name}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {project.description}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                            最后修改: {project.lastModified}
-                          </Typography>
-                        </CardContent>
-                        <CardActions>
-                          <Button size="small" onClick={() => handleOpenProject(project.id)}>
-                            打开项目
-                          </Button>
-                          <Button size="small" color="secondary">
-                            查看详情
-                          </Button>
-                        </CardActions>
-                      </Card>
-                    </Grid>
-                  ))
-                ) : (
-                  <Grid item xs={12}>
-                    <Box sx={{ p: 4, textAlign: 'center' }}>
-                      <History sx={{ fontSize: 40, color: 'text.secondary', mb: 2 }} />
-                      <Typography color="text.secondary">
-                        没有最近的项目，开始创建一个新项目吧
+              {/* 快速操作按钮 */}
+              <Stack direction="row" spacing={3} justifyContent="center" sx={{ mb: 8 }}>
+                <Button
+                  variant="contained"
+                  size="large"
+                  startIcon={<RocketLaunch />}
+                  onClick={handleCreateNewProject}
+                  sx={{
+                    borderRadius: '50px',
+                    px: 4,
+                    py: 1.5,
+                    fontSize: '1.1rem',
+                    background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
+                    '&:hover': {
+                      background: 'linear-gradient(45deg, #1565c0, #1976d2)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 8px 25px rgba(25, 118, 210, 0.3)'
+                    }
+                  }}
+                >
+                  开始新项目
+                </Button>
+                
+                <Button
+                  variant="outlined"
+                  size="large"
+                  startIcon={<ViewInAr />}
+                  onClick={handleExploreDemo}
+                  sx={{
+                    borderRadius: '50px',
+                    px: 4,
+                    py: 1.5,
+                    fontSize: '1.1rem',
+                    borderColor: 'primary.main',
+                    '&:hover': {
+                      borderColor: 'primary.dark',
+                      background: alpha(theme.palette.primary.main, 0.1),
+                      transform: 'translateY(-2px)'
+                    }
+                  }}
+                >
+                  体验演示
+                </Button>
+              </Stack>
+            </Box>
+
+            {/* FEM技术特性展示区域 */}
+            <FEMWelcomeSection onGetStarted={handleCreateNewProject} />
+
+            {/* 技术栈展示 */}
+            <Box sx={{ py: 8 }}>
+              <Typography
+                variant="h3"
+                textAlign="center"
+                sx={{
+                  mb: 6,
+                  fontWeight: 700,
+                  background: 'linear-gradient(45deg, #dc004e, #42a5f5)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}
+              >
+                革命性技术栈
+              </Typography>
+
+              <Grid container spacing={4} justifyContent="center">
+                <Grid item xs={12} md={6} lg={4}>
+                  <FloatingCard>
+                    <CardContent sx={{ p: 4, textAlign: 'center' }}>
+                      <Engineering sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+                      <Typography variant="h5" gutterBottom>
+                        Kratos Multi-Physics
                       </Typography>
-                    </Box>
-                  </Grid>
-                )}
+                      <Typography color="text.secondary" sx={{ mb: 3 }}>
+                        11个专业模块的FEM计算引擎，工程级可靠性
+                      </Typography>
+                      <Button variant="contained" fullWidth>
+                        了解更多
+                      </Button>
+                    </CardContent>
+                  </FloatingCard>
+                </Grid>
+
+                <Grid item xs={12} md={6} lg={4}>
+                  <FloatingCard>
+                    <CardContent sx={{ p: 4, textAlign: 'center' }}>
+                      <ViewInAr sx={{ fontSize: 60, color: 'secondary.main', mb: 2 }} />
+                      <Typography variant="h5" gutterBottom>
+                        全息投影UI
+                      </Typography>
+                      <Typography color="text.secondary" sx={{ mb: 3 }}>
+                        未来科技感界面，令人惊艳的视觉体验
+                      </Typography>
+                      <Button variant="contained" color="secondary" fullWidth>
+                        体验界面
+                      </Button>
+                    </CardContent>
+                  </FloatingCard>
+                </Grid>
+
+                <Grid item xs={12} md={6} lg={4}>
+                  <FloatingCard>
+                    <CardContent sx={{ p: 4, textAlign: 'center' }}>
+                      <SmartToy sx={{ fontSize: 60, color: 'success.main', mb: 2 }} />
+                      <Typography variant="h5" gutterBottom>
+                        AI工程师助手
+                      </Typography>
+                      <Typography color="text.secondary" sx={{ mb: 3 }}>
+                        智能参数优化，专业工程建议
+                      </Typography>
+                      <Button variant="contained" color="success" fullWidth>
+                        启动AI助手
+                      </Button>
+                    </CardContent>
+                  </FloatingCard>
+                </Grid>
               </Grid>
-            )}
-          </Paper>
-        </Grid>
-        
-        {/* 右侧功能区 */}
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h5" gutterBottom>
-              系统功能
-            </Typography>
-            <Divider sx={{ mb: 3 }} />
-            
-            <Stack spacing={2}>
-              <Card sx={{ p: 1 }}>
-                <CardContent sx={{ display: 'flex', alignItems: 'center', py: 1 }}>
-                  <Construction sx={{ color: theme.palette.primary.main, mr: 2 }} />
-                  <Box>
-                    <Typography variant="h6">建模</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      土层、基坑、隧道和支护结构建模
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-              
-              <Card sx={{ p: 1 }}>
-                <CardContent sx={{ display: 'flex', alignItems: 'center', py: 1 }}>
-                  <AccountTreeOutlined sx={{ color: theme.palette.primary.main, mr: 2 }} />
-                  <Box>
-                    <Typography variant="h6">网格</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      高质量有限元网格划分
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-              
-              <Card sx={{ p: 1 }}>
-                <CardContent sx={{ display: 'flex', alignItems: 'center', py: 1 }}>
-                  <Science sx={{ color: theme.palette.primary.main, mr: 2 }} />
-                  <Box>
-                    <Typography variant="h6">计算</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      多种计算引擎和本构模型
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-              
-              <Card sx={{ p: 1 }}>
-                <CardContent sx={{ display: 'flex', alignItems: 'center', py: 1 }}>
-                  <BarChart sx={{ color: theme.palette.primary.main, mr: 2 }} />
-                  <Box>
-                    <Typography variant="h6">可视化</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      丰富的结果显示和云图功能
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Stack>
-          </Paper>
-        </Grid>
-      </Grid>
+            </Box>
+          </Container>
 
-      {/* 页脚 */}
-      <Box
-        component="footer"
-        sx={{
-          py: 2,
-          mt: 'auto',
-          backgroundColor: theme.palette.background.paper,
-          borderTop: `1px solid ${theme.palette.divider}`,
-          textAlign: 'center'
-        }}
-      >
-        <Typography variant="body2" color="text.secondary">
-          深基坑CAE系统 v1.0.0 © 2023-2025 深基坑CAE系统开发团队
-        </Typography>
-      </Box>
-
-      {/* 新建项目对话框 */}
-      <Dialog open={openNewProject} onClose={() => setOpenNewProject(false)}>
-        <DialogTitle>创建新项目</DialogTitle>
-        <DialogContent sx={{ minWidth: 400 }}>
-          <TextField
-            autoFocus
-            margin="dense"
-            id="name"
-            label="项目名称"
-            fullWidth
-            variant="outlined"
-            value={newProjectName}
-            onChange={(e) => setNewProjectName(e.target.value)}
-          />
-          <TextField
-            margin="dense"
-            id="description"
-            label="项目描述"
-            fullWidth
-            multiline
-            rows={3}
-            variant="outlined"
-            value={newProjectDescription}
-            onChange={(e) => setNewProjectDescription(e.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenNewProject(false)}>取消</Button>
-          <Button 
-            onClick={handleCreateProject} 
-            variant="contained"
-            disabled={!newProjectName.trim()}
+          {/* 悬浮操作按钮 */}
+          <Fab
+            color="primary"
+            size="large"
+            sx={{
+              position: 'fixed',
+              bottom: 32,
+              right: 32,
+              zIndex: 1000,
+              animation: `${pulseGlow} 2s ease-in-out infinite`
+            }}
+            onClick={handleExploreDemo}
           >
-            创建
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+            <PlayArrow />
+          </Fab>
+        </HeroSection>
+
+        {/* 全息主界面Dialog */}
+        <Dialog 
+          open={holographicOpen} 
+          onClose={() => setHolographicOpen(false)}
+          maxWidth="xl"
+          fullWidth
+        >
+          {/* 这里可以放置HolographicMainInterface组件 */}
+        </Dialog>
+
+        {/* AI工程师助手Dialog */}
+        <Dialog 
+          open={aiAssistantOpen} 
+          onClose={() => setAiAssistantOpen(false)}
+          maxWidth="lg"
+          fullWidth
+        >
+          {/* 这里可以放置AIEngineerAssistant组件 */}
+        </Dialog>
+
+        {/* 3D参数球体Dialog */}
+        <Dialog 
+          open={parameterSphereOpen} 
+          onClose={() => setParameterSphereOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          {/* 这里可以放置Interactive3DParameterSphere组件 */}
+        </Dialog>
+
+        {/* Figma集成展示Dialog */}
+        <Dialog 
+          open={figmaShowcaseOpen} 
+          onClose={() => setFigmaShowcaseOpen(false)}
+          maxWidth="lg"
+          fullWidth
+        >
+          {/* 这里可以放置FigmaIntegrationShowcase组件 */}
+        </Dialog>
+
+        {/* FEM参数面板Dialog */}
+        <Dialog 
+          open={femPanelOpen} 
+          onClose={() => setFemPanelOpen(false)}
+          maxWidth="xl"
+          fullWidth
+        >
+          {/* 这里可以放置FEMParameterPanel组件 */}
+        </Dialog>
+      </Box>
   );
 };
 
-export default WelcomePage; 
+export default WelcomePage;

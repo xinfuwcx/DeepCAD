@@ -4,6 +4,7 @@
 """
 Kratos扩展模块编译脚本
 在现有Kratos基础上添加IGA、地质力学、优化等模块
+重点支持纯IGA架构，移除Gmsh依赖
 """
 
 import os
@@ -60,7 +61,7 @@ def check_existing_kratos():
         required_apps = [
             'StructuralMechanicsApplication',
             'GeomechanicsApplication', 
-            'IgaApplication',
+            'IgaApplication',  # IGA现在是首要应用程序
             'OptimizationApplication',
             'SolidMechanicsApplication',
             'DEMApplication',
@@ -95,15 +96,17 @@ def get_kratos_source_config():
         'CMAKE_BUILD_TYPE': 'Release',
         'CMAKE_CXX_STANDARD': '17',
         
+        # 优先级应用 - IGA应用置顶
+        'KRATOS_BUILD_IGA_APPLICATION': 'ON',                   # IGA等几何分析
+        
         # 基础应用 (已有的保持不变)
         'KRATOS_BUILD_STRUCTURAL_MECHANICS_APPLICATION': 'ON',
         'KRATOS_BUILD_FLUID_DYNAMICS_APPLICATION': 'ON',
         'KRATOS_BUILD_CONTACT_STRUCTURAL_MECHANICS_APPLICATION': 'ON',
         'KRATOS_BUILD_LINEAR_SOLVERS_APPLICATION': 'ON',
         
-        # 重点添加的应用
+        # 其他重要应用
         'KRATOS_BUILD_GEOMECHANICS_APPLICATION': 'ON',           # 地质力学
-        'KRATOS_BUILD_IGA_APPLICATION': 'ON',                   # IGA等几何分析
         'KRATOS_BUILD_OPTIMIZATION_APPLICATION': 'ON',          # 优化模块
         'KRATOS_BUILD_SHAPE_OPTIMIZATION_APPLICATION': 'ON',    # 形状优化
         'KRATOS_BUILD_TOPOLOGY_OPTIMIZATION_APPLICATION': 'ON', # 拓扑优化
@@ -116,10 +119,13 @@ def get_kratos_source_config():
         'KRATOS_BUILD_EXTERNAL_SOLVERS_APPLICATION': 'ON',
         'USE_EIGEN_MKL': 'ON',
         
-        # 网格和几何
+        # 只保留必要的网格和几何模块，移除Gmsh依赖
         'KRATOS_BUILD_MESH_MOVING_APPLICATION': 'ON',
-        'KRATOS_BUILD_MESHING_APPLICATION': 'ON',
         'KRATOS_BUILD_MAPPING_APPLICATION': 'ON',
+        
+        # 禁用不需要的网格应用程序
+        'KRATOS_BUILD_MESHING_APPLICATION': 'OFF',  # 关闭一般网格生成，转向IGA架构
+        'KRATOS_BUILD_CGAL_APPLICATION': 'OFF',     # 禁用CGAL
         
         # 多物理场
         'KRATOS_BUILD_FSI_APPLICATION': 'ON',
@@ -148,7 +154,7 @@ def get_kratos_source_config():
 
 def build_kratos_extended():
     """编译扩展的Kratos"""
-    print_status("开始编译扩展Kratos...")
+    print_status("开始编译扩展Kratos (纯IGA架构)...")
     
     # 设置目录
     source_dir = "Kratos"
@@ -184,8 +190,13 @@ def build_kratos_extended():
             cmake_args.append(f'-D{key}={value}')
     
     # 添加下载超时和镜像源设置
-    cmake_args.append('-DFETCHCONTENT_TIMEOUT=600')
-    cmake_args.append('-DGOOGLETEST_URL=https://gitee.com/mirrors/googletest/archive/03597a01ee50ed33e9dfd6440b249b4be3799d395.zip')
+    cmake_args.append('-DFETCHCONTENT_TIMEOUT=2400')  # 增加超时时间到40分钟
+    # 使用GitHub镜像源解决访问问题
+    # 使用Gitee镜像源解决访问问题
+    # 尝试使用GitHub镜像和备用源
+    cmake_args.append('-DGOOGLETEST_URL=https://hub.fastgit.org/google/googletest/archive/refs/tags/v1.14.0.zip')
+    cmake_args.append('-DGOOGLETEST_URL_FALLBACK=https://gitee.com/mirrors/googletest/archive/refs/tags/v1.14.0.zip')
+    cmake_args.append('-DCMAKE_VERBOSE_MAKEFILE:BOOL=ON')
     
     cmake_args.append(f'../{source_dir}')
     cmake_cmd = ' '.join(['cmake'] + cmake_args)
@@ -222,7 +233,7 @@ def build_kratos_extended():
         print_status("安装失败", "ERROR")
         return False
     
-    print_status("Kratos扩展编译完成!", "OK")
+    print_status("Kratos纯IGA架构编译完成!", "OK")
     return True
 
 def setup_environment(install_dir):
@@ -329,18 +340,16 @@ def main():
         return True
     
     print_status(f"需要添加的模块: {', '.join(missing_apps)}")
-    
-    # 询问是否继续
-    response = input("是否继续编译扩展模块? (y/N): ").strip().lower()
-    if response not in ['y', 'yes']:
-        print_status("用户取消编译")
-        return False
-    
+
+    # 自动确认继续编译
+    print_status("自动确认继续编译扩展模块")
+    response = 'y'
+
     # 开始编译
     if not build_kratos_extended():
         print_status("编译失败", "ERROR")
         return False
-    
+
     # 设置环境
     env_script = setup_environment("kratos_install_extended")
     

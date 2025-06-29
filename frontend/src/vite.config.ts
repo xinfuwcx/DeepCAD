@@ -13,6 +13,7 @@ import path from 'path';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  publicDir: 'public',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -23,6 +24,9 @@ export default defineConfig({
       '@styles': path.resolve(__dirname, './src/styles'),
       '@assets': path.resolve(__dirname, './src/assets'),
     },
+  },
+  optimizeDeps: {
+    exclude: ['**/**/Kratos/**']
   },
   server: {
     port: 1000,

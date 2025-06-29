@@ -20,9 +20,10 @@ import MainLayout from './components/layout/MainLayout';
 import WelcomePage from './pages/WelcomePage';
 import Dashboard from './pages/Dashboard';
 import ExcavationAnalysis from './pages/ExcavationAnalysis';
-import IgaAnalysisPage from './pages/IgaAnalysisPage';
 import ProjectManagement from './pages/ProjectManagement';
 import ResultVisualization from './pages/ResultVisualization';
+import ModelingDemo from './pages/ModelingDemo';
+import FemAnalysisPage from './pages/FemAnalysisPage';
 
 // 认证组件
 import { AuthProvider } from './components/auth/AuthContext';
@@ -33,7 +34,7 @@ import Register from './components/auth/Register';
 // 数据组件
 import DataImportExport from './components/data/DataImportExport';
 
-// 包装WelcomePage组件，添加onProjectSelected属性
+// 包装WelcomePageNew组件，添加onProjectSelected属性
 const WelcomePageWrapper = () => {
   const navigate = useNavigate();
   
@@ -58,9 +59,10 @@ const MainLayoutWrapper = () => {
         <Route path="/excavation-analysis/:projectId" element={<ExcavationAnalysis />} />
         <Route path="/tunnel-modeling/:projectId" element={<div>隧道建模模块</div>} />
         <Route path="/foundation-analysis/:projectId" element={<div>地基基础模块</div>} />
-        <Route path="/iga-analysis/:projectId" element={<IgaAnalysisPage />} />
         <Route path="/results/:projectId" element={<ResultVisualization />} />
         <Route path="/data-management" element={<DataImportExport />} />
+        <Route path="/modeling-demo" element={<ModelingDemo />} />
+        <Route path="/fem-analysis" element={<FemAnalysisPage />} />
         <Route path="/settings" element={<div>设置模块</div>} />
         <Route path="/help" element={<div>帮助模块</div>} />
       </Routes>

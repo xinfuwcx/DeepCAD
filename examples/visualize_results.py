@@ -3,9 +3,9 @@
 
 """
 @file visualize_results.py
-@description 基坑开挖结果可视化
+@description Visualize excavation analysis results with Trame server
 @author Deep Excavation Team
-@version 1.0.0
+@version 1.5.0
 @copyright 2025
 """
 
@@ -13,293 +13,293 @@ import os
 import sys
 import json
 import argparse
+import logging
 import numpy as np
-import matplotlib.pyplot as plt
 from pathlib import Path
-from mpl_toolkits.mplot3d import Axes3D
 
-# 添加项目根目录到路径
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add project root to path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
-# 导入可视化模块
-from src.core.visualization.result_processor import ResultProcessor
-from src.core.visualization.three_renderer import ThreeRenderer
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger("ResultVisualizer")
 
-def plot_displacement_contour(result_file, output_file=None):
-    """绘制位移云图"""
-    # 加载结果数据
-    processor = ResultProcessor(result_file)
-    nodes, values = processor.get_displacement_data()
+# Try to import visualization modules
+try:
+    from src.core.visualization.trame_vis_server import TrameVisServer
+    from src.core.deep_excavation_system import DeepExcavationSystem
     
-    # 提取坐标和位移值
-    x = [node['x'] for node in nodes]
-    y = [node['y'] for node in nodes]
-    z = [node['z'] for node in nodes]
-    disp = [value['magnitude'] for value in values]
+    # Check if VTK is available
+    try:
+        import vtk
+        from vtkmodules.vtkIOLegacy import vtkUnstructuredGridReader
+        from vtkmodules.vtkRenderingCore import vtkActor
+        HAS_VTK = True
+    except ImportError:
+        HAS_VTK = False
+        logger.warning("VTK not available, using simpler visualization methods")
     
-    # 创建3D图
-    fig = plt.figure(figsize=(12, 10))
-    ax = fig.add_subplot(111, projection='3d')
-    
-    # 绘制散点图，颜色表示位移大小
-    scatter = ax.scatter(x, y, z, c=disp, cmap='jet', s=10, alpha=0.7)
-    
-    # 添加颜色条
-    cbar = plt.colorbar(scatter)
-    cbar.set_label('位移 (m)')
-    
-    # 设置轴标签和标题
-    ax.set_xlabel('X (m)')
-    ax.set_ylabel('Y (m)')
-    ax.set_zlabel('Z (m)')
-    ax.set_title('基坑开挖位移云图')
-    
-    # 设置视角
-    ax.view_init(elev=30, azim=45)
-    
-    # 保存或显示图像
-    if output_file:
-        plt.savefig(output_file, dpi=300, bbox_inches='tight')
-        print(f"位移云图已保存至: {output_file}")
-    else:
-        plt.show()
-    
-    return fig
+except ImportError as e:
+    logger.error(f"Failed to import visualization modules: {e}")
+    sys.exit(1)
 
-def plot_stress_contour(result_file, output_file=None):
-    """绘制应力云图"""
-    # 加载结果数据
-    processor = ResultProcessor(result_file)
-    nodes, values = processor.get_stress_data()
-    
-    # 提取坐标和应力值
-    x = [node['x'] for node in nodes]
-    y = [node['y'] for node in nodes]
-    z = [node['z'] for node in nodes]
-    stress = [value['von_mises'] for value in values]  # von Mises应力
-    
-    # 创建3D图
-    fig = plt.figure(figsize=(12, 10))
-    ax = fig.add_subplot(111, projection='3d')
-    
-    # 绘制散点图，颜色表示应力大小
-    scatter = ax.scatter(x, y, z, c=stress, cmap='jet', s=10, alpha=0.7)
-    
-    # 添加颜色条
-    cbar = plt.colorbar(scatter)
-    cbar.set_label('von Mises应力 (Pa)')
-    
-    # 设置轴标签和标题
-    ax.set_xlabel('X (m)')
-    ax.set_ylabel('Y (m)')
-    ax.set_zlabel('Z (m)')
-    ax.set_title('基坑开挖应力云图')
-    
-    # 设置视角
-    ax.view_init(elev=30, azim=45)
-    
-    # 保存或显示图像
-    if output_file:
-        plt.savefig(output_file, dpi=300, bbox_inches='tight')
-        print(f"应力云图已保存至: {output_file}")
-    else:
-        plt.show()
-    
-    return fig
 
-def plot_excavation_section(result_file, output_file=None):
-    """绘制基坑开挖剖面图"""
-    # 加载结果数据
-    processor = ResultProcessor(result_file)
-    nodes, disp_values = processor.get_displacement_data()
-    _, stress_values = processor.get_stress_data()
+class ResultVisualizer:
+    """Visualize excavation analysis results"""
     
-    # 提取Y=0剖面上的点
-    y_section = []
-    for i, node in enumerate(nodes):
-        if abs(node['y']) < 0.1:  # 选择接近Y=0的点
-            y_section.append({
-                'x': node['x'],
-                'z': node['z'],
-                'disp': disp_values[i]['magnitude'],
-                'stress': stress_values[i]['von_mises']
-            })
+    def __init__(self, working_dir="./workspace"):
+        """
+        Initialize the result visualizer
+        
+        Args:
+            working_dir: Working directory for input/output files
+        """
+        self.working_dir = working_dir
+        self.vis_server = TrameVisServer()
+        
+    def load_results(self, results_file):
+        """
+        Load results from file
+        
+        Args:
+            results_file: Path to results file
+            
+        Returns:
+            bool: Success or failure
+        """
+        try:
+            if not os.path.exists(results_file):
+                logger.error(f"Results file not found: {results_file}")
+                return False
+            
+            logger.info(f"Loading results from {results_file}")
+            self.vis_server.load_results(os.path.dirname(results_file))
+            return True
+        except Exception as e:
+            logger.error(f"Failed to load results: {e}")
+            return False
     
-    # 按X坐标排序
-    y_section.sort(key=lambda p: p['x'])
+    def visualize(self, variable="DISPLACEMENT", component=-1, interactive=True):
+        """
+        Visualize results
+        
+        Args:
+            variable: Variable to visualize
+            component: Component to visualize (-1 for magnitude)
+            interactive: Enable interactive visualization
+            
+        Returns:
+            bool: Success or failure
+        """
+        try:
+            # Setup visualization
+            self.vis_server.setup_visualization(variable, component)
+            
+            # Start server
+            port = self.vis_server.start_server(interactive=interactive)
+            
+            logger.info(f"Visualization server started on port {port}")
+            logger.info(f"Visualizing {variable}")
+            
+            if interactive:
+                logger.info("Press Ctrl+C to stop the server")
+                try:
+                    self.vis_server.server.start()
+                except KeyboardInterrupt:
+                    logger.info("Server stopped by user")
+            
+            return True
+        except Exception as e:
+            logger.error(f"Failed to visualize results: {e}")
+            return False
     
-    # 提取数据
-    x = [p['x'] for p in y_section]
-    z = [p['z'] for p in y_section]
-    disp = [p['disp'] for p in y_section]
-    stress = [p['stress'] for p in y_section]
-    
-    # 创建图形
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
-    
-    # 绘制位移剖面
-    scatter1 = ax1.scatter(x, z, c=disp, cmap='jet', s=20, alpha=0.8)
-    ax1.set_xlabel('X (m)')
-    ax1.set_ylabel('Z (m)')
-    ax1.set_title('基坑开挖位移剖面图 (Y=0)')
-    ax1.grid(True)
-    cbar1 = plt.colorbar(scatter1, ax=ax1)
-    cbar1.set_label('位移 (m)')
-    
-    # 绘制应力剖面
-    scatter2 = ax2.scatter(x, z, c=stress, cmap='jet', s=20, alpha=0.8)
-    ax2.set_xlabel('X (m)')
-    ax2.set_ylabel('Z (m)')
-    ax2.set_title('基坑开挖应力剖面图 (Y=0)')
-    ax2.grid(True)
-    cbar2 = plt.colorbar(scatter2, ax=ax2)
-    cbar2.set_label('von Mises应力 (Pa)')
-    
-    # 绘制基坑轮廓
-    # 基坑宽度15m，深度10m
-    ax1.plot([-7.5, 7.5], [-10, -10], 'k-', linewidth=2)  # 基坑底部
-    ax1.plot([-7.5, -7.5], [0, -10], 'k-', linewidth=2)   # 左侧壁
-    ax1.plot([7.5, 7.5], [0, -10], 'k-', linewidth=2)     # 右侧壁
-    
-    ax2.plot([-7.5, 7.5], [-10, -10], 'k-', linewidth=2)  # 基坑底部
-    ax2.plot([-7.5, -7.5], [0, -10], 'k-', linewidth=2)   # 左侧壁
-    ax2.plot([7.5, 7.5], [0, -10], 'k-', linewidth=2)     # 右侧壁
-    
-    # 绘制地连墙
-    # 地连墙厚度0.8m，深度12m
-    ax1.plot([-7.9, -7.9], [0, -12], 'r-', linewidth=2)   # 左侧地连墙外侧
-    ax1.plot([-7.1, -7.1], [0, -12], 'r-', linewidth=2)   # 左侧地连墙内侧
-    ax1.plot([7.1, 7.1], [0, -12], 'r-', linewidth=2)     # 右侧地连墙内侧
-    ax1.plot([7.9, 7.9], [0, -12], 'r-', linewidth=2)     # 右侧地连墙外侧
-    
-    ax2.plot([-7.9, -7.9], [0, -12], 'r-', linewidth=2)   # 左侧地连墙外侧
-    ax2.plot([-7.1, -7.1], [0, -12], 'r-', linewidth=2)   # 左侧地连墙内侧
-    ax2.plot([7.1, 7.1], [0, -12], 'r-', linewidth=2)     # 右侧地连墙内侧
-    ax2.plot([7.9, 7.9], [0, -12], 'r-', linewidth=2)     # 右侧地连墙外侧
-    
-    # 调整布局
-    plt.tight_layout()
-    
-    # 保存或显示图像
-    if output_file:
-        plt.savefig(output_file, dpi=300, bbox_inches='tight')
-        print(f"剖面图已保存至: {output_file}")
-    else:
-        plt.show()
-    
-    return fig
+    def compare_results(self, results_files, variables=None, interactive=True):
+        """
+        Compare multiple results
+        
+        Args:
+            results_files: List of result files
+            variables: List of variables to compare
+            interactive: Enable interactive visualization
+            
+        Returns:
+            bool: Success or failure
+        """
+        try:
+            if not results_files:
+                logger.error("No result files provided")
+                return False
+            
+            if not variables:
+                variables = ["DISPLACEMENT"]
+            
+            logger.info(f"Comparing results from {len(results_files)} files")
+            
+            # Setup comparison visualization
+            self.vis_server.setup_comparison(results_files, variables)
+            
+            # Start server
+            port = self.vis_server.start_server(interactive=interactive)
+            
+            logger.info(f"Comparison server started on port {port}")
+            
+            if interactive:
+                logger.info("Press Ctrl+C to stop the server")
+                try:
+                    self.vis_server.server.start()
+                except KeyboardInterrupt:
+                    logger.info("Server stopped by user")
+            
+            return True
+        except Exception as e:
+            logger.error(f"Failed to compare results: {e}")
+            return False
 
-def plot_displacement_time_history(result_file, output_file=None):
-    """绘制位移时程曲线"""
-    # 加载结果数据
-    processor = ResultProcessor(result_file)
-    time_history = processor.get_time_history_data()
-    
-    # 提取时间和位移数据
-    times = time_history['times']
-    disp_max = time_history['displacement_max']
-    disp_avg = time_history['displacement_avg']
-    
-    # 创建图形
-    fig, ax = plt.subplots(figsize=(10, 6))
-    
-    # 绘制最大位移和平均位移曲线
-    ax.plot(times, disp_max, 'r-', linewidth=2, label='最大位移')
-    ax.plot(times, disp_avg, 'b--', linewidth=2, label='平均位移')
-    
-    # 设置轴标签和标题
-    ax.set_xlabel('时间步')
-    ax.set_ylabel('位移 (m)')
-    ax.set_title('基坑开挖位移时程曲线')
-    ax.grid(True)
-    ax.legend()
-    
-    # 保存或显示图像
-    if output_file:
-        plt.savefig(output_file, dpi=300, bbox_inches='tight')
-        print(f"位移时程曲线已保存至: {output_file}")
-    else:
-        plt.show()
-    
-    return fig
 
-def create_3d_visualization(mesh_file, result_file, output_file=None):
-    """创建3D可视化"""
-    # 初始化3D渲染器
-    renderer = ThreeRenderer(mesh_file, result_file)
+def visualize_from_project(project_file, variable="DISPLACEMENT", component=-1, interactive=True):
+    """
+    Visualize results from project file
     
-    # 设置场景
-    renderer.setup_scene()
-    
-    # 添加位移场
-    renderer.add_displacement_field()
-    
-    # 添加应力场
-    renderer.add_stress_field()
-    
-    # 添加基坑轮廓
-    renderer.add_excavation_outline(
-        width=15.0,
-        length=15.0,
-        depth=10.0,
-        wall_thickness=0.8,
-        wall_depth=12.0
-    )
-    
-    # 渲染场景
-    if output_file:
-        renderer.render_to_file(output_file)
-        print(f"3D可视化已保存至: {output_file}")
-    else:
-        renderer.show()
-    
-    return renderer
+    Args:
+        project_file: Path to project file
+        variable: Variable to visualize
+        component: Component to visualize (-1 for magnitude)
+        interactive: Enable interactive visualization
+        
+    Returns:
+        bool: Success or failure
+    """
+    try:
+        # Create excavation system
+        system = DeepExcavationSystem()
+        
+        # Load project
+        if not system.load_project(project_file):
+            logger.error(f"Failed to load project from {project_file}")
+            return False
+        
+        # Visualize results
+        success = system.visualize_results(variable, component)
+        
+        if not success:
+            logger.error("Failed to visualize results")
+            return False
+        
+        if interactive:
+            logger.info("Press Ctrl+C to stop the server")
+            try:
+                while True:
+                    import time
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                logger.info("Server stopped by user")
+        
+        return True
+    except Exception as e:
+        logger.error(f"Failed to visualize from project: {e}")
+        return False
+
 
 def main():
-    """主函数"""
-    # 解析命令行参数
-    parser = argparse.ArgumentParser(description='基坑开挖结果可视化')
-    parser.add_argument('--result', type=str, required=True, help='结果文件路径')
-    parser.add_argument('--mesh', type=str, help='网格文件路径')
-    parser.add_argument('--output-dir', type=str, default='./examples/case_results/figures', help='输出目录')
-    parser.add_argument('--type', type=str, choices=['displacement', 'stress', 'section', 'time-history', '3d', 'all'], 
-                        default='all', help='可视化类型')
+    """Main function"""
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Visualize excavation analysis results")
+    parser.add_argument("--results", type=str, default=None,
+                        help="Path to results file")
+    parser.add_argument("--project", type=str, default=None,
+                        help="Path to project file")
+    parser.add_argument("--compare", type=str, nargs='+', default=None,
+                        help="Paths to result files to compare")
+    parser.add_argument("--variable", type=str, default="DISPLACEMENT",
+                        help="Variable to visualize")
+    parser.add_argument("--component", type=int, default=-1,
+                        help="Component to visualize (-1 for magnitude)")
+    parser.add_argument("--working_dir", type=str, default="./workspace",
+                        help="Working directory")
+    parser.add_argument("--non-interactive", action="store_true",
+                        help="Disable interactive mode")
     args = parser.parse_args()
     
-    # 创建输出目录
-    os.makedirs(args.output_dir, exist_ok=True)
+    # Determine visualization method
+    if args.project:
+        # Visualize from project
+        logger.info(f"Visualizing from project: {args.project}")
+        if not visualize_from_project(
+            args.project, 
+            args.variable, 
+            args.component,
+            not args.non_interactive
+        ):
+            logger.error("Failed to visualize from project")
+            sys.exit(1)
+    elif args.compare:
+        # Compare multiple results
+        logger.info(f"Comparing results: {args.compare}")
+        visualizer = ResultVisualizer(args.working_dir)
+        if not visualizer.compare_results(
+            args.compare,
+            [args.variable],
+            not args.non_interactive
+        ):
+            logger.error("Failed to compare results")
+            sys.exit(1)
+    elif args.results:
+        # Visualize single result file
+        logger.info(f"Visualizing results: {args.results}")
+        visualizer = ResultVisualizer(args.working_dir)
+        if not visualizer.load_results(args.results):
+            logger.error("Failed to load results")
+            sys.exit(1)
+        if not visualizer.visualize(
+            args.variable,
+            args.component,
+            not args.non_interactive
+        ):
+            logger.error("Failed to visualize results")
+            sys.exit(1)
+    else:
+        # Look for default results
+        default_results = os.path.join(args.working_dir, "results", "latest_results.vtk")
+        default_project = os.path.join(args.working_dir, "ExcavationCase_project.json")
+        
+        if os.path.exists(default_project):
+            logger.info(f"Using default project: {default_project}")
+            if not visualize_from_project(
+                default_project, 
+                args.variable, 
+                args.component,
+                not args.non_interactive
+            ):
+                logger.error("Failed to visualize from default project")
+                sys.exit(1)
+        elif os.path.exists(default_results):
+            logger.info(f"Using default results: {default_results}")
+            visualizer = ResultVisualizer(args.working_dir)
+            if not visualizer.load_results(default_results):
+                logger.error("Failed to load default results")
+                sys.exit(1)
+            if not visualizer.visualize(
+                args.variable,
+                args.component,
+                not args.non_interactive
+            ):
+                logger.error("Failed to visualize default results")
+                sys.exit(1)
+        else:
+            logger.error("No results or project specified and no default found")
+            sys.exit(1)
     
-    # 检查结果文件
-    if not os.path.exists(args.result):
-        print(f"错误: 结果文件不存在: {args.result}")
-        return 1
-    
-    # 根据类型生成可视化
-    if args.type == 'displacement' or args.type == 'all':
-        output_file = os.path.join(args.output_dir, 'displacement_contour.png')
-        plot_displacement_contour(args.result, output_file)
-    
-    if args.type == 'stress' or args.type == 'all':
-        output_file = os.path.join(args.output_dir, 'stress_contour.png')
-        plot_stress_contour(args.result, output_file)
-    
-    if args.type == 'section' or args.type == 'all':
-        output_file = os.path.join(args.output_dir, 'excavation_section.png')
-        plot_excavation_section(args.result, output_file)
-    
-    if args.type == 'time-history' or args.type == 'all':
-        output_file = os.path.join(args.output_dir, 'displacement_time_history.png')
-        plot_displacement_time_history(args.result, output_file)
-    
-    if (args.type == '3d' or args.type == 'all') and args.mesh:
-        output_file = os.path.join(args.output_dir, 'excavation_3d.html')
-        create_3d_visualization(args.mesh, args.result, output_file)
-    
-    print("可视化完成")
-    return 0
+    logger.info("Visualization completed successfully")
+
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
+
 
 
 

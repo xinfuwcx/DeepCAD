@@ -6,18 +6,20 @@
 @copyright 2025
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Path, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Path, BackgroundTasks, Response
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 import os
 from pathlib import Path
 import json
+from enum import Enum
 
 from src.server.dependencies import get_db, get_visualization_engine, validate_project_exists
 from src.core.visualization.models import VisualizationEngine
 from src.core.visualization.result_processor import ResultProcessor
 from src.core.visualization.three_renderer import ThreeRenderer
+from src.core.simulation.kratos_iga_solver import KratosIgaSolver
 
 # 创建路由器
 router = APIRouter(
@@ -59,6 +61,20 @@ class VisualizationResponse(BaseModel):
     message: str
     url: Optional[str] = None
     visualization_info: Dict[str, Any] = Field(default_factory=dict)
+
+class VisualizationOptions(BaseModel):
+    """可视化选项模型"""
+    scale_factor: float = Field(100.0, description="放大系数")
+    color_map: str = Field("jet", description="颜色映射")
+    show_control_net: bool = Field(True, description="显示控制网格")
+    show_wireframe: bool = Field(False, description="显示线框")
+    
+class IGAVisualizationRequest(BaseModel):
+    """IGA可视化请求模型"""
+    analysis_id: int = Field(..., description="分析ID")
+    result_type: str = Field("displacement", description="结果类型")
+    component: str = Field("magnitude", description="分量")
+    visualization_options: Optional[VisualizationOptions] = Field(None, description="可视化选项")
 
 # 结果目录
 RESULTS_DIR = os.environ.get("RESULTS_DIR", "data/results")
@@ -516,4 +532,219 @@ async def process_analysis_results(
         result_id=result_id
     )
     
-    return {"result_id": result_id} 
+    return {"result_id": result_id}
+
+@router.post("/iga", response_model=VisualizationResponse, summary="创建IGA可视化任务")
+async def create_iga_visualization(
+    request: IGAVisualizationRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    创建IGA结果可视化任务
+    
+    - **analysis_id**: 分析ID
+    - **result_type**: 结果类型(displacement, stress, strain, pore_pressure)
+    - **component**: 分量(magnitude, x, y, z)
+    - **visualization_options**: 可视化选项
+    """
+    try:
+        # 验证分析结果存在
+        # 实际应从数据库查询，这里简化处理
+        
+        # 创建可视化任务ID
+        visual_id = 1
+        
+        # 返回可视化任务信息
+        return VisualizationResponse(
+            id=visual_id,
+            analysis_id=request.analysis_id,
+            message="可视化任务创建成功",
+            view_url=f"/api/visualization/iga/{visual_id}/view",
+            export_url=f"/api/visualization/iga/{visual_id}/export"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"创建可视化任务失败: {str(e)}"
+        )
+
+@router.get("/iga/{visual_id}/data", summary="获取IGA可视化数据")
+async def get_iga_visualization_data(
+    visual_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    获取IGA可视化数据以在前端渲染
+    
+    - **visual_id**: 可视化任务ID
+    """
+    try:
+        # 模拟获取可视化数据
+        # 实际应从数据库查询关联的分析结果，然后处理可视化数据
+        
+        # 初始化Kratos求解器
+        solver = KratosIgaSolver(output_dir="./results")
+        
+        # 获取位移结果作为示例
+        results = solver.get_results("DISPLACEMENT")
+        
+        # 构造可视化数据
+        # 模拟NURBS数据
+        nurbs_data = {
+            "control_points": [[i*2.0, j*2.0, 0.0] for i in range(5) for j in range(5)],
+            "weights": [1.0] * 25,
+            "knot_vectors": {
+                "u": [0.0, 0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0, 1.0],
+                "v": [0.0, 0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0, 1.0]
+            },
+            "degrees": {
+                "u": 3,
+                "v": 3
+            }
+        }
+        
+        # 处理结果数据
+        result_values = []
+        for i in range(25):  # 假设有25个控制点
+            node_id = i + 1
+            if node_id in results:
+                # 如果是向量结果，计算模长作为标量值
+                value = results[node_id]
+                if isinstance(value, list):
+                    # 计算向量模长
+                    import math
+                    magnitude = math.sqrt(sum(v*v for v in value))
+                    result_values.append(magnitude)
+                else:
+                    result_values.append(value)
+            else:
+                result_values.append(0.0)
+        
+        return {
+            "id": visual_id,
+            "analysis_id": 1,  # 假设分析ID为1
+            "nurbs_data": nurbs_data,
+            "result_data": {
+                "type": "displacement",
+                "component": "magnitude",
+                "values": result_values,
+                "min": min(result_values) if result_values else 0.0,
+                "max": max(result_values) if result_values else 0.0
+            },
+            "visualization_options": {
+                "scale_factor": 100,
+                "color_map": "jet",
+                "show_control_net": True,
+                "show_wireframe": False
+            }
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取可视化数据失败: {str(e)}"
+        )
+
+@router.get("/iga/{visual_id}/view", summary="查看IGA可视化结果")
+async def view_iga_visualization(
+    visual_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    查看IGA可视化结果（HTML页面）
+    
+    - **visual_id**: 可视化任务ID
+    """
+    try:
+        # 这里简化处理，实际应返回HTML页面或重定向到前端可视化页面
+        return {
+            "message": "请使用前端可视化页面查看结果",
+            "data_url": f"/api/visualization/iga/{visual_id}/data"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"查看可视化结果失败: {str(e)}"
+        )
+
+@router.get("/iga/{visual_id}/export", summary="导出IGA可视化结果")
+async def export_iga_visualization(
+    visual_id: int,
+    format: str = "vtk",
+    db: Session = Depends(get_db)
+):
+    """
+    导出IGA可视化结果为特定格式文件
+    
+    - **visual_id**: 可视化任务ID
+    - **format**: 导出格式(vtk, json, html)
+    """
+    try:
+        # 模拟导出过程
+        # 实际应调用相应的导出函数生成文件
+        
+        if format == "vtk":
+            # 初始化Kratos求解器
+            solver = KratosIgaSolver(output_dir="./results")
+            
+            # 导出结果
+            output_file = f"./results/visual_{visual_id}.vtk"
+            success = solver.export_results(output_file, format)
+            
+            if not success:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="导出VTK结果失败"
+                )
+            
+            # 读取文件内容
+            with open(output_file, "rb") as f:
+                content = f.read()
+            
+            # 返回文件
+            return Response(
+                content=content,
+                media_type="application/octet-stream",
+                headers={"Content-Disposition": f"attachment; filename=visual_{visual_id}.vtk"}
+            )
+        elif format == "json":
+            # 创建JSON结果
+            result = {
+                "id": visual_id,
+                "type": "iga_visualization",
+                "nurbs_data": {
+                    "control_points": [[i*2.0, j*2.0, 0.0] for i in range(5) for j in range(5)],
+                    "weights": [1.0] * 25,
+                    "knot_vectors": {
+                        "u": [0.0, 0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0, 1.0],
+                        "v": [0.0, 0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0, 1.0]
+                    },
+                    "degrees": {
+                        "u": 3,
+                        "v": 3
+                    }
+                },
+                "result_data": {
+                    "type": "displacement",
+                    "component": "magnitude",
+                    "values": [0.001 * i for i in range(25)]
+                }
+            }
+            
+            # 返回JSON
+            return Response(
+                content=json.dumps(result, indent=2),
+                media_type="application/json",
+                headers={"Content-Disposition": f"attachment; filename=visual_{visual_id}.json"}
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"不支持的导出格式: {format}"
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"导出可视化结果失败: {str(e)}"
+        ) 

@@ -1,100 +1,164 @@
-# 🏗️ 深基坑CAE系统
+# 深基坑分析系统
 
-基于等几何分析(IGA)的深基坑工程分析系统，提供高精度的几何表达和力学分析，集成现代化的设计系统和自动化工作流。
+基于有限元方法(FEM)的深基坑分析系统，提供全流程的深基坑工程分析解决方案，集成物理AI和IOT监测技术。
 
-## ✨ 系统特点
+## 系统概述
 
-### 🔬 核心分析技术
-- **等几何分析(IGA)技术**：直接使用NURBS几何模型进行分析，无需传统网格划分
-- **几何精确表达**：保持CAD几何的精确性，避免网格近似误差
-- **高阶连续性**：支持高阶连续基函数，提供更高的计算精度
+本系统是一个专为深基坑工程设计的分析平台，集成了网格生成、有限元分析、渗流分析、结构分析和物理AI系统，为深基坑工程的设计、分析与监测提供全面支持。
 
-### 🎨 设计系统集成 (NEW!)
-- **Figma自动化设计系统**：实现设计师与开发者无缝协作
-- **设计令牌系统**：12个颜色、5个字体、6个间距的完整设计规范
-- **多格式支持**：JSON、TypeScript、CSS三种格式的设计令牌
-- **实时同步**：支持与Figma设计的实时同步更新
-- **类型安全**：完整的TypeScript类型定义和Material-UI主题集成
+### 主要功能
 
-## 🚀 快速开始
+- **地质建模**：支持复杂地层的建模，包括多层土体、断层等
+- **结构建模**：支持各类支护结构的建模，如地下连续墙、锚杆、支撑等
+- **网格生成**：基于Netgen的高质量有限元网格生成
+- **有限元分析**：基于Kratos的结构和渗流分析
+- **渗流-结构耦合分析**：考虑水-土相互作用的多物理场分析
+- **施工过程模拟**：支持分步开挖、支护安装等施工过程模拟
+- **结果可视化**：直观展示位移、应力、水压力等计算结果
+- **物理AI分析**：基于物理模型和AI技术的参数反演与预测
+- **IOT监测集成**：实时采集和处理现场监测数据
+- **报告生成**：自动生成分析报告和设计文档
 
-### 环境要求
-- Python 3.9+
-- Node.js 18+
-- npm 或 yarn
+## 技术架构
 
-### 安装步骤
-1. **安装Python依赖**: `pip install -r requirements.minimal.txt`
-2. **安装前端依赖**: `cd frontend && npm install && cd ..`
-3. **启动系统**: `scripts\start_system.bat` (Windows) 或 `bash scripts/start_system.sh` (Linux)
+系统采用前后端分离架构，后端基于Python和Kratos多物理场框架，前端基于React构建，物理AI系统基于TensorFlow/PyTorch。
 
-### 🎨 Figma设计系统快速配置
+### 核心组件
+
+- **网格生成模块**：基于Netgen的高质量网格生成
+- **有限元分析模块**：基于Kratos的结构力学分析
+- **渗流分析模块**：基于Kratos的渗流分析
+- **渗流-结构耦合模块**：实现水力和力学行为的耦合计算
+- **施工过程模拟模块**：支持分步施工模拟
+- **结果处理模块**：计算结果的后处理和可视化
+- **物理AI模块**：IOT数据集成和AI反演分析
+- **前端界面**：基于React的用户交互界面
+
+### 技术特点
+
+- **高性能计算**：利用Kratos多物理场框架的并行计算能力
+- **高质量网格**：基于Netgen的高质量四面体网格生成
+- **多物理场耦合**：支持一体化和分离式渗流-结构耦合分析策略
+- **自适应网格细化**：根据计算结果自动细化关键区域网格
+- **先进材料模型**：支持多种土体本构模型，如Mohr-Coulomb、修正剑桥模型等
+- **物理约束的AI**：融合物理规律和数据驱动的智能分析
+- **实时监测反馈**：基于IOT数据的实时分析和预警
+- **可扩展架构**：模块化设计，便于扩展新功能
+
+## 安装指南
+
+详细的安装步骤请参考 [安装文档](docs/INSTALLATION.md)。
+
+### 快速开始
+
 ```bash
-# 进入前端目录
-cd frontend
+# 克隆仓库
+git clone https://github.com/your-organization/deep-excavation.git
+cd deep-excavation
 
-# 运行Figma集成测试
-node scripts/test-figma.js
+# 安装依赖
+pip install -r requirements.txt
 
-# 或运行完整测试
-final-figma-test.bat
+# 启动系统
+scripts/start_system.bat  # Windows
+bash scripts/start_system.sh  # Linux/macOS
 ```
 
-### 使用设计令牌
-```tsx
-// 在React组件中使用
-import { tokens } from './styles/tokens';
+## 使用示例
 
-// 使用CSS变量
-color: var(--color-primary);
-padding: var(--spacing-base);
+系统提供了多个示例案例，展示不同类型的深基坑分析：
+
+- [基本结构分析](examples/structural_analysis_basic.py)
+- [深基坑开挖分析](examples/excavation_case.py)
+- [渗流-结构耦合分析](examples/advanced/seepage_structure_coupling.py)
+- [物理AI参数反演](examples/physics_ai_inversion.py)
+
+运行示例：
+
+```bash
+# 运行深基坑开挖分析
+examples\run_excavation_case.bat
+
+# 运行渗流-结构耦合分析示例
+examples\advanced\seepage_structure_coupling.py
 ```
 
-## 📚 文档
+## 渗流-结构耦合分析
 
-### 核心文档
-- [📖 安装指南](docs/INSTALLATION.md)
-- [🏗️ 系统架构](docs/ARCHITECTURE.md)
-- [🔄 IGA迁移计划](docs/IGA_MIGRATION_PLAN.md)
-- [📋 技术报告](docs/TECHNICAL_REPORT.md)
+渗流-结构耦合分析是本系统的核心功能之一，能够同时考虑地下水流动与土体变形的相互作用。
 
-### 设计系统文档
-- [🎨 Figma集成指南](frontend/FIGMA_SETUP.md)
-- [✅ 集成完成报告](frontend/FIGMA_INTEGRATION_COMPLETE.md)
-- [📊 最终状态报告](frontend/FIGMA_FINAL_STATUS.md)
-- [⚡ 快速参考](frontend/FIGMA_QUICK_REFERENCE.js)
+### 关键特性
 
-### API文档
-- [🔌 API文档](docs/API_DOCUMENTATION.md)
-- [🔧 UI设计文档](docs/UI_DESIGN_DOCUMENT.md)
+- **多种耦合策略**：支持一体化和分离式求解方法
+- **复杂边界条件**：支持各类水力和力学边界条件
+- **瞬态分析**：模拟随时间变化的耦合响应
+- **材料非线性**：考虑土体的非线性力学行为
+- **结果可视化**：直观展示水压力、流速场、变形等
 
-## 🛠️ 项目状态
+更多信息请参阅 [渗流-结构耦合分析文档](docs/SEEPAGE_STRUCTURE_COUPLING.md)。
 
-### ✅ 已完成功能
-- 🎨 **Figma自动化设计系统**: 完全集成，可立即使用
-- 📐 **设计令牌系统**: 12个颜色、5个字体、6个间距
-- ⚛️ **React组件库**: 主题提供者、同步组件、示例组件
-- 🤖 **自动化脚本**: 配置、测试、同步脚本完整
-- 📝 **完整文档**: 安装、使用、参考文档齐全
+## 分步施工模拟
 
-### 🔄 进行中
-- 🏗️ **Kratos编译**: 正在积极编译核心计算引擎 (最新更新: 2025-06-29 11:51)
-  - ✅ 核心模块已编译: KratosCore.dll, Kratos.cp311-win_amd64.pyd
-  - 🔄 专业模块编译中: 地质力学、高级分析模块
-  - 📊 编译进度: 基础功能已可用，扩展功能编译中
-- 📊 **IGA模块**: 等几何分析模块开发中
+分步施工模拟功能是深基坑分析系统的核心功能之一，用于准确模拟深基坑工程实际施工过程，预测各施工阶段的地层位移、支护结构内力等关键参数。
 
-### 📋 计划中
-- 🌐 **Web界面**: 基于设计系统的现代化界面
-- 🔗 **API集成**: 前后端完整对接
-- 📱 **响应式设计**: 移动端适配
+### 关键特性
+
+- **单元激活/失活技术**：通过单元的激活与失活，准确模拟开挖过程和支护安装过程
+- **分析步管理**：严格按照施工顺序设置分析步，确保结果准确反映施工过程
+- **初始应力场生成**：支持K0程序法和重力加载法生成初始应力场
+- **接触分析**：模拟支护结构与土体间的相互作用，包括摩擦、滑移和分离
+
+### 支持的阶段类型
+
+- **初始阶段**：建立初始应力场，设置初始水位和边界条件
+- **开挖阶段**：模拟分层开挖过程，研究围护结构变形发展规律
+- **支护安装阶段**：包括围护墙、锚杆、支撑等支护结构的安装
+- **降水阶段**：模拟基坑降水导致的水位变化及其影响
+- **荷载施加阶段**：模拟施工荷载、临时荷载等的施加
+- **固结阶段**：模拟长期固结过程，分析长期沉降
+
+### 工程适用场景
+
+- **深基坑分析**：准确模拟深基坑分层开挖过程，预测围护结构变形和内力发展
+- **隧道工程**：模拟隧道分段开挖和支护过程，分析围岩变形
+- **边坡工程**：模拟边坡分层开挖过程，分析各阶段稳定性
+
+更多信息请参阅 [分步施工模拟功能文档](docs/STAGED_CONSTRUCTION_SIMULATION.md)。
+
+## 物理AI系统
+
+系统集成了先进的物理AI技术，结合物理模型和机器学习方法：
+
+- **参数反演**：基于监测数据识别土体和结构参数
+- **状态预测**：预测支护结构和周边环境未来状态
+- **异常检测**：识别异常行为并提供预警
+- **决策支持**：生成优化建议和应急方案
+
+### IOT监测集成
+
+系统支持与现场监测系统集成：
+
+- **传感器接入**：支持多种传感器数据接入
+- **边缘计算**：现场数据预处理和初步分析
+- **实时数据流**：监测数据实时传输和处理
+- **数字孪生**：物理工程与数字模型实时同步
+
+## 文档
+
+- [系统架构](docs/ARCHITECTURE.md)
+- [安装指南](docs/INSTALLATION.md)
+- [技术路线](docs/DEEP_EXCAVATION_TECHNICAL_ROADMAP.md)
+- [网格生成指南](docs/NETGEN_MESH_GUIDE.md)
+- [FEM深基坑分析](docs/FEM_DEEP_EXCAVATION.md)
+- [渗流-结构耦合分析](docs/SEEPAGE_STRUCTURE_COUPLING.md)
+- [物理AI集成](docs/PHYSICS_AI_INTEGRATION.md)
+- [API文档](docs/API_DOCUMENTATION.md)
+- [技术总结](docs/TECHNICAL_SUMMARY.md)
+
+## 贡献指南
+
+我们欢迎社区贡献，请参阅 [贡献指南](CONTRIBUTING.md) 了解如何参与项目开发。
 
 ## 许可证
 
-本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
-
-## 联系我们
-
-- 项目负责人: your-email@example.com
-- 官方网站: https://www.example.com
-- 技术支持: support@example.com
+本项目采用 [LICENSE](LICENSE) 许可证。

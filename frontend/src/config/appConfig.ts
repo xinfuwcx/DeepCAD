@@ -60,6 +60,7 @@ export const ROUTES = {
   FOUNDATION_ANALYSIS: '/foundation-analysis/:projectId',
   MESHING: '/meshing/:projectId',
   COMPUTATION: '/computation/:projectId',
+  FEM_ANALYSIS: '/fem-analysis',
   RESULTS: '/results/:projectId',
   DATA_MANAGEMENT: '/data-management',
   SETTINGS: '/settings',

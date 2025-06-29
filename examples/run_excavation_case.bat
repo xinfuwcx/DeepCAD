@@ -1,33 +1,74 @@
 @echo off
-echo 基坑开挖案例测试
-echo ==================
+REM ======================================================
+REM  Deep Excavation System - Run Excavation Case Example
+REM  Version 1.5.0
+REM ======================================================
 
-REM 设置Python环境
-call env\Scripts\activate.bat
+echo Starting Deep Excavation System...
+echo.
 
-REM 创建结果目录
-if not exist "examples\case_results" mkdir "examples\case_results"
-if not exist "examples\case_results\figures" mkdir "examples\case_results\figures"
+REM 设置Python路径
+SET PYTHONPATH=%PYTHONPATH%;%~dp0..\
+
+REM 检查是否指定了配置文件
+IF "%~1"=="" (
+    SET CONFIG_FILE=config.json
+) ELSE (
+    SET CONFIG_FILE=%~1
+)
+
+echo Using configuration file: %CONFIG_FILE%
+echo.
+
+REM 执行主Python脚本
+echo Running excavation analysis with IGA and Physics AI...
+echo This may take several minutes, please be patient.
+echo.
+
+python %~dp0excavation_case.py --config %CONFIG_FILE% --use_iga --with_physics_ai
 
 echo.
-echo 步骤1: 运行基坑开挖案例
-echo -------------------------
-python examples\excavation_case.py
+IF %ERRORLEVEL% NEQ 0 (
+    echo Error occurred during execution. Please check the logs.
+    pause
+    exit /b %ERRORLEVEL%
+) ELSE (
+    echo Excavation analysis completed successfully!
+    echo.
+    echo Options:
+    echo [1] Visualize results
+    echo [2] Export results
+    echo [3] Run Physics AI analysis
+    echo [4] Exit
+    echo.
+    
+    SET /P OPTION="Enter your choice (1-4): "
+    
+    IF "%OPTION%"=="1" (
+        echo.
+        echo Starting visualization server...
+        python %~dp0visualize_results.py --results %~dp0..\workspace\results\latest_results.vtk
+    ) ELSE IF "%OPTION%"=="2" (
+        echo.
+        SET /P EXPORT_FILE="Enter export file path (or press Enter for default): "
+        IF "%EXPORT_FILE%"=="" (
+            SET EXPORT_FILE=%~dp0..\workspace\results\excavation_results.vtk
+        )
+        echo Exporting results to %EXPORT_FILE%...
+        python %~dp0excavation_case.py --config %CONFIG_FILE% --export %EXPORT_FILE%
+    ) ELSE IF "%OPTION%"=="3" (
+        echo.
+        echo Running Physics AI analysis...
+        python %~dp0excavation_case.py --config %CONFIG_FILE% --physics_ai
+    ) ELSE (
+        echo Exiting...
+    )
+)
 
 echo.
-echo 步骤2: 可视化计算结果
-echo -------------------------
-python examples\visualize_results.py --result "examples\case_results\result.vtk" --mesh "examples\case_results\mesh.msh"
-
-echo.
-echo 案例测试完成！
-echo 结果保存在 examples\case_results 目录下
-echo 可视化结果保存在 examples\case_results\figures 目录下
-
-REM 打开结果目录
-explorer "examples\case_results\figures"
-
+echo Thank you for using Deep Excavation System!
 pause
+
 
 
 

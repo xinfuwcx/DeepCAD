@@ -15,18 +15,34 @@ import tempfile
 import subprocess
 from pathlib import Path
 
+# 配置日志
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("TerraWrapper")
+
 # 导入Kratos
 try:
     import KratosMultiphysics
     import KratosMultiphysics.StructuralMechanicsApplication
+    import KratosMultiphysics.FluidDynamicsApplication
+    import KratosMultiphysics.LinearSolversApplication
+    import KratosMultiphysics.MeshingApplication
+    import KratosMultiphysics.MeshMovingApplication
+    
+    # 尝试导入IGA应用
+    try:
+        import KratosMultiphysics.IgaApplication
+        IGA_AVAILABLE = True
+        logger.info("Kratos IGA Application loaded successfully")
+    except ImportError:
+        IGA_AVAILABLE = False
+        logger.warning("Kratos IGA Application not available")
+    
     KRATOS_AVAILABLE = True
+    logger.info("Kratos applications loaded successfully")
 except ImportError as e:
     KRATOS_AVAILABLE = False
+    IGA_AVAILABLE = False
     logging.warning(f"Kratos导入失败: {e}")
-
-# 配置日志
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("TerraWrapper")
 
 class TerraWrapper:
     """Terra计算引擎包装器类"""

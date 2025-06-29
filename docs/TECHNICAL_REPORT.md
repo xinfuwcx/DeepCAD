@@ -11,14 +11,14 @@
 - 用户界面复杂，需要专业知识，不够"傻瓜式"
 - 分析结果可视化不直观，难以支持工程决策
 
-为解决上述问题，我们开发了基于等几何分析(IGA)与有限元方法(FEM)混合架构的深基坑分析系统，实现高精度、高效率的工程分析，同时提供简洁直观的用户界面。
+为解决上述问题，我们开发了基于有限元方法(FEM)的深基坑分析系统，实现高精度、高效率的工程分析，同时提供简洁直观的用户界面。
 
 ### 1.2 技术路线
 
-本系统采用IGA-FEM混合架构的技术路线，具体包括：
+本系统采用FEM架构的技术路线，具体包括：
 
-1. **域分解策略**：将分析域分为地形域(IGA)、结构域(FEM)、接触域(混合)和无限域
-2. **混合网格技术**：IGA区域使用NURBS表达，FEM区域使用传统网格，过渡区域采用特殊耦合算法
+1. **域分解策略**：将分析域分为结构域(FEM)、土体域(FEM)、接触域和无限域
+2. **统一网格技术**：全域使用高质量有限元网格，确保计算精度和效率
 3. **并行求解系统**：基于域分解的并行求解策略，提高计算效率
 4. **参数化建模**：简化用户输入，实现"傻瓜式"操作
 5. **实时可视化**：基于WebGL的三维可视化，直观展示分析结果
@@ -54,15 +54,16 @@
 - 开发者使用类型安全的设计令牌，避免硬编码
 - 团队协作效率显著提升，设计与开发保持一致
 
-## 2. IGA-FEM混合架构设计
+## 2. 系统功能与特点
 
-### 2.1 域分解策略
+### 2.1 参数化建模
 
-系统采用域分解策略，将分析区域划分为四种不同的域：
+系统采用参数化建模方法，简化用户输入：
 
-![域分解策略](images/exports/domain_decomposition.png)
-
-1. **地形域(IGA)**：使用NURBS表达地形和土体，具有以下优势：
+1. **地形建模**：
+   - 基于高精度地形数据的参数化建模
+   - 支持DEM数据导入
+   - 地形简化与精细化控制
    - 精确表达复杂地形
    - 高阶连续性，应力分析更准确
    - 网格密度与几何精度解耦
@@ -483,44 +484,45 @@
 
 ### 附录A: 核心算法
 
-#### A.1 IGA-FEM耦合算法
+#### A.1 有限元网格优化算法
 
 ```
-算法1: IGA-FEM耦合Mortar方法
-输入: IGA域Ω_IGA, FEM域Ω_FEM, 接触面Γ
-输出: 耦合刚度矩阵K_c
+算法1: 有限元网格质量优化方法
+输入: 初始网格M, 质量阈值q_min, 最大迭代次数n_max
+输出: 优化后的网格M'
 
-1. 在接触面Γ上定义Mortar空间M
-2. 构造投影算子P: FEM → M和Q: IGA → M
-3. 计算耦合矩阵C = P^T·Q
-4. 组装耦合刚度矩阵K_c
-5. 返回K_c
+1. 计算初始网格质量指标q
+2. 当min(q) < q_min且迭代次数 < n_max时:
+   a. 识别低质量单元集合E_low
+   b. 对E_low应用节点平滑或拓扑优化
+   c. 更新网格M和质量指标q
+3. 返回优化后的网格M'
 ```
 
-#### A.2 自适应细化算法
+#### A.2 自适应网格细化算法
 
 ```
-算法2: IGA域自适应细化
-输入: NURBS模型N, 误差容限ε, 最大细化次数n_max
-输出: 细化后的NURBS模型N'
+算法2: 有限元自适应细化
+输入: 网格M, 误差容限ε, 最大细化次数n_max
+输出: 细化后的网格M'
 
 1. 计算当前解u和误差估计η
 2. 当η > ε且细化次数 < n_max时:
    a. 确定需要细化的区域Ω_ref
-   b. 对Ω_ref进行节点插入或阶次提升
-   c. 更新NURBS模型N
+   b. 对Ω_ref进行局部网格细化
+   c. 更新网格M
    d. 重新计算解u和误差估计η
-3. 返回细化后的NURBS模型N'
+3. 返回细化后的网格M'
 ```
 
 ### 附录B: 参数推荐值
 
 | 参数类型 | 参数名称 | 推荐值范围 | 默认值 |
 |---------|---------|-----------|-------|
-| IGA设置 | NURBS阶次 | 2-4 | 3 |
-| IGA设置 | 控制点密度 | 0.5-2点/m | 1点/m |
+| 网格设置 | 全局网格尺寸 | 0.5-2m | 1m |
+| 网格设置 | 局部细化尺寸 | 0.1-0.5m | 0.2m |
 | FEM设置 | 单元类型 | 四面体/六面体 | 四面体 |
-| FEM设置 | 网格尺寸 | 0.5-2m | 1m |
+| FEM设置 | 单元阶次 | 1-2 | 1 |
 | 求解控制 | 收敛容差 | 1e-4 - 1e-6 | 1e-5 |
 | 求解控制 | 最大迭代次数 | 50-200 | 100 |
 | 本构模型 | 硬化参数 | 0.3-0.7 | 0.5 |
@@ -528,12 +530,12 @@
 
 ### 附录C: 参考文献
 
-1. Hughes, T.J.R., Cottrell, J.A., Bazilevs, Y. (2005). "Isogeometric analysis: CAD, finite elements, NURBS, exact geometry and mesh refinement". Computer Methods in Applied Mechanics and Engineering, 194(39-41), 4135-4195.
+1. Zienkiewicz, O.C., Taylor, R.L., Zhu, J.Z. (2013). "The Finite Element Method: Its Basis and Fundamentals". Butterworth-Heinemann, Oxford.
 
-2. Benson, D.J., Bazilevs, Y., De Luycker, E., Hsu, M.C., Scott, M., Hughes, T.J.R., Belytschko, T. (2010). "A generalized finite element formulation for arbitrary basis functions: From isogeometric analysis to XFEM". International Journal for Numerical Methods in Engineering, 83(6), 765-785.
+2. Frey, P.J., George, P.L. (2008). "Mesh Generation: Application to Finite Elements". ISTE Ltd and John Wiley & Sons, Inc.
 
-3. Schillinger, D., Evans, J.A., Reali, A., Scott, M.A., Hughes, T.J.R. (2013). "Isogeometric collocation: Cost comparison with Galerkin methods and extension to adaptive hierarchical NURBS discretizations". Computer Methods in Applied Mechanics and Engineering, 267, 170-232.
+3. Bathe, K.J. (2014). "Finite Element Procedures". Prentice Hall, Pearson Education.
 
-4. Wang, D., Xuan, J. (2010). "An improved NURBS-based isogeometric analysis with enhanced treatment of essential boundary conditions". Computer Methods in Applied Mechanics and Engineering, 199(37-40), 2425-2436.
+4. Potts, D.M., Zdravković, L. (2001). "Finite Element Analysis in Geotechnical Engineering: Application". Thomas Telford Publishing.
 
 5. Wohlmuth, B.I. (2001). "Discretization Methods and Iterative Solvers Based on Domain Decomposition". Lecture Notes in Computational Science and Engineering, Vol. 17, Springer. 

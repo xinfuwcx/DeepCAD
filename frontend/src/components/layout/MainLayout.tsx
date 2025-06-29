@@ -33,7 +33,8 @@ import {
   AccountCircle,
   Notifications,
   Construction,
-  StraightenOutlined
+  StraightenOutlined,
+  Calculate
 } from '@mui/icons-material';
 import { styled } from '@mui/system';
 import Logo from './Logo';
@@ -103,6 +104,7 @@ const mainNavItems: NavMenuItem[] = [
   { id: 'tunnel', text: '隧道建模', icon: <StraightenOutlined />, section: '主要功能' },
   { id: 'mesh', text: '网格划分', icon: <AccountTree />, section: '分析工具' },
   { id: 'compute', text: '计算分析', icon: <Science />, section: '分析工具' },
+  { id: 'fem-analysis', text: '有限元分析', icon: <Calculate />, section: '分析工具' },
   { id: 'results', text: '结果可视化', icon: <BarChart />, section: '分析工具' },
 ];
 

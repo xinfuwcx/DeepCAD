@@ -1,53 +1,48 @@
 @echo off
-chcp 65001 > nul
 echo =============================================
 echo 深基坑CAE系统 - 启动前端开发服务器
 echo =============================================
-echo.
 
-REM 设置工作目录为项目根目录
-cd /d %~dp0\..
+:: 使用PowerShell设置Node.js路径
+powershell -Command "$env:PATH += ';C:\Program Files\nodejs'; if ($?) { exit 0 } else { exit 1 }"
+if %ERRORLEVEL% NEQ 0 (
+    echo 错误: 无法设置Node.js路径
+    pause
+    exit /b 1
+)
 
-REM 设置Node.js路径
-set NODE_PATH="C:\Program Files\nodejs"
-set PATH=%NODE_PATH%;%PATH%
-
-REM 检查Node.js版本
-%NODE_PATH%\node --version > nul 2>&1
-if %errorlevel% neq 0 (
-    echo 错误: 未找到Node.js，请确保Node.js已安装在C:\Program Files\nodejs
-    goto :error
+:: 检查Node.js是否可用
+powershell -Command "if (Get-Command node -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }"
+if %ERRORLEVEL% NEQ 0 (
+    echo 错误: 未找到Node.js，请确保Node.js已安装并添加到PATH中
+    echo 启动失败，请检查错误信息
+    pause
+    exit /b 1
 )
 
 echo Node.js版本:
-%NODE_PATH%\node --version
-echo.
+powershell -Command "node --version"
 
-echo 进入前端目录...
-cd frontend
+:: 切换到前端目录
+cd /d %~dp0\..\frontend
 
-REM 检查是否安装了依赖
+:: 检查是否安装了依赖
 if not exist node_modules (
-    echo 前端依赖未安装，开始安装...
-    call %NODE_PATH%\npm install
+    echo 正在安装前端依赖...
+    powershell -Command "npm install"
+    if %ERRORLEVEL% NEQ 0 (
+        echo 依赖安装失败，请检查错误信息
+        pause
+        exit /b 1
+    )
 ) else (
     echo 依赖已安装，继续启动...
 )
 
+:: 启动开发服务器
 echo 启动前端开发服务器...
-echo.
-call %NODE_PATH%\npm run dev
+powershell -Command "npm run dev"
 
-echo.
-goto :end
-
-:error
-echo.
-echo 启动失败，请检查错误信息
-pause
-exit /b 1
-
-:end
-echo.
-echo 前端服务器已关闭
+:: 如果开发服务器关闭，显示消息
+echo 前端开发服务器已关闭
 pause 

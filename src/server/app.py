@@ -12,7 +12,7 @@ import uvicorn
 from contextlib import asynccontextmanager
 
 # 从各模块导入路由
-from src.api.routes import modeling_router, compute_router, visualization_router, excavation_router
+from src.api.routes import modeling_router, compute_router, visualization_router, excavation_router, iga_geometry_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -49,6 +49,7 @@ api_router.include_router(modeling_router.router, prefix="/modeling", tags=["建
 api_router.include_router(compute_router.router, prefix="/compute", tags=["计算分析"])
 api_router.include_router(visualization_router.router, prefix="/visualization", tags=["可视化"])
 api_router.include_router(excavation_router.router, prefix="/excavation", tags=["深基坑系统"])
+api_router.include_router(iga_geometry_router.router, prefix="/iga", tags=["IGA几何"])
 
 # 将API路由添加到应用
 app.include_router(api_router)
