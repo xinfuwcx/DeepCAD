@@ -11,16 +11,16 @@ export enum UserRole {
  * 用户信息
  */
 export interface User {
-  id: number;
+  id: string;
   username: string;
   email: string;
   name: string;
-  role: UserRole;
+  role: UserRole | string;
   company?: string;
   position?: string;
   avatar?: string;
-  created_at: string;
-  last_login?: string;
+  createdAt: string;
+  lastLogin?: string;
   preferences?: UserPreferences;
 }
 
@@ -28,22 +28,24 @@ export interface User {
  * 用户偏好设置
  */
 export interface UserPreferences {
-  theme: string;
-  language: string;
+  theme: 'light' | 'dark' | 'system';
   notifications: boolean;
-  default_view?: string;
+  language: string;
 }
 
 /**
  * 项目类型定义
  */
 export interface Project {
-  id: number;
+  id: string;
   name: string;
   description: string;
-  created_at: string;
-  updated_at: string;
-  status: ProjectStatus;
+  createdAt: string;
+  updatedAt: string;
+  owner: string;
+  collaborators?: string[];
+  status: ProjectStatus | 'active' | 'archived' | 'deleted';
+  thumbnail?: string;
   metadata: ProjectMetadata;
 }
 
@@ -51,24 +53,20 @@ export interface Project {
  * 项目状态
  */
 export enum ProjectStatus {
-  DRAFT = 'draft',
-  MODELING = 'modeling',
-  IGA_ANALYSIS = 'iga_analysis',
-  COMPUTING = 'computing',
-  COMPLETED = 'completed',
-  FAILED = 'failed'
+  ACTIVE = 'active',
+  ARCHIVED = 'archived',
+  DELETED = 'deleted'
 }
 
 /**
  * 项目元数据
  */
 export interface ProjectMetadata {
-  domain?: DomainInfo;
-  layers?: SoilLayer[];
-  excavation?: ExcavationInfo;
-  supports?: SupportStructure[];
-  stages?: ExcavationStage[];
-  geometry_models?: GeometryModel[];
+  location?: string;
+  client?: string;
+  projectNumber?: string;
+  tags?: string[];
+  [key: string]: any;
 }
 
 /**
@@ -85,12 +83,17 @@ export interface DomainInfo {
  * 土层信息
  */
 export interface SoilLayer {
-  id: number;
   name: string;
-  material_type: string;
-  thickness: number;
-  properties: Record<string, any>;
-  color?: string;
+  depth: number;
+  color: number | string;
+  properties?: {
+    cohesion?: number;
+    frictionAngle?: number;
+    unitWeight?: number;
+    elasticModulus?: number;
+    poissonRatio?: number;
+    [key: string]: any;
+  } | Record<string, any>;
 }
 
 /**
@@ -388,4 +391,128 @@ export interface ModelResponse {
   id: number;
   message: string;
   model_info: Record<string, any>;
+}
+
+/**
+ * 物理AI模型配置
+ */
+export interface PhysicsAIConfig {
+  model_type: string;
+  parameters: Record<string, any>;
+  training_data: string[];
+  validation_data: string[];
+  epochs: number;
+  batch_size: number;
+  learning_rate: number;
+  message: string;
+  model_info: Record<string, any>;
+}
+
+/**
+ * 基坑几何数据
+ */
+export interface ExcavationGeometryData {
+  width: number;
+  length: number;
+  depth: number;
+  shape?: 'rectangular' | 'circular' | 'irregular';
+  irregularGeometry?: any; // 不规则形状的几何数据
+}
+
+/**
+ * 支护结构
+ */
+export interface SupportStructures {
+  diaphragmWall?: {
+    thickness: number;
+    depth: number;
+    material: string;
+  };
+  struts?: {
+    levels: number;
+    spacing: number;
+    diameter: number;
+    material: string;
+  };
+  anchors?: {
+    levels: number;
+    spacing: number;
+    length: number;
+    angle: number;
+    prestress: number;
+  };
+}
+
+/**
+ * 基坑模型
+ */
+export interface ExcavationModel {
+  id: string;
+  name: string;
+  description?: string;
+  geometryData: ExcavationGeometryData;
+  soilLayers?: SoilLayer[];
+  supportStructures?: SupportStructures;
+  waterLevel?: number;
+  surroundingBuildings?: any[];
+  constructionStages?: any[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * 分析结果
+ */
+export interface AnalysisResult {
+  id: string;
+  modelId: string;
+  type: 'displacement' | 'stress' | 'settlement' | 'stability';
+  data: any;
+  createdAt: string;
+  maxValue: number;
+  minValue: number;
+}
+
+/**
+ * 通知
+ */
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: 'info' | 'warning' | 'error' | 'success';
+  read: boolean;
+  createdAt: string;
+}
+
+/**
+ * 分页响应
+ */
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+/**
+ * IGA分析参数
+ */
+export interface IgaAnalysisParams {
+  modelId: string;
+  analysisType: 'static' | 'dynamic' | 'seepage';
+  nurbs: {
+    degree: [number, number, number];
+    controlPoints: number;
+    weights?: number[];
+  };
+  solver: {
+    type: 'direct' | 'iterative';
+    tolerance: number;
+    maxIterations?: number;
+  };
+  constitutiveModel: string;
+  timeSteps?: number;
 } 

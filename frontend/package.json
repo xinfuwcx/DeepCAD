@@ -8,7 +8,12 @@
     "build": "cd src && tsc && vite build",
     "lint": "cd src && eslint src --ext .ts,.tsx",
     "preview": "cd src && vite preview",
-    "test": "cd src && vitest run"
+    "test": "cd src && vitest run",
+    "figma:setup": "node scripts/setup-figma.js",
+    "figma:sync": "node scripts/figma-sync.js",
+    "figma:tokens": "node scripts/figma-tokens.js",
+    "figma:components": "node scripts/figma-components.js",
+    "design:build": "npm run figma:tokens && npm run figma:components"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -20,13 +25,17 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.6.2",
     "three": "^0.153.0",
-    "zustand": "^4.3.8"
+    "zustand": "^4.3.8",
+    "color": "^4.2.3",
+    "chroma-js": "^2.4.2"
   },
   "devDependencies": {
     "@types/node": "^24.0.3",
     "@types/react": "^18.2.14",
     "@types/react-dom": "^18.2.6",
     "@types/three": "^0.152.1",
+    "@types/color": "^3.0.6",
+    "@types/chroma-js": "^2.4.4",
     "@typescript-eslint/eslint-plugin": "^5.61.0",
     "@typescript-eslint/parser": "^5.61.0",
     "@vitejs/plugin-react": "^4.0.1",

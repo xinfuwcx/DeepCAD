@@ -8,8 +8,10 @@
 
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { Box, CssBaseline, ThemeProvider } from '@mui/material';
-import { theme } from './styles/theme';
+import { Box, CssBaseline } from '@mui/material';
+
+// 主题组件
+import FigmaThemeProvider from './components/theme/FigmaThemeProvider';
 
 // 布局组件
 import MainLayout from './components/layout/MainLayout';
@@ -72,8 +74,7 @@ const MainLayoutWrapper = () => {
  */
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <FigmaThemeProvider autoRefresh={false}>
       <AuthProvider>
         <Router>
           <Routes>
@@ -92,7 +93,7 @@ function App() {
           </Routes>
         </Router>
       </AuthProvider>
-    </ThemeProvider>
+    </FigmaThemeProvider>
   );
 }
 

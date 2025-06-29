@@ -55,21 +55,51 @@ import {
 import { api } from '../utils/api';
 
 // NURBS预览组件（占位）
-const NurbsPreview: React.FC<{ projectId: number, height?: number }> = ({ projectId, height = 400 }) => {
+const NurbsPreview: React.FC<{ projectId: number, height?: number, showControlPoints?: boolean, showKnotVectors?: boolean }> = ({ 
+  projectId, 
+  height = 400,
+  showControlPoints = true,
+  showKnotVectors = false
+}) => {
   return (
     <Box 
       sx={{ 
         height, 
         bgcolor: 'background.paper', 
-        display: 'flex', 
+        display: 'flex',
+        flexDirection: 'column',
         justifyContent: 'center', 
         alignItems: 'center',
-        border: '1px dashed grey'
+        border: '1px solid rgba(0,0,0,0.12)',
+        borderRadius: 1,
+        position: 'relative',
+        overflow: 'hidden'
       }}
     >
       <Typography color="text.secondary">
         NURBS几何模型预览 (项目ID: {projectId})
       </Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+        {showControlPoints && '显示控制点 • '}
+        {showKnotVectors && '显示节点矢量'}
+      </Typography>
+      
+      {/* 模拟NURBS模型的网格线 */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          opacity: 0.5,
+          backgroundImage: `
+            linear-gradient(to right, rgba(0,0,0,0.1) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(0,0,0,0.1) 1px, transparent 1px)
+          `,
+          backgroundSize: '20px 20px'
+        }}
+      />
     </Box>
   );
 };
@@ -277,7 +307,7 @@ const IgaAnalysisPage: React.FC = () => {
   const renderComputationStatus = () => {
     if (!job) return null;
     
-    let statusColor = 'default';
+    let statusColor: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' = 'default';
     let statusIcon = <InfoIcon />;
     
     switch (job.status) {
@@ -300,36 +330,40 @@ const IgaAnalysisPage: React.FC = () => {
     }
     
     return (
-      <Card sx={{ mt: 3 }}>
+      <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Typography variant="h6" gutterBottom>
-            计算状态
-          </Typography>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6">
+              计算状态
+            </Typography>
+            
             <Chip
               label={job.status === 'running' ? '计算中' : 
-                     job.status === 'completed' ? '已完成' :
-                     job.status === 'failed' ? '失败' :
-                     job.status === 'cancelled' ? '已取消' : '未知'}
-              color={statusColor as any}
+                    job.status === 'completed' ? '已完成' :
+                    job.status === 'failed' ? '失败' :
+                    job.status === 'cancelled' ? '已取消' : '未知'}
+              color={statusColor}
               icon={statusIcon}
-              sx={{ mr: 2 }}
             />
-            
-            {job.status === 'running' && (
-              <Typography variant="body2" color="text.secondary">
-                {Math.floor(job.progress)}% 完成
-              </Typography>
-            )}
           </Box>
           
           {job.status === 'running' && (
-            <LinearProgress 
-              variant="determinate" 
-              value={job.progress} 
-              sx={{ mb: 2, height: 8, borderRadius: 1 }}
-            />
+            <>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mr: 2 }}>
+                  计算进度:
+                </Typography>
+                <Typography variant="body2" fontWeight="bold">
+                  {Math.floor(job.progress)}%
+                </Typography>
+              </Box>
+              
+              <LinearProgress 
+                variant="determinate" 
+                value={job.progress} 
+                sx={{ mb: 2, height: 8, borderRadius: 1 }}
+              />
+            </>
           )}
           
           <Grid container spacing={2}>
@@ -344,6 +378,59 @@ const IgaAnalysisPage: React.FC = () => {
               </Typography>
             </Grid>
           </Grid>
+          
+          {job.status === 'completed' && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              
+              <Typography variant="subtitle2" gutterBottom sx={{ color: 'primary.main' }}>
+                计算结果
+              </Typography>
+              
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>结果类型</InputLabel>
+                    <Select
+                      defaultValue="displacement"
+                      label="结果类型"
+                    >
+                      <MenuItem value="displacement">位移</MenuItem>
+                      <MenuItem value="stress">应力</MenuItem>
+                      <MenuItem value="strain">应变</MenuItem>
+                      <MenuItem value="energy">能量</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>显示方式</InputLabel>
+                    <Select
+                      defaultValue="contour"
+                      label="显示方式"
+                    >
+                      <MenuItem value="contour">云图</MenuItem>
+                      <MenuItem value="vector">矢量图</MenuItem>
+                      <MenuItem value="iso">等值面</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+              
+              <Box sx={{ mt: 2, p: 2, bgcolor: 'background.paper', border: '1px dashed grey', borderRadius: 1, height: 200, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <Typography color="text.secondary">
+                  IGA分析结果可视化 (点击查看详情)
+                </Typography>
+              </Box>
+              
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                <Button variant="outlined" startIcon={<SaveIcon />}>
+                  导出结果
+                </Button>
+              </Box>
+            </>
+          )}
         </CardContent>
       </Card>
     );
@@ -509,124 +596,141 @@ const IgaAnalysisPage: React.FC = () => {
             
             <Stack spacing={3}>
               {/* 基本分析参数 */}
-              <FormControl fullWidth>
-                <InputLabel>分析类型</InputLabel>
-                <Select
-                  value={igaParams.analysisType}
-                  label="分析类型"
-                  onChange={(e) => handleBasicParamChange('analysisType', e.target.value)}
-                >
-                  <MenuItem value="structural">结构分析</MenuItem>
-                  <MenuItem value="thermal">热分析</MenuItem>
-                  <MenuItem value="coupled">热-结构耦合</MenuItem>
-                </Select>
-              </FormControl>
-              
-              <FormControl fullWidth>
-                <InputLabel>材料模型</InputLabel>
-                <Select
-                  value={igaParams.materialModel}
-                  label="材料模型"
-                  onChange={(e) => handleBasicParamChange('materialModel', e.target.value)}
-                >
-                  <MenuItem value="linear-elastic">线性弹性</MenuItem>
-                  <MenuItem value="neo-hookean">Neo-Hookean</MenuItem>
-                  <MenuItem value="mohr-coulomb">莫尔-库伦</MenuItem>
-                </Select>
-              </FormControl>
-              
-              <FormControl fullWidth>
-                <InputLabel>求解器</InputLabel>
-                <Select
-                  value={igaParams.solver}
-                  label="求解器"
-                  onChange={(e) => handleBasicParamChange('solver', e.target.value)}
-                >
-                  <MenuItem value="direct">直接求解器</MenuItem>
-                  <MenuItem value="iterative">迭代求解器</MenuItem>
-                  <MenuItem value="amg">代数多重网格</MenuItem>
-                </Select>
-              </FormControl>
+              <Card variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold', color: 'primary.main' }}>
+                  基本分析设置
+                </Typography>
+                
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <InputLabel>分析类型</InputLabel>
+                  <Select
+                    value={igaParams.analysisType}
+                    label="分析类型"
+                    onChange={(e) => handleBasicParamChange('analysisType', e.target.value)}
+                  >
+                    <MenuItem value="structural">结构分析</MenuItem>
+                    <MenuItem value="thermal">热分析</MenuItem>
+                    <MenuItem value="coupled">热-结构耦合</MenuItem>
+                  </Select>
+                </FormControl>
+                
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <InputLabel>材料模型</InputLabel>
+                  <Select
+                    value={igaParams.materialModel}
+                    label="材料模型"
+                    onChange={(e) => handleBasicParamChange('materialModel', e.target.value)}
+                  >
+                    <MenuItem value="linear-elastic">线性弹性</MenuItem>
+                    <MenuItem value="neo-hookean">Neo-Hookean</MenuItem>
+                    <MenuItem value="mohr-coulomb">莫尔-库伦</MenuItem>
+                  </Select>
+                </FormControl>
+                
+                <FormControl fullWidth>
+                  <InputLabel>求解器</InputLabel>
+                  <Select
+                    value={igaParams.solver}
+                    label="求解器"
+                    onChange={(e) => handleBasicParamChange('solver', e.target.value)}
+                  >
+                    <MenuItem value="direct">直接求解器</MenuItem>
+                    <MenuItem value="iterative">迭代求解器</MenuItem>
+                    <MenuItem value="amg">代数多重网格</MenuItem>
+                  </Select>
+                </FormControl>
+              </Card>
               
               {/* NURBS细化参数 */}
-              <Typography variant="subtitle2" sx={{ mt: 2 }}>NURBS参数</Typography>
-              <Divider />
-              
-              <FormControl fullWidth>
-                <InputLabel>细化方式</InputLabel>
-                <Select
-                  value={igaParams.nurbs.refinement}
-                  label="细化方式"
-                  onChange={(e) => handleParamChange('nurbs', 'refinement', e.target.value)}
-                >
-                  <MenuItem value="h-refinement">h-细化</MenuItem>
-                  <MenuItem value="p-refinement">p-细化</MenuItem>
-                  <MenuItem value="k-refinement">k-细化</MenuItem>
-                </Select>
-              </FormControl>
-              
-              <Box>
-                <Typography variant="body2" gutterBottom>细化级别</Typography>
-                <Slider
-                  value={igaParams.nurbs.refinementLevel}
-                  min={0}
-                  max={5}
-                  step={1}
-                  valueLabelDisplay="auto"
-                  onChange={(_, value) => handleParamChange('nurbs', 'refinementLevel', value)}
-                  marks={[
-                    { value: 0, label: '0' },
-                    { value: 5, label: '5' }
-                  ]}
-                />
-              </Box>
+              <Card variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold', color: 'primary.main' }}>
+                  NURBS参数
+                </Typography>
+                
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <InputLabel>细化方式</InputLabel>
+                  <Select
+                    value={igaParams.nurbs.refinement}
+                    label="细化方式"
+                    onChange={(e) => handleParamChange('nurbs', 'refinement', e.target.value)}
+                  >
+                    <MenuItem value="h-refinement">h-细化 (增加控制点)</MenuItem>
+                    <MenuItem value="p-refinement">p-细化 (提高阶次)</MenuItem>
+                    <MenuItem value="k-refinement">k-细化 (综合优化)</MenuItem>
+                  </Select>
+                </FormControl>
+                
+                <Box>
+                  <Typography variant="body2" gutterBottom>
+                    细化级别: {igaParams.nurbs.refinementLevel}
+                  </Typography>
+                  <Slider
+                    value={igaParams.nurbs.refinementLevel}
+                    min={0}
+                    max={5}
+                    step={1}
+                    valueLabelDisplay="auto"
+                    onChange={(_, value) => handleParamChange('nurbs', 'refinementLevel', value)}
+                    marks={[
+                      { value: 0, label: '粗糙' },
+                      { value: 5, label: '精细' }
+                    ]}
+                  />
+                </Box>
+              </Card>
               
               {/* 非线性参数 */}
-              <Typography variant="subtitle2" sx={{ mt: 2 }}>非线性设置</Typography>
-              <Divider />
+              <Card variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold', color: 'primary.main' }}>
+                  高级设置
+                </Typography>
+                
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={igaParams.nonlinear.useNonlinear}
+                      onChange={(e) => handleParamChange('nonlinear', 'useNonlinear', e.target.checked)}
+                    />
+                  }
+                  label="启用非线性分析"
+                />
+                
+                {igaParams.nonlinear.useNonlinear && (
+                  <Box sx={{ pl: 2, borderLeft: '2px solid', borderColor: 'divider', mt: 1 }}>
+                    <TextField
+                      label="最大迭代次数"
+                      type="number"
+                      value={igaParams.nonlinear.maxIterations}
+                      onChange={(e) => handleParamChange('nonlinear', 'maxIterations', parseInt(e.target.value))}
+                      fullWidth
+                      size="small"
+                      sx={{ mb: 2 }}
+                    />
+                    
+                    <TextField
+                      label="收敛容差"
+                      type="number"
+                      value={igaParams.nonlinear.tolerance}
+                      onChange={(e) => handleParamChange('nonlinear', 'tolerance', parseFloat(e.target.value))}
+                      fullWidth
+                      inputProps={{ step: '1e-8' }}
+                      size="small"
+                      sx={{ mb: 2 }}
+                    />
+                    
+                    <TextField
+                      label="加载步数"
+                      type="number"
+                      value={igaParams.nonlinear.loadSteps}
+                      onChange={(e) => handleParamChange('nonlinear', 'loadSteps', parseInt(e.target.value))}
+                      fullWidth
+                      size="small"
+                    />
+                  </Box>
+                )}
+              </Card>
               
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={igaParams.nonlinear.useNonlinear}
-                    onChange={(e) => handleParamChange('nonlinear', 'useNonlinear', e.target.checked)}
-                  />
-                }
-                label="启用非线性分析"
-              />
-              
-              {igaParams.nonlinear.useNonlinear && (
-                <>
-                  <TextField
-                    label="最大迭代次数"
-                    type="number"
-                    value={igaParams.nonlinear.maxIterations}
-                    onChange={(e) => handleParamChange('nonlinear', 'maxIterations', parseInt(e.target.value))}
-                    fullWidth
-                  />
-                  
-                  <TextField
-                    label="收敛容差"
-                    type="number"
-                    value={igaParams.nonlinear.tolerance}
-                    onChange={(e) => handleParamChange('nonlinear', 'tolerance', parseFloat(e.target.value))}
-                    fullWidth
-                    inputProps={{ step: '1e-8' }}
-                  />
-                  
-                  <TextField
-                    label="加载步数"
-                    type="number"
-                    value={igaParams.nonlinear.loadSteps}
-                    onChange={(e) => handleParamChange('nonlinear', 'loadSteps', parseInt(e.target.value))}
-                    fullWidth
-                  />
-                </>
-              )}
-              
-              {/* 计算设置 */}
-              <Typography variant="subtitle2" sx={{ mt: 2 }}>计算设置</Typography>
-              <Divider />
+              <Divider sx={{ my: 2 }} />
               
               <FormControlLabel
                 control={
@@ -639,52 +743,47 @@ const IgaAnalysisPage: React.FC = () => {
               />
               
               {igaParams.computation.useParallel && (
-                <TextField
-                  label="使用核心数"
-                  type="number"
-                  value={igaParams.computation.numCores}
-                  onChange={(e) => handleParamChange('computation', 'numCores', parseInt(e.target.value))}
-                  fullWidth
-                  InputProps={{ inputProps: { min: 1, max: 32 } }}
-                />
-              )}
-              
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={igaParams.computation.saveIntermediate}
-                    onChange={(e) => handleParamChange('computation', 'saveIntermediate', e.target.checked)}
-                  />
-                }
-                label="保存中间结果"
-              />
-              
-              {/* 操作按钮 */}
-              <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<StartIcon />}
-                  onClick={handleStartAnalysis}
-                  disabled={computing || loading}
-                  fullWidth
-                >
-                  开始分析
-                </Button>
-                
-                {computing && (
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    startIcon={<StopIcon />}
-                    onClick={handleCancelAnalysis}
+                <Box sx={{ pl: 2, borderLeft: '2px solid', borderColor: 'divider', mt: 1 }}>
+                  <TextField
+                    label="使用核心数"
+                    type="number"
+                    value={igaParams.computation.numCores}
+                    onChange={(e) => handleParamChange('computation', 'numCores', parseInt(e.target.value))}
                     fullWidth
-                  >
-                    取消
-                  </Button>
-                )}
-              </Box>
+                    InputProps={{ inputProps: { min: 1, max: 32 } }}
+                    size="small"
+                  />
+                </Box>
+              )}
             </Stack>
+            
+            {/* 操作按钮 */}
+            <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<StartIcon />}
+                onClick={handleStartAnalysis}
+                disabled={computing || loading}
+                fullWidth
+                size="large"
+              >
+                开始IGA分析
+              </Button>
+              
+              {computing && (
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={<StopIcon />}
+                  onClick={handleCancelAnalysis}
+                  fullWidth
+                  size="large"
+                >
+                  取消
+                </Button>
+              )}
+            </Box>
           </Paper>
           
           {renderGeometryInfo()}
@@ -693,11 +792,48 @@ const IgaAnalysisPage: React.FC = () => {
         {/* 右侧预览和结果 */}
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: 2, mb: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              NURBS几何模型预览
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">NURBS几何模型</Typography>
+              
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <FormControlLabel
+                  control={
+                    <Switch 
+                      size="small"
+                      defaultChecked
+                    />
+                  }
+                  label="控制点"
+                  labelPlacement="start"
+                />
+                
+                <FormControlLabel
+                  control={
+                    <Switch 
+                      size="small" 
+                    />
+                  }
+                  label="节点矢量"
+                  labelPlacement="start"
+                />
+              </Box>
+            </Box>
             
             <NurbsPreview projectId={projectId} height={400} />
+            
+            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="body2" color="text.secondary">
+                模型类型: NURBS曲面
+              </Typography>
+              
+              <Typography variant="body2" color="text.secondary">
+                控制点: 500个
+              </Typography>
+              
+              <Typography variant="body2" color="text.secondary">
+                阶次: [3, 3, 2]
+              </Typography>
+            </Box>
           </Paper>
           
           {renderComputationStatus()}

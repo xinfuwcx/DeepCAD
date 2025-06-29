@@ -1,0 +1,70 @@
+// 设计令牌类型定义
+export interface DesignTokens {
+  colors: { [key: string]: string };
+  typography: { [key: string]: TypographyStyle };
+  spacing: { [key: string]: string };
+  effects: { [key: string]: string };
+}
+
+export interface TypographyStyle {
+  fontSize: string;
+  fontWeight: number;
+  lineHeight: number;
+}
+
+export const tokens: DesignTokens = {
+  "colors": {
+    "primary": "#1976d2",
+    "primary-light": "#42a5f5",
+    "primary-dark": "#1565c0",
+    "secondary": "#dc004e",
+    "success": "#4caf50",
+    "warning": "#ff9800",
+    "error": "#f44336",
+    "info": "#2196f3",
+    "background": "#ffffff",
+    "surface": "#f5f5f5",
+    "text-primary": "#212121",
+    "text-secondary": "#757575"
+  },
+  "typography": {
+    "h1": {
+      "fontSize": "2.125rem",
+      "fontWeight": 300,
+      "lineHeight": 1.167
+    },
+    "h2": {
+      "fontSize": "1.5rem",
+      "fontWeight": 400,
+      "lineHeight": 1.2
+    },
+    "h3": {
+      "fontSize": "1.25rem",
+      "fontWeight": 500,
+      "lineHeight": 1.6
+    },
+    "body": {
+      "fontSize": "1rem",
+      "fontWeight": 400,
+      "lineHeight": 1.5
+    },
+    "caption": {
+      "fontSize": "0.75rem",
+      "fontWeight": 400,
+      "lineHeight": 1.66
+    }
+  },
+  "spacing": {
+    "xs": "4px",
+    "sm": "8px",
+    "base": "16px",
+    "lg": "24px",
+    "xl": "32px",
+    "2xl": "48px"
+  },
+  "effects": {
+    "shadow": "0 2px 4px rgba(0,0,0,0.1)",
+    "card-shadow": "0 4px 8px rgba(0,0,0,0.12)",
+    "elevated-shadow": "0 8px 16px rgba(0,0,0,0.15)"
+  }
+};
