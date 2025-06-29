@@ -1,5 +1,5 @@
 # 深基坑CAE系统 - 统一依赖需求
-# 专注于IGA分析的核心依赖，包含所有核心功能
+# 深基坑工程分析与设计系统的核心依赖
 
 # 基本Web框架
 fastapi>=0.110.0
@@ -32,10 +32,9 @@ meshio>=5.3.5
 # 网格生成
 netgen-mesher>=6.2.2504
 
-# Kratos多物理场
+# Kratos多物理场 - 结构力学分析
 KratosMultiphysics>=10.2.1
 KratosMultiphysics.StructuralMechanicsApplication>=10.2.1
-KratosMultiphysics.IgaApplication>=10.2.1
 
 # 深度学习（可选）
 tensorflow>=2.12.0
