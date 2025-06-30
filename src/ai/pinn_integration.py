@@ -887,4 +887,4 @@ if __name__ == "__main__":
                 save_path=os.path.join(integrator.results_dir, "displacement_prediction.png")
             )
     else:
-        print("°l	g≥çYÑvpenc(uéNPINN≠ã√~")
+        print("°l	g≥çYÑvpenc(uéNPINN≠ã√~")  
