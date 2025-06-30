@@ -2,425 +2,610 @@
  * @file background3d.js
  * @description 使用Three.js的3D背景Canvas组件，用于界面美化
  * @author Deep Excavation Team
- * @version 1.0.0
+ * @version 2.0.0
  * @copyright 2025
  */
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import Stats from 'stats-js';
 
 /**
  * Background3D类 - 创建三维场景背景和坐标系
  */
 export default class Background3D {
   /**
-   * 创建3D背景渲染器
-   * @param {HTMLElement} container - 容器元素
+   * 创建3D背景效果
+   * @param {string} containerId - 容器元素ID
    * @param {Object} options - 配置选项
    */
-  constructor(container, options = {}) {
-    this.container = container;
-    this.options = Object.assign({
-      gridSize: 100,
-      gridDivisions: 100,
-      gridColor1: 0xCCCCCC,
-      gridColor2: 0xAAAAAA,
-      backgroundColor: 0xF7F7F7,
-      axisLength: 50,
-      showGrid: true,
-      showAxes: true
-    }, options);
-
-    this.init();
+  constructor(containerId, options = {}) {
+    this.container = document.getElementById(containerId);
+    if (!this.container) {
+      console.error('Container element not found');
+      return;
+    }
+    
+    // 默认选项
+    this.options = {
+      particleCount: options.particleCount || 1000,
+      particleColor: options.particleColor || 0x4a7feb,
+      backgroundColor: options.backgroundColor || 0x0a0a1a,
+      connectionDistance: options.connectionDistance || 100,
+      connectionOpacity: options.connectionOpacity || 0.15,
+      particleSize: options.particleSize || 0.8,
+      cameraDistance: options.cameraDistance || 500,
+      enableOrbit: options.enableOrbit !== undefined ? options.enableOrbit : false,
+      motionFactor: options.motionFactor || 1.0,
+      usePostProcessing: options.usePostProcessing !== undefined ? options.usePostProcessing : true,
+      useGlow: options.useGlow !== undefined ? options.useGlow : true
+    };
+    
+    // 性能监控
+    this.stats = null;
+    if (options.showStats) {
+      this.initStats();
+    }
+    
+    // 初始化场景
+    this.initScene();
+    
+    // 创建粒子系统
+    this.createParticleSystem();
+    
+    // 设置后处理效果
+    if (this.options.usePostProcessing) {
+      this.setupPostProcessing();
+    }
+    
+    // 开始动画循环
+    this.animate();
+    
+    // 自适应窗口大小变化
+    window.addEventListener('resize', () => this.onWindowResize());
+    
+    // 跟踪鼠标位置以实现交互效果
+    this.mouse = new THREE.Vector2();
+    this.container.addEventListener('mousemove', (event) => this.onMouseMove(event));
+    
+    // 增加交互性 - 点击创建波纹效果
+    this.container.addEventListener('click', (event) => this.createRipple(event));
+    
+    console.log('Background3D initialized');
   }
-
+  
   /**
-   * 初始化3D场景
+   * 初始化性能监控
    */
-  init() {
+  initStats() {
+    try {
+      this.stats = new Stats();
+      this.stats.domElement.style.position = 'absolute';
+      this.stats.domElement.style.left = '0px';
+      this.stats.domElement.style.top = '0px';
+      this.stats.domElement.style.zIndex = '100';
+      this.container.appendChild(this.stats.domElement);
+    } catch (e) {
+      console.warn('Stats.js not loaded, performance monitoring disabled');
+    }
+  }
+  
+  /**
+   * 初始化Three.js场景
+   */
+  initScene() {
+    // 获取容器尺寸
+    this.width = this.container.clientWidth;
+    this.height = this.container.clientHeight;
+    
     // 创建场景
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(this.options.backgroundColor);
-    this.scene.fog = new THREE.Fog(this.options.backgroundColor, 500, 1000);
-
+    
     // 创建相机
-    const width = this.container.clientWidth;
-    const height = this.container.clientHeight;
-    this.camera = new THREE.PerspectiveCamera(45, width / height, 1, 2000);
-    this.camera.position.set(100, 100, 100);
-    this.camera.lookAt(0, 0, 0);
-
+    this.camera = new THREE.PerspectiveCamera(45, this.width / this.height, 1, 10000);
+    this.camera.position.z = this.options.cameraDistance;
+    
     // 创建渲染器
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.setPixelRatio(window.devicePixelRatio);
-    this.renderer.setSize(width, height);
-    this.renderer.shadowMap.enabled = true;
+    this.renderer = new THREE.WebGLRenderer({ 
+      antialias: true,
+      alpha: true,
+      powerPreference: 'high-performance' 
+    });
+    this.renderer.setSize(this.width, this.height);
+    this.renderer.setPixelRatio(window.devicePixelRatio > 1 ? 2 : 1); // 限制最高像素比为2以提升性能
     this.container.appendChild(this.renderer.domElement);
-
-    // 添加环境光和平行光
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    this.scene.add(ambientLight);
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(1, 1, 1);
-    directionalLight.castShadow = true;
-    this.scene.add(directionalLight);
-
-    // 添加网格地面
-    if (this.options.showGrid) {
-      this.addGridGround();
+    
+    // 添加轨道控制（可选）
+    if (this.options.enableOrbit) {
+      this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+      this.controls.enableDamping = true;
+      this.controls.dampingFactor = 0.05;
+      this.controls.enableZoom = false;
     }
-
-    // 添加坐标轴
-    if (this.options.showAxes) {
-      this.addCoordinateSystem();
-    }
-
-    // 添加轨道控制器
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.05;
-
-    // 处理窗口大小变化
-    window.addEventListener('resize', this.onWindowResize.bind(this));
-
-    // 开始动画循环
-    this.animate();
+    
+    // 创建时钟对象跟踪时间
+    this.clock = new THREE.Clock();
   }
-
-  addGridGround() {
-    // 创建带有渐变的网格地面
-    const size = this.options.gridSize;
-    const divisions = this.options.gridDivisions;
+  
+  /**
+   * 创建粒子系统
+   */
+  createParticleSystem() {
+    // 创建粒子几何体
+    this.particleGeometry = new THREE.BufferGeometry();
+    this.particleCount = this.options.particleCount;
     
-    // 主网格
-    const gridHelper = new THREE.GridHelper(size, divisions, this.options.gridColor1, this.options.gridColor2);
-    gridHelper.position.y = 0;
-    gridHelper.material.transparent = true;
-    gridHelper.material.opacity = 0.6;
-    this.scene.add(gridHelper);
+    // 粒子位置数组
+    this.positions = new Float32Array(this.particleCount * 3);
+    // 粒子速度数组
+    this.velocities = new Float32Array(this.particleCount * 3);
+    // 粒子大小数组
+    this.sizes = new Float32Array(this.particleCount);
+    // 粒子颜色数组
+    this.colors = new Float32Array(this.particleCount * 3);
     
-    // 创建渐变地面
-    const groundGeometry = new THREE.PlaneGeometry(size, size);
-    const groundMaterial = new THREE.MeshBasicMaterial({
-      side: THREE.DoubleSide,
+    const color = new THREE.Color(this.options.particleColor);
+    
+    // 初始化粒子数据
+    for (let i = 0; i < this.particleCount; i++) {
+      // 位置 - 随机分布在场景中
+      this.positions[i * 3] = (Math.random() - 0.5) * this.width;
+      this.positions[i * 3 + 1] = (Math.random() - 0.5) * this.height;
+      this.positions[i * 3 + 2] = (Math.random() - 0.5) * 500;
+      
+      // 速度 - 随机方向
+      this.velocities[i * 3] = (Math.random() - 0.5) * 0.4 * this.options.motionFactor;
+      this.velocities[i * 3 + 1] = (Math.random() - 0.5) * 0.4 * this.options.motionFactor;
+      this.velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.4 * this.options.motionFactor;
+      
+      // 大小 - 随机变化
+      this.sizes[i] = this.options.particleSize * (0.8 + Math.random() * 0.4);
+      
+      // 颜色 - 基于基础颜色的随机变化
+      this.colors[i * 3] = color.r * (0.9 + Math.random() * 0.2);
+      this.colors[i * 3 + 1] = color.g * (0.9 + Math.random() * 0.2);
+      this.colors[i * 3 + 2] = color.b * (0.9 + Math.random() * 0.2);
+    }
+    
+    // 设置粒子属性
+    this.particleGeometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
+    this.particleGeometry.setAttribute('color', new THREE.BufferAttribute(this.colors, 3));
+    this.particleGeometry.setAttribute('size', new THREE.BufferAttribute(this.sizes, 1));
+    
+    // 创建粒子材质
+    const particleTexture = new THREE.TextureLoader().load('/assets/images/particle.png');
+    this.particleMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        color: { value: color },
+        pointTexture: { value: particleTexture },
+        time: { value: 0 }
+      },
+      vertexShader: `
+        attribute float size;
+        attribute vec3 color;
+        varying vec3 vColor;
+        uniform float time;
+        
+        void main() {
+          vColor = color;
+          
+          // 添加简单的动画
+          vec3 pos = position;
+          pos.y += sin(time * 0.1 + position.x * 0.01) * 2.0;
+          pos.x += cos(time * 0.1 + position.y * 0.01) * 2.0;
+          
+          vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+          gl_PointSize = size * (300.0 / -mvPosition.z);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 color;
+        uniform sampler2D pointTexture;
+        varying vec3 vColor;
+        
+        void main() {
+          gl_FragColor = vec4(vColor, 1.0) * texture2D(pointTexture, gl_PointCoord);
+          if (gl_FragColor.a < 0.1) discard;
+        }
+      `,
+      blending: THREE.AdditiveBlending,
+      depthTest: false,
       transparent: true,
-      opacity: 0.1,
-      color: 0xCCCCCC,
-      depthWrite: false
+      vertexColors: true
     });
     
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = 0.01; // 略高于网格，避免z-fighting
-    this.scene.add(ground);
+    // 创建粒子系统
+    this.particleSystem = new THREE.Points(this.particleGeometry, this.particleMaterial);
+    this.scene.add(this.particleSystem);
+    
+    // 创建连线几何体
+    this.lineMaterial = new THREE.LineBasicMaterial({
+      color: this.options.particleColor,
+      transparent: true,
+      opacity: this.options.connectionOpacity,
+      blending: THREE.AdditiveBlending
+    });
+    
+    // 连线网格
+    this.linesMesh = null;
   }
-
-  addCoordinateSystem() {
-    // 创建坐标轴
-    const axisLength = this.options.axisLength;
-    
-    // X轴 - 红色
-    const xAxisGeometry = new THREE.CylinderGeometry(0.2, 0.2, axisLength, 10);
-    const xAxisMaterial = new THREE.MeshBasicMaterial({ color: 0xFF0000 });
-    const xAxis = new THREE.Mesh(xAxisGeometry, xAxisMaterial);
-    xAxis.position.set(axisLength / 2, 0, 0);
-    xAxis.rotation.z = -Math.PI / 2;
-    this.scene.add(xAxis);
-    
-    // X轴箭头
-    const xConeGeometry = new THREE.ConeGeometry(0.8, 4, 12);
-    const xCone = new THREE.Mesh(xConeGeometry, xAxisMaterial);
-    xCone.position.set(axisLength, 0, 0);
-    xCone.rotation.z = -Math.PI / 2;
-    this.scene.add(xCone);
-    
-    // X轴标签
-    this.addAxisLabel("X", new THREE.Vector3(axisLength + 5, 0, 0), 0xFF0000);
-    
-    // Y轴 - 绿色
-    const yAxisGeometry = new THREE.CylinderGeometry(0.2, 0.2, axisLength, 10);
-    const yAxisMaterial = new THREE.MeshBasicMaterial({ color: 0x00FF00 });
-    const yAxis = new THREE.Mesh(yAxisGeometry, yAxisMaterial);
-    yAxis.position.set(0, axisLength / 2, 0);
-    this.scene.add(yAxis);
-    
-    // Y轴箭头
-    const yConeGeometry = new THREE.ConeGeometry(0.8, 4, 12);
-    const yCone = new THREE.Mesh(yConeGeometry, yAxisMaterial);
-    yCone.position.set(0, axisLength, 0);
-    this.scene.add(yCone);
-    
-    // Y轴标签
-    this.addAxisLabel("Y", new THREE.Vector3(0, axisLength + 5, 0), 0x00FF00);
-    
-    // Z轴 - 蓝色
-    const zAxisGeometry = new THREE.CylinderGeometry(0.2, 0.2, axisLength, 10);
-    const zAxisMaterial = new THREE.MeshBasicMaterial({ color: 0x0000FF });
-    const zAxis = new THREE.Mesh(zAxisGeometry, zAxisMaterial);
-    zAxis.position.set(0, 0, axisLength / 2);
-    zAxis.rotation.x = Math.PI / 2;
-    this.scene.add(zAxis);
-    
-    // Z轴箭头
-    const zConeGeometry = new THREE.ConeGeometry(0.8, 4, 12);
-    const zCone = new THREE.Mesh(zConeGeometry, zAxisMaterial);
-    zCone.position.set(0, 0, axisLength);
-    zCone.rotation.x = Math.PI / 2;
-    this.scene.add(zCone);
-    
-    // Z轴标签
-    this.addAxisLabel("Z", new THREE.Vector3(0, 0, axisLength + 5), 0x0000FF);
-    
-    // 创建右下角的小坐标系
-    this.createCornerCoordinateSystem();
-  }
-
-  addAxisLabel(text, position, color) {
-    // 创建文本精灵
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.width = 128;
-    canvas.height = 128;
-    
-    context.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
-    context.font = '80px Arial';
-    context.textAlign = 'center';
-    context.fillText(text, 64, 96);
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-    const sprite = new THREE.Sprite(spriteMaterial);
-    sprite.position.copy(position);
-    sprite.scale.set(10, 10, 1);
-    
-    this.scene.add(sprite);
-  }
-
-  createCornerCoordinateSystem() {
-    // 创建右下角的小坐标系
-    const size = 20;
-    const cornerGroup = new THREE.Group();
-    
-    // X轴 - 红色
-    const xGeometry = new THREE.CylinderGeometry(0.1, 0.1, size, 8);
-    const xMaterial = new THREE.MeshBasicMaterial({ color: 0xFF0000 });
-    const xAxis = new THREE.Mesh(xGeometry, xMaterial);
-    xAxis.position.set(size / 2, 0, 0);
-    xAxis.rotation.z = -Math.PI / 2;
-    cornerGroup.add(xAxis);
-    
-    // X轴箭头
-    const xConeGeometry = new THREE.ConeGeometry(0.4, 2, 8);
-    const xCone = new THREE.Mesh(xConeGeometry, xMaterial);
-    xCone.position.set(size, 0, 0);
-    xCone.rotation.z = -Math.PI / 2;
-    cornerGroup.add(xCone);
-    
-    // Y轴 - 绿色
-    const yGeometry = new THREE.CylinderGeometry(0.1, 0.1, size, 8);
-    const yMaterial = new THREE.MeshBasicMaterial({ color: 0x00FF00 });
-    const yAxis = new THREE.Mesh(yGeometry, yMaterial);
-    yAxis.position.set(0, size / 2, 0);
-    cornerGroup.add(yAxis);
-    
-    // Y轴箭头
-    const yConeGeometry = new THREE.ConeGeometry(0.4, 2, 8);
-    const yCone = new THREE.Mesh(yConeGeometry, yMaterial);
-    yCone.position.set(0, size, 0);
-    cornerGroup.add(yCone);
-    
-    // Z轴 - 蓝色
-    const zGeometry = new THREE.CylinderGeometry(0.1, 0.1, size, 8);
-    const zMaterial = new THREE.MeshBasicMaterial({ color: 0x0000FF });
-    const zAxis = new THREE.Mesh(zGeometry, zMaterial);
-    zAxis.position.set(0, 0, size / 2);
-    zAxis.rotation.x = Math.PI / 2;
-    cornerGroup.add(zAxis);
-    
-    // Z轴箭头
-    const zConeGeometry = new THREE.ConeGeometry(0.4, 2, 8);
-    const zCone = new THREE.Mesh(zConeGeometry, zMaterial);
-    zCone.position.set(0, 0, size);
-    zCone.rotation.x = Math.PI / 2;
-    cornerGroup.add(zCone);
-
-    // 将坐标系添加到右下角
-    this.cornerCoordinateSystem = cornerGroup;
-    this.scene.add(cornerGroup);
-
-    // 设置为屏幕空间固定位置
-    this.updateCornerCoordinateSystem();
-  }
-
-  updateCornerCoordinateSystem() {
-    if (!this.cornerCoordinateSystem) return;
-    
-    // 计算右下角位置，考虑相机视角
-    const width = this.container.clientWidth;
-    const height = this.container.clientHeight;
-    
-    // 设置坐标系位置为右下角，但稍微偏离边缘
-    const margin = 50;
-    const cornerX = (width / 2) - margin;
-    const cornerY = -(height / 2) + margin;
-    
-    // 将坐标系移动到右下角的屏幕空间
-    const vector = new THREE.Vector3(cornerX, cornerY, 0);
-    vector.unproject(this.camera);
-    
-    // 计算从相机到该点的方向
-    const dir = vector.sub(this.camera.position).normalize();
-    
-    // 计算合适的距离
-    const distance = 100;
-    const pos = this.camera.position.clone().add(dir.multiplyScalar(distance));
-    
-    // 设置坐标系位置
-    this.cornerCoordinateSystem.position.copy(pos);
-    
-    // 使坐标系始终面向相机
-    this.cornerCoordinateSystem.quaternion.copy(this.camera.quaternion);
-    
-    // 缩放以保持视觉大小一致
-    const scale = distance / 100;
-    this.cornerCoordinateSystem.scale.set(scale, scale, scale);
-  }
-
+  
   /**
-   * 窗口大小变化处理
+   * 设置后处理效果
    */
-  onWindowResize() {
-    const width = this.container.clientWidth;
-    const height = this.container.clientHeight;
-
-    this.camera.aspect = width / height;
-    this.camera.updateProjectionMatrix();
-    this.renderer.setSize(width, height);
+  setupPostProcessing() {
+    // 检查是否支持WebGL后处理
+    if (!THREE.EffectComposer) {
+      console.warn('后处理库未加载，跳过后处理设置');
+      return;
+    }
+    
+    try {
+      // 创建EffectComposer
+      this.composer = new THREE.EffectComposer(this.renderer);
+      
+      // 添加渲染通道
+      const renderPass = new THREE.RenderPass(this.scene, this.camera);
+      this.composer.addPass(renderPass);
+      
+      // 添加UnrealBloom效果
+      if (this.options.useGlow) {
+        const bloomPass = new THREE.UnrealBloomPass(
+          new THREE.Vector2(this.width, this.height),
+          0.5,  // 强度
+          0.4,  // 半径
+          0.85  // 阈值
+        );
+        this.composer.addPass(bloomPass);
+      }
+      
+      // 添加FXAA抗锯齿
+      const fxaaPass = new THREE.ShaderPass(THREE.FXAAShader);
+      fxaaPass.material.uniforms['resolution'].value.set(
+        1 / (this.width * this.renderer.getPixelRatio()),
+        1 / (this.height * this.renderer.getPixelRatio())
+      );
+      this.composer.addPass(fxaaPass);
+    } catch (e) {
+      console.warn('后处理设置失败:', e);
+      this.composer = null;
+    }
   }
-
+  
   /**
    * 动画循环
    */
   animate() {
-    requestAnimationFrame(this.animate.bind(this));
-    this.controls.update();
-    this.updateCornerCoordinateSystem();
-    this.renderer.render(this.scene, this.camera);
-  }
-
-  /**
-   * 从JSON加载场景
-   * @param {string} url - JSON文件URL
-   * @returns {Promise} - 加载完成的Promise
-   */
-  loadSceneFromJSON(url) {
-    return new Promise((resolve, reject) => {
-      const loader = new THREE.ObjectLoader();
-      loader.load(
-        url,
-        (obj) => {
-          // 清除现有场景中的对象（保留灯光和辅助线）
-          this.clearScene();
-          
-          // 添加加载的对象
-          this.scene.add(obj);
-          resolve(obj);
-        },
-        (xhr) => {
-          console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-        },
-        (error) => {
-          console.error('加载场景时出错:', error);
-          reject(error);
-        }
-      );
-    });
-  }
-
-  /**
-   * 清除场景中的对象（保留灯光和辅助线）
-   */
-  clearScene() {
-    // 保存需要保留的对象
-    const objectsToKeep = [];
-    this.scene.children.forEach(child => {
-      if (child instanceof THREE.Light || 
-        child instanceof THREE.GridHelper || 
-        child instanceof THREE.AxesHelper) {
-        objectsToKeep.push(child);
-      }
-    });
-
-    // 清除场景
-    while (this.scene.children.length > 0) {
-      this.scene.remove(this.scene.children[0]);
+    requestAnimationFrame(() => this.animate());
+    
+    // 更新性能监控
+    if (this.stats) this.stats.update();
+    
+    // 更新粒子位置
+    this.updateParticles();
+    
+    // 更新连线
+    this.updateConnections();
+    
+    // 更新控制器
+    if (this.options.enableOrbit && this.controls) {
+      this.controls.update();
     }
-
-    // 重新添加保留的对象
-    objectsToKeep.forEach(obj => {
-      this.scene.add(obj);
-    });
-  }
-
-  // 公共方法，用于添加模型到场景
-  addToScene(object) {
-    this.scene.add(object);
-  }
-
-  // 公共方法，用于从场景移除模型
-  removeFromScene(object) {
-    this.scene.remove(object);
-  }
-
-  // 公共方法，用于清空场景（除了背景和坐标系）
-  clearScene() {
-    // 保存背景和坐标系相关对象
-    const preservedObjects = [];
     
-    this.scene.traverse((object) => {
-      // 判断是否为背景或坐标系相关对象
-      const isBackground = object === this.scene || 
-                          object instanceof THREE.GridHelper ||
-                          object instanceof THREE.AmbientLight ||
-                          object instanceof THREE.DirectionalLight ||
-                          object === this.cornerCoordinateSystem;
+    // 更新着色器中的时间变量
+    const time = this.clock.getElapsedTime();
+    if (this.particleMaterial && this.particleMaterial.uniforms) {
+      this.particleMaterial.uniforms.time.value = time;
+    }
+    
+    // 使用后处理渲染或直接渲染
+    if (this.composer && this.options.usePostProcessing) {
+      this.composer.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
+  }
+  
+  /**
+   * 更新粒子位置
+   */
+  updateParticles() {
+    const positions = this.particleGeometry.attributes.position.array;
+    
+    for (let i = 0; i < this.particleCount; i++) {
+      const i3 = i * 3;
       
-      if (!isBackground && object.parent === this.scene) {
-        preservedObjects.push(object);
+      // 更新位置
+      positions[i3] += this.velocities[i3];
+      positions[i3 + 1] += this.velocities[i3 + 1];
+      positions[i3 + 2] += this.velocities[i3 + 2];
+      
+      // 边界检查并反弹
+      const halfWidth = this.width / 2;
+      const halfHeight = this.height / 2;
+      const depth = 250;
+      
+      if (positions[i3] < -halfWidth || positions[i3] > halfWidth) {
+        this.velocities[i3] = -this.velocities[i3];
       }
+      
+      if (positions[i3 + 1] < -halfHeight || positions[i3 + 1] > halfHeight) {
+        this.velocities[i3 + 1] = -this.velocities[i3 + 1];
+      }
+      
+      if (positions[i3 + 2] < -depth || positions[i3 + 2] > depth) {
+        this.velocities[i3 + 2] = -this.velocities[i3 + 2];
+      }
+      
+      // 鼠标交互 - 如果粒子靠近鼠标，轻微偏移
+      if (this.mouse.x !== 0 && this.mouse.y !== 0) {
+        const mouseX = this.mouse.x * halfWidth;
+        const mouseY = this.mouse.y * halfHeight;
+        
+        const dx = mouseX - positions[i3];
+        const dy = mouseY - positions[i3 + 1];
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < 100) {
+          const force = 0.5 * (1.0 - dist / 100);
+          positions[i3] -= dx * force * 0.01;
+          positions[i3 + 1] -= dy * force * 0.01;
+        }
+      }
+    }
+    
+    // 更新几何体
+    this.particleGeometry.attributes.position.needsUpdate = true;
+  }
+  
+  /**
+   * 更新粒子间的连线
+   */
+  updateConnections() {
+    // 限制连线更新频率以提高性能
+    if (!this.lastConnectionUpdate || Date.now() - this.lastConnectionUpdate > 500) {
+      this.lastConnectionUpdate = Date.now();
+    } else {
+      return;
+    }
+    
+    // 移除旧的连线
+    if (this.linesMesh) {
+      this.scene.remove(this.linesMesh);
+      this.linesMesh.geometry.dispose();
+    }
+    
+    const positions = this.particleGeometry.attributes.position.array;
+    const vertices = [];
+    const connectionDistance = this.options.connectionDistance;
+    const connectionDistanceSq = connectionDistance * connectionDistance;
+    
+    // 为了性能，限制最大连线数量
+    const maxConnections = 2000;
+    let connectionCount = 0;
+    
+    // 创建连线 - 使用空间索引优化性能
+    for (let i = 0; i < this.particleCount; i++) {
+      const i3 = i * 3;
+      const x1 = positions[i3];
+      const y1 = positions[i3 + 1];
+      const z1 = positions[i3 + 2];
+      
+      for (let j = i + 1; j < this.particleCount; j++) {
+        const j3 = j * 3;
+        const x2 = positions[j3];
+        const y2 = positions[j3 + 1];
+        const z2 = positions[j3 + 2];
+        
+        // 计算距离的平方
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const dz = z2 - z1;
+        const distSq = dx*dx + dy*dy + dz*dz;
+        
+        // 如果足够近，创建连线
+        if (distSq < connectionDistanceSq) {
+          vertices.push(x1, y1, z1);
+          vertices.push(x2, y2, z2);
+          
+          connectionCount++;
+          if (connectionCount >= maxConnections) break;
+        }
+      }
+      
+      if (connectionCount >= maxConnections) break;
+    }
+    
+    // 创建线条几何体
+    if (vertices.length > 0) {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      
+      // 创建线条
+      this.linesMesh = new THREE.LineSegments(geometry, this.lineMaterial);
+      this.scene.add(this.linesMesh);
+    }
+  }
+  
+  /**
+   * 窗口大小变化时调整渲染器
+   */
+  onWindowResize() {
+    this.width = this.container.clientWidth;
+    this.height = this.container.clientHeight;
+    
+    this.camera.aspect = this.width / this.height;
+    this.camera.updateProjectionMatrix();
+    
+    this.renderer.setSize(this.width, this.height);
+    
+    // 更新后处理
+    if (this.composer) {
+      this.composer.setSize(this.width, this.height);
+    }
+  }
+  
+  /**
+   * 鼠标移动事件处理
+   */
+  onMouseMove(event) {
+    const rect = this.container.getBoundingClientRect();
+    
+    // 计算归一化的鼠标坐标 (-1 到 1)
+    this.mouse.x = ((event.clientX - rect.left) / this.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / this.height) * 2 + 1;
+  }
+  
+  /**
+   * 创建点击波纹效果
+   */
+  createRipple(event) {
+    const rect = this.container.getBoundingClientRect();
+    
+    // 计算世界空间中的鼠标位置
+    const mouseX = ((event.clientX - rect.left) / this.width) * 2 - 1;
+    const mouseY = -((event.clientY - rect.top) / this.height) * 2 + 1;
+    
+    // 创建平面几何体
+    const rippleGeometry = new THREE.CircleGeometry(1, 32);
+    
+    // 创建材质
+    const rippleMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        color: { value: new THREE.Color(this.options.particleColor) },
+        time: { value: 0 },
+        startTime: { value: this.clock.getElapsedTime() }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 color;
+        uniform float time;
+        uniform float startTime;
+        varying vec2 vUv;
+        
+        void main() {
+          float elapsed = time - startTime;
+          
+          // 距离中心的距离
+          float dist = distance(vUv, vec2(0.5, 0.5)) * 2.0;
+          
+          // 从中心扩散的波纹
+          float wave = sin(dist * 10.0 - elapsed * 5.0) * 0.5 + 0.5;
+          
+          // 淡出效果
+          float fadeOut = max(0.0, 1.0 - elapsed * 0.5);
+          
+          // 波纹边缘效果
+          float edge = smoothstep(elapsed * 0.4, elapsed * 0.4 + 0.1, dist) * 
+                       (1.0 - smoothstep(elapsed * 0.6, elapsed * 0.6 + 0.1, dist));
+          
+          gl_FragColor = vec4(color, fadeOut * edge * wave);
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthTest: false,
+      side: THREE.DoubleSide
     });
     
-    // 移除非背景对象
-    preservedObjects.forEach(object => {
-      this.scene.remove(object);
-    });
+    // 创建网格
+    const ripple = new THREE.Mesh(rippleGeometry, rippleMaterial);
+    
+    // 设置位置
+    const vector = new THREE.Vector3(mouseX, mouseY, 0);
+    vector.unproject(this.camera);
+    
+    const dir = vector.sub(this.camera.position).normalize();
+    const distance = -this.camera.position.z / dir.z;
+    const pos = this.camera.position.clone().add(dir.multiplyScalar(distance));
+    
+    ripple.position.copy(pos);
+    ripple.scale.set(0, 0, 1);
+    
+    // 添加到场景
+    this.scene.add(ripple);
+    
+    // 动画
+    const startScale = 0;
+    const endScale = 100;
+    const duration = 2; // 秒
+    const startTime = this.clock.getElapsedTime();
+    
+    const animate = () => {
+      const elapsed = this.clock.getElapsedTime() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // 更新缩放
+      const scale = startScale + (endScale - startScale) * progress;
+      ripple.scale.set(scale, scale, 1);
+      
+      // 更新着色器时间
+      rippleMaterial.uniforms.time.value = this.clock.getElapsedTime();
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        // 动画结束后移除
+        this.scene.remove(ripple);
+        rippleGeometry.dispose();
+        rippleMaterial.dispose();
+      }
+    };
+    
+    // 开始动画
+    animate();
   }
-
-  // 公共方法，用于设置相机位置
-  setCameraPosition(x, y, z) {
-    this.camera.position.set(x, y, z);
-    this.camera.lookAt(0, 0, 0);
-  }
-
-  // 公共方法，用于获取相机
-  getCamera() {
-    return this.camera;
-  }
-
-  // 公共方法，用于获取场景
-  getScene() {
-    return this.scene;
-  }
-
-  // 公共方法，用于获取渲染器
-  getRenderer() {
-    return this.renderer;
-  }
-
-  // 公共方法，用于获取控制器
-  getControls() {
-    return this.controls;
+  
+  /**
+   * 清理资源
+   */
+  dispose() {
+    // 移除事件监听器
+    window.removeEventListener('resize', this.onWindowResize);
+    this.container.removeEventListener('mousemove', this.onMouseMove);
+    this.container.removeEventListener('click', this.createRipple);
+    
+    // 清理场景
+    if (this.particleSystem) {
+      this.scene.remove(this.particleSystem);
+      this.particleGeometry.dispose();
+      this.particleMaterial.dispose();
+    }
+    
+    if (this.linesMesh) {
+      this.scene.remove(this.linesMesh);
+      this.linesMesh.geometry.dispose();
+      this.lineMaterial.dispose();
+    }
+    
+    // 清理渲染器
+    this.renderer.dispose();
+    
+    // 清理后处理
+    if (this.composer) {
+      this.composer.dispose();
+    }
+    
+    // 移除canvas
+    if (this.renderer.domElement && this.renderer.domElement.parentNode) {
+      this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
+    }
+    
+    // 移除性能监控
+    if (this.stats && this.stats.domElement.parentNode) {
+      this.stats.domElement.parentNode.removeChild(this.stats.domElement);
+    }
+    
+    console.log('Background3D disposed');
   }
 }
 
@@ -658,4 +843,9 @@ class SoilLayerVisualizer extends Background3D {
       this.createWaterLevel();
     }
   }
+}
+
+// 导出模块
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = Background3D;
 } 

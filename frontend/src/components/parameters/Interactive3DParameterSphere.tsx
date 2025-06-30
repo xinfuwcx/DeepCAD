@@ -4,7 +4,7 @@
  * @author Deep Excavation Team
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -39,6 +39,40 @@ import {
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Sphere, Text, Html } from '@react-three/drei';
 import * as THREE from 'three';
+
+// 参数类型定义
+interface Parameter {
+  id: string;
+  name: string;
+  displayName: string;
+  value: number;
+  unit: string;
+  min: number;
+  max: number;
+  step: number;
+  category: 'soil' | 'structure' | 'loading' | 'boundary';
+  description: string;
+  isAIRecommended?: boolean;
+  confidence?: number;
+  impact?: 'low' | 'medium' | 'high';
+  validation?: {
+    isValid: boolean;
+    message?: string;
+  };
+}
+
+interface AIRecommendation {
+  id: string;
+  type: 'optimization' | 'warning' | 'suggestion';
+  title: string;
+  description: string;
+  parameters: Parameter[];
+  confidence: number;
+  reasoning: string;
+  impact: string;
+  timeStamp: Date;
+}
+import SmartParameterDialog from './SmartParameterDialog';
 
 // 呼吸灯效果
 const breathingGlow = keyframes`
@@ -258,6 +292,9 @@ const Interactive3DParameterSphere: React.FC<Interactive3DParameterSphereProps> 
   const [showControlPanel, setShowControlPanel] = useState(false);
   const [is3DMode, setIs3DMode] = useState(true);
   const [autoRotate, setAutoRotate] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedParameters, setSelectedParameters] = useState<Parameter[]>([]);
+  const [aiRecommendations, setAiRecommendations] = useState<AIRecommendation[]>([]);
 
   // 参数更新处理
   const handleParameterUpdate = (paramId: string, newValue: number) => {
@@ -272,6 +309,130 @@ const Interactive3DParameterSphere: React.FC<Interactive3DParameterSphereProps> 
   const resetParameters = () => {
     // 这里可以加载默认值或上次保存的值
     setParameters(prev => prev.map(param => ({ ...param, value: param.min + (param.max - param.min) / 2 })));
+  };
+
+  // 处理参数球点击事件
+  const handleParameterPointClick = useCallback((parameter: any) => {
+    // 根据参数类型获取相关参数组
+    const relatedParams = getRelatedParameters(parameter);
+    setSelectedParameters(relatedParams);
+    
+    // 获取AI建议
+    fetchAIRecommendations(parameter.category).then(setAiRecommendations);
+    
+    setDialogOpen(true);
+  }, []);
+
+  // 获取相关参数
+  const getRelatedParameters = (parameter: any): Parameter[] => {
+    // 根据参数类型返回相关参数组
+    const mockParams: Parameter[] = [
+      {
+        id: 'density',
+        name: 'density',
+        displayName: '土体密度',
+        value: 1800,
+        unit: 'kg/m³',
+        min: 1200,
+        max: 2200,
+        step: 10,
+        category: 'soil',
+        description: '土体的天然密度，影响重力应力分布',
+        impact: 'medium'
+      },
+      {
+        id: 'elastic_modulus',
+        name: 'elastic_modulus', 
+        displayName: '弹性模量',
+        value: 20000,
+        unit: 'kPa',
+        min: 5000,
+        max: 100000,
+        step: 1000,
+        category: 'soil',
+        description: '土体变形特性的关键参数',
+        impact: 'high'
+      },
+      {
+        id: 'poisson_ratio',
+        name: 'poisson_ratio',
+        displayName: '泊松比',
+        value: 0.3,
+        unit: '',
+        min: 0.1,
+        max: 0.49,
+        step: 0.01,
+        category: 'soil',
+        description: '控制横向变形与纵向变形的比例',
+        impact: 'medium'
+      }
+    ];
+    
+    return mockParams;
+  };
+
+  // 获取AI建议
+  const fetchAIRecommendations = async (category: string): Promise<AIRecommendation[]> => {
+    // 模拟AI分析延迟
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const mockRecommendations: AIRecommendation[] = [
+      {
+        id: 'rec_001',
+        type: 'optimization',
+        title: '弹性模量优化建议',
+        description: '基于工程地质条件分析，建议调整土体弹性模量以获得更准确的变形预测',
+        parameters: [
+          {
+            id: 'elastic_modulus',
+            name: 'elastic_modulus',
+            displayName: '弹性模量',
+            value: 25000,
+            unit: 'kPa',
+            min: 5000,
+            max: 100000,
+            step: 1000,
+            category: 'soil',
+            description: 'AI推荐值基于地质勘探报告',
+            isAIRecommended: true,
+            confidence: 0.85
+          }
+        ],
+        confidence: 0.85,
+        reasoning: '根据SPT试验结果和室内试验数据，结合深基坑工程经验，当前弹性模量偏低。建议提高至25MPa以更好反映土体实际刚度。',
+        impact: '提高变形计算精度约15%，更准确预测基坑变形',
+        timeStamp: new Date()
+      },
+      {
+        id: 'rec_002',
+        type: 'warning',
+        title: '参数匹配度警告',
+        description: '检测到密度与弹性模量的比值异常，可能影响计算结果的可靠性',
+        parameters: [],
+        confidence: 0.92,
+        reasoning: '土体密度与弹性模量应保持合理的比例关系，当前配置可能导致非物理的计算结果。',
+        impact: '建议重新校核参数匹配性',
+        timeStamp: new Date()
+      }
+    ];
+    
+    return mockRecommendations;
+  };
+
+  // 应用参数变更
+  const handleParametersApply = async (parameters: Parameter[]) => {
+    console.log('应用参数:', parameters);
+    // 这里调用CAE引擎API应用参数
+    // await api.applyParameters(parameters);
+    
+    // 更新3D球体显示
+    updateSphereVisualization(parameters);
+  };
+
+  // 更新球体可视化
+  const updateSphereVisualization = (parameters: Parameter[]) => {
+    // 根据参数值更新3D球体的颜色、大小等视觉效果
+    console.log('更新3D可视化:', parameters);
   };
 
   return (
@@ -292,7 +453,7 @@ const Interactive3DParameterSphere: React.FC<Interactive3DParameterSphereProps> 
                 key={param.id}
                 position={param.position as [number, number, number]}
                 parameter={param}
-                onInteract={setActiveParameter}
+                onInteract={handleParameterPointClick}
                 active={activeParameter?.id === param.id}
               />
             ))}
@@ -480,6 +641,18 @@ const Interactive3DParameterSphere: React.FC<Interactive3DParameterSphereProps> 
           应用参数
         </Button>
       </Box>
+
+      {/* 智能参数设置对话框 */}
+      <SmartParameterDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        title="智能参数设置"
+        parameters={selectedParameters}
+        onParametersChange={setSelectedParameters}
+        onApply={handleParametersApply}
+        aiRecommendations={aiRecommendations}
+        show3DPreview={true}
+      />
     </Box>
   );
 };

@@ -13,10 +13,13 @@ from pydantic import BaseModel, Field
 import os
 import json
 from enum import Enum
+import shutil
+from pathlib import Path
 
 from src.server.dependencies import get_db, get_mesh_engine, validate_project_exists
 from src.core.meshing.models import MeshEngine
 from src.core.meshing.gmsh_wrapper import GmshWrapper, FragmentType
+from src.core.meshing.netgen_reader import NetgenReader
 
 # 创建路由器
 router = APIRouter()
@@ -48,6 +51,14 @@ class MeshSettings(BaseModel):
     boundary_layer: Optional[bool] = Field(False, description="是否添加边界层网格")
     optimize_steps: Optional[int] = Field(10, description="优化步数", ge=0)
     dimension: Optional[int] = Field(3, description="网格维度", ge=1, le=3)
+
+class NetgenMeshImportSettings(BaseModel):
+    """Netgen网格导入设置"""
+    project_id: int = Field(..., description="项目ID")
+    convert_units: Optional[float] = Field(1.0, description="单位转换系数")
+    coordinate_system: Optional[str] = Field("cartesian", description="坐标系")
+    merge_tolerance: Optional[float] = Field(1e-6, description="合并公差")
+    auto_detect_physical_groups: Optional[bool] = Field(True, description="自动检测物理组")
 
 class FragmentSettings(BaseModel):
     """网格片段设置模型"""
@@ -253,8 +264,6 @@ async def refine_mesh(
             message="网格优化成功",
             mesh_info=mesh_info
         )
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -268,60 +277,128 @@ async def import_mesh(
     db: Session = Depends(get_db)
 ):
     """
-    导入网格文件
+    导入一般网格文件
     
     - **project_id**: 项目ID
-    - **mesh_file**: 网格文件(.msh, .vtk等)
+    - **mesh_file**: 网格文件
     """
     try:
-        # 检查文件格式
-        filename = mesh_file.filename
-        file_ext = os.path.splitext(filename)[1].lower()
-        
-        allowed_exts = [".msh", ".vtk", ".unv", ".med"]
-        if file_ext not in allowed_exts:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"不支持的文件格式，允许的格式: {', '.join(allowed_exts)}"
-            )
-        
-        # 保存文件到临时位置
-        content = await mesh_file.read()
-        upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
-                                 "data", "mesh")
-        os.makedirs(upload_dir, exist_ok=True)
-        
-        file_path = os.path.join(upload_dir, f"project_{project_id}_{filename}")
-        with open(file_path, "wb") as f:
+        # 创建临时文件
+        temp_file = f"temp_{mesh_file.filename}"
+        with open(temp_file, "wb") as f:
+            content = await mesh_file.read()
             f.write(content)
-            
-        # 在实际实现中，这里应该解析网格文件获取节点和单元信息
-        # 这里只是模拟返回结果
         
-        # 创建网格ID
-        mesh_id = project_id  # 示例值
+        # 导入网格
+        mesh_id = 1  # 实际应该从数据库分配
         
-        # 模拟网格信息
+        # 获取网格信息
         mesh_info = {
             "id": mesh_id,
-            "file_path": file_path,
-            "file_name": filename,
-            "file_format": file_ext[1:],
-            "node_count": 5000,  # 示例值
-            "element_count": 10000  # 示例值
+            "filename": mesh_file.filename,
+            "size": len(content),
+            "format": os.path.splitext(mesh_file.filename)[1][1:]
         }
+        
+        # 清理临时文件
+        os.remove(temp_file)
         
         return MeshResponse(
             id=mesh_id,
-            message=f"网格文件 {filename} 导入成功",
+            message="网格导入成功",
             mesh_info=mesh_info
         )
-    except HTTPException:
-        raise
     except Exception as e:
+        # 确保清理临时文件
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+            
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"网格文件导入失败: {str(e)}"
+            detail=f"网格导入失败: {str(e)}"
+        )
+
+@router.post("/import-netgen", response_model=MeshResponse, summary="导入Netgen网格文件")
+async def import_netgen_mesh(
+    settings: NetgenMeshImportSettings = Depends(),
+    mesh_file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    导入Netgen格式的网格文件(.vol或.vtk)
+    
+    - **project_id**: 项目ID
+    - **mesh_file**: Netgen网格文件(.vol或.vtk格式)
+    - **convert_units**: 单位转换系数(默认为1.0)
+    - **coordinate_system**: 坐标系(默认为cartesian)
+    - **merge_tolerance**: 合并公差(默认为1e-6)
+    - **auto_detect_physical_groups**: 是否自动检测物理组(默认为True)
+    """
+    # 验证文件扩展名
+    file_ext = os.path.splitext(mesh_file.filename)[1].lower()
+    if file_ext not in ['.vol', '.vtk']:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="不支持的文件格式，仅支持.vol或.vtk格式的Netgen网格文件"
+        )
+    
+    # 创建上传目录
+    upload_dir = Path("data/uploads/mesh")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 生成唯一文件名
+    import uuid
+    unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+    file_path = upload_dir / unique_filename
+    
+    try:
+        # 保存上传文件
+        with open(file_path, "wb") as f:
+            content = await mesh_file.read()
+            f.write(content)
+        
+        # 创建Netgen读取器并解析网格
+        reader = NetgenReader()
+        if not reader.read_mesh_file(str(file_path)):
+            raise Exception("无法读取网格文件")
+        
+        # 获取网格信息
+        nodes = reader.get_nodes()
+        elements = reader.get_elements()
+        physical_groups = reader.get_physical_groups()
+        
+        # 生成网格ID和网格信息
+        mesh_id = 1  # 实际应该从数据库分配
+        mesh_info = {
+            "id": mesh_id,
+            "project_id": settings.project_id,
+            "filename": mesh_file.filename,
+            "stored_path": str(file_path),
+            "node_count": len(nodes),
+            "element_count": len(elements),
+            "physical_groups": list(physical_groups.keys()),
+            "dimension": reader.mesh_data.get("dimension", 3),
+            "import_settings": {
+                "convert_units": settings.convert_units,
+                "coordinate_system": settings.coordinate_system
+            }
+        }
+        
+        # TODO: 将网格信息保存到数据库
+        
+        return MeshResponse(
+            id=mesh_id,
+            message="Netgen网格导入成功",
+            mesh_info=mesh_info
+        )
+    except Exception as e:
+        # 清理上传文件
+        if file_path.exists():
+            file_path.unlink()
+            
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Netgen网格导入失败: {str(e)}"
         )
 
 @router.get("/{mesh_id}/export", summary="导出网格文件")
@@ -332,31 +409,27 @@ async def export_mesh(
     engine: MeshEngine = Depends(get_mesh_engine)
 ):
     """
-    导出指定ID的网格
+    导出指定ID的网格文件
     
     - **mesh_id**: 网格ID
-    - **format**: 导出格式(默认为msh)
+    - **format**: 导出格式(msh, vtk, unv)
     """
     try:
         # 导出网格
-        file_path = engine.export_mesh(mesh_id, format)
+        mesh_file = engine.export_mesh(mesh_id, format)
         
-        if not file_path:
+        if not os.path.exists(mesh_file):
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="网格导出失败"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"网格文件未找到"
             )
-        
-        # 在实际实现中，这里应该返回文件下载链接或文件内容
-        # 这里只是返回文件路径
-        return {
-            "message": f"网格导出成功，格式: {format}",
-            "file_path": file_path
-        }
+            
+        # 返回文件名
+        return {"file_path": mesh_file}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"网格导出失败: {str(e)}"
+            detail=f"导出网格文件失败: {str(e)}"
         )
 
 @router.get("/fragments/{project_id}", response_model=List[FragmentResponse], summary="获取项目的网格片段列表")
@@ -365,55 +438,122 @@ async def get_project_fragments(
     db: Session = Depends(get_db)
 ):
     """
-    获取项目的网格片段列表
+    获取指定项目的网格片段列表
     
     - **project_id**: 项目ID
     """
     try:
-        # 在实际实现中，这里应该从数据库获取项目的网格片段列表
-        # 这里只是模拟返回结果
+        # 实际应该从数据库查询
         fragments = [
-            FragmentResponse(
-                id=1,
-                project_id=project_id,
-                mesh_id=project_id,
-                message="",
-                fragment_info={
+            {
+                "id": 1,
+                "project_id": project_id,
+                "mesh_id": 1,
+                "message": "网格片段1",
+                "fragment_info": {
                     "id": 1,
                     "type": "box",
-                    "location": [0, 0, -5],
-                    "size": 0.5,
-                    "params": {
-                        "width": 10,
-                        "length": 10,
-                        "height": 5,
-                        "transition": 0.3
-                    }
+                    "location": [0, 0, 0],
+                    "size": 0.5
                 }
-            ),
-            FragmentResponse(
-                id=2,
-                project_id=project_id,
-                mesh_id=project_id,
-                message="",
-                fragment_info={
+            },
+            {
+                "id": 2,
+                "project_id": project_id,
+                "mesh_id": 1,
+                "message": "网格片段2",
+                "fragment_info": {
                     "id": 2,
                     "type": "sphere",
-                    "location": [5, 5, -2],
-                    "size": 0.2,
-                    "params": {
-                        "radius": 2,
-                        "transition": 0.3
-                    }
+                    "location": [10, 10, -5],
+                    "size": 0.3
                 }
-            )
+            }
         ]
         
-        return fragments
+        return [FragmentResponse(**fragment) for fragment in fragments]
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取网格片段列表失败: {str(e)}"
+        )
+
+@router.get("/netgen/{mesh_id}", response_model=Dict[str, Any], summary="获取Netgen网格详细信息")
+async def get_netgen_mesh_details(
+    mesh_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    获取指定ID的Netgen网格详细信息，包括物理组和统计数据
+    
+    - **mesh_id**: 网格ID
+    """
+    try:
+        # 从数据库获取网格文件路径
+        # 实际应该查询数据库
+        mesh_file = f"data/uploads/mesh/mesh_{mesh_id}.vtk"
+        
+        if not os.path.exists(mesh_file):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"网格文件未找到"
+            )
+            
+        # 创建Netgen读取器并解析网格
+        reader = NetgenReader()
+        if not reader.read_mesh_file(mesh_file):
+            raise Exception("无法读取网格文件")
+        
+        # 获取物理组和统计信息
+        nodes = reader.get_nodes()
+        elements = reader.get_elements()
+        physical_groups = reader.get_physical_groups()
+        
+        # 统计每种类型的单元数量
+        element_types = {}
+        for elem in elements:
+            elem_type = elem["type"]
+            if elem_type in element_types:
+                element_types[elem_type] += 1
+            else:
+                element_types[elem_type] = 1
+        
+        # 统计每个物理组中的单元数量
+        group_statistics = {}
+        for group_name, group_data in physical_groups.items():
+            group_statistics[group_name] = {
+                "element_count": len(group_data.get("elements", [])),
+                "dimension": group_data.get("dimension", 3)
+            }
+        
+        # 构建详细信息
+        mesh_details = {
+            "id": mesh_id,
+            "node_count": len(nodes),
+            "element_count": len(elements),
+            "element_types": element_types,
+            "physical_groups": group_statistics,
+            "bounding_box": {
+                "min": [
+                    min([n[0] for n in nodes]) if nodes else 0,
+                    min([n[1] for n in nodes]) if nodes else 0,
+                    min([n[2] for n in nodes]) if nodes else 0
+                ],
+                "max": [
+                    max([n[0] for n in nodes]) if nodes else 0,
+                    max([n[1] for n in nodes]) if nodes else 0,
+                    max([n[2] for n in nodes]) if nodes else 0
+                ]
+            }
+        }
+        
+        return mesh_details
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取Netgen网格详细信息失败: {str(e)}"
         )
 
 @router.delete("/fragments/{fragment_id}", response_model=Dict[str, str], summary="删除网格片段")
@@ -424,14 +564,13 @@ async def delete_fragment(
     """
     删除指定ID的网格片段
     
-    - **fragment_id**: 片段ID
+    - **fragment_id**: 网格片段ID
     """
     try:
-        # 在实际实现中，这里应该从数据库删除网格片段
-        # 这里只是模拟返回结果
-        return {
-            "message": f"网格片段 {fragment_id} 删除成功"
-        }
+        # 删除网格片段
+        # 实际应该从数据库删除
+        
+        return {"message": f"成功删除网格片段 {fragment_id}"}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

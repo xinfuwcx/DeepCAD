@@ -15,6 +15,7 @@ import logging
 from enum import Enum
 from typing import Dict, List, Tuple, Union, Optional, Any, Callable
 from pathlib import Path
+import time
 
 # 配置日志
 logger = logging.getLogger("FlowStructureCoupling")
@@ -46,8 +47,472 @@ class FluidModel(Enum):
     FORCHHEIMER = "forchheimer"      # Forchheimer流
     BRINKMAN = "brinkman"            # Brinkman流
 
+class ConvergenceStrategy(Enum):
+    """收敛策略枚举"""
+    FIXED_RELAXATION = "fixed_relaxation"       # 固定松弛因子
+    DYNAMIC_RELAXATION = "dynamic_relaxation"   # 动态松弛因子
+    AITKEN = "aitken"                           # Aitken加速
+    LINE_SEARCH = "line_search"                 # 线搜索算法
+    ANDERSON = "anderson"                       # Anderson加速
+
+class TimeSteppingStrategy(Enum):
+    """时间步长控制策略枚举"""
+    FIXED = "fixed"                             # 固定步长
+    ADAPTIVE_ERROR = "adaptive_error"           # 基于误差的自适应
+    ADAPTIVE_ITERATIONS = "adaptive_iterations" # 基于迭代次数的自适应
+    ADAPTIVE_COMBINED = "adaptive_combined"     # 组合自适应策略
+
+@dataclass
+class ConvergenceParams:
+    """收敛控制参数"""
+    strategy: ConvergenceStrategy = ConvergenceStrategy.FIXED_RELAXATION  # 收敛策略
+    relaxation_factor: float = 0.8              # 松弛因子
+    max_iterations: int = 20                    # 最大迭代次数
+    tolerance: float = 1e-4                     # 收敛容差
+    # 线搜索相关参数
+    line_search_steps: int = 10                 # 线搜索步数
+    line_search_tolerance: float = 1e-3         # 线搜索容差
+    # Aitken加速参数
+    aitken_initial_relaxation: float = 0.5      # Aitken初始松弛因子
+    aitken_min_relaxation: float = 0.1          # Aitken最小松弛因子
+    aitken_max_relaxation: float = 1.0          # Aitken最大松弛因子
+    # Anderson加速参数
+    anderson_depth: int = 5                     # Anderson混合深度
+    # 动态松弛因子参数
+    dynamic_increase_factor: float = 1.1        # 松弛因子增加系数
+    dynamic_decrease_factor: float = 0.7        # 松弛因子减少系数
+    dynamic_iteration_threshold: int = 4        # 迭代次数阈值
+
+@dataclass
+class TimeSteppingParams:
+    """时间步长控制参数"""
+    strategy: TimeSteppingStrategy = TimeSteppingStrategy.FIXED  # 步长策略
+    initial_step: float = 1.0                   # 初始步长
+    min_step: float = 0.1                       # 最小步长
+    max_step: float = 10.0                      # 最大步长
+    target_iterations: int = 5                  # 目标迭代次数
+    increase_factor: float = 1.2                # 步长增加系数
+    decrease_factor: float = 0.5                # 步长减少系数
+    error_threshold: float = 1e-3               # 误差阈值
+    iteration_window: int = 3                   # 迭代窗口大小
+
+class CouplingConvergenceAccelerator:
+    """耦合计算收敛加速器"""
+    
+    def __init__(
+        self, 
+        params: ConvergenceParams = None,
+        residual_function: Callable[[np.ndarray, np.ndarray], float] = None
+    ):
+        """
+        初始化收敛加速器
+        
+        Args:
+            params: 收敛控制参数
+            residual_function: 残差计算函数，接收当前值和上一步值，返回归一化残差
+        """
+        self.params = params or ConvergenceParams()
+        self.strategy = self.params.strategy
+        
+        # 如果提供了自定义残差函数，则使用它；否则使用默认的计算方法
+        self._residual_function = residual_function or self._default_residual
+        
+        # 历史数据
+        self.previous_solution = None            # 上一步解
+        self.previous_residual = None            # 上一步残差
+        self.previous_relaxation = self.params.relaxation_factor  # 上一步松弛因子
+        
+        # Anderson加速存储
+        self.anderson_solutions = []             # 解向量历史
+        self.anderson_residuals = []             # 残差历史
+        
+        # 状态跟踪
+        self.iterations = 0                      # 当前迭代次数
+        self.converged = False                   # 是否收敛
+        self.convergence_history = []            # 收敛历史
+        self.relaxation_history = []             # 松弛因子历史
+        
+        logger.info(f"初始化耦合收敛加速器，策略: {self.strategy.value}")
+    
+    def _default_residual(self, current: np.ndarray, previous: np.ndarray) -> float:
+        """
+        计算默认残差
+        
+        Args:
+            current: 当前向量
+            previous: 上一步向量
+            
+        Returns:
+            残差值
+        """
+        if current is None or previous is None:
+            return float('inf')
+        
+        diff_norm = np.linalg.norm(current - previous)
+        current_norm = np.linalg.norm(current)
+        
+        if current_norm < 1e-10:  # 防止除零
+            return diff_norm
+        else:
+            return diff_norm / current_norm
+    
+    def apply(self, current_solution: np.ndarray) -> Tuple[np.ndarray, float]:
+        """
+        应用收敛加速策略
+        
+        Args:
+            current_solution: 当前解向量
+            
+        Returns:
+            (加速后的解向量, 残差)
+        """
+        # 第一次迭代时没有历史数据
+        if self.previous_solution is None:
+            self.previous_solution = current_solution.copy()
+            self.iterations += 1
+            self.relaxation_history.append(self.params.relaxation_factor)
+            return current_solution, float('inf')
+        
+        # 计算残差
+        residual = self._residual_function(current_solution, self.previous_solution)
+        self.convergence_history.append(residual)
+        
+        # 根据收敛策略应用加速
+        accelerated_solution = None
+        if self.strategy == ConvergenceStrategy.FIXED_RELAXATION:
+            accelerated_solution = self._apply_fixed_relaxation(current_solution)
+        elif self.strategy == ConvergenceStrategy.DYNAMIC_RELAXATION:
+            accelerated_solution = self._apply_dynamic_relaxation(current_solution, residual)
+        elif self.strategy == ConvergenceStrategy.AITKEN:
+            accelerated_solution = self._apply_aitken(current_solution, residual)
+        elif self.strategy == ConvergenceStrategy.LINE_SEARCH:
+            accelerated_solution = self._apply_line_search(current_solution)
+        elif self.strategy == ConvergenceStrategy.ANDERSON:
+            accelerated_solution = self._apply_anderson(current_solution)
+        else:
+            accelerated_solution = current_solution  # 默认不加速
+        
+        # 更新历史数据
+        self.previous_residual = residual
+        self.previous_solution = accelerated_solution.copy()
+        self.iterations += 1
+        
+        # 检查是否收敛
+        self.converged = residual < self.params.tolerance
+        
+        # 返回加速后的解向量和残差
+        return accelerated_solution, residual
+    
+    def _apply_fixed_relaxation(self, current_solution: np.ndarray) -> np.ndarray:
+        """应用固定松弛因子"""
+        # x_k+1 = x_k + ω * (x_tilde - x_k)
+        relaxation = self.params.relaxation_factor
+        self.relaxation_history.append(relaxation)
+        
+        return self.previous_solution + relaxation * (current_solution - self.previous_solution)
+    
+    def _apply_dynamic_relaxation(self, current_solution: np.ndarray, residual: float) -> np.ndarray:
+        """应用动态松弛因子"""
+        # 根据收敛情况动态调整松弛因子
+        if len(self.convergence_history) >= 2:
+            if residual < self.convergence_history[-2]:
+                # 收敛加速，增大松弛因子
+                relaxation = min(
+                    self.previous_relaxation * self.params.dynamic_increase_factor,
+                    1.0
+                )
+            else:
+                # 收敛减慢，减小松弛因子
+                relaxation = max(
+                    self.previous_relaxation * self.params.dynamic_decrease_factor,
+                    0.1
+                )
+        else:
+            relaxation = self.params.relaxation_factor
+        
+        self.previous_relaxation = relaxation
+        self.relaxation_history.append(relaxation)
+        
+        return self.previous_solution + relaxation * (current_solution - self.previous_solution)
+    
+    def _apply_aitken(self, current_solution: np.ndarray, residual: float) -> np.ndarray:
+        """应用Aitken加速"""
+        if len(self.convergence_history) < 2:
+            # 初始迭代使用给定的松弛因子
+            relaxation = self.params.aitken_initial_relaxation
+            self.relaxation_history.append(relaxation)
+            return self.previous_solution + relaxation * (current_solution - self.previous_solution)
+        
+        # 获取前两步的残差向量
+        r_k = current_solution - self.previous_solution
+        r_k_minus_1 = self.previous_solution - self.anderson_solutions[-1]
+        
+        # Aitken公式计算新的松弛因子
+        r_diff = r_k - r_k_minus_1
+        
+        if np.linalg.norm(r_diff) > 1e-10:  # 防止除零
+            omega_k = -np.dot(r_k_minus_1, r_diff) / np.linalg.norm(r_diff)**2
+        else:
+            omega_k = self.previous_relaxation
+        
+        # 限制松弛因子范围
+        relaxation = np.clip(
+            omega_k, 
+            self.params.aitken_min_relaxation,
+            self.params.aitken_max_relaxation
+        )
+        
+        self.previous_relaxation = relaxation
+        self.relaxation_history.append(relaxation)
+        
+        # 保存当前解用于下一次迭代
+        self.anderson_solutions.append(self.previous_solution.copy())
+        
+        # 应用松弛
+        return self.previous_solution + relaxation * (current_solution - self.previous_solution)
+    
+    def _apply_line_search(self, current_solution: np.ndarray) -> np.ndarray:
+        """应用线搜索加速"""
+        # 定义搜索方向
+        search_direction = current_solution - self.previous_solution
+        
+        # 线搜索步长
+        alphas = np.linspace(0, 1, self.params.line_search_steps)
+        best_alpha = self.params.relaxation_factor  # 默认使用给定松弛因子
+        min_residual = float('inf')
+        
+        # 寻找最优步长
+        temp_solution = np.zeros_like(current_solution)
+        for alpha in alphas:
+            # 计算试探解
+            temp_solution = self.previous_solution + alpha * search_direction
+            
+            # 计算残差
+            # 注意: 这里需要问题特定的残差计算，这里简化为使用向量差
+            residual = self._residual_function(temp_solution, self.previous_solution)
+            
+            # 更新最优步长
+            if residual < min_residual:
+                min_residual = residual
+                best_alpha = alpha
+        
+        self.relaxation_history.append(best_alpha)
+        logger.debug(f"线搜索最优步长: {best_alpha:.4f}, 残差: {min_residual:.6e}")
+        
+        # 应用最优步长
+        return self.previous_solution + best_alpha * search_direction
+    
+    def _apply_anderson(self, current_solution: np.ndarray) -> np.ndarray:
+        """应用Anderson混合加速"""
+        # 保存历史数据
+        self.anderson_solutions.append(self.previous_solution.copy())
+        self.anderson_residuals.append(current_solution - self.previous_solution)
+        
+        # 保持历史数据不超过指定深度
+        if len(self.anderson_solutions) > self.params.anderson_depth:
+            self.anderson_solutions.pop(0)
+            self.anderson_residuals.pop(0)
+        
+        # 如果历史数据不足，使用固定松弛
+        if len(self.anderson_solutions) < 2:
+            relaxation = self.params.relaxation_factor
+            self.relaxation_history.append(relaxation)
+            return self.previous_solution + relaxation * (current_solution - self.previous_solution)
+        
+        try:
+            # 构建线性系统求解最优权重
+            n = len(self.anderson_residuals)
+            F = np.zeros((n-1, n-1))
+            for i in range(n-1):
+                for j in range(n-1):
+                    F[i, j] = np.dot(
+                        self.anderson_residuals[i+1] - self.anderson_residuals[0],
+                        self.anderson_residuals[j+1] - self.anderson_residuals[0]
+                    )
+            
+            # 右侧向量
+            b = np.zeros(n-1)
+            for i in range(n-1):
+                b[i] = np.dot(
+                    self.anderson_residuals[i+1] - self.anderson_residuals[0],
+                    self.anderson_residuals[-1]
+                )
+            
+            # 求解线性系统得到权重
+            try:
+                gamma = np.linalg.solve(F, b)
+                gamma_0 = 1.0 - np.sum(gamma)
+                gammas = np.hstack(([gamma_0], gamma))
+            except np.linalg.LinAlgError:
+                # 如果线性系统求解失败，使用固定松弛
+                relaxation = self.params.relaxation_factor
+                self.relaxation_history.append(relaxation)
+                return self.previous_solution + relaxation * (current_solution - self.previous_solution)
+            
+            # 使用权重组合历史解
+            accelerated_solution = np.zeros_like(current_solution)
+            for i, g in enumerate(gammas[:-1]):
+                accelerated_solution += g * self.anderson_solutions[i]
+            accelerated_solution += gammas[-1] * current_solution
+            
+            self.relaxation_history.append(self.params.relaxation_factor)  # 记录固定值，实际使用混合权重
+            return accelerated_solution
+            
+        except Exception as e:
+            logger.warning(f"Anderson加速失败: {str(e)}，回退到固定松弛")
+            relaxation = self.params.relaxation_factor
+            self.relaxation_history.append(relaxation)
+            return self.previous_solution + relaxation * (current_solution - self.previous_solution)
+    
+    def reset(self):
+        """重置加速器状态"""
+        self.previous_solution = None
+        self.previous_residual = None
+        self.previous_relaxation = self.params.relaxation_factor
+        self.anderson_solutions = []
+        self.anderson_residuals = []
+        self.iterations = 0
+        self.converged = False
+        self.convergence_history = []
+        self.relaxation_history = []
+
+class AdaptiveTimeStepper:
+    """自适应时间步长控制器"""
+    
+    def __init__(self, params: TimeSteppingParams = None):
+        """
+        初始化时间步长控制器
+        
+        Args:
+            params: 时间步长控制参数
+        """
+        self.params = params or TimeSteppingParams()
+        self.strategy = self.params.strategy
+        
+        # 当前状态
+        self.current_step = self.params.initial_step
+        self.current_time = 0.0
+        self.total_steps = 0
+        
+        # 历史数据
+        self.step_history = []
+        self.iteration_history = []
+        self.error_history = []
+        
+        logger.info(f"初始化自适应时间步长控制器，策略: {self.strategy.value}")
+    
+    def next_step(self, iterations: int = None, error: float = None) -> float:
+        """
+        计算下一个时间步长
+        
+        Args:
+            iterations: 上一步迭代次数
+            error: 上一步误差
+            
+        Returns:
+            下一个时间步长
+        """
+        # 记录历史数据
+        if iterations is not None:
+            self.iteration_history.append(iterations)
+        if error is not None:
+            self.error_history.append(error)
+        
+        # 根据策略计算下一步长
+        next_step = self.current_step
+        if self.strategy == TimeSteppingStrategy.FIXED:
+            # 固定步长策略不改变步长
+            next_step = self.params.initial_step
+        
+        elif self.strategy == TimeSteppingStrategy.ADAPTIVE_ERROR and error is not None:
+            # 基于误差的自适应
+            if error < self.params.error_threshold / 2.0:
+                # 误差较小，增加步长
+                next_step = min(self.current_step * self.params.increase_factor, self.params.max_step)
+            elif error > self.params.error_threshold:
+                # 误差较大，减少步长
+                next_step = max(self.current_step * self.params.decrease_factor, self.params.min_step)
+            # 误差适中，保持当前步长
+        
+        elif self.strategy == TimeSteppingStrategy.ADAPTIVE_ITERATIONS and iterations is not None:
+            # 基于迭代次数的自适应
+            target = self.params.target_iterations
+            if iterations <= target - 2:
+                # 迭代次数少，增加步长
+                next_step = min(self.current_step * self.params.increase_factor, self.params.max_step)
+            elif iterations >= target + 2:
+                # 迭代次数多，减少步长
+                next_step = max(self.current_step * self.params.decrease_factor, self.params.min_step)
+            # 迭代次数适中，保持当前步长
+        
+        elif self.strategy == TimeSteppingStrategy.ADAPTIVE_COMBINED and iterations is not None and error is not None:
+            # 组合策略
+            error_factor = min(self.params.error_threshold / max(error, 1e-10), 2.0)  # 限制最大为2倍
+            iter_factor = self.params.target_iterations / max(iterations, 1)
+            
+            # 组合因子，取误差因子和迭代因子的几何平均
+            combined_factor = np.sqrt(error_factor * iter_factor)
+            
+            # 限制单步变化幅度
+            if combined_factor > 1.0:
+                combined_factor = min(combined_factor, self.params.increase_factor)
+            else:
+                combined_factor = max(combined_factor, self.params.decrease_factor)
+            
+            next_step = self.current_step * combined_factor
+            next_step = np.clip(next_step, self.params.min_step, self.params.max_step)
+        
+        # 更新步长历史并返回
+        self.step_history.append(self.current_step)
+        self.current_step = next_step
+        
+        logger.debug(f"下一时间步长: {next_step:.4f}")
+        return next_step
+    
+    def advance_time(self, step: float = None):
+        """
+        推进模拟时间
+        
+        Args:
+            step: 当前步长，默认使用控制器的当前步长
+        """
+        used_step = step if step is not None else self.current_step
+        self.current_time += used_step
+        self.total_steps += 1
+    
+    def get_status(self) -> Dict[str, Any]:
+        """
+        获取控制器状态
+        
+        Returns:
+            状态字典
+        """
+        return {
+            "current_time": self.current_time,
+            "current_step": self.current_step,
+            "total_steps": self.total_steps,
+            "min_step": min(self.step_history) if self.step_history else self.params.min_step,
+            "max_step": max(self.step_history) if self.step_history else self.params.max_step,
+            "avg_iterations": np.mean(self.iteration_history) if self.iteration_history else 0,
+            "strategy": self.strategy.value
+        }
+    
+    def reset(self):
+        """重置控制器状态"""
+        self.current_step = self.params.initial_step
+        self.current_time = 0.0
+        self.total_steps = 0
+        self.step_history = []
+        self.iteration_history = []
+        self.error_history = []
+
 class FlowStructureCoupling:
-    """渗流-结构耦合分析类"""
+    """
+    流体-结构耦合分析基类
+    
+    提供通用的耦合分析框架，支持多种收敛加速和步长控制策略。
+    子类需要实现具体的物理模型和求解方法。
+    """
     
     def __init__(
         self,

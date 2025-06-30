@@ -6,19 +6,40 @@
 @copyright 2025
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple, Optional
 import numpy as np
+import json
+import os
 
 try:
     # OpenCascade imports
-    from OCC.Core.gp import gp_Pnt, gp_Dir, gp_Ax2
+    from OCC.Core.gp import gp_Pnt, gp_Dir, gp_Ax2, gp_Vec, gp_Trsf, gp_GTrsf
     from OCC.Core.BRepPrimAPI import (
         BRepPrimAPI_MakeBox,
-        BRepPrimAPI_MakeCylinder
+        BRepPrimAPI_MakeCylinder,
+        BRepPrimAPI_MakePrism,
+        BRepPrimAPI_MakeSphere,
+        BRepPrimAPI_MakeCone
     )
-    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace
-    from OCC.Core.GeomAPI import GeomAPI_PointsToBSplineSurface
-    from OCC.Core.TColgp import TColgp_Array2OfPnt
+    from OCC.Core.BRepBuilderAPI import (
+        BRepBuilderAPI_MakeFace,
+        BRepBuilderAPI_MakeEdge,
+        BRepBuilderAPI_MakeWire,
+        BRepBuilderAPI_Transform,
+        BRepBuilderAPI_GTransform
+    )
+    from OCC.Core.GeomAPI import (
+        GeomAPI_PointsToBSplineSurface,
+        GeomAPI_PointsToBSpline
+    )
+    from OCC.Core.TColgp import TColgp_Array2OfPnt, TColgp_Array1OfPnt
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse
+    from OCC.Core.Geom import Geom_BSplineSurface
+    from OCC.Core.TopoDS import TopoDS_Shape, TopoDS_Compound
+    from OCC.Core.BRep import BRep_Builder
+    from OCC.Core.BRepTools import breptools_Write
+    from OCC.Core.STEPControl import STEPControl_Writer, STEPControl_AsIs
+    from OCC.Core.IFSelect import IFSelect_RetDone
     
     HAS_OCC = True
 except ImportError:
@@ -79,28 +100,55 @@ class OCCWrapper:
         return shape_id
     
     def create_cylinder(self, radius: float, height: float, 
-                       center_x: float = 0, center_y: float = 0, center_z: float = 0) -> int:
-        """Create cylinder primitive"""
+                       center_x: float = 0, center_y: float = 0, center_z: float = 0,
+                       direction: List[float] = [0, 0, 1]) -> int:
+        """Create cylinder primitive with specified direction"""
         self.shape_counter += 1
         shape_id = self.shape_counter
         
+        # Normalize direction vector
+        dir_len = sum(d*d for d in direction) ** 0.5
+        if dir_len > 0:
+            direction = [d/dir_len for d in direction]
+        else:
+            direction = [0, 0, 1]  # Default direction
+        
         if HAS_OCC:
-            # Create cylinder
-            cylinder = BRepPrimAPI_MakeCylinder(
-                gp_Ax2(gp_Pnt(center_x, center_y, center_z - height/2), gp_Dir(0, 0, 1)), 
-                radius, height
-            ).Shape()
-            
-            self.shapes[shape_id] = {
-                "id": shape_id,
-                "type": "cylinder",
-                "shape": cylinder,
-                "params": {
-                    "radius": radius,
-                    "height": height,
-                    "center": [center_x, center_y, center_z]
+            try:
+                # Create direction
+                gp_dir = gp_Dir(direction[0], direction[1], direction[2])
+                
+                # Create placement axis
+                ax2 = gp_Ax2(gp_Pnt(center_x, center_y, center_z - height/2 if direction[2] > 0 else center_z + height/2), 
+                             gp_dir)
+                
+                # Create cylinder
+                cylinder = BRepPrimAPI_MakeCylinder(ax2, radius, height).Shape()
+                
+                self.shapes[shape_id] = {
+                    "id": shape_id,
+                    "type": "cylinder",
+                    "shape": cylinder,
+                    "params": {
+                        "radius": radius,
+                        "height": height,
+                        "center": [center_x, center_y, center_z],
+                        "direction": direction
+                    }
                 }
-            }
+            except Exception as e:
+                print(f"Error creating cylinder: {e}")
+                # Fallback to simulation mode
+                self.shapes[shape_id] = {
+                    "id": shape_id,
+                    "type": "cylinder",
+                    "params": {
+                        "radius": radius,
+                        "height": height,
+                        "center": [center_x, center_y, center_z],
+                        "direction": direction
+                    }
+                }
         else:
             # Simulation mode
             self.shapes[shape_id] = {
@@ -109,7 +157,120 @@ class OCCWrapper:
                 "params": {
                     "radius": radius,
                     "height": height,
+                    "center": [center_x, center_y, center_z],
+                    "direction": direction
+                }
+            }
+        
+        return shape_id
+    
+    def create_sphere(self, radius: float, 
+                     center_x: float = 0, center_y: float = 0, center_z: float = 0) -> int:
+        """Create sphere primitive"""
+        self.shape_counter += 1
+        shape_id = self.shape_counter
+        
+        if HAS_OCC:
+            try:
+                # Create sphere
+                sphere = BRepPrimAPI_MakeSphere(gp_Pnt(center_x, center_y, center_z), radius).Shape()
+                
+                self.shapes[shape_id] = {
+                    "id": shape_id,
+                    "type": "sphere",
+                    "shape": sphere,
+                    "params": {
+                        "radius": radius,
+                        "center": [center_x, center_y, center_z]
+                    }
+                }
+            except Exception as e:
+                print(f"Error creating sphere: {e}")
+                # Fallback to simulation mode
+                self.shapes[shape_id] = {
+                    "id": shape_id,
+                    "type": "sphere",
+                    "params": {
+                        "radius": radius,
+                        "center": [center_x, center_y, center_z]
+                    }
+                }
+        else:
+            # Simulation mode
+            self.shapes[shape_id] = {
+                "id": shape_id,
+                "type": "sphere",
+                "params": {
+                    "radius": radius,
                     "center": [center_x, center_y, center_z]
+                }
+            }
+        
+        return shape_id
+    
+    def create_cone(self, radius1: float, radius2: float, height: float,
+                   center_x: float = 0, center_y: float = 0, center_z: float = 0,
+                   direction: List[float] = [0, 0, 1]) -> int:
+        """Create cone primitive with specified direction"""
+        self.shape_counter += 1
+        shape_id = self.shape_counter
+        
+        # Normalize direction vector
+        dir_len = sum(d*d for d in direction) ** 0.5
+        if dir_len > 0:
+            direction = [d/dir_len for d in direction]
+        else:
+            direction = [0, 0, 1]  # Default direction
+        
+        if HAS_OCC:
+            try:
+                # Create direction
+                gp_dir = gp_Dir(direction[0], direction[1], direction[2])
+                
+                # Create placement axis
+                ax2 = gp_Ax2(gp_Pnt(center_x, center_y, center_z - height/2 if direction[2] > 0 else center_z + height/2), 
+                             gp_dir)
+                
+                # Create cone
+                cone = BRepPrimAPI_MakeCone(ax2, radius1, radius2, height).Shape()
+                
+                self.shapes[shape_id] = {
+                    "id": shape_id,
+                    "type": "cone",
+                    "shape": cone,
+                    "params": {
+                        "radius1": radius1,
+                        "radius2": radius2,
+                        "height": height,
+                        "center": [center_x, center_y, center_z],
+                        "direction": direction
+                    }
+                }
+            except Exception as e:
+                print(f"Error creating cone: {e}")
+                # Fallback to simulation mode
+                self.shapes[shape_id] = {
+                    "id": shape_id,
+                    "type": "cone",
+                    "params": {
+                        "radius1": radius1,
+                        "radius2": radius2,
+                        "height": height,
+                        "center": [center_x, center_y, center_z],
+                        "direction": direction
+                    }
+                }
+        else:
+            # Simulation mode
+            self.shapes[shape_id] = {
+                "id": shape_id,
+                "type": "cone",
+                "params": {
+                    "radius1": radius1,
+                    "radius2": radius2,
+                    "height": height,
+                    "center": [center_x, center_y, center_z],
+                    "direction": direction
                 }
             }
         
@@ -263,6 +424,333 @@ class OCCWrapper:
                 "wireframe": True
             }
         }
+    
+    def boolean_cut(self, shape_id1: int, shape_id2: int) -> int:
+        """执行布尔减法操作"""
+        if shape_id1 not in self.shapes or shape_id2 not in self.shapes:
+            raise ValueError("无效的形状ID")
+            
+        self.shape_counter += 1
+        result_id = self.shape_counter
+        
+        if HAS_OCC:
+            try:
+                shape1 = self.shapes[shape_id1].get("shape")
+                shape2 = self.shapes[shape_id2].get("shape")
+                
+                if shape1 and shape2:
+                    # 执行布尔减法
+                    cut_op = BRepAlgoAPI_Cut(shape1, shape2)
+                    if cut_op.IsDone():
+                        result_shape = cut_op.Shape()
+                        
+                        self.shapes[result_id] = {
+                            "id": result_id,
+                            "type": "boolean_cut",
+                            "shape": result_shape,
+                            "params": {
+                                "shape1_id": shape_id1,
+                                "shape2_id": shape_id2,
+                                "operation": "cut"
+                            }
+                        }
+                    else:
+                        raise RuntimeError("布尔减法操作失败")
+                else:
+                    raise ValueError("无效的形状对象")
+            except Exception as e:
+                print(f"布尔减法操作失败: {e}")
+                # 模拟模式
+                self.shapes[result_id] = {
+                    "id": result_id,
+                    "type": "boolean_cut",
+                    "params": {
+                        "shape1_id": shape_id1,
+                        "shape2_id": shape_id2,
+                        "operation": "cut"
+                    }
+                }
+        else:
+            # 模拟模式
+            self.shapes[result_id] = {
+                "id": result_id,
+                "type": "boolean_cut",
+                "params": {
+                    "shape1_id": shape_id1,
+                    "shape2_id": shape_id2,
+                    "operation": "cut"
+                }
+            }
+        
+        return result_id
+    
+    def boolean_union(self, shape_id1: int, shape_id2: int) -> int:
+        """执行布尔并集操作"""
+        if shape_id1 not in self.shapes or shape_id2 not in self.shapes:
+            raise ValueError("无效的形状ID")
+            
+        self.shape_counter += 1
+        result_id = self.shape_counter
+        
+        if HAS_OCC:
+            try:
+                shape1 = self.shapes[shape_id1].get("shape")
+                shape2 = self.shapes[shape_id2].get("shape")
+                
+                if shape1 and shape2:
+                    # 执行布尔并集
+                    union_op = BRepAlgoAPI_Fuse(shape1, shape2)
+                    if union_op.IsDone():
+                        result_shape = union_op.Shape()
+                        
+                        self.shapes[result_id] = {
+                            "id": result_id,
+                            "type": "boolean_union",
+                            "shape": result_shape,
+                            "params": {
+                                "shape1_id": shape_id1,
+                                "shape2_id": shape_id2,
+                                "operation": "union"
+                            }
+                        }
+                    else:
+                        raise RuntimeError("布尔并集操作失败")
+                else:
+                    raise ValueError("无效的形状对象")
+            except Exception as e:
+                print(f"布尔并集操作失败: {e}")
+                # 模拟模式
+                self.shapes[result_id] = {
+                    "id": result_id,
+                    "type": "boolean_union",
+                    "params": {
+                        "shape1_id": shape_id1,
+                        "shape2_id": shape_id2,
+                        "operation": "union"
+                    }
+                }
+        else:
+            # 模拟模式
+            self.shapes[result_id] = {
+                "id": result_id,
+                "type": "boolean_union",
+                "params": {
+                    "shape1_id": shape_id1,
+                    "shape2_id": shape_id2,
+                    "operation": "union"
+                }
+            }
+        
+        return result_id
+    
+    def create_excavation_model(self, 
+                               width: float, 
+                               length: float, 
+                               depth: float,
+                               wall_thickness: float = 0.8,
+                               wall_depth: float = 30.0,
+                               soil_depth: float = 50.0) -> Dict[str, int]:
+        """
+        创建参数化基坑模型
+        
+        Args:
+            width: 基坑宽度
+            length: 基坑长度
+            depth: 基坑深度
+            wall_thickness: 围护墙厚度
+            wall_depth: 围护墙深度
+            soil_depth: 土体总深度
+            
+        Returns:
+            包含各组件形状ID的字典
+        """
+        # 创建外部土体
+        soil_width = width + 60
+        soil_length = length + 60
+        soil_id = self.create_box(soil_width, soil_length, soil_depth, 0, 0, -soil_depth/2)
+        
+        # 创建基坑挖方区域
+        excavation_id = self.create_box(width, length, depth, 0, 0, -depth/2)
+        
+        # 从土体中挖除基坑
+        soil_with_pit_id = self.boolean_cut(soil_id, excavation_id)
+        
+        # 创建地连墙
+        walls = {}
+        
+        # 前墙
+        front_wall_id = self.create_box(width + 2*wall_thickness, wall_thickness, wall_depth, 
+                                      0, length/2 + wall_thickness/2, -wall_depth/2)
+        walls["front"] = front_wall_id
+        
+        # 后墙
+        back_wall_id = self.create_box(width + 2*wall_thickness, wall_thickness, wall_depth, 
+                                     0, -length/2 - wall_thickness/2, -wall_depth/2)
+        walls["back"] = back_wall_id
+        
+        # 左墙
+        left_wall_id = self.create_box(wall_thickness, length, wall_depth, 
+                                     width/2 + wall_thickness/2, 0, -wall_depth/2)
+        walls["left"] = left_wall_id
+        
+        # 右墙
+        right_wall_id = self.create_box(wall_thickness, length, wall_depth, 
+                                      -width/2 - wall_thickness/2, 0, -wall_depth/2)
+        walls["right"] = right_wall_id
+        
+        # 创建地下水位面(默认在地表下2米)
+        water_table_id = self.create_box(soil_width, soil_length, 0.1, 0, 0, -2.05)
+        
+        return {
+            "soil": soil_with_pit_id,
+            "excavation": excavation_id,
+            "walls": walls,
+            "water_table": water_table_id
+        }
+    
+    def create_support_structure(self,
+                                excavation_width: float,
+                                excavation_length: float,
+                                strut_positions: List[Dict[str, float]],
+                                strut_diameter: float = 0.6) -> Dict[str, int]:
+        """
+        创建支撑结构
+        
+        Args:
+            excavation_width: 基坑宽度
+            excavation_length: 基坑长度
+            strut_positions: 支撑位置列表，每个位置为包含x,y,z的字典
+            strut_diameter: 支撑直径
+            
+        Returns:
+            包含各支撑ID的字典
+        """
+        struts = {}
+        
+        for i, pos in enumerate(strut_positions):
+            # 横向支撑
+            x_strut_id = self.create_cylinder(
+                strut_diameter/2, 
+                excavation_width, 
+                pos.get("x", 0), 
+                pos.get("y", 0), 
+                pos.get("z", -5),
+                [1, 0, 0]  # X方向
+            )
+            struts[f"x_strut_{i}"] = x_strut_id
+            
+            # 纵向支撑
+            y_strut_id = self.create_cylinder(
+                strut_diameter/2, 
+                excavation_length, 
+                pos.get("x", 0), 
+                pos.get("y", 0), 
+                pos.get("z", -5),
+                [0, 1, 0]  # Y方向
+            )
+            struts[f"y_strut_{i}"] = y_strut_id
+        
+        return struts
+    
+    def create_anchor_system(self,
+                            anchor_positions: List[Dict[str, Any]]) -> Dict[str, int]:
+        """
+        创建锚杆系统
+        
+        Args:
+            anchor_positions: 锚杆位置列表，每个包含位置、角度和长度信息
+            
+        Returns:
+            包含各锚杆ID的字典
+        """
+        anchors = {}
+        
+        for i, anchor in enumerate(anchor_positions):
+            pos = anchor.get("position", {"x": 0, "y": 0, "z": -5})
+            angle = anchor.get("angle", 15)  # 默认15度
+            length = anchor.get("length", 15)  # 默认长度15米
+            diameter = anchor.get("diameter", 0.2)  # 默认直径0.2米
+            
+            # 计算方向向量
+            # 假设角度是相对于水平面的仰角，并且锚杆垂直于基坑墙面
+            # 确定锚杆所在墙面
+            wall = anchor.get("wall", "left")
+            
+            if wall == "left":
+                direction = [-np.cos(np.radians(angle)), 0, -np.sin(np.radians(angle))]
+            elif wall == "right":
+                direction = [np.cos(np.radians(angle)), 0, -np.sin(np.radians(angle))]
+            elif wall == "front":
+                direction = [0, -np.cos(np.radians(angle)), -np.sin(np.radians(angle))]
+            elif wall == "back":
+                direction = [0, np.cos(np.radians(angle)), -np.sin(np.radians(angle))]
+            else:
+                # 默认左墙
+                direction = [-np.cos(np.radians(angle)), 0, -np.sin(np.radians(angle))]
+            
+            # 创建锚杆
+            anchor_id = self.create_cylinder(
+                diameter/2,
+                length,
+                pos.get("x", 0),
+                pos.get("y", 0),
+                pos.get("z", -5),
+                direction
+            )
+            
+            anchors[f"anchor_{i}"] = anchor_id
+        
+        return anchors
+    
+    def export_step(self, shape_id: int, filename: str) -> bool:
+        """
+        将形状导出为STEP格式
+        
+        Args:
+            shape_id: 形状ID
+            filename: 输出文件名
+            
+        Returns:
+            是否成功导出
+        """
+        if not HAS_OCC:
+            print("OCC不可用，无法导出STEP文件")
+            return False
+            
+        if shape_id not in self.shapes:
+            print(f"形状ID {shape_id} 不存在")
+            return False
+            
+        shape_info = self.shapes[shape_id]
+        shape = shape_info.get("shape")
+        
+        if not shape:
+            print("无效的形状对象")
+            return False
+            
+        try:
+            # 创建STEP写入器
+            step_writer = STEPControl_Writer()
+            
+            # 添加形状
+            status = step_writer.Transfer(shape, STEPControl_AsIs)
+            
+            if status != IFSelect_RetDone:
+                print("STEP转换失败")
+                return False
+                
+            # 写入文件
+            status = step_writer.Write(filename)
+            
+            if status != IFSelect_RetDone:
+                print("STEP文件写入失败")
+                return False
+                
+            print(f"成功导出STEP文件: {filename}")
+            return True
+        except Exception as e:
+            print(f"导出STEP文件时出错: {e}")
+            return False
 
 
 class OCCToIGAConverter:

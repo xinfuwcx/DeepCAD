@@ -16,13 +16,13 @@ export default defineConfig({
   publicDir: 'public',
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@components': path.resolve(__dirname, './src/components'),
-      '@core': path.resolve(__dirname, './src/core'),
-      '@utils': path.resolve(__dirname, './src/utils'),
-      '@models': path.resolve(__dirname, './src/models'),
-      '@styles': path.resolve(__dirname, './src/styles'),
-      '@assets': path.resolve(__dirname, './src/assets'),
+      '@': path.resolve(__dirname, '.'),
+      '@components': path.resolve(__dirname, './components'),
+      '@core': path.resolve(__dirname, './core'),
+      '@utils': path.resolve(__dirname, './utils'),
+      '@models': path.resolve(__dirname, './models'),
+      '@styles': path.resolve(__dirname, './styles'),
+      '@assets': path.resolve(__dirname, './assets'),
     },
   },
   optimizeDeps: {

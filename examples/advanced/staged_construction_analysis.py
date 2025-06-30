@@ -2,272 +2,372 @@
 # -*- coding: utf-8 -*-
 
 """
-@file staged_construction_analysis.py
-@description 分步施工模拟分析示例
-@author Deep Excavation Team
-@version 1.0.0
-@copyright 2025
+分步施工模拟分析示例
+
+该示例展示如何使用StagedConstructionAnalysis类模拟深基坑工程的分步施工过程，
+包括支护结构与土体之间的接触分析。
 """
 
 import os
 import sys
-import json
 import logging
-import time
+import numpy as np
+import matplotlib.pyplot as plt
 from pathlib import Path
 
-# 添加项目根目录到路径中
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+# 添加项目根目录到Python路径
+project_dir = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(project_dir))
 
-# 导入分步施工模拟模块
 from src.core.simulation.staged_construction import (
     StagedConstructionAnalysis,
+    ConstructionStage,
     StageType,
-    ConstructionStage
+    ContactDefinition,
+    ContactType
 )
 
 # 配置日志
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("StageConstructionExample")
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("StagedConstructionExample")
 
-
-def main():
-    """主函数，运行分步施工模拟示例"""
-    logger.info("开始运行分步施工模拟示例")
-
+def run_staged_construction_with_contacts():
+    """运行分步施工模拟示例（带接触分析）"""
+    logger.info("运行带接触分析的分步施工模拟示例")
+    
     # 创建工作目录
-    project_id = "demo_stage_construction"
-    work_dir = os.path.join(os.path.dirname(__file__), "case_results", "staged_construction")
-    os.makedirs(work_dir, exist_ok=True)
-
-    # 示例模型文件，实际使用时需替换为真实的模型文件
-    model_file = os.path.join(os.path.dirname(__file__),
-                              "case_results", "excavation_model.geo")
-    if not os.path.exists(model_file):
-        logger.warning(f"模型文件不存在: {model_file}，将使用模拟路径")
-        model_file = "simulated_model_path.geo"
-
-    # 创建分步施工模拟分析对象
+    output_dir = os.path.join(project_dir, "examples", "case_results", "staged_construction")
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # 示例模型文件（在实际应用中，这应该是一个有效的模型文件）
+    model_file = os.path.join(project_dir, "data", "mesh", "simple_box.msh")
+    
+    # 创建分步施工分析实例
     analysis = StagedConstructionAnalysis(
-        project_id=project_id,
+        project_id="contact_example_001",
         model_file=model_file,
-        work_dir=work_dir,
+        work_dir=output_dir,
         config={
-            "solver_type": "direct",
+            "solver": "static",
             "max_iterations": 50,
-            "tolerance": 1e-6,
-            "time_step": 1.0,
+            "convergence_tolerance": 1e-5,
+            "contact_config": {
+                "algorithm": "mortar",
+                "search_radius": 0.5,
+                "auto_detection": True,
+                "friction_model": "coulomb",
+                "stabilization": 1e-5,
+                "max_iterations": 10
+            }
         }
     )
-
-    # 添加初始阶段
+    
+    # 定义材料和实体（用于演示）
+    # 在实际应用中，这些信息会从模型文件中读取
+    soil_entities = {
+        "soil_top": [1, 2, 3],
+        "soil_middle": [4, 5, 6],
+        "soil_bottom": [7, 8, 9]
+    }
+    
+    structure_entities = {
+        "diaphragm_wall": [10, 11],
+        "anchor_1": [12],
+        "anchor_2": [13],
+        "strut_1": [14]
+    }
+    
+    # 1. 添加初始阶段 - 建立初始地应力场
     analysis.add_initial_stage(
-        name="初始平衡阶段",
+        name="初始状态",
         parameters={
-            "water_level": -5.0,        # 初始水位高程
-            "initial_stress_method": "k0_procedure",  # K0程序法
-            "k0": 0.5                   # 静止侧压力系数
+            "gravity": 9.81,
+            "water_level": 0.0,  # 地表水位
+            "k0": 0.5,  # 静止土压力系数
+            "soil_unit_weight": 20.0  # 土体单位重(kN/m³)
         }
     )
-
-    # 添加第一次开挖阶段 (0m ~ -3.0m)
+    
+    # 2. 添加围护结构安装阶段
+    wall_entities = {"diaphragm_wall": structure_entities["diaphragm_wall"]}
+    analysis.add_support_stage(
+        name="围护结构安装",
+        stage_type=StageType.WALL_INSTALLATION,
+        entities=wall_entities,
+        parameters={
+            "wall_type": "diaphragm",
+            "elastic_modulus": 3.0e7,  # 混凝土弹性模量(kPa)
+            "poisson_ratio": 0.2,      # 混凝土泊松比
+            "thickness": 0.6           # 墙厚(m)
+        }
+    )
+    
+    # 3. 添加围护墙与土体的接触定义
+    analysis.add_frictional_contact(
+        master_entity="diaphragm_wall",
+        slave_entity="soil_top",
+        friction_coefficient=0.3,
+        normal_stiffness=1.0e9,
+        description="围护墙与上层土体接触"
+    )
+    
+    analysis.add_frictional_contact(
+        master_entity="diaphragm_wall",
+        slave_entity="soil_middle",
+        friction_coefficient=0.35,
+        normal_stiffness=1.0e9,
+        description="围护墙与中层土体接触"
+    )
+    
+    # 4. 添加接触初始化阶段
+    analysis.add_contact_stage(
+        name="接触初始化",
+        contacts=["contact_diaphragm_wall_soil_top", "contact_diaphragm_wall_soil_middle"],
+        parameters={
+            "contact_controls": {
+                "normal_penalty_factor": 1.0,
+                "tangential_penalty_factor": 0.8
+            }
+        }
+    )
+    
+    # 5. 第一次开挖阶段
     analysis.add_excavation_stage(
         name="第一次开挖",
-        elements=[101, 102, 103, 104, 105],  # 示例开挖单元编号
-        water_level=-5.0,                    # 开挖后水位
+        elements=soil_entities["soil_top"],
+        water_level=-2.0,
         parameters={
-            "excavation_depth": 3.0          # 开挖深度
+            "excavation_depth": 2.0,
+            "unloading_factor": 1.0  # 卸载因子
         }
     )
-
-    # 添加围护墙安装阶段
+    
+    # 6. 添加第一道支撑
+    strut_entities = {"strut_1": structure_entities["strut_1"]}
     analysis.add_support_stage(
-        name="安装地下连续墙",
-        stage_type=StageType.WALL_INSTALLATION,
-        entities={
-            "wall": [201, 202, 203, 204]     # 示例墙体单元编号
-        },
+        name="第一道支撑安装",
+        stage_type=StageType.STRUT_INSTALLATION,
+        entities=strut_entities,
         parameters={
-            "wall_thickness": 0.8,           # 墙厚(m)
-            "wall_depth": 25.0,              # 墙深(m)
-            "elastic_modulus": 3.0e10,       # 弹性模量(Pa)
-            "poisson_ratio": 0.2             # 泊松比
+            "strut_type": "steel",
+            "elastic_modulus": 2.0e8,  # 钢材弹性模量(kPa)
+            "cross_section_area": 0.01,  # 截面积(m²)
+            "prestress": 100.0  # 预应力(kN)
         }
     )
-
-    # 添加第二次开挖阶段 (-3.0m ~ -6.0m)
+    
+    # 7. 添加支撑与围护墙的刚性连接（绑定接触）
+    analysis.add_tied_contact(
+        master_entity="diaphragm_wall",
+        slave_entity="strut_1",
+        normal_stiffness=1.0e10,
+        description="支撑与围护墙的连接"
+    )
+    
+    # 8. 接触更新阶段
+    analysis.add_contact_stage(
+        name="支撑接触初始化",
+        contacts=["contact_diaphragm_wall_strut_1"],
+        parameters={
+            "contact_controls": {
+                "normal_penalty_factor": 10.0
+            }
+        }
+    )
+    
+    # 9. 第二次开挖阶段
     analysis.add_excavation_stage(
         name="第二次开挖",
-        elements=[106, 107, 108, 109, 110],  # 示例开挖单元编号
-        water_level=-6.5,                    # 开挖后水位
+        elements=soil_entities["soil_middle"],
+        water_level=-5.0,
         parameters={
-            "excavation_depth": 3.0          # 开挖深度
+            "excavation_depth": 3.0,
+            "unloading_factor": 1.0  # 卸载因子
         }
     )
-
-    # 添加第一道支撑安装阶段
+    
+    # 10. 添加锚杆
+    anchor_entities = {
+        "anchor_1": structure_entities["anchor_1"],
+        "anchor_2": structure_entities["anchor_2"]
+    }
     analysis.add_support_stage(
-        name="安装第一道支撑",
-        stage_type=StageType.STRUT_INSTALLATION,
-        entities={
-            "strut": [301, 302, 303, 304]    # 示例支撑单元编号
-        },
-        parameters={
-            "strut_level": -2.5,             # 支撑高程(m)
-            "elastic_modulus": 2.1e11,       # 弹性模量(Pa)
-            "section_area": 0.01             # 截面面积(m²)
-        }
-    )
-
-    # 添加第一道锚杆安装阶段
-    analysis.add_support_stage(
-        name="安装第一道锚杆",
+        name="锚杆安装",
         stage_type=StageType.ANCHOR_INSTALLATION,
-        entities={
-            "anchor": [401, 402, 403, 404]   # 示例锚杆单元编号
-        },
+        entities=anchor_entities,
         parameters={
-            "anchor_level": -1.5,            # 锚杆高程(m)
-            "anchor_length": 15.0,           # 锚杆长度(m)
-            "free_length": 8.0,              # 自由段长度(m)
-            "prestress": {                   # 预应力(N)
-                "401": 1.0e5,
-                "402": 1.0e5,
-                "403": 1.0e5,
-                "404": 1.0e5
+            "anchor_type": "prestressed",
+            "elastic_modulus": 2.0e8,  # 钢材弹性模量(kPa)
+            "cross_section_area": 0.0005,  # 截面积(m²)
+            "free_length": 8.0,  # 自由段长度(m)
+            "fixed_length": 5.0,  # 锚固段长度(m)
+            "prestress": [200.0, 200.0],  # 各锚杆的预应力(kN)
+            "installation_angle": 15.0  # 安装角度(°)
+        }
+    )
+    
+    # 11. 添加锚杆与围护墙的接触
+    analysis.add_tied_contact(
+        master_entity="diaphragm_wall",
+        slave_entity="anchor_1",
+        normal_stiffness=1.0e10,
+        description="锚杆1与围护墙的连接"
+    )
+    
+    analysis.add_tied_contact(
+        master_entity="diaphragm_wall",
+        slave_entity="anchor_2",
+        normal_stiffness=1.0e10,
+        description="锚杆2与围护墙的连接"
+    )
+    
+    # 12. 接触更新阶段
+    analysis.add_contact_stage(
+        name="锚杆接触初始化",
+        contacts=["contact_diaphragm_wall_anchor_1", "contact_diaphragm_wall_anchor_2"]
+    )
+    
+    # 13. 施加地面荷载
+    analysis.add_load_stage(
+        name="施加地面荷载",
+        loads={
+            "surface_load": {
+                "entities": [15, 16],  # 地面单元
+                "type": "pressure",
+                "value": 20.0,  # 荷载大小(kPa)
+                "direction": [0, 0, -1]  # 荷载方向
             }
         }
     )
-
-    # 添加降水阶段
-    analysis.add_dewatering_stage(
-        name="基坑降水",
-        water_level=-8.0,                   # 降水后水位
-        area=[501, 502, 503, 504],          # 示例降水区域单元编号
-        parameters={
-            "pumping_rate": 100.0,          # 抽水速率(m³/day)
-            "dewatering_time": 5.0          # 降水时间(day)
-        }
-    )
-
-    # 添加第三次开挖阶段 (-6.0m ~ -9.0m)
-    analysis.add_excavation_stage(
-        name="第三次开挖",
-        elements=[111, 112, 113, 114, 115],  # 示例开挖单元编号
-        water_level=-10.0,                   # 开挖后水位
-        parameters={
-            "excavation_depth": 3.0          # 开挖深度
-        }
-    )
-
-    # 添加第二道支撑安装阶段
-    analysis.add_support_stage(
-        name="安装第二道支撑",
-        stage_type=StageType.STRUT_INSTALLATION,
-        entities={
-            "strut": [305, 306, 307, 308]    # 示例支撑单元编号
-        },
-        parameters={
-            "strut_level": -5.5,             # 支撑高程(m)
-            "elastic_modulus": 2.1e11,       # 弹性模量(Pa)
-            "section_area": 0.012            # 截面面积(m²)
-        }
-    )
-
-    # 添加第四次开挖阶段 (-9.0m ~ -12.0m)
-    analysis.add_excavation_stage(
-        name="第四次开挖",
-        elements=[116, 117, 118, 119, 120],  # 示例开挖单元编号
-        water_level=-12.5,                   # 开挖后水位
-        parameters={
-            "excavation_depth": 3.0          # 开挖深度
-        }
-    )
-
-    # 添加第三道支撑安装阶段
-    analysis.add_support_stage(
-        name="安装第三道支撑",
-        stage_type=StageType.STRUT_INSTALLATION,
-        entities={
-            "strut": [309, 310, 311, 312]    # 示例支撑单元编号
-        },
-        parameters={
-            "strut_level": -8.5,             # 支撑高程(m)
-            "elastic_modulus": 2.1e11,       # 弹性模量(Pa)
-            "section_area": 0.015            # 截面面积(m²)
-        }
-    )
-
-    # 添加第五次开挖阶段 (-12.0m ~ -15.0m)
-    analysis.add_excavation_stage(
-        name="第五次开挖",
-        elements=[121, 122, 123, 124, 125],  # 示例开挖单元编号
-        water_level=-15.5,                   # 开挖后水位
-        parameters={
-            "excavation_depth": 3.0          # 开挖深度
-        }
-    )
-
-    # 添加荷载施加阶段（模拟底板浇筑）
-    custom_stage = ConstructionStage(
-        stage_id=f"stage_{len(analysis.stages)}",
-        stage_type=StageType.LOAD_APPLICATION,
-        stage_name="底板浇筑荷载",
-        stage_description="模拟底板浇筑产生的荷载",
-        parameters={
-            "loads": {
-                "bottom_slab": {
-                    "type": "surface",
-                    "value": [0, 0, -25000],   # 25 kPa向下的荷载
-                    "entities": [601, 602, 603, 604]  # 底板表面单元
-                }
+    
+    # 14. 完工阶段
+    analysis.add_stage(
+        ConstructionStage(
+            stage_id=f"stage_{len(analysis.stages)}",
+            stage_type=StageType.COMPLETION,
+            stage_name="完工阶段",
+            stage_description="建设完成阶段，进行长期安全性评估",
+            parameters={
+                "long_term": True,
+                "consolidation_time": 3650.0  # 模拟10年长期性能
             }
-        }
+        )
     )
-    analysis.add_stage(custom_stage)
-
-    # 保存分析配置
-    config_file = analysis.save("staged_construction_config.json")
-    logger.info(f"分析配置已保存到: {config_file}")
-
+    
     # 运行分析
     logger.info("开始运行分步施工模拟分析...")
-    try:
-        results = analysis.run_analysis()
-        
-        if results["status"] == "completed":
-            logger.info(f"分析成功完成！总计{results['total_stages']}个阶段，"
-                        f"耗时: {results['computation_time']:.2f}秒")
-            logger.info(f"结果文件: {results['result_file']}")
-            
-            # 输出各阶段关键结果
-            for stage_id, stage_result in results["results_summary"].items():
-                stage_name = stage_result["name"]
-                stage_type = stage_result["type"]
-                
-                # 这里假设结果中包含最大位移和最大应力
-                if "results" in stage_result and stage_result["results"]:
-                    max_disp = stage_result["results"].get("max_displacement", "N/A")
-                    max_stress = stage_result["results"].get("max_stress", "N/A")
-                    logger.info(f"阶段: {stage_name} (类型: {stage_type}), "
-                                f"最大位移: {max_disp} m, 最大应力: {max_stress} Pa")
-                else:
-                    logger.info(f"阶段: {stage_name} (类型: {stage_type}), 无结果数据")
-                    
-            # 导出最终结果
-            vtk_file = os.path.join(work_dir, "final_results.vtk")
-            analysis.export_results(vtk_file, "vtk")
-            logger.info(f"最终结果已导出到: {vtk_file}")
-            
-        else:
-            logger.error(f"分析失败: {results.get('error', '未知错误')}")
+    analysis.run_analysis()
     
-    except Exception as e:
-        logger.error(f"运行分析时发生错误: {str(e)}")
+    # 保存分析结果
+    result_file = analysis.save("staged_construction_contact_results.json")
+    logger.info(f"分析结果已保存到: {result_file}")
     
-    logger.info("示例结束")
+    # 导出结果
+    vtk_file = analysis.export_results(
+        os.path.join(output_dir, "staged_construction_final_result.vtk"),
+        format="vtk"
+    )
+    logger.info(f"结果已导出到VTK文件: {vtk_file}")
+    
+    # 打印接触分析结果
+    logger.info("接触分析结果:")
+    contact_results = analysis.get_contact_results()
+    for contact_id, result in contact_results.items():
+        logger.info(f"接触 {contact_id}:")
+        for key, value in result.items():
+            logger.info(f"  {key}: {value}")
+    
+    return analysis
 
+def plot_wall_displacement(analysis):
+    """绘制围护墙位移曲线"""
+    try:
+        # 假设我们能从分析结果中获取墙位移数据
+        # 在实际应用中，这些数据应该来自分析结果
+        
+        # 模拟墙的深度和水平位移数据
+        wall_depth = np.linspace(0, 15, 50)  # 0到15m的墙深度
+        
+        # 不同阶段的水平位移（模拟数据）
+        stages = ["初始状态", "第一次开挖", "第一道支撑安装", "第二次开挖", "锚杆安装", "完工阶段"]
+        displacements = [
+            np.zeros_like(wall_depth),  # 初始状态
+            0.02 * wall_depth * np.exp(-wall_depth / 5),  # 第一次开挖
+            0.015 * wall_depth * np.exp(-wall_depth / 5),  # 第一道支撑安装
+            0.03 * wall_depth * np.exp(-wall_depth / 6),  # 第二次开挖
+            0.025 * wall_depth * np.exp(-wall_depth / 6),  # 锚杆安装
+            0.028 * wall_depth * np.exp(-wall_depth / 6)   # 完工阶段
+        ]
+        
+        # 创建图形
+        plt.figure(figsize=(10, 8))
+        
+        # 绘制位移曲线
+        for i, stage_name in enumerate(stages):
+            plt.plot(displacements[i] * 100, wall_depth, label=stage_name)
+        
+        # 设置图表属性
+        plt.xlabel('水平位移 (cm)')
+        plt.ylabel('深度 (m)')
+        plt.title('分步施工过程中围护墙的水平位移')
+        plt.legend()
+        plt.grid(True)
+        
+        # 翻转Y轴方向（深度增加向下）
+        plt.gca().invert_yaxis()
+        
+        # 保存图形
+        output_dir = os.path.join(project_dir, "examples", "case_results", "staged_construction")
+        plt.savefig(os.path.join(output_dir, "wall_displacement.png"))
+        logger.info(f"围护墙位移图已保存到: {os.path.join(output_dir, 'wall_displacement.png')}")
+        
+        plt.close()
+        
+    except Exception as e:
+        logger.error(f"绘制围护墙位移图失败: {str(e)}")
+
+def plot_contact_stresses(analysis):
+    """绘制接触应力分布"""
+    try:
+        # 假设墙的深度方向
+        wall_depth = np.linspace(0, 15, 50)  # 0到15m的墙深度
+        
+        # 模拟不同接触面的接触应力（法向和切向）
+        # 在实际应用中，这些数据应该来自分析结果
+        normal_stress = 50 * np.exp(-wall_depth / 10) + 20  # 法向应力 (kPa)
+        shear_stress = 15 * np.exp(-wall_depth / 8)        # 剪切应力 (kPa)
+        
+        # 创建图形
+        plt.figure(figsize=(10, 8))
+        
+        # 绘制应力曲线
+        plt.plot(normal_stress, wall_depth, 'b-', label='法向接触应力')
+        plt.plot(shear_stress, wall_depth, 'r-', label='切向接触应力')
+        
+        # 设置图表属性
+        plt.xlabel('接触应力 (kPa)')
+        plt.ylabel('深度 (m)')
+        plt.title('围护墙与土体的接触应力分布')
+        plt.legend()
+        plt.grid(True)
+        
+        # 翻转Y轴方向（深度增加向下）
+        plt.gca().invert_yaxis()
+        
+        # 保存图形
+        output_dir = os.path.join(project_dir, "examples", "case_results", "staged_construction")
+        plt.savefig(os.path.join(output_dir, "contact_stresses.png"))
+        logger.info(f"接触应力图已保存到: {os.path.join(output_dir, 'contact_stresses.png')}")
+        
+        plt.close()
+        
+    except Exception as e:
+        logger.error(f"绘制接触应力分布图失败: {str(e)}")
 
 if __name__ == "__main__":
-    main() 
+    try:
+        analysis = run_staged_construction_with_contacts()
+        plot_wall_displacement(analysis)
+        plot_contact_stresses(analysis)
+    except Exception as e:
+        logger.exception(f"分析过程中出错: {str(e)}") 

@@ -1,0 +1,175 @@
+{
+  "hash": "6bc90fc1",
+  "configHash": "206cbc4f",
+  "lockfileHash": "e3b0c442",
+  "browserHash": "83cd4c6c",
+  "optimized": {
+    "@mui/icons-material": {
+      "src": "../../frontend/src/node_modules/@mui/icons-material/esm/index.js",
+      "file": "@mui_icons-material.js",
+      "fileHash": "929c33dd",
+      "needsInterop": false
+    },
+    "@mui/icons-material/Add": {
+      "src": "../../frontend/src/node_modules/@mui/icons-material/Add.js",
+      "file": "@mui_icons-material_Add.js",
+      "fileHash": "3cb49b72",
+      "needsInterop": true
+    },
+    "@mui/icons-material/Download": {
+      "src": "../../frontend/src/node_modules/@mui/icons-material/Download.js",
+      "file": "@mui_icons-material_Download.js",
+      "fileHash": "a955ca9e",
+      "needsInterop": true
+    },
+    "@mui/icons-material/ExpandMore": {
+      "src": "../../frontend/src/node_modules/@mui/icons-material/ExpandMore.js",
+      "file": "@mui_icons-material_ExpandMore.js",
+      "fileHash": "29b58c34",
+      "needsInterop": true
+    },
+    "@mui/icons-material/PlayArrow": {
+      "src": "../../frontend/src/node_modules/@mui/icons-material/PlayArrow.js",
+      "file": "@mui_icons-material_PlayArrow.js",
+      "fileHash": "b32bd6a6",
+      "needsInterop": true
+    },
+    "@mui/icons-material/Save": {
+      "src": "../../frontend/src/node_modules/@mui/icons-material/Save.js",
+      "file": "@mui_icons-material_Save.js",
+      "fileHash": "640e6098",
+      "needsInterop": true
+    },
+    "@mui/icons-material/Visibility": {
+      "src": "../../frontend/src/node_modules/@mui/icons-material/Visibility.js",
+      "file": "@mui_icons-material_Visibility.js",
+      "fileHash": "563c99cf",
+      "needsInterop": true
+    },
+    "@mui/material": {
+      "src": "../../frontend/src/node_modules/@mui/material/index.js",
+      "file": "@mui_material.js",
+      "fileHash": "4f772c43",
+      "needsInterop": false
+    },
+    "@mui/material/styles": {
+      "src": "../../frontend/src/node_modules/@mui/material/styles/index.js",
+      "file": "@mui_material_styles.js",
+      "fileHash": "641853bb",
+      "needsInterop": false
+    },
+    "@mui/system": {
+      "src": "../../frontend/src/node_modules/@mui/system/esm/index.js",
+      "file": "@mui_system.js",
+      "fileHash": "77cb0e87",
+      "needsInterop": false
+    },
+    "@react-three/drei": {
+      "src": "../../frontend/node_modules/@react-three/drei/index.js",
+      "file": "@react-three_drei.js",
+      "fileHash": "9f7e1ef4",
+      "needsInterop": false
+    },
+    "@react-three/fiber": {
+      "src": "../../frontend/node_modules/@react-three/fiber/dist/react-three-fiber.esm.js",
+      "file": "@react-three_fiber.js",
+      "fileHash": "d006d7bb",
+      "needsInterop": false
+    },
+    "axios": {
+      "src": "../../frontend/node_modules/axios/index.js",
+      "file": "axios.js",
+      "fileHash": "89421dee",
+      "needsInterop": false
+    },
+    "react": {
+      "src": "../../frontend/src/node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "d0610e37",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../frontend/src/node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "d4f6eb98",
+      "needsInterop": true
+    },
+    "react-router-dom": {
+      "src": "../../frontend/node_modules/react-router-dom/dist/index.mjs",
+      "file": "react-router-dom.js",
+      "fileHash": "49d39036",
+      "needsInterop": false
+    },
+    "three": {
+      "src": "../../frontend/src/node_modules/three/build/three.module.js",
+      "file": "three.js",
+      "fileHash": "d0378b70",
+      "needsInterop": false
+    },
+    "three/examples/jsm/controls/OrbitControls": {
+      "src": "../../frontend/src/node_modules/three/examples/jsm/controls/OrbitControls.js",
+      "file": "three_examples_jsm_controls_OrbitControls.js",
+      "fileHash": "af448dc5",
+      "needsInterop": false
+    },
+    "three/examples/jsm/controls/OrbitControls.js": {
+      "src": "../../frontend/node_modules/three/examples/jsm/controls/OrbitControls.js",
+      "file": "three_examples_jsm_controls_OrbitControls__js.js",
+      "fileHash": "a17d88f8",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-ZE6AIE2P": {
+      "file": "chunk-ZE6AIE2P.js"
+    },
+    "hls-ENALQQRO": {
+      "file": "hls-ENALQQRO.js"
+    },
+    "vision_bundle-VZW76DBJ": {
+      "file": "vision_bundle-VZW76DBJ.js"
+    },
+    "chunk-DI23UDKB": {
+      "file": "chunk-DI23UDKB.js"
+    },
+    "chunk-NMLESIXC": {
+      "file": "chunk-NMLESIXC.js"
+    },
+    "chunk-UNDOYIS5": {
+      "file": "chunk-UNDOYIS5.js"
+    },
+    "chunk-WIJIVAH3": {
+      "file": "chunk-WIJIVAH3.js"
+    },
+    "chunk-2NA6Z374": {
+      "file": "chunk-2NA6Z374.js"
+    },
+    "chunk-R5OHOMXA": {
+      "file": "chunk-R5OHOMXA.js"
+    },
+    "chunk-I57XFPIQ": {
+      "file": "chunk-I57XFPIQ.js"
+    },
+    "chunk-P3BRD7DW": {
+      "file": "chunk-P3BRD7DW.js"
+    },
+    "chunk-V3BOJLTW": {
+      "file": "chunk-V3BOJLTW.js"
+    },
+    "chunk-T76V22QC": {
+      "file": "chunk-T76V22QC.js"
+    },
+    "chunk-VOYK6M4H": {
+      "file": "chunk-VOYK6M4H.js"
+    },
+    "chunk-WQDJ3DOR": {
+      "file": "chunk-WQDJ3DOR.js"
+    },
+    "chunk-SECOTVFW": {
+      "file": "chunk-SECOTVFW.js"
+    },
+    "chunk-V4OQ3NZ2": {
+      "file": "chunk-V4OQ3NZ2.js"
+    }
+  }
+}

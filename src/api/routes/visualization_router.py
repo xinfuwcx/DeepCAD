@@ -6,7 +6,7 @@
 @copyright 2025
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Path, BackgroundTasks, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Path, BackgroundTasks, Response, UploadFile, File, Form
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
@@ -14,12 +14,24 @@ import os
 from pathlib import Path
 import json
 from enum import Enum
+import logging
+import traceback
+import time
 
 from src.server.dependencies import get_db, get_visualization_engine, validate_project_exists
 from src.core.visualization.models import VisualizationEngine
 from src.core.visualization.result_processor import ResultProcessor
 from src.core.visualization.three_renderer import ThreeRenderer
 from src.core.simulation.kratos_iga_solver import KratosIgaSolver
+from src.core.visualization.data_converter import DataConverter
+
+# 导入可视化组件
+try:
+    from src.core.visualization.trame_fem_visualizer import TrameFEMVisualizer
+    HAS_TRAME = True
+except ImportError:
+    HAS_TRAME = False
+    logging.warning("Trame可视化库未安装，可视化功能将受限")
 
 # 创建路由器
 router = APIRouter(
@@ -27,6 +39,18 @@ router = APIRouter(
     tags=["visualization"],
     responses={404: {"description": "Not found"}},
 )
+
+# 创建全局可视化器实例
+visualizer = None
+if HAS_TRAME:
+    try:
+        visualizer = TrameFEMVisualizer(
+            title="深基坑FEM分析结果可视化",
+            show_ui_controls=True,
+            default_theme="dark"
+        )
+    except Exception as e:
+        logging.error(f"初始化可视化器失败: {e}")
 
 # 数据模型
 class VisualizationSettings(BaseModel):
@@ -76,12 +100,44 @@ class IGAVisualizationRequest(BaseModel):
     component: str = Field("magnitude", description="分量")
     visualization_options: Optional[VisualizationOptions] = Field(None, description="可视化选项")
 
+class ModelRequest(BaseModel):
+    """模型数据请求"""
+    model_id: int = Field(..., description="模型ID")
+    detail_level: str = Field("medium", description="细节级别(low/medium/high)")
+    optimize: bool = Field(True, description="是否优化数据")
+    include_materials: bool = Field(True, description="是否包含材质信息")
+
+class SceneRequest(BaseModel):
+    """场景数据请求"""
+    project_id: int = Field(..., description="项目ID")
+    models: List[int] = Field(..., description="模型ID列表")
+    detail_level: str = Field("medium", description="细节级别(low/medium/high)")
+    include_lights: bool = Field(True, description="是否包含灯光")
+    camera_position: Optional[List[float]] = Field(None, description="相机位置")
+
+class ExportRequest(BaseModel):
+    """导出请求"""
+    scene_id: str = Field(..., description="场景ID")
+    format: str = Field("json", description="导出格式(json/gltf)")
+    filename: Optional[str] = Field(None, description="文件名")
+
 # 结果目录
 RESULTS_DIR = os.environ.get("RESULTS_DIR", "data/results")
 
 # 数据目录
 DATA_DIR = Path("data/visualization")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+# 定义数据目录
+UPLOAD_DIR = os.path.join("data", "uploads")
+
+# 确保目录存在
+for directory in [UPLOAD_DIR, RESULTS_DIR]:
+    if not os.path.exists(directory):
+        try:
+            os.makedirs(directory)
+        except:
+            logging.error(f"无法创建目录: {directory}")
 
 @router.get("/projects", response_model=List[Dict[str, Any]])
 async def get_projects(db: Session = Depends(get_db)):
@@ -747,4 +803,719 @@ async def export_iga_visualization(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"导出可视化结果失败: {str(e)}"
-        ) 
+        )
+
+@router.get("/model/{model_id}", summary="获取单个模型数据")
+async def get_model(
+    model_id: int,
+    detail_level: str = "medium",
+    optimize: bool = True,
+    engine: VisualizationEngine = Depends(get_visualization_engine)
+):
+    """
+    获取单个模型的Three.js格式数据
+    
+    - **model_id**: 模型ID
+    - **detail_level**: 细节级别(low/medium/high)
+    - **optimize**: 是否优化数据
+    """
+    try:
+        # 从数据库或缓存获取模型数据
+        model_data = engine.get_model_data(model_id)
+        
+        if not model_data:
+            raise HTTPException(status_code=404, detail=f"模型ID {model_id} 不存在")
+            
+        # 使用转换器转换为Three.js格式
+        converter = DataConverter(use_compression=optimize)
+        threejs_data = converter.occ_to_threejs(model_data, optimize=optimize, detail_level=detail_level)
+        
+        return JSONResponse(content=threejs_data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取模型数据失败: {str(e)}")
+
+@router.post("/scene", summary="获取场景数据")
+async def get_scene(
+    request: SceneRequest,
+    engine: VisualizationEngine = Depends(get_visualization_engine)
+):
+    """
+    获取包含多个模型的完整场景数据
+    
+    - **project_id**: 项目ID
+    - **models**: 模型ID列表
+    - **detail_level**: 细节级别
+    - **include_lights**: 是否包含灯光
+    - **camera_position**: 相机位置
+    """
+    try:
+        # 获取每个模型的数据
+        model_data_list = []
+        for model_id in request.models:
+            model_data = engine.get_model_data(model_id)
+            if model_data:
+                model_data_list.append(model_data)
+        
+        if not model_data_list:
+            raise HTTPException(status_code=404, detail="未找到有效的模型数据")
+            
+        # 转换为Three.js格式
+        converter = DataConverter(use_compression=True)
+        threejs_models = [
+            converter.occ_to_threejs(model, optimize=True, detail_level=request.detail_level)
+            for model in model_data_list
+        ]
+        
+        # 创建完整场景
+        scene = converter.create_three_scene(threejs_models)
+        
+        # 添加灯光
+        if request.include_lights:
+            if "object" in scene and "children" in scene["object"]:
+                # 添加环境光
+                scene["object"]["children"].append({
+                    "uuid": "ambient_light",
+                    "type": "AmbientLight",
+                    "color": 0xffffff,
+                    "intensity": 0.4
+                })
+                
+                # 添加平行光
+                scene["object"]["children"].append({
+                    "uuid": "directional_light",
+                    "type": "DirectionalLight",
+                    "color": 0xffffff,
+                    "intensity": 0.6,
+                    "position": [100, 100, 100],
+                    "castShadow": True
+                })
+        
+        # 添加相机设置
+        if request.camera_position:
+            scene["camera"] = {
+                "position": request.camera_position,
+                "target": [0, 0, 0]
+            }
+        
+        # 生成唯一场景ID
+        scene_id = engine.create_scene(request.project_id, scene)
+        
+        # 返回场景数据
+        return {
+            "scene_id": scene_id,
+            "data": scene
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取场景数据失败: {str(e)}")
+
+@router.post("/export", summary="导出场景")
+async def export_scene(
+    request: ExportRequest,
+    engine: VisualizationEngine = Depends(get_visualization_engine)
+):
+    """
+    导出场景为文件
+    
+    - **scene_id**: 场景ID
+    - **format**: 导出格式(json/gltf)
+    - **filename**: 文件名(可选)
+    """
+    try:
+        # 获取场景数据
+        scene_data = engine.get_scene(request.scene_id)
+        
+        if not scene_data:
+            raise HTTPException(status_code=404, detail=f"场景ID {request.scene_id} 不存在")
+            
+        # 设置文件名
+        filename = request.filename
+        if not filename:
+            filename = f"scene_{request.scene_id}"
+            
+        # 根据格式导出
+        if request.format.lower() == "json":
+            # 创建临时文件
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as tmp:
+                tmp_path = tmp.name
+                json.dump(scene_data, tmp)
+                
+            # 设置响应头，使浏览器下载文件
+            return FileResponse(
+                tmp_path,
+                filename=f"{filename}.json",
+                media_type="application/json",
+                background=None  # 文件传输后删除
+            )
+        elif request.format.lower() == "gltf":
+            # 在实际实现中，这里需要调用转换为GLTF的功能
+            # 目前简单返回JSON格式
+            raise HTTPException(status_code=501, detail="GLTF导出功能尚未实现")
+        else:
+            raise HTTPException(status_code=400, detail=f"不支持的导出格式: {request.format}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"导出场景失败: {str(e)}")
+
+@router.get("/viewer/{scene_id}", summary="获取场景查看器HTML")
+async def get_scene_viewer(
+    scene_id: str,
+    engine: VisualizationEngine = Depends(get_visualization_engine)
+):
+    """
+    获取包含Three.js查看器的HTML页面
+    
+    - **scene_id**: 场景ID
+    """
+    try:
+        # 检查场景是否存在
+        scene_data = engine.get_scene(scene_id)
+        
+        if not scene_data:
+            raise HTTPException(status_code=404, detail=f"场景ID {scene_id} 不存在")
+            
+        # 生成HTML查看器
+        html_content = f"""
+        <!DOCTYPE html>
+        <html lang="zh-CN">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>深基坑CAE系统 - 3D查看器</title>
+            <style>
+                body {{ margin: 0; overflow: hidden; }}
+                #viewer {{ width: 100%; height: 100vh; }}
+                #info {{ 
+                    position: absolute; 
+                    top: 10px; 
+                    width: 100%; 
+                    text-align: center; 
+                    color: white;
+                    font-family: Arial, sans-serif;
+                    text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+                    pointer-events: none;
+                }}
+            </style>
+        </head>
+        <body>
+            <div id="info">深基坑CAE系统 - 场景查看器</div>
+            <div id="viewer"></div>
+            
+            <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/build/three.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/controls/OrbitControls.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/loaders/GLTFLoader.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/pako@2.0.4/dist/pako.min.js"></script>
+            
+            <script>
+                // 场景数据
+                const sceneData = {JSON.stringify(scene_data)};
+                
+                // 初始化Three.js
+                const container = document.getElementById('viewer');
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+                const renderer = new THREE.WebGLRenderer({{ antialias: true }});
+                
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                renderer.shadowMap.enabled = true;
+                container.appendChild(renderer.domElement);
+                
+                // 设置相机位置
+                camera.position.set(50, 50, 50);
+                camera.lookAt(0, 0, 0);
+                
+                // 添加控制器
+                const controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                
+                // 添加灯光
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+                scene.add(ambientLight);
+                
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+                directionalLight.position.set(100, 100, 100);
+                directionalLight.castShadow = true;
+                scene.add(directionalLight);
+                
+                // 加载场景
+                loadScene(sceneData);
+                
+                // 窗口大小调整
+                window.addEventListener('resize', onWindowResize);
+                
+                // 动画循环
+                animate();
+                
+                function loadScene(data) {{
+                    // 解析材质
+                    const materials = {{}};
+                    if (data.materials) {{
+                        data.materials.forEach(matData => {{
+                            const material = createMaterial(matData);
+                            materials[matData.uuid] = material;
+                        }});
+                    }}
+                    
+                    // 解析几何体
+                    const geometries = {{}};
+                    if (data.geometries) {{
+                        data.geometries.forEach(geoData => {{
+                            const geometry = createGeometry(geoData);
+                            geometries[geoData.uuid] = geometry;
+                        }});
+                    }}
+                    
+                    // 创建对象
+                    if (data.object && data.object.children) {{
+                        data.object.children.forEach(objData => {{
+                            const object = createObject(objData, geometries, materials);
+                            if (object) {{
+                                scene.add(object);
+                            }}
+                        }});
+                    }}
+                    
+                    // 添加网格和坐标轴
+                    const gridHelper = new THREE.GridHelper(100, 100);
+                    scene.add(gridHelper);
+                    
+                    const axesHelper = new THREE.AxesHelper(20);
+                    scene.add(axesHelper);
+                }}
+                
+                function createMaterial(data) {{
+                    let material;
+                    
+                    switch(data.type) {{
+                        case 'MeshBasicMaterial':
+                            material = new THREE.MeshBasicMaterial();
+                            break;
+                        case 'MeshLambertMaterial':
+                            material = new THREE.MeshLambertMaterial();
+                            break;
+                        case 'MeshPhongMaterial':
+                            material = new THREE.MeshPhongMaterial();
+                            break;
+                        default:
+                            material = new THREE.MeshStandardMaterial();
+                    }}
+                    
+                    // 设置属性
+                    if (data.color !== undefined) material.color.setHex(data.color);
+                    if (data.emissive !== undefined) material.emissive.setHex(data.emissive);
+                    if (data.specular !== undefined) material.specular.setHex(data.specular);
+                    if (data.shininess !== undefined) material.shininess = data.shininess;
+                    if (data.transparent !== undefined) material.transparent = data.transparent;
+                    if (data.opacity !== undefined) material.opacity = data.opacity;
+                    if (data.wireframe !== undefined) material.wireframe = data.wireframe;
+                    if (data.side !== undefined) material.side = data.side;
+                    
+                    return material;
+                }}
+                
+                function createGeometry(data) {{
+                    let geometry;
+                    
+                    switch(data.type) {{
+                        case 'BoxGeometry':
+                            geometry = new THREE.BoxGeometry(
+                                data.width || 1,
+                                data.height || 1,
+                                data.depth || 1
+                            );
+                            break;
+                        case 'CylinderGeometry':
+                            geometry = new THREE.CylinderGeometry(
+                                data.radiusTop || 1,
+                                data.radiusBottom || 1,
+                                data.height || 1,
+                                data.radialSegments || 32
+                            );
+                            break;
+                        case 'SphereGeometry':
+                            geometry = new THREE.SphereGeometry(
+                                data.radius || 1,
+                                data.widthSegments || 32,
+                                data.heightSegments || 32
+                            );
+                            break;
+                        default:
+                            console.warn('不支持的几何体类型:', data.type);
+                            geometry = new THREE.BoxGeometry(1, 1, 1);
+                    }}
+                    
+                    return geometry;
+                }}
+                
+                function createObject(data, geometries, materials) {{
+                    let object;
+                    
+                    if (data.type === 'Mesh') {{
+                        // 获取几何体和材质
+                        const geometry = geometries[data.geometry];
+                        const material = materials[data.material];
+                        
+                        if (geometry && material) {{
+                            object = new THREE.Mesh(geometry, material);
+                        }} else {{
+                            console.warn('找不到几何体或材质:', data.geometry, data.material);
+                            return null;
+                        }}
+                    }} else if (data.type === 'DirectionalLight') {{
+                        object = new THREE.DirectionalLight(data.color, data.intensity);
+                    }} else if (data.type === 'AmbientLight') {{
+                        object = new THREE.AmbientLight(data.color, data.intensity);
+                    }} else {{
+                        console.warn('不支持的对象类型:', data.type);
+                        return null;
+                    }}
+                    
+                    // 设置位置、旋转和缩放
+                    if (data.position) {{
+                        object.position.set(data.position[0], data.position[1], data.position[2]);
+                    }}
+                    
+                    if (data.quaternion) {{
+                        object.quaternion.set(
+                            data.quaternion[0],
+                            data.quaternion[1],
+                            data.quaternion[2],
+                            data.quaternion[3]
+                        );
+                    }}
+                    
+                    if (data.scale) {{
+                        object.scale.set(data.scale[0], data.scale[1], data.scale[2]);
+                    }}
+                    
+                    return object;
+                }}
+                
+                function onWindowResize() {{
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                }}
+                
+                function animate() {{
+                    requestAnimationFrame(animate);
+                    controls.update();
+                    renderer.render(scene, camera);
+                }}
+            </script>
+        </body>
+        </html>
+        """
+        
+        return HTMLResponse(content=html_content, status_code=200)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取场景查看器失败: {str(e)}")
+
+@router.get("/status")
+async def check_status():
+    """检查可视化服务状态"""
+    return {
+        "status": "ok" if visualizer else "unavailable",
+        "trame_available": HAS_TRAME,
+        "service_ready": visualizer is not None
+    }
+
+@router.post("/launch")
+async def launch_visualizer(port: int = 8080):
+    """启动可视化服务器"""
+    global visualizer
+    
+    if not HAS_TRAME:
+        raise HTTPException(status_code=400, detail="Trame库未安装，无法启动可视化服务")
+        
+    if not visualizer:
+        try:
+            visualizer = TrameFEMVisualizer(
+                title="深基坑FEM分析结果可视化",
+                show_ui_controls=True,
+                default_theme="dark"
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"初始化可视化器失败: {str(e)}")
+    
+    try:
+        # 检查服务器是否已启动
+        if hasattr(visualizer, 'server') and visualizer.server.running:
+            return {
+                "status": "already_running",
+                "url": f"http://localhost:{visualizer.server.port}",
+                "port": visualizer.server.port
+            }
+            
+        # 启动服务器
+        server = visualizer.start(port=port, open_browser=False)
+        
+        return {
+            "status": "started",
+            "url": f"http://localhost:{port}",
+            "port": port
+        }
+    except Exception as e:
+        logging.error(f"启动可视化服务器失败: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"启动可视化服务器失败: {str(e)}")
+
+@router.post("/load-mesh")
+async def load_mesh(
+    mesh_file: UploadFile = File(...),
+    auto_visualize: bool = Form(False)
+):
+    """上传并加载网格文件"""
+    if not visualizer:
+        raise HTTPException(status_code=400, detail="可视化服务未初始化")
+        
+    # 检查文件类型
+    filename = mesh_file.filename
+    ext = os.path.splitext(filename)[1].lower()
+    
+    if ext not in ['.vtk', '.vtu']:
+        raise HTTPException(status_code=400, detail="仅支持VTK或VTU格式的网格文件")
+        
+    try:
+        # 保存上传的文件
+        file_path = os.path.join(UPLOAD_DIR, filename)
+        with open(file_path, 'wb') as f:
+            content = await mesh_file.read()
+            f.write(content)
+            
+        # 如果需要自动可视化
+        if auto_visualize:
+            success = visualizer.visualize_fem_results(file_path)
+            if not success:
+                raise HTTPException(status_code=500, detail="可视化网格失败")
+                
+        return {
+            "status": "success",
+            "file_path": file_path,
+            "visualized": auto_visualize
+        }
+    except Exception as e:
+        logging.error(f"加载网格失败: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"加载网格失败: {str(e)}")
+
+@router.post("/load-results")
+async def load_results(
+    mesh_file: str,
+    result_file: Optional[UploadFile] = File(None),
+    result_data: Optional[str] = Form(None),
+    auto_visualize: bool = Form(True)
+):
+    """加载FEM结果数据"""
+    if not visualizer:
+        raise HTTPException(status_code=400, detail="可视化服务未初始化")
+        
+    if not os.path.exists(mesh_file):
+        raise HTTPException(status_code=400, detail=f"网格文件不存在: {mesh_file}")
+        
+    try:
+        result_file_path = None
+        result_data_dict = None
+        
+        # 处理结果文件
+        if result_file:
+            filename = result_file.filename
+            ext = os.path.splitext(filename)[1].lower()
+            
+            if ext not in ['.vtk', '.vtu']:
+                raise HTTPException(status_code=400, detail="仅支持VTK或VTU格式的结果文件")
+                
+            # 保存上传的文件
+            result_file_path = os.path.join(RESULTS_DIR, filename)
+            with open(result_file_path, 'wb') as f:
+                content = await result_file.read()
+                f.write(content)
+        
+        # 处理结果数据
+        if result_data:
+            try:
+                result_data_dict = json.loads(result_data)
+            except:
+                raise HTTPException(status_code=400, detail="结果数据格式错误，应为有效的JSON")
+        
+        # 如果需要自动可视化
+        if auto_visualize:
+            success = visualizer.visualize_fem_results(
+                mesh_file,
+                result_data=result_data_dict,
+                result_file=result_file_path
+            )
+            
+            if not success:
+                raise HTTPException(status_code=500, detail="可视化结果失败")
+                
+        return {
+            "status": "success",
+            "mesh_file": mesh_file,
+            "result_file": result_file_path,
+            "has_result_data": result_data_dict is not None,
+            "visualized": auto_visualize
+        }
+    except Exception as e:
+        logging.error(f"加载结果失败: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"加载结果失败: {str(e)}")
+
+@router.get("/available-results")
+async def get_available_results():
+    """获取可用的结果类型"""
+    if not visualizer or not hasattr(visualizer, 'server'):
+        raise HTTPException(status_code=400, detail="可视化服务未初始化")
+        
+    try:
+        available_results = visualizer.server.state.available_results
+        
+        return {
+            "status": "success",
+            "results": available_results
+        }
+    except Exception as e:
+        logging.error(f"获取可用结果失败: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"获取可用结果失败: {str(e)}")
+
+@router.post("/update-display")
+async def update_display(
+    result_type: Optional[str] = None,
+    scale_factor: Optional[float] = None,
+    color_map: Optional[str] = None,
+    show_mesh: Optional[bool] = None,
+    show_edges: Optional[bool] = None,
+    show_deformed: Optional[bool] = None,
+    opacity: Optional[float] = None,
+    slice_enabled: Optional[bool] = None,
+    slice_position: Optional[float] = None,
+    theme: Optional[str] = None
+):
+    """更新可视化显示参数"""
+    if not visualizer or not hasattr(visualizer, 'server'):
+        raise HTTPException(status_code=400, detail="可视化服务未初始化")
+        
+    try:
+        # 更新状态
+        state = visualizer.server.state
+        
+        updates = {}
+        
+        if result_type is not None:
+            state.result_type = result_type
+            updates["result_type"] = result_type
+            
+        if scale_factor is not None:
+            state.scale_factor = scale_factor
+            updates["scale_factor"] = scale_factor
+            
+        if color_map is not None:
+            state.color_map = color_map
+            updates["color_map"] = color_map
+            
+        if show_mesh is not None:
+            state.show_mesh = show_mesh
+            updates["show_mesh"] = show_mesh
+            
+        if show_edges is not None:
+            state.show_edges = show_edges
+            updates["show_edges"] = show_edges
+            
+        if show_deformed is not None:
+            state.show_deformed = show_deformed
+            updates["show_deformed"] = show_deformed
+            
+        if opacity is not None:
+            state.opacity = opacity
+            updates["opacity"] = opacity
+            
+        if slice_enabled is not None:
+            state.slice_enabled = slice_enabled
+            updates["slice_enabled"] = slice_enabled
+            
+        if slice_position is not None:
+            state.slice_position = slice_position
+            updates["slice_position"] = slice_position
+            
+        if theme is not None:
+            state.theme = theme
+            updates["theme"] = theme
+        
+        # 触发更新
+        state.modified()
+        
+        return {
+            "status": "success",
+            "updates": updates
+        }
+    except Exception as e:
+        logging.error(f"更新显示参数失败: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"更新显示参数失败: {str(e)}")
+
+@router.get("/stop")
+async def stop_visualizer():
+    """停止可视化服务器"""
+    global visualizer
+    
+    if not visualizer or not hasattr(visualizer, 'server'):
+        return {"status": "not_running"}
+        
+    try:
+        # 检查服务器是否正在运行
+        if visualizer.server.running:
+            # 停止服务器
+            visualizer.server.stop()
+            
+        return {"status": "stopped"}
+    except Exception as e:
+        logging.error(f"停止可视化服务器失败: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"停止可视化服务器失败: {str(e)}")
+
+@router.get("/screenshot")
+async def take_screenshot(width: int = 800, height: int = 600, filename: Optional[str] = None):
+    """获取当前可视化视图的截图"""
+    if not visualizer or not hasattr(visualizer, 'server'):
+        raise HTTPException(status_code=400, detail="可视化服务未初始化")
+        
+    try:
+        # 如果未指定文件名，使用临时文件
+        if not filename:
+            filename = os.path.join(RESULTS_DIR, f"screenshot_{int(time.time())}.png")
+            
+        # 确保文件夹存在
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        
+        # 获取渲染窗口
+        render_window = visualizer.renderer.GetRenderWindow()
+        
+        # 设置窗口大小
+        render_window.SetSize(width, height)
+        
+        # 创建窗口到图像过滤器
+        window_to_image = vtk.vtkWindowToImageFilter()
+        window_to_image.SetInput(render_window)
+        window_to_image.SetScale(1)  # 可以设置缩放因子
+        window_to_image.SetInputBufferTypeToRGBA()
+        window_to_image.ReadFrontBufferOff()
+        window_to_image.Update()
+        
+        # 创建PNG写入器
+        writer = vtk.vtkPNGWriter()
+        writer.SetFileName(filename)
+        writer.SetInputConnection(window_to_image.GetOutputPort())
+        writer.Write()
+        
+        return {
+            "status": "success",
+            "filename": filename,
+            "width": width,
+            "height": height
+        }
+    except Exception as e:
+        logging.error(f"获取截图失败: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"获取截图失败: {str(e)}") 
