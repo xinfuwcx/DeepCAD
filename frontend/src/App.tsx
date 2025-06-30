@@ -22,8 +22,9 @@ import Dashboard from './pages/Dashboard';
 import ExcavationAnalysis from './pages/ExcavationAnalysis';
 import ProjectManagement from './pages/ProjectManagement';
 import ResultVisualization from './pages/ResultVisualization';
-import ModelingDemo from './pages/ModelingDemo';
 import FemAnalysisPage from './pages/FemAnalysisPage';
+import MeshingPage from './pages/MeshingPage';
+import PhysicsAIPage from './pages/PhysicsAIPage';
 
 // 认证组件
 import { AuthProvider } from './components/auth/AuthContext';
@@ -57,12 +58,11 @@ const MainLayoutWrapper = () => {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/projects" element={<ProjectManagement />} />
         <Route path="/excavation-analysis/:projectId" element={<ExcavationAnalysis />} />
-        <Route path="/tunnel-modeling/:projectId" element={<div>隧道建模模块</div>} />
-        <Route path="/foundation-analysis/:projectId" element={<div>地基基础模块</div>} />
         <Route path="/results/:projectId" element={<ResultVisualization />} />
         <Route path="/data-management" element={<DataImportExport />} />
-        <Route path="/modeling-demo" element={<ModelingDemo />} />
         <Route path="/fem-analysis" element={<FemAnalysisPage />} />
+        <Route path="/meshing" element={<MeshingPage />} />
+        <Route path="/physics-ai" element={<PhysicsAIPage />} />
         <Route path="/settings" element={<div>设置模块</div>} />
         <Route path="/help" element={<div>帮助模块</div>} />
       </Routes>
