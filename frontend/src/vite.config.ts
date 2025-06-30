@@ -26,7 +26,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ['**/**/Kratos/**']
+    exclude: ['kratos']
   },
   server: {
     port: 1000,

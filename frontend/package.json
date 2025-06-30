@@ -4,10 +4,10 @@
   "private": true,
   "description": "深基坑CAE系统 - 专业深基坑模拟分析软件",
   "scripts": {
-    "dev": "cd src && \"C:\\Program Files\\nodejs\\npx.cmd\" vite --port 1000",
-    "build": "cd src && tsc && \"C:\\Program Files\\nodejs\\npx.cmd\" vite build",
+    "dev": "cd src && \"e:\\Deep Excavation\\env\\src\\node-v20.10.0-win-x64\\npx.cmd\" vite --port 1000",
+    "build": "cd src && tsc && \"e:\\Deep Excavation\\env\\src\\node-v20.10.0-win-x64\\npx.cmd\" vite build",
     "lint": "cd src && eslint src --ext .ts,.tsx",
-    "preview": "cd src && \"C:\\Program Files\\nodejs\\npx.cmd\" vite preview",
+    "preview": "cd src && \"e:\\Deep Excavation\\env\\src\\node-v20.10.0-win-x64\\npx.cmd\" vite preview",
     "test": "cd src && vitest run",
     "figma:setup": "node scripts/setup-figma.js",
     "figma:sync": "node scripts/figma-sync.js",

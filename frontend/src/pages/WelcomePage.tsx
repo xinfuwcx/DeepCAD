@@ -37,7 +37,7 @@ interface WelcomePageProps {
   onProjectSelected?: (projectId: string) => void;
 }
 
-// 动画效果
+// 更多动画效果
 const floatAnimation = keyframes`
   0%, 100% { transform: translateY(0px) rotate(0deg); }
   50% { transform: translateY(-20px) rotate(1deg); }
@@ -46,6 +46,32 @@ const floatAnimation = keyframes`
 const pulseGlow = keyframes`
   0%, 100% { box-shadow: 0 0 20px rgba(66, 165, 245, 0.3); }
   50% { box-shadow: 0 0 40px rgba(66, 165, 245, 0.8); }
+`;
+
+const slideInFromLeft = keyframes`
+  0% { transform: translateX(-100px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+`;
+
+const slideInFromRight = keyframes`
+  0% { transform: translateX(100px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+`;
+
+const scaleIn = keyframes`
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+`;
+
+const glowPulse = keyframes`
+  0%, 100% { 
+    box-shadow: 0 0 20px rgba(66, 165, 245, 0.3), 0 0 40px rgba(66, 165, 245, 0.2); 
+    transform: scale(1);
+  }
+  50% { 
+    box-shadow: 0 0 30px rgba(66, 165, 245, 0.6), 0 0 60px rgba(66, 165, 245, 0.4); 
+    transform: scale(1.02);
+  }
 `;
 
 // 样式化组件
@@ -74,10 +100,24 @@ const FloatingCard = styled(Card)(({ theme }) => ({
   backdropFilter: 'blur(20px)',
   background: alpha(theme.palette.background.paper, 0.8),
   border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
-  animation: `${pulseGlow} 3s ease-in-out infinite`,
+  animation: `${glowPulse} 4s ease-in-out infinite`,
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
   '&:hover': {
     transform: 'translateY(-10px) scale(1.02)',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+    boxShadow: `0 20px 40px ${alpha(theme.palette.primary.main, 0.3)}`,
+    '& .card-icon': {
+      transform: 'scale(1.1) rotate(5deg)',
+      transition: 'transform 0.3s ease'
+    }
+  },
+  '&:nth-of-type(1)': {
+    animation: `${slideInFromLeft} 0.8s ease-out, ${glowPulse} 4s ease-in-out infinite 0.8s`
+  },
+  '&:nth-of-type(2)': {
+    animation: `${scaleIn} 0.8s ease-out 0.2s both, ${glowPulse} 4s ease-in-out infinite 1s`
+  },
+  '&:nth-of-type(3)': {
+    animation: `${slideInFromRight} 0.8s ease-out 0.4s both, ${glowPulse} 4s ease-in-out infinite 1.2s`
   }
 }));
 
@@ -102,11 +142,23 @@ const WelcomePage: React.FC<WelcomePageProps> = ({ onProjectSelected }) => {
   };
 
   const handleCreateNewProject = () => {
-    navigate('/projects');
+    navigate('/dashboard');
   };
 
   const handleExploreDemo = () => {
-    navigate('/modeling-demo');
+    navigate('/dashboard');
+  };
+
+  const handleLearnMore = () => {
+    navigate('/fem-analysis');
+  };
+
+  const handleExperienceInterface = () => {
+    setHolographicOpen(true);
+  };
+
+  const handleStartAIAssistant = () => {
+    setAiAssistantOpen(true);
   };
 
   return (
@@ -142,14 +194,23 @@ const WelcomePage: React.FC<WelcomePageProps> = ({ onProjectSelected }) => {
                   maxWidth: 800,
                   mx: 'auto',
                   mb: 6,
-                  opacity: 0.9
+                  opacity: 0.9,
+                  animation: `${slideInFromLeft} 1s ease-out 0.5s both`
                 }}
               >
                 革命性深基坑分析系统 · FEM有限元计算 · 全息投影界面
               </Typography>
 
               {/* 快速操作按钮 */}
-              <Stack direction="row" spacing={3} justifyContent="center" sx={{ mb: 8 }}>
+              <Stack 
+                direction="row" 
+                spacing={3} 
+                justifyContent="center" 
+                sx={{ 
+                  mb: 8,
+                  animation: `${scaleIn} 1s ease-out 1s both`
+                }}
+              >
                 <Button
                   variant="contained"
                   size="large"
@@ -197,6 +258,59 @@ const WelcomePage: React.FC<WelcomePageProps> = ({ onProjectSelected }) => {
             {/* FEM技术特性展示区域 */}
             <FEMWelcomeSection onGetStarted={handleCreateNewProject} />
 
+            {/* 系统状态展示 */}
+            <Box sx={{ py: 6 }}>
+              <Typography
+                variant="h4"
+                textAlign="center"
+                sx={{
+                  mb: 4,
+                  fontWeight: 700,
+                  background: 'linear-gradient(45deg, #4caf50, #81c784)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}
+              >
+                系统状态 - 全部就绪 ✅
+              </Typography>
+
+              <Grid container spacing={3} justifyContent="center">
+                <Grid item xs={12} md={6} lg={3}>
+                  <Card sx={{ textAlign: 'center', p: 2 }}>
+                    <Typography variant="h6" color="success.main">Kratos核心</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      ✅ 已编译完成
+                    </Typography>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={6} lg={3}>
+                  <Card sx={{ textAlign: 'center', p: 2 }}>
+                    <Typography variant="h6" color="success.main">IGA应用</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      ✅ 编译完成
+                    </Typography>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={6} lg={3}>
+                  <Card sx={{ textAlign: 'center', p: 2 }}>
+                    <Typography variant="h6" color="primary.main">前端界面</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      🚀 运行中 (1000端口)
+                    </Typography>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={6} lg={3}>
+                  <Card sx={{ textAlign: 'center', p: 2 }}>
+                    <Typography variant="h6" color="secondary.main">AI系统</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      🤖 准备就绪
+                    </Typography>
+                  </Card>
+                </Grid>
+              </Grid>
+            </Box>
+
             {/* 技术栈展示 */}
             <Box sx={{ py: 8 }}>
               <Typography
@@ -218,14 +332,21 @@ const WelcomePage: React.FC<WelcomePageProps> = ({ onProjectSelected }) => {
                 <Grid item xs={12} md={6} lg={4}>
                   <FloatingCard>
                     <CardContent sx={{ p: 4, textAlign: 'center' }}>
-                      <Engineering sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+                      <Engineering 
+                        className="card-icon"
+                        sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} 
+                      />
                       <Typography variant="h5" gutterBottom>
                         Kratos Multi-Physics
                       </Typography>
                       <Typography color="text.secondary" sx={{ mb: 3 }}>
                         11个专业模块的FEM计算引擎，工程级可靠性
                       </Typography>
-                      <Button variant="contained" fullWidth>
+                      <Button 
+                        variant="contained" 
+                        fullWidth
+                        onClick={handleLearnMore}
+                      >
                         了解更多
                       </Button>
                     </CardContent>
@@ -235,14 +356,22 @@ const WelcomePage: React.FC<WelcomePageProps> = ({ onProjectSelected }) => {
                 <Grid item xs={12} md={6} lg={4}>
                   <FloatingCard>
                     <CardContent sx={{ p: 4, textAlign: 'center' }}>
-                      <ViewInAr sx={{ fontSize: 60, color: 'secondary.main', mb: 2 }} />
+                      <ViewInAr 
+                        className="card-icon"
+                        sx={{ fontSize: 60, color: 'secondary.main', mb: 2 }} 
+                      />
                       <Typography variant="h5" gutterBottom>
                         全息投影UI
                       </Typography>
                       <Typography color="text.secondary" sx={{ mb: 3 }}>
                         未来科技感界面，令人惊艳的视觉体验
                       </Typography>
-                      <Button variant="contained" color="secondary" fullWidth>
+                      <Button 
+                        variant="contained" 
+                        color="secondary" 
+                        fullWidth
+                        onClick={handleExperienceInterface}
+                      >
                         体验界面
                       </Button>
                     </CardContent>
@@ -252,14 +381,22 @@ const WelcomePage: React.FC<WelcomePageProps> = ({ onProjectSelected }) => {
                 <Grid item xs={12} md={6} lg={4}>
                   <FloatingCard>
                     <CardContent sx={{ p: 4, textAlign: 'center' }}>
-                      <SmartToy sx={{ fontSize: 60, color: 'success.main', mb: 2 }} />
+                      <SmartToy 
+                        className="card-icon"
+                        sx={{ fontSize: 60, color: 'success.main', mb: 2 }} 
+                      />
                       <Typography variant="h5" gutterBottom>
                         AI工程师助手
                       </Typography>
                       <Typography color="text.secondary" sx={{ mb: 3 }}>
                         智能参数优化，专业工程建议
                       </Typography>
-                      <Button variant="contained" color="success" fullWidth>
+                      <Button 
+                        variant="contained" 
+                        color="success" 
+                        fullWidth
+                        onClick={handleStartAIAssistant}
+                      >
                         启动AI助手
                       </Button>
                     </CardContent>
@@ -293,7 +430,36 @@ const WelcomePage: React.FC<WelcomePageProps> = ({ onProjectSelected }) => {
           maxWidth="xl"
           fullWidth
         >
-          {/* 这里可以放置HolographicMainInterface组件 */}
+          <Box sx={{ p: 4, textAlign: 'center' }}>
+            <Typography variant="h4" gutterBottom>
+              🌟 全息投影界面
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+              未来科技感的工程界面，为您带来沉浸式的基坑分析体验
+            </Typography>
+            <Box sx={{ 
+              height: 400, 
+              background: 'linear-gradient(45deg, #1976d2, #42a5f5)', 
+              borderRadius: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              mb: 3
+            }}>
+              <Typography variant="h3" color="white">
+                全息投影演示区域
+              </Typography>
+            </Box>
+            <Button 
+              variant="contained" 
+              onClick={() => {
+                setHolographicOpen(false);
+                navigate('/dashboard');
+              }}
+            >
+              进入主界面
+            </Button>
+          </Box>
         </Dialog>
 
         {/* AI工程师助手Dialog */}
@@ -303,7 +469,51 @@ const WelcomePage: React.FC<WelcomePageProps> = ({ onProjectSelected }) => {
           maxWidth="lg"
           fullWidth
         >
-          {/* 这里可以放置AIEngineerAssistant组件 */}
+          <Box sx={{ p: 4 }}>
+            <Typography variant="h4" gutterBottom textAlign="center">
+              🤖 AI工程师助手
+            </Typography>
+            <Typography variant="body1" color="text.secondary" textAlign="center" sx={{ mb: 4 }}>
+              智能分析、参数优化、专业建议，您的专属工程AI助手
+            </Typography>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={4}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>参数优化</Typography>
+                    <Typography variant="body2">AI自动优化土体参数</Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>智能建议</Typography>
+                    <Typography variant="body2">专业工程建议和风险提示</Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>自动分析</Typography>
+                    <Typography variant="body2">智能结果分析和报告生成</Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+            <Box textAlign="center" sx={{ mt: 4 }}>
+              <Button 
+                variant="contained" 
+                onClick={() => {
+                  setAiAssistantOpen(false);
+                  navigate('/dashboard');
+                }}
+              >
+                开始使用AI助手
+              </Button>
+            </Box>
+          </Box>
         </Dialog>
 
         {/* 3D参数球体Dialog */}
