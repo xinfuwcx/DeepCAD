@@ -8,7 +8,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import Stats from 'stats-js';
+import Stats from 'stats.js';
 
 /**
  * Background3D类 - 创建三维场景背景和坐标系
