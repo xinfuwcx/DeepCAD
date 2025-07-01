@@ -1,5 +1,5 @@
 @echo off
-set PATH=%PATH%;C:\Program Files\nodejs
-cd "E:\Deep Excavation\frontend"
-node_modules\.bin\vite.cmd --config src/vite.config.ts --port 1000
+echo 启动深基坑CAE系统前端开发环境...
+cd src
+npx vite
 pause

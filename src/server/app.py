@@ -12,7 +12,15 @@ import uvicorn
 from contextlib import asynccontextmanager
 
 # 从各模块导入路由
-from src.api.routes import modeling_router, compute_router, visualization_router, excavation_router, iga_geometry_router
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+from api.routes.modeling_router import router as modeling_router
+from api.routes.compute_router import router as compute_router  
+from api.routes.visualization_router import router as visualization_router
+from api.routes.excavation_router import router as excavation_router
+from api.routes.iga_geometry_router import router as iga_geometry_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

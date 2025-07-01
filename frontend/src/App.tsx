@@ -43,10 +43,10 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 
-// � 通知系统
+// 🔮 通知系统
 import { AlertProvider } from './components/common/AlertProvider';
 
-// �📊 数据组件
+// 📊 数据组件
 import DataImportExport from './components/data/DataImportExport';
 
 // 🌌 启动动画组件
@@ -252,48 +252,29 @@ const FuturisticAppLayout: React.FC = () => {
  * - ⚡ 实时计算监控
  * - 🔮 三工作流协同
  */
-function App() {
+const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
-  const handleStartupComplete = () => {
-    setIsLoading(false);
-  };
+  useEffect(() => {
+    // 模拟加载chili3d和相关资源
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
-    <FigmaThemeProvider autoRefresh={false}>
-      <CssBaseline />
-      <AlertProvider>
-        <Router>
-          <AuthProvider>
-          {/* 🌌 启动动画层 */}
-          {isLoading && (
-            <Fade in={isLoading}>
-              <Box>
-                <StartupAnimation onComplete={handleStartupComplete} />
-              </Box>
-            </Fade>
-          )}
-
-          {/* 🚀 主应用层 */}
-          <Fade in={!isLoading} timeout={1000}>
-            <Box>
-              <Routes>
-                {/* 🔐 认证路由 */}
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                
-                {/* 🛡️ 受保护的未来科技风应用 */}
-                <Route element={<ProtectedRoute />}>
-                  <Route path="/*" element={<FuturisticAppLayout />} />
-                </Route>
-              </Routes>
-            </Box>
-          </Fade>
-        </AuthProvider>
-      </Router>
-    </AlertProvider>
-  </FigmaThemeProvider>
+    <ModelProvider>
+      {isLoading ? (
+        <LoadingScreen />
+      ) : (
+        <MainLayout>
+          <ModelViewer />
+        </MainLayout>
+      )}
+    </ModelProvider>
   );
-}
+};
 
 export default App;

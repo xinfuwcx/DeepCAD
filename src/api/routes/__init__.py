@@ -6,8 +6,8 @@
 @copyright 2025
 """
 
-from src.api.routes import modeling_router
-from src.api.routes import compute_router
-from src.api.routes import visualization_router
-from src.api.routes import excavation_router
-from src.api.routes import iga_geometry_router 
+from . import modeling_router
+from . import compute_router
+from . import visualization_router
+from . import excavation_router
+from . import iga_geometry_router 

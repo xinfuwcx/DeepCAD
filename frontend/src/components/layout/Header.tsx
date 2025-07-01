@@ -6,7 +6,7 @@
  * @copyright 2025
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   AppBar, 
   Toolbar, 
@@ -27,75 +27,62 @@ import RedoIcon from '@mui/icons-material/Redo';
  * @description 顶部栏组件，包含应用程序标题和基本工具栏
  */
 const Header: React.FC = () => {
-  return (
-    <AppBar 
-      position="static" 
-      color="default"
-      sx={{ 
-        bgcolor: 'background.paper',
-        boxShadow: 1,
-        zIndex: (theme) => theme.zIndex.drawer + 1,
-      }}
-    >
-      <Toolbar variant="dense" sx={{ minHeight: 48 }}>
-        {/* Logo和标题 */}
-        <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
-          <img 
-            src="/src/assets/logo.svg" 
-            alt="CAE Logo"
-            style={{ width: 32, height: 32, marginRight: 8 }}
-            onError={(e) => {
-              // 如果logo加载失败，显示文字替代
-              e.currentTarget.style.display = 'none';
-            }}
-          />
-          <Typography 
-            variant="h6" 
-            component="div" 
-            sx={{ 
-              fontWeight: 600,
-              color: 'primary.main',
-              letterSpacing: '0.02em'
-            }}
-          >
-            Deep Excavation CAE
-          </Typography>
-        </Box>
+  const [activeTab, setActiveTab] = useState<string>('modeling');
+  
+  const tabs = [
+    { id: 'modeling', label: '建模' },
+    { id: 'analysis', label: '分析' },
+    { id: 'results', label: '结果' },
+    { id: 'ai', label: '物理AI' },
+  ];
 
-        {/* 快速工具栏 */}
-        <Tooltip title="New Project">
-          <IconButton size="small">
-            <CreateNewFolderIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        
-        <Tooltip title="Open Project">
-          <IconButton size="small">
-            <OpenInBrowserIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        
-        <Tooltip title="Save Project">
-          <IconButton size="small">
-            <SaveIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        
-        <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-        
-        <Tooltip title="Undo">
-          <IconButton size="small">
-            <UndoIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        
-        <Tooltip title="Redo">
-          <IconButton size="small">
-            <RedoIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </Toolbar>
-    </AppBar>
+  return (
+    <header style={{
+      backgroundColor: '#1E1E32',
+      color: '#fff',
+      padding: '0.5rem 1rem',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderBottom: '1px solid #333'
+    }}>
+      {/* 左侧标题 */}
+      <div style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
+        深基坑CAE系统
+      </div>
+      
+      {/* 中间标签页 */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center',
+        gap: '1rem'
+      }}>
+        {tabs.map(tab => (
+          <div 
+            key={tab.id}
+            style={{
+              padding: '0.5rem 1rem',
+              cursor: 'pointer',
+              borderBottom: activeTab === tab.id ? '2px solid var(--primary-color)' : 'none',
+              color: activeTab === tab.id ? 'var(--primary-color)' : 'inherit'
+            }}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </div>
+        ))}
+      </div>
+      
+      {/* 右侧工具栏 */}
+      <div style={{ display: 'flex', gap: '1rem' }}>
+        <button style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
+          保存
+        </button>
+        <button style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
+          导出
+        </button>
+      </div>
+    </header>
   );
 };
 
