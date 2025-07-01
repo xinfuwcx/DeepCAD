@@ -3,6 +3,8 @@ import { useModelContext } from '../../context/ModelContext';
 import { createChili3dService, IChili3dInstance } from '../../services/chili3dService';
 import Toolbar from './Toolbar';
 import ParametersPanel from './ParametersPanel';
+import ExcavationTools from './ExcavationTools';
+import ExcavationParameters from './ExcavationParameters';
 
 // 这里是一个占位的模拟chili3d接口，实际开发中将导入真实的chili3d库
 interface Chili3dInstance {
@@ -66,6 +68,8 @@ const ModelViewer: React.FC = () => {
   const chili3dRef = useRef<IChili3dInstance | null>(null);
   const { setIsModelLoaded } = useModelContext();
   const [selectedTool, setSelectedTool] = useState<string>('select');
+  const [selectedExcavationTool, setSelectedExcavationTool] = useState<string>('');
+  const [mode, setMode] = useState<'general' | 'excavation'>('general');
   
   useEffect(() => {
     if (containerRef.current) {
@@ -131,6 +135,15 @@ const ModelViewer: React.FC = () => {
     }
   };
   
+  // 处理专业工具选择
+  const handleExcavationToolSelect = (toolId: string) => {
+    setSelectedExcavationTool(toolId);
+    console.log(`选择了专业工具: ${toolId}`);
+    
+    // 在实际开发中，这里会根据选择的工具执行不同的专业操作
+    // 例如创建土层、支护结构等
+  };
+  
   // 处理参数变更
   const handleParameterChange = (paramId: string, value: any) => {
     console.log(`参数变更: ${paramId} = ${value}`);
@@ -139,6 +152,21 @@ const ModelViewer: React.FC = () => {
     if (chili3dRef.current) {
       // 例如更新几何尺寸等
     }
+  };
+  
+  // 处理专业参数变更
+  const handleExcavationParameterChange = (project: any) => {
+    console.log('深基坑参数变更:', project);
+    
+    // 在实际开发中，这里会根据参数更新深基坑模型
+    if (chili3dRef.current) {
+      // 更新土层、支护结构等
+    }
+  };
+  
+  // 切换模式
+  const toggleMode = () => {
+    setMode(mode === 'general' ? 'excavation' : 'general');
   };
   
   return (
@@ -151,16 +179,75 @@ const ModelViewer: React.FC = () => {
         position: 'relative'
       }}
     >
-      {/* 工具栏 */}
-      <Toolbar 
-        onToolSelect={handleToolSelect}
-        selectedTool={selectedTool}
-      />
+      {/* 模式切换按钮 */}
+      <div style={{
+        position: 'absolute',
+        top: '10px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 200,
+        display: 'flex',
+        gap: '2px',
+        background: '#2A2A42',
+        padding: '3px',
+        borderRadius: '4px'
+      }}>
+        <button
+          style={{
+            padding: '5px 15px',
+            backgroundColor: mode === 'general' ? '#4A90E2' : 'transparent',
+            color: mode === 'general' ? 'white' : '#ccc',
+            border: 'none',
+            borderRadius: '3px',
+            cursor: 'pointer'
+          }}
+          onClick={() => setMode('general')}
+        >
+          基本建模
+        </button>
+        <button
+          style={{
+            padding: '5px 15px',
+            backgroundColor: mode === 'excavation' ? '#4A90E2' : 'transparent',
+            color: mode === 'excavation' ? 'white' : '#ccc',
+            border: 'none',
+            borderRadius: '3px',
+            cursor: 'pointer'
+          }}
+          onClick={() => setMode('excavation')}
+        >
+          深基坑工程
+        </button>
+      </div>
       
-      {/* 参数面板 */}
-      <ParametersPanel 
-        onParameterChange={handleParameterChange}
-      />
+      {/* 根据模式显示不同工具栏和参数面板 */}
+      {mode === 'general' ? (
+        <>
+          {/* 通用工具栏 */}
+          <Toolbar 
+            onToolSelect={handleToolSelect}
+            selectedTool={selectedTool}
+          />
+          
+          {/* 通用参数面板 */}
+          <ParametersPanel 
+            onParameterChange={handleParameterChange}
+          />
+        </>
+      ) : (
+        <>
+          {/* 深基坑专业工具栏 */}
+          <ExcavationTools 
+            onToolSelect={handleExcavationToolSelect}
+            selectedTool={selectedExcavationTool}
+          />
+          
+          {/* 深基坑专业参数面板 */}
+          <ExcavationParameters 
+            onParameterChange={handleExcavationParameterChange}
+          />
+        </>
+      )}
       
       {/* chili3d会将其内容渲染到此div中 */}
     </div>
