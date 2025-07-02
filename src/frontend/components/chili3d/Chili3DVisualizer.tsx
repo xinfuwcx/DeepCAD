@@ -6,6 +6,12 @@ import AddIcon from '@mui/icons-material/Add';
 import { Box, Button, Typography, Paper, CircularProgress, Alert, Select, MenuItem, FormControl, InputLabel, Grid, Divider } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import chili3dIntegration from '../../services/chili3dIntegration';
+import axios from 'axios';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+
+// API基础URL - 需要根据实际环境进行配置
+const API_BASE_URL = 'http://localhost:8000/api';
 
 // 分析类型定义
 type AnalysisType = 'stress' | 'displacement' | 'stability' | 'seepage';
@@ -61,11 +67,70 @@ export const Chili3DVisualizer: React.FC = () => {
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    // 这里将添加Chili3D初始化代码
-    console.log('Chili3D canvas container initialized');
+    // Three.js场景设置
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf0f0f0);
 
+    // 相机设置
+    const camera = new THREE.PerspectiveCamera(
+      75, // 视野角度
+      canvasRef.current.clientWidth / canvasRef.current.clientHeight, // 宽高比
+      0.1, // 近平面
+      1000 // 远平面
+    );
+    camera.position.set(20, 20, 20); // 设置相机位置
+    camera.lookAt(0, 0, 0);
+
+    // 渲染器设置
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(canvasRef.current.clientWidth, canvasRef.current.clientHeight);
+    renderer.shadowMap.enabled = true;
+    canvasRef.current.appendChild(renderer.domElement);
+
+    // 添加OrbitControls用于交互
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0, 0);
+    controls.update();
+
+    // 添加灯光
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+    
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(10, 20, 10);
+    directionalLight.castShadow = true;
+    scene.add(directionalLight);
+
+    // 添加参考网格
+    const gridHelper = new THREE.GridHelper(100, 100);
+    scene.add(gridHelper);
+
+    // 渲染场景的函数
+    const animate = () => {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    };
+    animate();
+
+    // 当窗口大小变化时，更新相机和渲染器
+    const handleResize = () => {
+      if (!canvasRef.current) return;
+      
+      camera.aspect = canvasRef.current.clientWidth / canvasRef.current.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(canvasRef.current.clientWidth, canvasRef.current.clientHeight);
+    };
+    window.addEventListener('resize', handleResize);
+
+    // 清理函数
     return () => {
-      // 清理3D场景
+      if (canvasRef.current && canvasRef.current.contains(renderer.domElement)) {
+        canvasRef.current.removeChild(renderer.domElement);
+      }
+      window.removeEventListener('resize', handleResize);
+      scene.clear();
+      renderer.dispose();
     };
   }, []);
 
@@ -76,12 +141,112 @@ export const Chili3DVisualizer: React.FC = () => {
     try {
       const data = await chili3dIntegration.getSceneData(selectedScene);
       setSceneData(data);
-      // 在实际项目中，这里会将数据传递给Chili3D渲染器
+      
+      // 基于加载的数据渲染3D场景
+      renderSceneData(data);
+      
       console.log('Scene data loaded:', data);
     } catch (err: any) {
       setError(err.message || '加载3D场景数据失败');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 根据场景数据渲染3D模型
+  const renderSceneData = (data: any) => {
+    if (!canvasRef.current) return;
+    
+    // 这里我们可以访问已经在useEffect中创建的THREE.js场景
+    // 由于THREE.js场景是在useEffect中创建的，我们需要先获取它
+    const rendererDom = canvasRef.current.querySelector('canvas');
+    if (!rendererDom) return;
+    
+    // 从第一个子元素中获取THREE.WebGLRenderer实例
+    const existingRenderer = THREE.WebGLRenderer.instance;
+    if (!existingRenderer) {
+      console.error('无法获取渲染器实例');
+      return;
+    }
+    
+    // 获取场景和相机
+    const scene = existingRenderer.info.render.scene;
+    if (!scene) {
+      console.error('无法获取场景');
+      return;
+    }
+    
+    // 清除现有的几何体（保留网格和灯光）
+    scene.children = scene.children.filter(child => 
+      child instanceof THREE.GridHelper || 
+      child instanceof THREE.Light
+    );
+    
+    // 添加土层
+    if (data.soil_layers) {
+      data.soil_layers.forEach((layer: any, index: number) => {
+        const depth = layer.depth_to - layer.depth_from;
+        const geometry = new THREE.BoxGeometry(
+          data.dimensions.width,
+          depth,
+          data.dimensions.length
+        );
+        
+        const material = new THREE.MeshPhongMaterial({
+          color: layer.color || 0xA0522D,
+          transparent: true,
+          opacity: 0.7
+        });
+        
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(
+          0,
+          -layer.depth_from - depth / 2,
+          0
+        );
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        
+        scene.add(mesh);
+      });
+    }
+    
+    // 添加基坑
+    if (data.excavation) {
+      const { depth, profile } = data.excavation;
+      
+      // 创建基坑形状
+      const shape = new THREE.Shape();
+      profile.forEach((point: number[], index: number) => {
+        if (index === 0) {
+          shape.moveTo(point[0], point[1]);
+        } else {
+          shape.lineTo(point[0], point[1]);
+        }
+      });
+      
+      // 挤出几何体
+      const extrudeSettings = {
+        steps: 1,
+        depth: depth,
+        bevelEnabled: false
+      };
+      
+      const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+      
+      const material = new THREE.MeshPhongMaterial({
+        color: 0x4682B4,
+        transparent: true,
+        opacity: 0.5,
+        side: THREE.DoubleSide
+      });
+      
+      const mesh = new THREE.Mesh(geometry, material);
+      // 旋转和移动几何体使其正确定位
+      mesh.rotation.x = Math.PI / 2;
+      mesh.position.set(-data.dimensions.width / 2, 0, -data.dimensions.length / 2);
+      
+      scene.add(mesh);
     }
   };
 
@@ -99,6 +264,7 @@ export const Chili3DVisualizer: React.FC = () => {
     };
 
     const prepareSeepageAnalysisModel = () => {
+      // 准备符合API接口要求的渗流分析模型
       return {
         project_name: projectName,
         geometry_definition: prepareV4AnalysisModel(),
@@ -111,9 +277,9 @@ export const Chili3DVisualizer: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-              // 根据分析类型选择不同的API端点和模型
+        // 根据分析类型选择不同的API端点和模型
         let endpoint = '/run-structural-analysis';
-        let requestData = prepareV4AnalysisModel();
+        let requestData: any = prepareV4AnalysisModel();
 
         if (activeAnalysis === 'seepage') {
           endpoint = '/run-seepage-analysis';

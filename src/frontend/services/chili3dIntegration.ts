@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { API_BASE_URL } from '../../config/config';
+
+const API_BASE_URL = 'http://localhost:8000/api';
 
 /**
  * Chili3D API集成服务
@@ -13,7 +14,7 @@ const chili3dIntegration = {
    */
   getSceneData: async (sceneId: string) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/chili3d/scenes/${sceneId}`);
+      const response = await axios.get(`${API_BASE_URL}/v4/chili3d/scenes/${sceneId}`);
       return response.data;
     } catch (error) {
       console.error('获取3D场景数据失败:', error);
@@ -29,7 +30,7 @@ const chili3dIntegration = {
    */
   updateSceneParams: async (sceneId: string, params: Record<string, any>) => {
     try {
-      const response = await axios.put(`${API_BASE_URL}/chili3d/scenes/${sceneId}/params`, params);
+      const response = await axios.put(`${API_BASE_URL}/v4/chili3d/scenes/${sceneId}/params`, params);
       return response.data;
     } catch (error) {
       console.error('更新3D场景参数失败:', error);
@@ -45,7 +46,7 @@ const chili3dIntegration = {
    */
   runSceneAnalysis: async (sceneId: string, analysisType: string) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/chili3d/scenes/${sceneId}/analyze`, {
+      const response = await axios.post(`${API_BASE_URL}/v4/chili3d/scenes/${sceneId}/analyze`, {
         analysis_type: analysisType
       });
       return response.data;
@@ -56,20 +57,19 @@ const chili3dIntegration = {
   },
 
   /**
-   * 导出3D场景数据
+   * 导出场景数据
    * @param sceneId 场景ID
-   * @param format 导出格式
-   * @returns 导出数据Promise
+   * @param format 导出格式(如json, dxf等)
+   * @returns 导出的场景数据Promise
    */
   exportSceneData: async (sceneId: string, format: string = 'json') => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/chili3d/scenes/${sceneId}/export`, {
-        params: { format },
-        responseType: format === 'json' ? 'json' : 'blob'
+      const response = await axios.get(`${API_BASE_URL}/v4/chili3d/scenes/${sceneId}/export`, {
+        params: { format }
       });
       return response.data;
     } catch (error) {
-      console.error('导出3D场景数据失败:', error);
+      console.error('导出场景数据失败:', error);
       throw error;
     }
   }
