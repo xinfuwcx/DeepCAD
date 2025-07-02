@@ -1,0 +1,102 @@
+# 深基坑CAE系统 - 统一依赖需求
+# 深基坑工程分析与设计系统的核心依赖
+
+# FastAPI and Server
+fastapi
+uvicorn[standard]
+
+# Pydantic for data validation
+pydantic
+
+# --- Notes on Heavy Dependencies ---
+# The following core libraries are expected to be installed in the execution environment
+# and are not available on PyPI. Refer to project documentation for setup.
+# - KratosMultiphysics
+# - Netgen/NGSolve
+
+# 数据库
+sqlalchemy>=2.0.27
+alembic>=1.13.1
+
+# 科学计算
+numpy>=1.26.4
+scipy>=1.12.0
+matplotlib>=3.8.3
+pandas>=2.2.1
+h5py>=3.11.0
+
+# 几何建模
+pythonocc-core>=7.8.1
+OCP>=7.8.1
+
+# 可视化
+vtk>=9.3.0
+pyvista>=0.43.4
+trame>=3.5.4
+meshio>=5.3.5
+
+# 网格生成
+netgen-mesher>=6.2.2504
+
+# Kratos多物理场 - 结构力学分析
+KratosMultiphysics>=10.2.1
+KratosMultiphysics.StructuralMechanicsApplication>=10.2.1
+
+# 深度学习（可选）
+tensorflow>=2.12.0
+torch>=2.0.0
+
+# 工具
+python-dotenv>=1.0.0
+loguru>=0.7.0
+typer>=0.9.0
+
+# 开发工具（可选）
+black>=24.3.0
+isort>=5.13.2
+mypy>=1.9.0
+pytest>=8.0.2
+
+# Used by services for HTTP requests (if backend calls other services)
+axios 
+# Note: axios is a JS library, for python 'requests' or 'httpx' is common.
+# Assuming no server-to-server http calls for now to keep it minimal.
+
+# For Kratos integration (assuming it's installed in the environment)
+# No pip package, this is a placeholder for documentation
+# KratosMultiphysics
+
+# For Netgen/ngsolve integration (assuming it's installed in the environment)
+# No pip package, this is a placeholder for documentation
+# ngsolve
+
+# Added by the colleague
+ezdxf
+
+# 测试相关依赖
+pytest==7.4.0
+pytest-asyncio==0.21.1
+httpx==0.24.1
+pytest-cov==4.1.0
+
+# 认证与安全相关依赖
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.5
+
+# 数据库相关依赖
+sqlalchemy==1.4.42
+alembic==1.8.1
+pydantic[email]==1.10.2
+
+# Added by the colleague
+Jinja2
+xlsxwriter
+psycopg2-binary
+
+# Added by the colleague
+pygmsh
+meshio
+
+# Added by the colleague
+kratos-python
