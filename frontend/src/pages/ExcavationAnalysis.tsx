@@ -30,7 +30,8 @@ import {
   Refresh as RefreshIcon,
   Download as DownloadIcon,
   Edit as EditIcon,
-  Save as SaveIcon
+  Save as SaveIcon,
+  Construction as ConstructionIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { projectApi, modelingApi, resultApi } from '../services/api';
@@ -38,6 +39,7 @@ import { Project, ProjectStatus, ProjectStatistics } from '../models/types';
 import { useAlert } from '../components/common/AlertProvider';
 import ExcavationDiagramViewer from '../components/modeling/ExcavationDiagramViewer';
 import ResultViewer from '../components/ResultViewer';
+import ModelingPipelineRunner from '../components/analysis/ModelingPipelineRunner';
 
 /**
  * 基坑分析页面
@@ -254,300 +256,169 @@ const ExcavationAnalysis: React.FC = () => {
   }
   
   // 渲染错误状态
-  if (error && !project) {
+  if (error) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
         <Alert severity="error">{error}</Alert>
       </Box>
     );
   }
-  
-  // 渲染项目选择提示
-  if (!projectIdNum) {
-    return (
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <Typography variant="h5" gutterBottom>
-          基坑分析
-        </Typography>
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="body1" gutterBottom>
-            请选择一个项目进行分析
-          </Typography>
-          {renderProjectList()}
-        </Paper>
-      </Container>
-    );
-  }
-  
+
+  // 渲染主界面
   return (
-    <Container maxWidth="xl" sx={{ mt: 2 }}>
-      {/* 面包屑导航 */}
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link href="/" underline="hover" color="inherit">
-          首页
-        </Link>
-        <Link href="/projects" underline="hover" color="inherit">
-          项目管理
-        </Link>
-        <Typography color="text.primary">
-          {project?.name || `项目 ${projectIdNum}`}
-        </Typography>
-      </Breadcrumbs>
+    <Grid container spacing={3}>
+      {/* 左侧项目列表 */}
+      <Grid item xs={12} md={3}>
+        <Card>
+          <CardHeader title="近期项目" />
+          <CardContent>
+            {renderProjectList()}
+          </CardContent>
+        </Card>
+      </Grid>
       
-      <Grid container spacing={2}>
-        {/* 左侧项目列表 */}
-        <Grid item xs={12} md={3} lg={2}>
-          <Paper sx={{ p: 2, mb: 2 }}>
-            <Typography variant="subtitle1" gutterBottom>
-              项目列表
-            </Typography>
-            {projects.length > 0 ? renderProjectList() : (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                <CircularProgress size={24} />
-              </Box>
-            )}
-          </Paper>
-          
-          {/* 项目信息 */}
-          {project && (
-            <Paper sx={{ p: 2 }}>
-              <Typography variant="subtitle1" gutterBottom>
-                项目信息
-              </Typography>
-              <Typography variant="body2">
-                <strong>名称:</strong> {project.name}
-              </Typography>
-              <Typography variant="body2">
-                <strong>状态:</strong> {project.status}
-              </Typography>
-              <Typography variant="body2">
-                <strong>创建时间:</strong> {new Date(project.created_at).toLocaleString()}
-              </Typography>
-              {excavationData && (
-                <Typography variant="body2">
-                  <strong>基坑深度:</strong> {excavationData.depth}m
-                </Typography>
-              )}
-              {statistics && (
-                <>
-                  <Divider sx={{ my: 1 }} />
-                  <Typography variant="subtitle2" gutterBottom>
-                    计算结果
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>最大位移:</strong> {statistics.max_displacement}mm
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>最大应力:</strong> {statistics.max_stress}kPa
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>最小安全系数:</strong> {statistics.min_safety_factor}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>计算时间:</strong> {statistics.computation_time}s
-                  </Typography>
-                </>
-              )}
-              
-              <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-                <Button 
-                  size="small" 
-                  startIcon={<RefreshIcon />}
-                  onClick={handleRefresh}
-                >
-                  刷新
-                </Button>
-                <Button 
-                  size="small" 
-                  startIcon={<DownloadIcon />}
-                  onClick={handleDownloadReport}
-                >
-                  报告
-                </Button>
-              </Box>
-            </Paper>
-          )}
-        </Grid>
-        
-        {/* 右侧内容区 */}
-        <Grid item xs={12} md={9} lg={10}>
-          <Paper sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6">
-                {project?.name || `项目 ${projectIdNum}`}
-              </Typography>
-              <Box>
-                {error && (
-                  <Alert severity="error" sx={{ mb: 2 }}>
-                    {error}
-                  </Alert>
-                )}
-                {editMode ? (
-                  <Tooltip title="保存">
-                    <IconButton color="primary" onClick={handleSaveExcavationData}>
-                      <SaveIcon />
-                    </IconButton>
-                  </Tooltip>
-                ) : (
-                  <Tooltip title="编辑">
-                    <IconButton color="primary" onClick={() => setEditMode(true)}>
-                      <EditIcon />
-                    </IconButton>
-                  </Tooltip>
-                )}
-              </Box>
-            </Box>
+      {/* 右侧主内容 */}
+      <Grid item xs={12} md={9}>
+        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+          {/* 面包屑导航和操作按钮 */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Breadcrumbs aria-label="breadcrumb">
+              <Link underline="hover" color="inherit" onClick={() => navigate('/dashboard')}>
+                仪表盘
+              </Link>
+              <Typography color="text.primary">{project?.name || '基坑分析'}</Typography>
+            </Breadcrumbs>
             
+            <Box>
+              {editMode ? (
+                <Tooltip title="保存">
+                  <IconButton color="primary" onClick={handleSaveExcavationData}>
+                    <SaveIcon />
+                  </IconButton>
+                </Tooltip>
+              ) : (
+                <Tooltip title="编辑">
+                  <IconButton onClick={() => setEditMode(true)}>
+                    <EditIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
+              <Tooltip title="刷新数据">
+                <IconButton onClick={handleRefresh}>
+                  <RefreshIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="下载报告">
+                <IconButton onClick={handleDownloadReport}>
+                  <DownloadIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+          
+          <Divider sx={{ mb: 2 }}/>
+          
+          <Box sx={{ width: '100%' }}>
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-              <Tabs value={currentTab} onChange={handleTabChange}>
-                <Tab icon={<BarChartIcon />} label="三维结果" />
-                <Tab icon={<LineChartIcon />} label="二维图表" />
-                <Tab icon={<TableRowsIcon />} label="数据表格" />
-                <Tab icon={<DescriptionIcon />} label="报告" />
+              <Tabs value={currentTab} onChange={handleTabChange} aria-label="分析内容选项卡">
+                <Tab label="项目概览" />
+                <Tab label="二维示意图" />
+                <Tab label="结果图表" />
+                <Tab label="数据表格" />
+                <Tab label="报告" />
+                <Tab label="建模与分析" icon={<ConstructionIcon />} />
               </Tabs>
             </Box>
             
-            {/* 三维结果 */}
+            {/* 项目概览 */}
             {currentTab === 0 && (
-              <Box sx={{ pt: 2 }}>
-                {loading ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                    <CircularProgress />
-                  </Box>
-                ) : (
-                  <>
-                    <ResultViewer projectId={projectIdNum} height={600} />
-                    <Grid container spacing={2} sx={{ mt: 2 }}>
-                      <Grid item xs={12} md={6}>
-                        <Card variant="outlined">
-                          <CardContent>
-                            <Typography variant="h6" gutterBottom>
-                              位移云图
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              最大位移: {statistics?.max_displacement || 0} mm
-                            </Typography>
-                          </CardContent>
-                        </Card>
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        <Card variant="outlined">
-                          <CardContent>
-                            <Typography variant="h6" gutterBottom>
-                              应力云图
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              最大应力: {statistics?.max_stress || 0} kPa
-                            </Typography>
-                          </CardContent>
-                        </Card>
-                      </Grid>
-                    </Grid>
-                  </>
-                )}
+              <Box sx={{ p: 3 }}>
+                <Typography variant="h5" gutterBottom>
+                  {project?.name}
+                </Typography>
+                <Typography variant="body1" color="text.secondary" paragraph>
+                  {project?.description || '暂无描述'}
+                </Typography>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Card>
+                      <CardContent>
+                        <Typography color="text.secondary" gutterBottom>最大位移</Typography>
+                        <Typography variant="h5">{statistics?.max_displacement || 'N/A'} mm</Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Card>
+                      <CardContent>
+                        <Typography color="text.secondary" gutterBottom>最大应力</Typography>
+                        <Typography variant="h5">{statistics?.max_stress || 'N/A'} kPa</Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Card>
+                      <CardContent>
+                        <Typography color="text.secondary" gutterBottom>最小安全系数</Typography>
+                        <Typography variant="h5">{statistics?.min_safety_factor || 'N/A'}</Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Card>
+                      <CardContent>
+                        <Typography color="text.secondary" gutterBottom>计算用时</Typography>
+                        <Typography variant="h5">{statistics?.computation_time || 'N/A'} min</Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                </Grid>
               </Box>
             )}
             
-            {/* 二维图表 */}
+            {/* 二维示意图 */}
             {currentTab === 1 && (
-              <Box sx={{ pt: 2 }}>
-                {loading ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                    <CircularProgress />
-                  </Box>
-                ) : (
-                  <>
-                    <ExcavationDiagramViewer 
-                      projectId={projectIdNum} 
-                      height={500}
-                      initialData={diagramInitialData}
-                      editMode={editMode}
-                      onDataChange={handleExcavationDataChange}
-                    />
-                    <Grid container spacing={2} sx={{ mt: 2 }}>
-                      <Grid item xs={12} md={6}>
-                        <Card variant="outlined">
-                          <CardContent>
-                            <Typography variant="h6" gutterBottom>
-                              位移曲线
-                            </Typography>
-                            <Box sx={{ height: 300, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                              <Typography variant="body2" color="text.secondary">
-                                位移数据图表将在这里显示
-                              </Typography>
-                            </Box>
-                          </CardContent>
-                        </Card>
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        <Card variant="outlined">
-                          <CardContent>
-                            <Typography variant="h6" gutterBottom>
-                              应力曲线
-                            </Typography>
-                            <Box sx={{ height: 300, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                              <Typography variant="body2" color="text.secondary">
-                                应力数据图表将在这里显示
-                              </Typography>
-                            </Box>
-                          </CardContent>
-                        </Card>
-                      </Grid>
-                    </Grid>
-                  </>
-                )}
+              <Box sx={{ p: 2, height: '600px', position: 'relative' }}>
+                {diagramInitialData ? (
+                  <ExcavationDiagramViewer
+                    initialData={diagramInitialData}
+                    isEditable={editMode}
+                    onDataChange={handleExcavationDataChange}
+                  />
+                ) : <CircularProgress />}
               </Box>
+            )}
+            
+            {/* 结果图表 */}
+            {currentTab === 2 && projectIdNum && (
+              <ResultViewer projectId={projectIdNum} resultType="chart" />
             )}
             
             {/* 数据表格 */}
-            {currentTab === 2 && (
-              <Box sx={{ pt: 2 }}>
-                <Card variant="outlined" sx={{ minHeight: 600 }}>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      分析结果数据
-                    </Typography>
-                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 500 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        结果数据表格将在这里显示
-                      </Typography>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Box>
+            {currentTab === 3 && projectIdNum && (
+              <ResultViewer projectId={projectIdNum} resultType="table" />
             )}
             
             {/* 报告 */}
-            {currentTab === 3 && (
-              <Box sx={{ pt: 2 }}>
-                <Card variant="outlined" sx={{ minHeight: 600 }}>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      分析报告
-                    </Typography>
-                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 500 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        分析报告将在这里显示
-                      </Typography>
-                    </Box>
-                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                      <Button 
-                        variant="contained" 
-                        startIcon={<DownloadIcon />}
-                        onClick={handleDownloadReport}
-                      >
-                        下载报告
-                      </Button>
-                    </Box>
-                  </CardContent>
-                </Card>
+            {currentTab === 4 && (
+              <Box sx={{ p: 3 }}>
+                <Typography variant="h6">项目报告</Typography>
+                <Typography>报告内容将在此处显示。</Typography>
+                <Button variant="contained" onClick={handleDownloadReport} sx={{ mt: 2 }}>
+                  下载PDF报告
+                </Button>
               </Box>
             )}
-          </Paper>
-        </Grid>
+            
+            {/* 建模与分析 */}
+            {currentTab === 5 && (
+              <ModelingPipelineRunner />
+            )}
+          </Box>
+        </Paper>
       </Grid>
-    </Container>
+    </Grid>
   );
 };
 
-export default ExcavationAnalysis; 
+export default ExcavationAnalysis;

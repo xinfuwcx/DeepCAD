@@ -54,4 +54,12 @@ const config = {
   ...(isDevelopment ? devConfig : prodConfig),
 };
 
+/**
+ * 获取API基础URL
+ * @returns API基础URL
+ */
+export const getApiBaseUrl = (): string => {
+  return config.api.baseUrl;
+};
+
 export default config; 
