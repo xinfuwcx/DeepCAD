@@ -1,98 +1,85 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 interface ViewportProps {
   meshes: THREE.Mesh[];
-  onSceneReady?: (scene: THREE.Scene, camera: THREE.Camera) => void;
+  analysisMesh?: THREE.Mesh | null;
 }
 
-const Viewport: React.FC<ViewportProps> = ({ meshes, onSceneReady }) => {
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const threeContextRef = useRef<any>(null);
-  const animationRef = useRef<number | null>(null);
+const Viewport: React.FC<ViewportProps> = ({ meshes, analysisMesh }) => {
+  const mountRef = useRef<HTMLDivElement>(null);
+  const sceneRef = useRef(new THREE.Scene());
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    const mountNode = mountRef.current;
+    if (!mountNode) return;
 
-    const currentCanvas = canvasRef.current;
-    
-    const scene = new THREE.Scene();
+    // --- 场景、相机、渲染器设置 ---
+    const scene = sceneRef.current;
     scene.background = new THREE.Color(0xf0f0f0);
-
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      currentCanvas.clientWidth / currentCanvas.clientHeight,
-      0.1,
-      1000
-    );
-    camera.position.set(40, 40, 40);
-    camera.lookAt(0, 0, 0);
-
+    const camera = new THREE.PerspectiveCamera(75, mountNode.clientWidth / mountNode.clientHeight, 0.1, 1000);
+    camera.position.set(20, 30, 50);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(currentCanvas.clientWidth, currentCanvas.clientHeight);
-    renderer.shadowMap.enabled = true;
-    currentCanvas.appendChild(renderer.domElement);
-
-    const orbitControls = new OrbitControls(camera, renderer.domElement);
-    orbitControls.target.set(0, 0, 0);
-    orbitControls.update();
-
+    renderer.setSize(mountNode.clientWidth, mountNode.clientHeight);
+    mountNode.appendChild(renderer.domElement);
+    
+    // --- 控制器 ---
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    
+    // --- 光照 ---
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
-    
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(10, 20, 10);
-    directionalLight.castShadow = true;
+    directionalLight.position.set(50, 50, 50);
     scene.add(directionalLight);
 
-    const gridHelper = new THREE.GridHelper(100, 10);
-    scene.add(gridHelper);
-    
-    threeContextRef.current = { scene, camera, renderer, orbitControls };
-
+    // --- 动画循环 ---
     const animate = () => {
-      animationRef.current = requestAnimationFrame(animate);
-      orbitControls.update();
+      requestAnimationFrame(animate);
+      controls.update();
       renderer.render(scene, camera);
     };
     animate();
 
+    // --- 响应式调整 ---
     const handleResize = () => {
-      if (!currentCanvas) return;
-      camera.aspect = currentCanvas.clientWidth / currentCanvas.clientHeight;
+      camera.aspect = mountNode.clientWidth / mountNode.clientHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(currentCanvas.clientWidth, currentCanvas.clientHeight);
+      renderer.setSize(mountNode.clientWidth, mountNode.clientHeight);
     };
     window.addEventListener('resize', handleResize);
 
-    if (onSceneReady) {
-      onSceneReady(scene, camera);
-    }
-
+    // --- 清理函数 ---
     return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      if (currentCanvas && currentCanvas.contains(renderer.domElement)) {
-        currentCanvas.removeChild(renderer.domElement);
-      }
       window.removeEventListener('resize', handleResize);
+      mountNode.removeChild(renderer.domElement);
     };
-  }, [onSceneReady]);
+  }, []);
 
   useEffect(() => {
-    if (!threeContextRef.current) return;
-    const { scene } = threeContextRef.current;
+    const scene = sceneRef.current;
     
-    // 1. 清除所有旧的场景对象
-    const objectsToRemove = scene.children.filter(child => child.userData.isSceneObject);
-    objectsToRemove.forEach(child => scene.remove(child));
-    
-    // 2. 添加父组件传递过来的新模型
-    meshes.forEach(mesh => scene.add(mesh));
+    // 清理旧网格
+    const objectsToRemove = scene.children.filter(child => child.userData.isSceneObject || child.userData.isAnalysisMesh);
+    scene.remove(...objectsToRemove);
 
-  }, [meshes]);
+    // 添加BIM场景网格
+    meshes.forEach(mesh => {
+      mesh.userData.isSceneObject = true;
+      scene.add(mesh);
+    });
 
-  return <div ref={canvasRef} style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }} />;
+    // 添加分析结果网格 (如果存在)
+    if (analysisMesh) {
+      analysisMesh.userData.isAnalysisMesh = true;
+      scene.add(analysisMesh);
+    }
+
+  }, [meshes, analysisMesh]);
+
+  return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;
 };
 
 export default Viewport; 

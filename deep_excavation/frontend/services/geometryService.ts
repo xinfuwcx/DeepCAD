@@ -46,12 +46,33 @@ export function createSoilMesh(params: SoilParameters): THREE.Mesh {
  */
 export function createExcavationPunch(params: ExcavationParameters, soilParams: SoilParameters): THREE.Mesh | null {
   const { dxf, depth } = params;
-  if (!dxf || !dxf.entities) return null;
+  if (!dxf || !dxf.entities || dxf.entities.length === 0) {
+    console.warn("几何服务: 接收到的DXF数据无效或不包含任何实体。");
+    return null;
+  }
 
-  const polyline = dxf.entities.find((e:any) => e.type === 'LWPOLYLINE');
-  if (!polyline) return null;
+  console.log("几何服务: 开始处理DXF数据，包含实体数量:", dxf.entities.length, dxf.entities);
+
+  // 尝试寻找LWPOLYLINE, POLYLINE, 或 LINE.
+  let polyline = dxf.entities.find((e:any) => e.type === 'LWPOLYLINE');
+  if (polyline) {
+    console.log("几何服务: 找到 LWPOLYLINE 实体。");
+  } else {
+    polyline = dxf.entities.find((e:any) => e.type === 'POLYLINE');
+    if (polyline) {
+      console.log("几何服务: 找到 POLYLINE 实体。");
+    } else {
+      console.warn("几何服务: 未找到LWPOLYLINE或POLYLINE实体，请检查DXF文件内容。");
+      return null; // 或者在这里添加对 LINE 实体的处理
+    }
+  }
 
   const points = polyline.vertices.map((v: any) => new THREE.Vector2(v.x, v.y));
+  if (points.length < 2) {
+    console.error("几何服务: 找到的多段线实体顶点数量不足，无法创建形状。");
+    return null;
+  }
+  console.log(`几何服务: 从实体中提取了 ${points.length} 个顶点。`);
   const shape = new THREE.Shape(points);
 
   const soilCenter = new THREE.Vector2();
@@ -72,7 +93,8 @@ export function createExcavationPunch(params: ExcavationParameters, soilParams: 
   geometry.translate(0, 0, -highestPoint - 2); 
   geometry.rotateX(-Math.PI / 2);
 
-  const material = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true });
+  console.log("几何服务: 成功创建基坑'冲头'模型。");
+  const material = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true, visible: false }); // 冲头本身不可见
   const mesh = new THREE.Mesh(geometry, material);
   return mesh;
 } 

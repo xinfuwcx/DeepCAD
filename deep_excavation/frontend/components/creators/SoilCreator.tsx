@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Paper, Typography, Button, Box, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton } from '@mui/material';
+import { Paper, Typography, Button, Box, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, FormControlLabel, Switch } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { SceneObject } from '../../pages/MainPage';
@@ -21,7 +21,8 @@ const SoilCreator: React.FC<SoilCreatorProps> = ({ onAddObject }) => {
     { x: '100', y: '0', z: '100' },
     { x: '0', y: '2', z: '100' },
   ]);
-  const [thickness, setThickness] = useState('20');
+  const [thickness, setThickness] = useState(10);
+  const [infiniteElement, setInfiniteElement] = useState(true);
 
   const handlePointChange = (index: number, field: keyof Point, value: string) => {
     const newPoints = [...surfacePoints];
@@ -38,7 +39,7 @@ const SoilCreator: React.FC<SoilCreatorProps> = ({ onAddObject }) => {
     setSurfacePoints(newPoints);
   };
 
-  const handleCreateModel = () => {
+  const handleAddClick = () => {
     onAddObject({
       type: 'soil',
       parameters: {
@@ -47,8 +48,8 @@ const SoilCreator: React.FC<SoilCreatorProps> = ({ onAddObject }) => {
           y: parseFloat(p.y) || 0,
           z: parseFloat(p.z) || 0,
         })),
-        thickness: parseFloat(thickness) || 20,
-        infiniteElement: false, // 默认不开启
+        thickness,
+        infiniteElement,
       }
     });
   };
@@ -96,15 +97,26 @@ const SoilCreator: React.FC<SoilCreatorProps> = ({ onAddObject }) => {
         土体厚度
       </Typography>
       <TextField
-        label="平均厚度 (m)"
+        label="土体厚度 (m)"
         type="number"
         value={thickness}
-        onChange={(e) => setThickness(e.target.value)}
+        onChange={(e) => setThickness(parseFloat(e.target.value))}
+        variant="outlined"
         fullWidth
       />
 
-      <Button variant="contained" onClick={handleCreateModel} sx={{ mt: 3 }} fullWidth>
-        生成土体模型
+      <FormControlLabel
+        control={
+          <Switch
+            checked={infiniteElement}
+            onChange={(e) => setInfiniteElement(e.target.checked)}
+          />
+        }
+        label="生成无限元"
+      />
+
+      <Button variant="contained" onClick={handleAddClick} sx={{ mt: 3 }} fullWidth>
+        添加土体
       </Button>
     </Box>
   );

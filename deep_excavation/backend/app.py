@@ -1,17 +1,15 @@
 """
-Main FastAPI application file for the Deep Excavation CAE System (V3 Rebuild).
+Main FastAPI application file for the Deep Excavation CAE System.
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.api.routes import (
+from api.routes import (
     analysis_router,
     auth_router,
     project_router,
-    v3_router,
-    v4_router,
 )
-from backend.database import init_db
+from database import init_db
 
 app = FastAPI(
     title="Deep Excavation API",
@@ -29,6 +27,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def on_startup():
+    """Initializes the database connection."""
     init_db()
 
 # API Routers
@@ -43,29 +42,20 @@ app.include_router(
     tags=["Project Management"]
 )
 app.include_router(
-    v3_router.router,
-    prefix="/api/v3",
-    tags=["V3 Analysis"]
-)
-app.include_router(
-    v4_router.router,
-    prefix="/api/v4",
-    tags=["V4 Analysis"]
-)
-app.include_router(
     analysis_router.router,
-    prefix="/api/v4",
-    tags=["V4 BIM Analysis"]
+    prefix="/api/analysis",
+    tags=["BIM Analysis"]
 )
 
 @app.get("/")
-def read_root():
+async def read_root():
+    """Root endpoint for the API."""
     return {"message": "Welcome to the Deep Excavation API"}
 
 @app.get("/health", tags=["Monitoring"])
 async def get_server_health():
     """Returns the health status of the API server."""
-    return {"status": "ok", "message": "V3 API core is running."}
+    return {"status": "ok", "message": "API core is running."}
 
 # Routers will be added back one by one.
 
