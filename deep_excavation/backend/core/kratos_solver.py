@@ -7,35 +7,67 @@ import os
 import json
 import logging
 import KratosMultiphysics
-import KratosMultiphysics.StructuralMechanicsApplication as StructuralMechanicsApplication
-from KratosMultiphysics.StructuralMechanicsApplication.structural_mechanics_analysis import StructuralMechanicsAnalysis
+from KratosMultiphysics.StructuralMechanicsApplication import (
+    structural_mechanics_analysis
+)
 
 logger = logging.getLogger(__name__)
 
-def run_kratos_analysis(mesh_filename: str) -> str:
+
+# --- Intelligent Solver Configuration ---
+
+def create_materials_file(working_dir: str):
     """
-    Runs a full Kratos analysis on the given mesh file.
-
-    Args:
-        mesh_filename: The absolute path to the input mesh file (e.g., .mdpa).
-
-    Returns:
-        The absolute path to the output results file (e.g., .vtk).
+    Creates the materials.json file with distinct properties for core and
+    infinite domains.
     """
-    logger.info(f"Kratos求解器: 开始处理网格文件: {mesh_filename}")
-    
-    # Kratos需要一个工作目录来存放所有文件
-    working_dir = os.path.dirname(mesh_filename)
-    project_name = os.path.splitext(os.path.basename(mesh_filename))[0]
+    materials = {
+        "properties": [
+            {
+                "model_part_name": "Structure.SOIL_CORE",
+                "properties_id": 1,
+                "Material": {
+                    "constitutive_law": {"name": "LinearElastic3DLaw"},
+                    "Variables": {
+                        "YOUNG_MODULUS": 2.1e7,
+                        "POISSON_RATIO": 0.3,
+                        "DENSITY": 1800.0
+                    },
+                    "Tables": {}
+                }
+            },
+            {
+                "model_part_name": "Structure.INFINITE_DOMAIN",
+                "properties_id": 2,
+                "Material": {
+                    # This is a simplification. A real infinite element would
+                    # use a specific law from GeoMechanicsApplication.
+                    "constitutive_law": {"name": "LinearElastic3DLaw"},
+                    "Variables": {
+                        "YOUNG_MODULUS": 1.0e6,  # Softer material
+                        "POISSON_RATIO": 0.45,
+                        "DENSITY": 1800.0
+                    },
+                    "Tables": {}
+                }
+            }
+        ]
+    }
+    mats_file_path = os.path.join(working_dir, "materials.json")
+    with open(mats_file_path, 'w') as f:
+        json.dump(materials, f, indent=4)
+    logger.info("动态生成 'materials.json' 文件。")
 
-    # --- 1. 定义Kratos分析设置 ---
-    # 在真实的复杂应用中，这些参数会从一个模板文件或更复杂的配置对象中读取
+
+def create_project_parameters_file(working_dir: str, project_name: str):
+    """
+    Creates the ProjectParameters.json file, dynamically assigning processes
+    to the correct model parts.
+    """
     project_parameters = {
         "problem_data": {
             "problem_name": project_name,
             "parallel_type": "OpenMP",
-            "start_time": 0.0,
-            "end_time": 1.0,
             "echo_level": 1,
             "domain_size": 3
         },
@@ -50,17 +82,6 @@ def run_kratos_analysis(mesh_filename: str) -> str:
             "material_import_settings": {
                 "materials_filename": "materials.json"
             },
-            "time_stepping": {
-                "time_step": 1.0,
-                "max_delta_time_factor": 1000.0
-            },
-            "line_search": False,
-            "convergence_criterion": "displacement_criterion",
-            "displacement_relative_tolerance": 1.0e-4,
-            "displacement_absolute_tolerance": 1.0e-9,
-            "residual_relative_tolerance": 1.0e-4,
-            "residual_absolute_tolerance": 1.0e-9,
-            "max_iteration": 10
         },
         "processes": {
             "constraints_process_list": [{
@@ -68,23 +89,25 @@ def run_kratos_analysis(mesh_filename: str) -> str:
                 "kratos_module": "KratosMultiphysics",
                 "process_name": "AssignVectorByDirectionProcess",
                 "Parameters": {
-                    "model_part_name": "Structure.bottom",
+                    # This is a simplification. A real setup would find the
+                    # boundary surfaces of the infinite domain.
+                    "model_part_name": "Structure.INFINITE_DOMAIN",
                     "variable_name": "DISPLACEMENT",
-                    "modulus": 0.0,
-                    "direction": [0.0, 1.0, 0.0],
-                    "constituve_law_is_defined": False,
-                    "gravity_is_defined": False
+                    "constrained": [True, True, True],
+                    "value": [0, 0, 0]
                 }
             }],
             "loads_process_list": [{
-                "python_module": "apply_vector_load_process",
-                "kratos_module": "KratosMultiphysics",
-                "process_name": "ApplyVectorLoadProcess",
+                "python_module": "apply_gravity_on_bodies_process",
+                "kratos_module": (
+                    "KratosMultiphysics.StructuralMechanicsApplication"
+                ),
+                "process_name": "ApplyGravityOnBodiesProcess",
                 "Parameters": {
-                    "model_part_name": "Structure.top",
+                    # Apply gravity only to the core soil
+                    "model_part_name": "Structure.SOIL_CORE",
                     "variable_name": "VOLUME_ACCELERATION",
-                    "modulus": 9.81,
-                    "direction": [0.0, -1.0, 0.0]
+                    "gravity_vector": [0.0, -9.81, 0.0]
                 }
             }]
         },
@@ -95,66 +118,57 @@ def run_kratos_analysis(mesh_filename: str) -> str:
                 "process_name": "VtkOutputProcess",
                 "Parameters": {
                     "model_part_name": "Structure",
-                    "output_control_type": "step",
-                    "output_interval": 1,
-                    "file_format": "binary",
-                    "output_precision": 7,
-                    "output_sub_model_parts": False,
                     "folder_name": os.path.join(working_dir, "vtk_output"),
-                    "nodal_solution_step_data_variables": ["DISPLACEMENT", "REACTION"],
-                    "nodal_data_value_variables": [],
-                    "element_data_value_variables": [],
+                    "nodal_solution_step_data_variables": [
+                        "DISPLACEMENT", "REACTION"
+                    ],
                     "gauss_point_variables_in_elements": ["VON_MISES_STRESS"]
                 }
             }]
         }
     }
-    
-    # 将参数写入ProjectParameters.json
     params_file_path = os.path.join(working_dir, "ProjectParameters.json")
     with open(params_file_path, 'w') as f:
         json.dump(project_parameters, f, indent=4)
-        
-    # --- 2. 定义材料文件 ---
-    materials = {
-        "properties": [{
-            "model_part_name": "Structure.domain",
-            "properties_id": 1,
-            "Material": {
-                "constitutive_law": {
-                    "name": "LinearElastic3DLaw"
-                },
-                "Variables": {
-                    "YOUNG_MODULUS": 2.1e10,
-                    "POISSON_RATIO": 0.3,
-                    "DENSITY": 1800.0
-                },
-                "Tables": {}
-            }
-        }]
-    }
-    
-    mats_file_path = os.path.join(working_dir, "materials.json")
-    with open(mats_file_path, 'w') as f:
-        json.dump(materials, f, indent=4)
+    logger.info("动态生成 'ProjectParameters.json' 文件。")
 
-    # --- 3. 运行分析 ---
+
+def run_kratos_analysis(mesh_filename: str) -> str:
+    """
+    Runs a full Kratos analysis on the given mesh file using dynamically
+    generated configuration files.
+    """
+    logger.info(f"Kratos智能求解器: 开始处理网格文件: {mesh_filename}")
+    
+    working_dir = os.path.dirname(mesh_filename)
+    project_name = os.path.splitext(os.path.basename(mesh_filename))[0]
+
+    # --- 1. Dynamically create config files ---
+    create_materials_file(working_dir)
+    create_project_parameters_file(working_dir, project_name)
+
+    # --- 2. Run the analysis ---
     logger.info("Kratos求解器: 准备运行StructuralMechanicsAnalysis...")
+    params_path = os.path.join(working_dir, "ProjectParameters.json")
+    with open(params_path, 'r') as params_file:
+        project_parameters = KratosMultiphysics.Parameters(params_file.read())
+
     current_model = KratosMultiphysics.Model()
-    simulation = StructuralMechanicsAnalysis(current_model, project_parameters)
+    simulation = structural_mechanics_analysis.StructuralMechanicsAnalysis(
+        current_model, project_parameters
+    )
     simulation.Run()
     logger.info("Kratos求解器: 分析运行完成。")
 
-    # --- 4. 返回结果文件的路径 ---
-    # VTK输出会根据时间步命名，我们取最后一个时间步的结果
-    # 示例: project_name_1.0.vtk
+    # --- 3. Return the path to the result file ---
     vtk_output_folder = os.path.join(working_dir, "vtk_output")
     result_filename = f"{project_name}_1.0.vtk"
     result_filepath = os.path.join(vtk_output_folder, result_filename)
 
     if not os.path.exists(result_filepath):
-        logger.error(f"Kratos求解器错误: 未找到预期的结果文件: {result_filepath}")
-        raise FileNotFoundError("Kratos simulation finished but the result file was not found.")
+        msg = f"Kratos求解器错误: 未找到预期的结果文件: {result_filepath}"
+        logger.error(msg)
+        raise FileNotFoundError(msg)
 
     logger.info(f"Kratos求解器: 成功生成结果文件: {result_filepath}")
     return result_filepath 

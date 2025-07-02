@@ -1,18 +1,17 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from typing import List, Union, Literal, Annotated, Any, Dict, Optional
+from typing import List, Union, Literal, Annotated, Any, Dict, Optional, Tuple
 import logging
 import tempfile
 import os
 from starlette.responses import FileResponse
+import uuid
 
 # --- 真实计算库 ---
-from netgen.occ import WorkPlane, OCCGeometry
-import netgen.meshing as meshing
+import gmsh
 import meshio
 
 # --- 自定义模块 ---
-from ..core.dxf_processor import extract_polyline_from_dxf
 from ..core.kratos_solver import run_kratos_analysis
 
 # --- 日志配置 ---
@@ -23,44 +22,109 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-# --- Pydantic 模型定义 ---
+# ############################################################################
+# ### 全新的、与前端同步的参数化数据模型 (The New Backend Blueprint)
+# ############################################################################
+
+class Point2D(BaseModel):
+    x: float
+    y: float
+
+
 class Point3D(BaseModel):
     x: float
     y: float
     z: float
 
 
-class SoilParameters(BaseModel):
-    surfacePoints: List[Point3D]
-    thickness: float
-    infiniteElement: bool
+# --- 特征基础模型 ---
+class BaseFeature(BaseModel):
+    id: str
+    name: str
+    parentId: Optional[str] = None
 
 
-class ExcavationParameters(BaseModel):
-    dxf: Any  # 前端现在直接发送文件内容字符串
+# --- 几何特征 ---
+class CreateBoxParameters(BaseModel):
+    width: float
+    height: float
     depth: float
+    position: Point3D
 
 
-class SoilObject(BaseModel):
-    id: str
-    name: str
-    type: Literal['soil']
-    parameters: SoilParameters
+class CreateBoxFeature(BaseFeature):
+    type: Literal['CreateBox'] = 'CreateBox'
+    parameters: CreateBoxParameters
 
 
-class ExcavationObject(BaseModel):
-    id: str
-    name: str
-    type: Literal['excavation']
-    parameters: ExcavationParameters
+# --- 2D 草图特征 ---
+class CreateSketchParameters(BaseModel):
+    plane: Literal['XY', 'XZ', 'YZ']
+    plane_offset: float
+    # 为了简化，我们先假设草图就是一个闭合的矩形
+    points: List[Point2D] 
 
 
-SceneObject = Union[SoilObject, ExcavationObject]
+class CreateSketchFeature(BaseFeature):
+    type: Literal['CreateSketch'] = 'CreateSketch'
+    parameters: CreateSketchParameters
 
 
-class SceneDescription(BaseModel):
-    version: str
-    objects: List[Annotated[SceneObject, Field(discriminator="type")]]
+# --- 从草图拉伸的特征 ---
+class ExtrudeParameters(BaseModel):
+    depth: float
+    # is_cut: bool # 未来可以支持布尔减法
+
+
+class ExtrudeFeature(BaseFeature):
+    type: Literal['Extrude'] = 'Extrude'
+    # 拉伸特征必须依赖于一个草图特征
+    parentId: str
+    parameters: ExtrudeParameters
+
+
+# --- 高级分析特征 (Fusion-Style) ---
+class AddInfiniteDomainParameters(BaseModel):
+    thickness: float # 无限元层的厚度
+
+
+class AddInfiniteDomainFeature(BaseFeature):
+    type: Literal['AddInfiniteDomain'] = 'AddInfiniteDomain'
+    # 必须依附于一个已经存在的3D体
+    parentId: str
+    parameters: AddInfiniteDomainParameters
+
+
+# --- 分析特征 ---
+class AssignGroupParameters(BaseModel):
+    group_name: str
+    entity_type: Literal['face', 'volume']
+    # 前端在选择时, 会获取到几何实体的唯一标识(tag)
+    entity_tags: List[int]
+
+
+class AssignGroupFeature(BaseFeature):
+    type: Literal['AssignGroup'] = 'AssignGroup'
+    parameters: AssignGroupParameters
+
+
+# --- 特征联合体 ---
+AnyFeature = Annotated[
+    Union[
+        CreateBoxFeature, 
+        CreateSketchFeature,
+        ExtrudeFeature,
+        AddInfiniteDomainFeature,
+        AssignGroupFeature
+    ],
+    Field(discriminator="type")
+]
+
+
+# --- 场景顶层模型 ---
+class ParametricScene(BaseModel):
+    version: str = "2.0-parametric"
+    features: List[AnyFeature]
 
 
 class AnalysisResult(BaseModel):
@@ -70,177 +134,244 @@ class AnalysisResult(BaseModel):
     mesh_filename: Optional[str] = None
 
 
-# --- 核心几何与网格生成逻辑 ---
-def create_geometry_and_mesh(
-    scene_data: SceneDescription,
-) -> tuple[meshio.Mesh, str]:
+# ############################################################################
+# ### 后端特征重放引擎 (The Backend Replay Engine)
+# ############################################################################
+
+def replay_features_and_mesh(scene: ParametricScene) -> tuple[meshio.Mesh, str]:
     """
-    真正的几何建模和网格生成函数
-    1. 从SceneDescription中提取几何定义
-    2. 使用Netgen/OCC进行实体建模和布尔运算
-    3. 生成网格
-    4. 返回meshio.Mesh对象和文件名
+    后端的特征重放与网格生成引擎
+    1. 遍历特征树
+    2. 使用Gmsh/OCC执行几何操作
+    3. 使用Gmsh/OCC指派物理组
+    4. 生成网格并导出
     """
-    logger.info("开始真实的几何建模与网格生成...")
-
-    soil_obj = next(
-        (o for o in scene_data.objects if isinstance(o, SoilObject)), None
-    )
-    excavation_obj = next(
-        (o for o in scene_data.objects if isinstance(o, ExcavationObject)),
-        None,
-    )
-
-    if not soil_obj:
-        raise ValueError("几何错误: 场景中必须包含一个土体对象。")
-
-    # 1. 创建土体几何
-    wp = WorkPlane()
-    points = soil_obj.parameters.surfacePoints
-    wp.MoveTo(points[0].x, points[0].z)
-    for p in points[1:]:
-        wp.LineTo(p.x, p.z)
-    wp.LineTo(points[0].x, points[0].z)
-    face = wp.Face()
-    
-    ground_level = points[0].y
-    soil_solid = face.Extrude(
-        -soil_obj.parameters.thickness, bot=ground_level
-    )
-    
-    final_geo = soil_solid
-
-    # 2. 如果有基坑，进行布尔减法
-    if excavation_obj:
-        logger.info("发现基坑对象，开始创建冲头并进行布尔减法...")
-        dxf_content = excavation_obj.parameters.dxf
+    logger.info("开始后端特征重放与网格生成...")
+    gmsh.initialize()
+    try:
+        gmsh.model.add("parametric_model")
         
-        vertices = extract_polyline_from_dxf(dxf_content)
+        # 这个字典将用于存储特征ID与其在Gmsh中生成的几何实体tag的映射
+        feature_to_gmsh_tags: Dict[
+            str, Union[int, List[int], List[Tuple[int, int]]]
+        ] = {}
 
-        exc_wp = WorkPlane()
-        exc_wp.MoveTo(vertices[0][0], vertices[0][1])
-        for v in vertices[1:]:
-            exc_wp.LineTo(v[0], v[1])
-        exc_wp.LineTo(vertices[0][0], vertices[0][1])
-        exc_face = exc_wp.Face()
+        for feature in scene.features:
+            logger.info(
+                f"正在处理特征: {feature.name} (类型: {feature.type})"
+            )
 
-        punch_height = excavation_obj.parameters.depth + 10
-        exc_punch = exc_face.Extrude(
-            punch_height,
-            bot=(ground_level - excavation_obj.parameters.depth),
-        )
+            if feature.type == 'CreateBox':
+                p = feature.parameters
+                box_tag = gmsh.model.occ.addBox(
+                    p.position.x - p.width / 2,
+                    p.position.y - p.height / 2,
+                    p.position.z - p.depth / 2,
+                    p.width, p.height, p.depth
+                )
+                gmsh.model.occ.synchronize()
+                feature_to_gmsh_tags[feature.id] = box_tag
+                logger.info(
+                    f"特征 '{feature.name}' (ID: {feature.id}) 已创建Box, "
+                    f"Gmsh Tag: {box_tag}"
+                )
 
-        final_geo = final_geo - exc_punch
-        logger.info("布尔减法完成。")
+            elif feature.type == 'CreateSketch':
+                p = feature.parameters
+                # 在选定的平面上创建一系列点，然后连接成线
+                points_tags = []
+                for point2d in p.points:
+                    if p.plane == 'XY':
+                        pt = gmsh.model.occ.addPoint(
+                            point2d.x, point2d.y, p.plane_offset
+                        )
+                        points_tags.append(pt)
+                    elif p.plane == 'XZ':
+                        pt = gmsh.model.occ.addPoint(
+                            point2d.x, p.plane_offset, point2d.y
+                        )
+                        points_tags.append(pt)
+                    elif p.plane == 'YZ':
+                        pt = gmsh.model.occ.addPoint(
+                            p.plane_offset, point2d.x, point2d.y
+                        )
+                        points_tags.append(pt)
+                
+                # 连接点成线
+                lines_tags = []
+                for i in range(len(points_tags)):
+                    p1 = points_tags[i]
+                    p2 = points_tags[(i + 1) % len(points_tags)]  # 循环连接
+                    lines_tags.append(gmsh.model.occ.addLine(p1, p2))
 
-    # 3. 生成网格
-    logger.info("开始网格划分...")
-    occ_geo = OCCGeometry(final_geo)
-    mesh_gen = meshing.Mesh()
-    mesh_gen.Generate(occ_geo, maxh=5.0)
-    logger.info("网格划分完成。")
+                # 从线创建一个线圈 (Wire)
+                curve_loop = gmsh.model.occ.addCurveLoop(lines_tags)
+                feature_to_gmsh_tags[feature.id] = curve_loop
+                logger.info(
+                    f"特征 '{feature.name}' 已创建Sketch, "
+                    f"Gmsh CurveLoop Tag: {curve_loop}"
+                )
 
-    # 4. 导出为 Kratos 所需的 MDPA 格式
-    with tempfile.NamedTemporaryFile(suffix=".mdpa", delete=False, mode="w") as tmp:
-        filename = tmp.name
-    
-    # mesh_gen.Save(filename) # Netgen的Save可能不支持mdpa, 我们用meshio来转换
-    
-    # 先导出为VTK，再用meshio读取并写入MDPA
-    with tempfile.NamedTemporaryFile(suffix=".vtk", delete=False) as vtk_tmp:
-        vtk_filename = vtk_tmp.name
-    mesh_gen.Save(vtk_filename)
-    
-    mesh_data = meshio.read(vtk_filename)
+            elif feature.type == 'Extrude':
+                p = feature.parameters
+                parent_id = feature.parentId
+                if not parent_id or parent_id not in feature_to_gmsh_tags:
+                    raise ValueError(
+                        f"Extrude feature '{feature.name}' has a missing or "
+                        f"invalid parent sketch."
+                    )
+                
+                sketch_tag = feature_to_gmsh_tags[parent_id]
+                
+                # 从线圈创建一个平面
+                surface = gmsh.model.occ.addPlaneSurface([sketch_tag])
 
-    # 在MDPA中，不同的物理组/边界需要命名
-    # 这里我们做一个简化：假设所有外表面都是边界
-    # 在真实应用中，这些需要在OCC建模时精确定义
-    # TODO: 精确定义边界
-    # For now, we will create dummy boundaries for Kratos to work.
-    # This part is complex and needs careful geometric selection.
-    
-    meshio.write(filename, mesh_data, file_format="mdpa")
+                # 拉伸平面成体 (暂时只支持沿Z轴正向拉伸)
+                extrude_dim_tags = gmsh.model.occ.extrude(
+                    [(2, surface)], 0, 0, p.depth
+                )
+                gmsh.model.occ.synchronize()
 
-    # 清理临时的VTK文件
-    os.remove(vtk_filename)
-    
-    logger.info(
-        "网格已成功转换为MDPA格式并保存到: %s", filename
-    )
+                # 从拉伸结果中找到体的tag
+                volume_tag = next(
+                    (tag for dim, tag in extrude_dim_tags if dim == 3), None
+                )
+                if volume_tag is None:
+                    raise ValueError("Extrusion did not result in a 3D volume.")
+                
+                feature_to_gmsh_tags[feature.id] = volume_tag
+                logger.info(
+                    f"特征 '{feature.name}' 已拉伸父草图 '{parent_id}', "
+                    f"Gmsh Volume Tag: {volume_tag}"
+                )
 
-    return mesh_data, filename
+            elif feature.type == 'AddInfiniteDomain':
+                p = feature.parameters
+                parent_id = feature.parentId
+                if not parent_id or parent_id not in feature_to_gmsh_tags:
+                    raise ValueError(
+                        f"InfiniteDomain feature '{feature.name}' has a "
+                        f"missing or invalid parent body."
+                    )
+                
+                parent_tag = feature_to_gmsh_tags[parent_id]
+                if not isinstance(parent_tag, int):
+                    raise ValueError("InfiniteDomain can only be applied to a single 3D volume.")
+                
+                # 创建一个更大的外壳
+                min_x, min_y, min_z, max_x, max_y, max_z = gmsh.model.occ.getBoundingBox(3, parent_tag)
+                
+                shell_tag = gmsh.model.occ.addBox(
+                    min_x - p.thickness, min_y - p.thickness, min_z - p.thickness,
+                    (max_x - min_x) + 2 * p.thickness,
+                    (max_y - min_y) + 2 * p.thickness,
+                    (max_z - min_z) + 2 * p.thickness
+                )
+
+                # 执行 fragment 操作
+                logger.info(f"对体 {parent_tag} 和外壳 {shell_tag} 执行 Fragment 操作...")
+                out_tags, out_map = gmsh.model.occ.fragment([(3, parent_tag)], [(3, shell_tag)])
+                gmsh.model.occ.synchronize()
+
+                # out_map[0] 是原始parent_tag被切碎后的结果
+                # 一般来说，如果完全包含，结果只有一个，就是它自己
+                inner_soil_tag = out_map[0][0][1]
+                
+                # out_map[1] 是原始shell_tag被切碎后的结果
+                # 它会被切成两部分：与内部体相减的部分（壳），和内部体本身
+                # 我们需要找到那个 "壳"
+                all_shell_fragments = [tag for dim, tag in out_map[1]]
+                infinite_domain_tag = next(tag for tag in all_shell_fragments if tag != inner_soil_tag)
+                
+                # 为新的区域创建物理组
+                gmsh.model.addPhysicalGroup(3, [inner_soil_tag], name="SOIL_CORE")
+                gmsh.model.addPhysicalGroup(3, [infinite_domain_tag], name="INFINITE_DOMAIN")
+                logger.info(
+                    f"Fragment 操作成功. 核心土体: {inner_soil_tag}, "
+                    f"无限元域: {infinite_domain_tag}"
+                )
+
+                # 更新父级特征的几何ID，以便后续操作能找到正确的几何体
+                feature_to_gmsh_tags[parent_id] = inner_soil_tag
+
+            elif feature.type == 'AssignGroup':
+                # **这是最体现Fusion思想的地方**
+                # 我们需要找到这个组所要附加到的几何实体
+                # 在一个更复杂的场景中,我们需要一个复杂的映射逻辑
+                # 但在这里我们简化: 假设物理组是直接附加在某个几何特征上
+                # 并且前端已经通过某种方式(如拾取)获取了表面的tag
+                p = feature.parameters
+                if p.entity_type == 'face':
+                    # 前端直接提供了面的tags, 我们直接用
+                    pg_tag = gmsh.model.addPhysicalGroup(2, p.entity_tags, name=p.group_name)
+                    logger.info(f"特征 '{feature.name}' 已指派物理组, Gmsh Physical Tag: {pg_tag}")
+                # TODO: 添加对volume的处理
+        
+        # 3. 生成网格
+        logger.info("开始网格划分...")
+        gmsh.model.mesh.setSize(gmsh.model.getEntities(0), 10.0) # 暂时使用较粗的网格
+        gmsh.model.mesh.generate(3)
+        logger.info("网格划分完成。")
+
+        # 4. 导出为 Kratos 所需的 MDPA 格式
+        unique_id = uuid.uuid4()
+        msh_filename = os.path.join(tempfile.gettempdir(), f"{unique_id}.msh")
+        mdpa_filename = os.path.join(tempfile.gettempdir(), f"{unique_id}.mdpa")
+
+        gmsh.write(msh_filename)
+        mesh_data = meshio.read(msh_filename)
+        meshio.write(mdpa_filename, mesh_data, file_format="mdpa")
+        
+        os.remove(msh_filename)
+        logger.info(f"网格已成功转换为MDPA格式: {mdpa_filename}")
+        
+        return mesh_data, mdpa_filename
+
+    finally:
+        gmsh.finalize()
 
 
-@router.get("/results/{filename_with_ext}", tags=["BIM Analysis"])
-async def get_analysis_result_file(filename_with_ext: str):
+# ############################################################################
+# ### API Endpoints
+# ############################################################################
+
+@router.post("/analyze", response_model=AnalysisResult, tags=["Parametric Analysis"])
+async def run_parametric_analysis(scene: ParametricScene):
     """
-    从临时目录中提供结果文件（例如VTK网格）的下载。
-
-    注意: 这是为开发设计的简化方法。在生产环境中，
-    需要更健obt文件存储和访问控制机制。
+    接收前端参数化场景, 进行特征重放、建模、网格划分、Kratos计算, 并返回结果。
     """
-    # 基础的安全检查，防止目录遍历
-    if ".." in filename_with_ext or filename_with_ext.startswith(("/", "\\")):
-        raise HTTPException(status_code=400, detail="无效的文件名。")
-
-    temp_dir = tempfile.gettempdir()
-    file_path = os.path.join(temp_dir, filename_with_ext)
-
-    logger.info(f"尝试从以下路径提供文件: {file_path}")
-
-    if not os.path.isfile(file_path):
-        logger.error(f"文件未找到: {file_path}")
-        raise HTTPException(status_code=404, detail="文件未找到。")
-
-    return FileResponse(
-        path=file_path,
-        media_type='application/octet-stream',
-        filename=os.path.basename(file_path)
-    )
-
-
-@router.post("/analyze", response_model=AnalysisResult, tags=["BIM Analysis"])
-async def run_true_meshing_analysis(scene_data: SceneDescription):
-    """
-    接收前端BIM场景，进行建模、网格划分、Kratos计算，并返回结果。
-    """
-    logger.info("成功接收到BIM场景数据，开始完整分析流程...")
+    logger.info("接收到V2.0参数化场景数据，开始完整分析流程...")
     
     try:
-        # 1. 生成用于计算的MDPA网格文件
-        mesh_data, mdpa_filename = create_geometry_and_mesh(scene_data)
-        
-        # 2. 调用Kratos求解器进行计算
-        # 这个函数会返回带有结果的VTK文件的路径
+        mesh_data, mdpa_filename = replay_features_and_mesh(scene)
         result_vtk_filename = run_kratos_analysis(mdpa_filename)
         
-        # 3. 准备返回给前端的信息
         stats = {
             "num_points": len(mesh_data.points),
-            "num_cells": sum(
-                len(cell_block.data) for cell_block in mesh_data.cells
-            ),
-            "cell_types": [cell_block.type for cell_block in mesh_data.cells],
+            "num_cells": sum(len(cell.data) for cell in mesh_data.cells),
+            "cell_types": [cell.type for cell in mesh_data.cells],
         }
 
-        logger.info(f"完整分析流程成功: {stats}")
-        
-        # 从完整路径中提取文件名
         final_result_filename = os.path.basename(result_vtk_filename)
-
         return {
             "status": "success",
-            "message": "建模、网格划分和Kratos计算全部成功。",
+            "message": "参数化场景分析成功。",
             "mesh_statistics": stats,
             "mesh_filename": final_result_filename
         }
 
     except Exception as e:
-        logger.error(f"完整分析流程中发生错误: {e}", exc_info=True)
-        return {
-            "status": "error",
-            "message": f"分析失败: {str(e)}",
-            "mesh_statistics": {},
-            "mesh_filename": None,
-        } 
+        logger.error(f"参数化分析流程中发生错误: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"分析失败: {str(e)}")
+
+
+@router.get("/results/{filename_with_ext}", tags=["Parametric Analysis"])
+async def get_analysis_result_file(filename_with_ext: str):
+    """ 提供结果文件的下载 """
+    if ".." in filename_with_ext or filename_with_ext.startswith(("/", "\\")):
+        raise HTTPException(status_code=400, detail="无效的文件名。")
+    temp_dir = tempfile.gettempdir()
+    file_path = os.path.join(temp_dir, filename_with_ext)
+    if not os.path.isfile(file_path):
+        raise HTTPException(status_code=404, detail="文件未找到。")
+    return FileResponse(path=file_path, filename=os.path.basename(file_path)) 

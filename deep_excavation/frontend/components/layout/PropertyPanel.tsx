@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { AnyFeature, CreateBoxFeature } from '../../services/parametricAnalysisService';
+import { AnyFeature, CreateBoxFeature, CreateSketchFeature, AddInfiniteDomainFeature, Point2D, ExtrudeFeature } from '../../services/parametricAnalysisService';
 import { Task, FeatureType } from '../../core/tasks';
+import { useStore } from '../../core/store';
 
 // =================================================================================
 // Reusable UI Components
@@ -66,6 +67,87 @@ const CreateBoxTask: React.FC<CreateBoxTaskProps> = ({ onAddFeature, onCancelTas
     );
 };
 
+interface CreateSketchTaskProps {
+    onAddFeature: (feature: CreateSketchFeature) => void;
+    onCancelTask: () => void;
+}
+
+const CreateSketchTask: React.FC<CreateSketchTaskProps> = ({ onAddFeature, onCancelTask }) => {
+    const [plane, setPlane] = useState<'XY' | 'XZ' | 'YZ'>('XY');
+    const [offset, setOffset] = useState(0);
+    const planeSelectId = "sketch-plane-select";
+
+    const handleSubmit = () => {
+        // For now, we'll create a predefined rectangle sketch
+        const points: Point2D[] = [
+            { x: -50, y: -50 },
+            { x: 50, y: -50 },
+            { x: 50, y: 50 },
+            { x: -50, y: 50 },
+        ];
+
+        onAddFeature({
+            id: `feature-${Date.now()}`,
+            name: `Sketch on ${plane}`,
+            type: 'CreateSketch',
+            parameters: {
+                plane: plane,
+                plane_offset: offset,
+                points: points
+            }
+        });
+    };
+
+    return (
+        <Section title="Task: Create Sketch">
+            <div className="space-y-2">
+                <label htmlFor={planeSelectId} className="block text-xs text-gray-400">Select Sketch Plane</label>
+                <select 
+                    id={planeSelectId}
+                    value={plane} 
+                    onChange={e => setPlane(e.target.value as 'XY' | 'XZ' | 'YZ')}
+                    className="w-full bg-gray-900 border border-gray-600 rounded p-1 text-sm"
+                >
+                    <option value="XY">XY Plane</option>
+                    <option value="XZ">XZ Plane</option>
+                    <option value="YZ">YZ Plane</option>
+                </select>
+                <PropertyInput label="Plane Offset" value={offset} onChange={setOffset} />
+            </div>
+            <Button onClick={handleSubmit}>Create Predefined Sketch</Button>
+            <Button onClick={onCancelTask} className="bg-gray-600 hover:bg-gray-700">Cancel</Button>
+        </Section>
+    );
+};
+
+interface ExtrudeTaskProps {
+    onAddFeature: (feature: ExtrudeFeature) => void;
+    onCancelTask: () => void;
+    parentId: string;
+}
+
+const ExtrudeTask: React.FC<ExtrudeTaskProps> = ({ onAddFeature, onCancelTask, parentId }) => {
+    const [depth, setDepth] = useState(50);
+
+    const handleSubmit = () => {
+        onAddFeature({
+            id: `feature-${Date.now()}`,
+            name: 'Extrude',
+            type: 'Extrude',
+            parentId: parentId,
+            parameters: { depth }
+        });
+    };
+
+    return (
+        <Section title="Task: Extrude Sketch">
+            <PropertyInput label="Depth" value={depth} onChange={setDepth} />
+            <Button onClick={handleSubmit}>Finish</Button>
+            <Button onClick={onCancelTask} className="bg-gray-600 hover:bg-gray-700">Cancel</Button>
+        </Section>
+    );
+};
+
 
 // =================================================================================
 // Feature-Specific Editors (The Property Editor Panels)
@@ -94,76 +176,127 @@ const CreateBoxEditor: React.FC<FeatureEditorProps<CreateBoxFeature>> = ({ featu
     );
 };
 
+const AddInfiniteDomainEditor: React.FC<FeatureEditorProps<AddInfiniteDomainFeature>> = ({ feature, onUpdateFeature }) => {
+    
+    const handleUpdate = (newParams: Partial<AddInfiniteDomainFeature['parameters']>) => {
+        onUpdateFeature({
+            ...feature,
+            parameters: { ...feature.parameters, ...newParams }
+        });
+    };
+    
+    return (
+        <Section title={`Properties: ${feature.name}`}>
+            <PropertyInput label="Thickness" value={feature.parameters.thickness} onChange={val => handleUpdate({ thickness: val })} />
+        </Section>
+    );
+};
+
+
 // =================================================================================
 // Main Panel Component (The Router)
 // =================================================================================
 
-interface PropertyPanelProps {
-  activeWorkbench: 'Modeling' | 'Analysis';
-  activeTask: Task | null;
-  selectedFeature: AnyFeature | null;
-  onStartTask: (taskType: FeatureType) => void;
-  onCancelTask: () => void;
-  onAddFeature: (feature: AnyFeature) => void;
-  onUpdateFeature: (feature: AnyFeature) => void;
-}
+const PropertyPanel: React.FC = () => {
+    // --- Get State and Actions from the Global Store ---
+    const activeWorkbench = useStore(state => state.activeWorkbench);
+    const activeTask = useStore(state => state.activeTask);
+    const selectedFeature = useStore(state => state.getSelectedFeature());
+    
+    const startTask = useStore(state => state.startTask);
+    const cancelTask = useStore(state => state.cancelTask);
+    const addFeature = useStore(state => state.addFeature);
+    const updateFeature = useStore(state => state.updateFeature);
 
-const PropertyPanel: React.FC<PropertyPanelProps> = ({ 
-    activeWorkbench, activeTask, selectedFeature, 
-    onStartTask, onCancelTask, onAddFeature, onUpdateFeature 
-}) => {
-  
-  const renderModelingPanel = () => {
-    // 1. If a task is active, show the task panel
-    if (activeTask) {
-        switch (activeTask.type) {
-            case 'CreateBox':
-                return <CreateBoxTask onAddFeature={onAddFeature} onCancelTask={onCancelTask} />;
-            // Add other tasks here
-            default:
-                return (
-                    <Section title={`Task: ${activeTask.type}`}>
-                        <p>This task is not yet implemented.</p>
-                        <Button onClick={onCancelTask} className="bg-gray-600 hover:bg-gray-700">Cancel</Button>
-                    </Section>
-                );
+    const renderModelingPanel = () => {
+        // 1. If a task is active, show the task panel
+        if (activeTask) {
+            switch (activeTask.type) {
+                case 'CreateBox':
+                    return <CreateBoxTask onAddFeature={addFeature} onCancelTask={cancelTask} />;
+                case 'CreateSketch':
+                    return <CreateSketchTask onAddFeature={addFeature} onCancelTask={cancelTask} />;
+                case 'Extrude':
+                    if (!activeTask.parentId) return <p>Error: Extrude task requires a parent sketch.</p>;
+                    return <ExtrudeTask onAddFeature={addFeature} onCancelTask={cancelTask} parentId={activeTask.parentId} />;
+                default:
+                    return (
+                        <Section title={`Task: ${activeTask.type}`}>
+                            <p>This task is not yet implemented.</p>
+                            <Button onClick={cancelTask} className="bg-gray-600 hover:bg-gray-700">Cancel</Button>
+                        </Section>
+                    );
+            }
         }
-    }
 
-    // 2. If a feature is selected, show its editor
-    if (selectedFeature) {
-        switch (selectedFeature.type) {
-            case 'CreateBox':
-                return <CreateBoxEditor feature={selectedFeature} onUpdateFeature={onUpdateFeature} />;
-            // Add other feature editors here
-            default:
-                return <Section title={`Properties: ${selectedFeature.name}`}>This feature type cannot be edited yet.</Section>;
+        // 2. If a feature is selected, show its editor
+        if (selectedFeature) {
+            switch (selectedFeature.type) {
+                case 'CreateBox':
+                    return <CreateBoxEditor feature={selectedFeature} onUpdateFeature={updateFeature} />;
+                case 'AddInfiniteDomain':
+                    return <AddInfiniteDomainEditor feature={selectedFeature} onUpdateFeature={updateFeature} />;
+                default:
+                    return <Section title={`Properties: ${selectedFeature.name}`}>This feature type cannot be edited yet.</Section>;
+            }
         }
-    }
 
-    // 3. Default state: Show buttons to start tasks
-    return (
-        <Section title="Modeling Tasks">
-             <Button onClick={() => onStartTask('CreateBox')}>Create Soil Body</Button>
-             <div className="p-4 text-center text-gray-400 border-t border-gray-700 mt-4">
-                <p>Select a feature in the history tree to edit its properties.</p>
-            </div>
+        // 3. Default state: Show buttons to start tasks
+        const canBeExtruded = selectedFeature?.type === 'CreateSketch';
+
+        const handleAddInfiniteDomain = () => {
+            if (!selectedFeature) return;
+            
+            // The button is only shown if the type is CreateBox or Extrude, so this assertion is safe.
+            addFeature({
+                id: `feature-${Date.now()}`,
+                name: 'Infinite Domain',
+                type: 'AddInfiniteDomain',
+                parentId: selectedFeature.id,
+                parameters: {
+                    thickness: 50 // Default thickness
+                }
+            });
+        };
+
+        const canHaveInfiniteDomain = selectedFeature && (selectedFeature.type === 'CreateBox' || selectedFeature.type === 'Extrude');
+
+        return (
+            <Section title="Modeling Tasks">
+                <Button onClick={() => startTask('CreateBox')}>Create Soil Body</Button>
+                <Button onClick={() => startTask('CreateSketch')}>Create 2D Sketch</Button>
+                
+                {canBeExtruded && (
+                     <Button onClick={() => startTask('Extrude', selectedFeature.id)} className="bg-orange-600 hover:bg-orange-700">
+                         Extrude Sketch
+                     </Button>
+                )}
+                
+                {canHaveInfiniteDomain && (
+                    <Button onClick={handleAddInfiniteDomain} className="bg-teal-600 hover:bg-teal-700">
+                        Add Infinite Domain
+                    </Button>
+                )}
+
+                <div className="p-4 text-center text-gray-400 border-t border-gray-700 mt-4">
+                    <p>Select a feature in the history tree to edit its properties.</p>
+                </div>
+            </Section>
+        );
+    };
+
+    const renderAnalysisPanel = () => (
+        <Section title="Analysis Tasks">
+            <p className="p-4 text-center text-gray-400">Analysis panel is under construction.</p>
         </Section>
     );
-  };
 
-  const renderAnalysisPanel = () => (
-     <Section title="Analysis Tasks">
-        <p className="p-4 text-center text-gray-400">Analysis panel is under construction.</p>
-     </Section>
-  );
-
-  return (
-    <div className="h-full flex flex-col text-sm">
-        {activeWorkbench === 'Modeling' && renderModelingPanel()}
-        {activeWorkbench === 'Analysis' && renderAnalysisPanel()}
-    </div>
-  );
+    return (
+        <div className="h-full flex flex-col text-sm">
+            {activeWorkbench === 'Modeling' && renderModelingPanel()}
+            {activeWorkbench === 'Analysis' && renderAnalysisPanel()}
+        </div>
+    );
 };
 
 export default PropertyPanel; 

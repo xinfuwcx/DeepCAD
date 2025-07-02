@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "@kitware/vtk.js": "^34.3.1",
+    "@types/uuid": "^10.0.0",
+    "delaunator": "^5.0.1",
+    "three-bvh-csg": "^0.0.17",
+    "three-mesh-bvh": "^0.9.1",
+    "uuid": "^11.1.0"
+  }
+}
