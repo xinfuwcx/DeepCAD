@@ -69,3 +69,6 @@ axios
 # For Netgen/ngsolve integration (assuming it's installed in the environment)
 # No pip package, this is a placeholder for documentation
 # ngsolve
+
+# Added by the colleague
+ezdxf

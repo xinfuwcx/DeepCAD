@@ -1,91 +1,48 @@
-# 深基坑CAE系统
+# Deep Excavation V3 - 高性能CAE分析服务器
 
-基于FreeCAD架构设计的专业深基坑分析软件，集成了地质建模、支护结构设计、有限元分析和结果可视化功能。
+## 概述
 
-## 系统架构
+这是一个纯净、强大、API优先的CAE分析服务器，专为深基坑工程的复杂数值模拟而设计。该项目已经过彻底重构，摒弃了所有冗余的前端和旧模块，专注于提供稳定、高效的后端计算能力。
 
-深基坑CAE系统采用FreeCAD的工作台概念，将不同专业功能组织为独立工作台：
+## V3 核心架构
 
-- **地质建模工作台**：创建和编辑地质模型，定义土层参数
-- **支护结构工作台**：设计地下连续墙、支撑、锚杆等支护结构
-- **分析设置工作台**：配置分析参数，设置边界条件和荷载
-- **结果可视化工作台**：查看和分析计算结果
-- **监测数据工作台**：导入和分析现场监测数据
+本项目的核心是内存直通的V3分析流水线，它实现了从参数化模型到最终计算结果的无缝、高效衔接，全程无需文件I/O，保证了最高的计算效率。
 
-系统还采用了文档-对象模型，所有几何对象都是参数化的，修改参数会自动更新几何。
+其流程如下:
 
-## 技术栈
+1.  **统一数据模型 (`V3ExcavationModel`)**: 接收一个结构化的JSON对象，该对象完整定义了土体、支护系统（包括排桩、腰梁、锚杆等）和材料属性。
+2.  **网格生成适配器 (`NetgenAdapter`)**: 在内存中根据数据模型直接生成几何，并调用Netgen进行三维混合单元（梁单元+实体单元）的网格剖分。
+3.  **有限元计算适配器 (`KratosAdapter`)**: 接收网格数据，在Kratos中构建有限元模型。此步骤包括：
+    *   分配材料属性。
+    *   施加边界条件和荷载。
+    *   **建立关键约束**: 通过主从约束（Master-Slave Constraints）精确模拟腰梁与排桩、锚杆与腰梁之间的复杂相互作用。
+    *   模拟分步施工过程。
+    *   运行非线性求解器。
+4.  **返回结构化结果**: 将包含位移、内力等关键工程数据的计算结果以JSON格式返回。
 
-- **前端**：React + TypeScript + Material UI
-- **3D引擎**：chili3d（用于几何建模）
-- **后端**：Python + FastAPI
-- **分析引擎**：Kratos（用于有限元分析）
+## 如何运行
 
-## 开发环境设置
-
-### 前端开发
-
-1. 安装依赖：
-
+### 环境准备
+1.  **安装Kratos Multiphysics**: 确保您的系统中已正确安装Kratos，并已配置好相应的环境变量。
+2.  **安装Python依赖**:
 ```bash
-cd frontend
-npm install
-```
-
-2. 启动开发服务器：
-
-```bash
-npm run dev
-```
-
-或使用模拟API：
-
-```bash
-npm run dev:mock
-```
-
-也可以直接使用提供的批处理脚本：
-
-- `start_dev.bat` - 启动标准开发环境
-- `start_dev_with_mock.bat` - 启动带模拟API的开发环境
-
-### 后端开发
-
-1. 安装Python依赖：
-
-```bash
-cd src
 pip install -r requirements.txt
-```
+    ```
 
-2. 启动后端服务器：
-
+### 启动与测试
+1.  **启动FastAPI服务器**:
 ```bash
-python server/app.py
-```
+    python -m src.server.app
+    ```
+    服务器将在 `http://localhost:8000` 上运行。
 
-## 构建与部署
+2.  **运行端到端测试**:
+    打开一个新的PowerShell终端，执行我们最终的测试脚本，它将向服务器发送一个包含排桩、腰梁和锚杆的复杂工程模型，并打印出详细的计算结果。
+    ```powershell
+    powershell -ExecutionPolicy Bypass -File test_final_challenge.ps1
+    ```
 
-构建前端：
-
-```bash
-cd frontend
-npm run build
-```
-
-## 测试
-
-运行测试：
-
-```bash
-cd frontend
-npm test
-```
-
-## 文档
-
-更多详细文档请参阅`docs`目录。
-
-## 许可证
-
-本项目采用ISC许可证。
+## API 端点
+*   **Endpoint**: `POST /api/v3/run-analysis`
+*   **Request Body**: 一个符合 `V3ExcavationModel` 结构的JSON对象。
+*   **Response**: 一个包含模型参数、网格信息和有限元计算结果的JSON对象。 

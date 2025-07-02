@@ -1,57 +1,12 @@
 {
-  "name": "deep-excavation-cae",
-  "version": "1.0.0",
-  "private": true,
-  "description": "深基坑CAE系统 - 专业深基坑模拟分析软件",
-  "scripts": {
-    "dev": "cd src && npx vite --port 3000 --host",
-    "dev:mock": "cd src && cross-env VITE_USE_MOCK_API=true vite --port 3000 --host",
-    "build": "cd src && tsc && npx vite build",
-    "lint": "cd src && eslint . --ext .ts,.tsx",
-    "preview": "cd src && npx vite preview --port 3000",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "start": "npm run dev"
-  },
   "dependencies": {
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.0",
-    "@mui/icons-material": "^7.1.2",
-    "@mui/material": "^7.1.2",
+    "@react-three/drei": "^10.4.2",
+    "@react-three/fiber": "^9.1.4",
+    "@types/three": "^0.178.0",
+    "autoprefixer": "^10.4.21",
     "axios": "^1.10.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^7.6.2",
-    "three": "^0.153.0",
-    "zustand": "^4.3.8"
-  },
-  "devDependencies": {
-    "@testing-library/jest-dom": "^6.1.4",
-    "@testing-library/react": "^14.0.0",
-    "@testing-library/user-event": "^14.5.1",
-    "@types/node": "^24.0.3",
-    "@types/react": "^18.2.14",
-    "@types/react-dom": "^18.2.6",
-    "@types/three": "^0.152.1",
-    "@typescript-eslint/eslint-plugin": "^5.61.0",
-    "@typescript-eslint/parser": "^5.61.0",
-    "@vitejs/plugin-react": "^4.6.0",
-    "cross-env": "^7.0.3",
-    "eslint": "^8.44.0",
-    "eslint-plugin-react": "^7.32.2",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.4.1",
-    "typescript": "^5.8.3",
-    "vite": "^4.5.14",
-    "vitest": "^0.34.6"
-  },
-  "main": "src/main.tsx",
-  "directories": {
-    "doc": "docs"
-  },
-  "keywords": ["CAE", "深基坑", "有限元", "工程分析"],
-  "author": "Deep Excavation Team",
-  "license": "ISC",
-  "type": "module"
-} 
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.11",
+    "three": "^0.178.0"
+  }
+}
