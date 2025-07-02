@@ -1,5 +1,5 @@
 import { create } from './zustand';
-import { AnyFeature } from '../services/parametricAnalysisService';
+import { AnyFeature, Point3D } from '../services/parametricAnalysisService';
 
 // =================================================================================
 // Type Definitions
@@ -19,6 +19,13 @@ export interface Task {
     parentId?: string;
 }
 
+// State for interactive picking in the viewport
+export interface PickingState {
+    isActive: boolean;
+    // The callback to run when a point is picked.
+    onPick: ((point: Point3D) => void) | null;
+}
+
 // =================================================================================
 // Store Interface
 // =================================================================================
@@ -29,6 +36,7 @@ export interface AppState {
     activeWorkbench: Workbench;
     activeTask: Task | null;
     activeModal: ModalType; // Manages which modal is open
+    pickingState: PickingState; // Add picking state to the store
 
     // --- Actions ---
     addFeature: (feature: AnyFeature) => void;
@@ -41,6 +49,10 @@ export interface AppState {
     
     openModal: (modal: NonNullable<ModalType>) => void;
     closeModal: () => void;
+    // Picking actions
+    startPicking: (onPick: (point: Point3D) => void) => void;
+    stopPicking: () => void;
+    executePick: (point: Point3D) => void;
 
     // --- Selectors ---
     getSelectedFeature: () => AnyFeature | null;
@@ -57,6 +69,10 @@ export const useStore = create<AppState>((set, get) => ({
     activeWorkbench: 'Modeling',
     activeTask: null,
     activeModal: null,
+    pickingState: {
+        isActive: false,
+        onPick: null,
+    },
 
     // --- Action Implementations ---
     addFeature: (feature) => {
@@ -81,6 +97,32 @@ export const useStore = create<AppState>((set, get) => ({
     openModal: (modal) => set({ activeModal: modal }),
     
     closeModal: () => set({ activeModal: null }),
+
+    // Picking action implementations
+    startPicking: (onPickCallback) => {
+        set({
+            pickingState: {
+                isActive: true,
+                onPick: onPickCallback,
+            },
+        });
+    },
+
+    stopPicking: () => {
+        set({
+            pickingState: {
+                isActive: false,
+                onPick: null,
+            },
+        });
+    },
+
+    executePick: (point) => {
+        const { pickingState } = get();
+        if (pickingState.isActive && pickingState.onPick) {
+            pickingState.onPick(point);
+        }
+    },
 
     // --- Selector Implementations ---
     getSelectedFeature: () => {

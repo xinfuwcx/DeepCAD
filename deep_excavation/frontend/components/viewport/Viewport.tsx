@@ -19,6 +19,7 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
   const sceneRef = useRef(new THREE.Scene());
   const cameraRef = useRef<THREE.PerspectiveCamera>();
   const rendererRef = useRef<THREE.WebGLRenderer>();
+  const controlsRef = useRef<OrbitControls>(); // Ref to access controls
   
   // --- Axes Gizmo Refs ---
   const axesSceneRef = useRef(new THREE.Scene());
@@ -27,9 +28,17 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
   
   const analysisMeshesRef = useRef<THREE.Object3D[]>([]);
 
+  // --- Picker helper ---
+  const pickingPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
+
   // --- Subscribe to global state ---
   const features = useStore(state => state.features);
   const selectedFeatureId = useStore(state => state.selectedFeatureId);
+  const { pickingState, executePick, stopPicking } = useStore(state => ({
+    pickingState: state.pickingState,
+    executePick: state.executePick,
+    stopPicking: state.stopPicking,
+  }));
 
   // --- Replay engine generates the main model ---
   const parametricModel = useMemo(() => replayFeatures(features), [features]);
@@ -84,6 +93,7 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controlsRef.current = controls; // Store controls in ref
     
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
@@ -165,6 +175,61 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
     }
 
   }, [parametricModel, selectedFeatureId]);
+
+  // Effect for handling picking mode
+  useEffect(() => {
+    const mountNode = mountRef.current;
+    const controls = controlsRef.current;
+    if (!mountNode || !controls) return;
+
+    const handleMouseClick = (event: MouseEvent) => {
+      if (!pickingState.isActive) return;
+      
+      const rect = mountNode.getBoundingClientRect();
+      const mouse = new Vector2();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      
+      const raycaster = new Raycaster();
+      const camera = cameraRef.current;
+      if (!camera) return;
+
+      raycaster.setFromCamera(mouse, camera);
+      
+      const intersectionPoint = new THREE.Vector3();
+      raycaster.ray.intersectPlane(pickingPlane, intersectionPoint);
+
+      if (intersectionPoint) {
+        // Round to a reasonable precision
+        const roundedPoint = {
+          x: parseFloat(intersectionPoint.x.toFixed(2)),
+          y: parseFloat(intersectionPoint.y.toFixed(2)),
+          z: parseFloat(intersectionPoint.z.toFixed(2)),
+        };
+        executePick(roundedPoint);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (pickingState.isActive && event.key === 'Escape') {
+        stopPicking();
+      }
+    };
+
+    if (pickingState.isActive) {
+      mountNode.style.cursor = 'crosshair';
+      controls.enabled = false; // Disable camera controls while picking
+      mountNode.addEventListener('click', handleMouseClick);
+      window.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      mountNode.style.cursor = 'auto';
+      controls.enabled = true;
+      mountNode.removeEventListener('click', handleMouseClick);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [pickingState.isActive, executePick, stopPicking, pickingPlane]);
 
   return <div ref={mountRef} className="w-full h-full relative" />;
 });

@@ -94,7 +94,24 @@ const PileRaftCreator = () => {
   const [capBeamHeight, setCapBeamHeight] = useState(1);
   const [pileAnalysisModel, setPileAnalysisModel] = useState<'beam' | 'solid'>('beam');
   const [capBeamAnalysisModel, setCapBeamAnalysisModel] = useState<'beam' | 'solid'>('beam');
-  const addFeature = useStore(state => state.addFeature);
+  const { addFeature, startPicking, stopPicking, pickingState } = useStore(state => ({
+    addFeature: state.addFeature,
+    startPicking: state.startPicking,
+    stopPicking: state.stopPicking,
+    pickingState: state.pickingState,
+  }));
+
+  const handlePickPath = () => {
+    if (pickingState.isActive) {
+      stopPicking();
+      return;
+    }
+    setPathText(''); // Clear on new pick
+    startPicking((point) => {
+      const newPointStr = `${point.x},${point.y},${point.z}`;
+      setPathText(prev => prev ? `${prev}\n${newPointStr}` : newPointStr);
+    });
+  };
 
   const parsedPath = useMemo(() => {
     return pathText.split('\n')
@@ -144,12 +161,23 @@ const PileRaftCreator = () => {
           </p>
           <div className="flex flex-col gap-2">
             <label>路径 (起点, 终点):</label>
-            <textarea
-              className="w-full h-16 p-2 border rounded bg-gray-700"
-              value={pathText}
-              onChange={e => setPathText(e.target.value)}
-              placeholder="10,0,10&#10;90,0,10"
-            />
+            <div className="flex items-center gap-2">
+              <textarea
+                className="flex-grow h-16 p-2 border rounded bg-gray-700"
+                value={pathText}
+                onChange={e => setPathText(e.target.value)}
+                placeholder="10,0,10&#10;90,0,10"
+              />
+              <button 
+                onClick={handlePickPath}
+                className={`p-2 rounded ${pickingState.isActive ? 'bg-red-500 hover:bg-red-700' : 'bg-green-500 hover:bg-green-700'}`}
+                title={pickingState.isActive ? "停止拾取 (ESC)" : "在视图中拾取路径点"}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.042 21.672L13.684 16.6m0 0l-2.51-2.22m2.51 2.22l-2.22 2.51m2.22-2.51L12.07 14.5m2.614-2.128a3 3 0 10-4.242-4.242 3 3 0 004.242 4.242zM12 12a2 2 0 100-4 2 2 0 000 4z" />
+                </svg>
+              </button>
+            </div>
             <label>桩径 (m): <input type="number" value={pileDiameter} onChange={e => setPileDiameter(parseFloat(e.target.value) || 0)} className="p-1 border rounded bg-gray-600 ml-2" /></label>
             <label>桩间距 (m): <input type="number" value={pileSpacing} onChange={e => setPileSpacing(parseFloat(e.target.value) || 0)} className="p-1 border rounded bg-gray-600 ml-2" /></label>
             <label>桩长 (m): <input type="number" value={pileLength} onChange={e => setPileLength(parseFloat(e.target.value) || 0)} className="p-1 border rounded bg-gray-600 ml-2" /></label>

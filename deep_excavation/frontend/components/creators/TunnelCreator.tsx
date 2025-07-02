@@ -62,7 +62,24 @@ const TunnelCreator = () => {
   const [width, setWidth] = useState(10);
   const [height, setHeight] = useState(8);
   const [pathText, setPathText] = useState('10, 5, 0\n90, 5, 0');
-  const addFeature = useStore(state => state.addFeature);
+  const { addFeature, startPicking, stopPicking, pickingState } = useStore(state => ({
+    addFeature: state.addFeature,
+    startPicking: state.startPicking,
+    stopPicking: state.stopPicking,
+    pickingState: state.pickingState,
+  }));
+
+  const handlePickPath = () => {
+    if (pickingState.isActive) {
+      stopPicking();
+      return;
+    }
+    setPathText(''); // Clear on new pick
+    startPicking((point) => {
+      const newPointStr = `${point.x},${point.y},${point.z}`;
+      setPathText(prev => prev ? `${prev}\n${newPointStr}` : newPointStr);
+    });
+  };
 
   const parsedPath = useMemo(() => {
     const pathPoints: Point3D[] = pathText.split('\n')
@@ -117,12 +134,23 @@ const TunnelCreator = () => {
           <div className="flex flex-col gap-2">
             <input type="number" value={width} onChange={e => setWidth(parseFloat(e.target.value) || 0)} placeholder="隧道宽度 (m)" className="p-2 border rounded bg-gray-700 text-white" />
             <input type="number" value={height} onChange={e => setHeight(parseFloat(e.target.value) || 0)} placeholder="隧道高度 (m)" className="p-2 border rounded bg-gray-700 text-white" />
-            <textarea 
-              className="w-full h-24 p-2 border rounded bg-gray-700 mt-2"
-              value={pathText}
-              onChange={(e) => setPathText(e.target.value)}
-              placeholder="隧道中心线路径点, e.g.&#10;0,5,0&#10;100,5,0"
-            />
+            <div className="flex items-center gap-2 mt-2">
+              <textarea 
+                className="flex-grow h-24 p-2 border rounded bg-gray-700"
+                value={pathText}
+                onChange={(e) => setPathText(e.target.value)}
+                placeholder="隧道中心线路径点, e.g.&#10;0,5,0&#10;100,5,0"
+              />
+              <button 
+                onClick={handlePickPath}
+                className={`p-2 rounded ${pickingState.isActive ? 'bg-red-500 hover:bg-red-700' : 'bg-green-500 hover:bg-green-700'}`}
+                title={pickingState.isActive ? "停止拾取 (ESC)" : "在视图中拾取路径点"}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.042 21.672L13.684 16.6m0 0l-2.51-2.22m2.51 2.22l-2.22 2.51m2.22-2.51L12.07 14.5m2.614-2.128a3 3 0 10-4.242-4.242 3 3 0 004.242 4.242zM12 12a2 2 0 100-4 2 2 0 000 4z" />
+                </svg>
+              </button>
+            </div>
             <button onClick={handleCreateTunnel} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-2">
               生成隧道
             </button>

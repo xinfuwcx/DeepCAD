@@ -62,7 +62,7 @@ class CreateSketchParameters(BaseModel):
     plane: Literal['XY', 'XZ', 'YZ']
     plane_offset: float
     # 为了简化，我们先假设草图就是一个闭合的矩形
-    points: List[Point2D] 
+    points: List[Point2D]
 
 
 class CreateSketchFeature(BaseFeature):
@@ -73,25 +73,22 @@ class CreateSketchFeature(BaseFeature):
 # --- 从草图拉伸的特征 ---
 class ExtrudeParameters(BaseModel):
     depth: float
-    # is_cut: bool # 未来可以支持布尔减法
 
 
 class ExtrudeFeature(BaseFeature):
     type: Literal['Extrude'] = 'Extrude'
-    # 拉伸特征必须依赖于一个草图特征
-    parentId: str
+    parentId: str  # 拉伸特征必须依赖于一个草图特征
     parameters: ExtrudeParameters
 
 
 # --- 高级分析特征 (Fusion-Style) ---
 class AddInfiniteDomainParameters(BaseModel):
-    thickness: float # 无限元层的厚度
+    thickness: float  # 无限元层的厚度
 
 
 class AddInfiniteDomainFeature(BaseFeature):
     type: Literal['AddInfiniteDomain'] = 'AddInfiniteDomain'
-    # 必须依附于一个已经存在的3D体
-    parentId: str
+    parentId: str  # 必须依附于一个已经存在的3D体
     parameters: AddInfiniteDomainParameters
 
 
@@ -99,8 +96,7 @@ class AddInfiniteDomainFeature(BaseFeature):
 class AssignGroupParameters(BaseModel):
     group_name: str
     entity_type: Literal['face', 'volume']
-    # 前端在选择时, 会获取到几何实体的唯一标识(tag)
-    entity_tags: List[int]
+    entity_tags: List[int]  # 前端在选择时, 会获取到几何实体的唯一标识(tag)
 
 
 class AssignGroupFeature(BaseFeature):
@@ -108,14 +104,71 @@ class AssignGroupFeature(BaseFeature):
     parameters: AssignGroupParameters
 
 
+# --- 新增的工程特征 (New Engineering Features) ---
+
+
+class CreateDiaphragmWallParameters(BaseModel):
+    """地连墙参数"""
+    path: Tuple[Point3D, Point3D]
+    thickness: float
+    height: float
+    analysis_model: Literal['shell', 'solid'] = 'shell'
+
+
+class CreateDiaphragmWallFeature(BaseFeature):
+    type: Literal['CreateDiaphragmWall'] = 'CreateDiaphragmWall'
+    parameters: CreateDiaphragmWallParameters
+
+
+class CreatePileRaftParameters(BaseModel):
+    """排桩参数"""
+    path: Tuple[Point3D, Point3D]
+    pile_diameter: float
+    pile_spacing: float
+    pile_length: float
+    cap_beam_width: float
+    cap_beam_height: float
+    pile_analysis_model: Literal['beam', 'solid'] = 'beam'
+    cap_beam_analysis_model: Literal['beam', 'solid'] = 'beam'
+
+
+class CreatePileRaftFeature(BaseFeature):
+    type: Literal['CreatePileRaft'] = 'CreatePileRaft'
+    parameters: CreatePileRaftParameters
+
+
+class CreateAnchorSystemParameters(BaseModel):
+    """锚杆系统参数"""
+    row_count: int
+    horizontal_spacing: float
+    vertical_spacing: float
+    start_height: float
+    anchor_length: float
+    angle: float
+    prestress: float
+    waler_width: float
+    waler_height: float
+    anchor_analysis_model: Literal['beam', 'truss'] = 'beam'
+    waler_analysis_model: Literal['beam', 'solid'] = 'beam'
+
+
+class CreateAnchorSystemFeature(BaseFeature):
+    type: Literal['CreateAnchorSystem'] = 'CreateAnchorSystem'
+    parentId: str  # 锚杆必须依附于一个父对象 (如墙)
+    parameters: CreateAnchorSystemParameters
+
+
 # --- 特征联合体 ---
 AnyFeature = Annotated[
     Union[
-        CreateBoxFeature, 
+        CreateBoxFeature,
         CreateSketchFeature,
         ExtrudeFeature,
         AddInfiniteDomainFeature,
-        AssignGroupFeature
+        AssignGroupFeature,
+        CreateDiaphragmWallFeature,
+        CreatePileRaftFeature,
+        CreateAnchorSystemFeature,
     ],
     Field(discriminator="type")
 ]
