@@ -174,7 +174,7 @@ class KratosSeepageAdapter:
             self.model.geometry_definition.excavation.dxf_file_content,
             self.model.geometry_definition.excavation.layer_name
         )
-        excavation_footprint = dxf_processor.extract_polyline_vertices()
+        excavation_footprint = dxf_processor.extract_profile_vertices()
         print(f"KratosSeepageAdapter: Using geometry from project '{self.model.geometry_definition.project_name}'.")
 
         # 2. Build and mesh the geometry (as in V4Adapter)
