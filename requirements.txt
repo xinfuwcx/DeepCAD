@@ -1,12 +1,18 @@
 # 深基坑CAE系统 - 统一依赖需求
 # 深基坑工程分析与设计系统的核心依赖
 
-# 基本Web框架
-fastapi>=0.110.0
-uvicorn>=0.27.0
-pydantic>=2.6.0
-pydantic-settings>=2.2.0
-python-multipart>=0.0.9
+# FastAPI and Server
+fastapi
+uvicorn[standard]
+
+# Pydantic for data validation
+pydantic
+
+# --- Notes on Heavy Dependencies ---
+# The following core libraries are expected to be installed in the execution environment
+# and are not available on PyPI. Refer to project documentation for setup.
+# - KratosMultiphysics
+# - Netgen/NGSolve
 
 # 数据库
 sqlalchemy>=2.0.27
@@ -50,3 +56,16 @@ black>=24.3.0
 isort>=5.13.2
 mypy>=1.9.0
 pytest>=8.0.2
+
+# Used by services for HTTP requests (if backend calls other services)
+axios 
+# Note: axios is a JS library, for python 'requests' or 'httpx' is common.
+# Assuming no server-to-server http calls for now to keep it minimal.
+
+# For Kratos integration (assuming it's installed in the environment)
+# No pip package, this is a placeholder for documentation
+# KratosMultiphysics
+
+# For Netgen/ngsolve integration (assuming it's installed in the environment)
+# No pip package, this is a placeholder for documentation
+# ngsolve

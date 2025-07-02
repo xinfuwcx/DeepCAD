@@ -7,20 +7,24 @@
 """
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Literal
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 import time
 import uuid
 import os
 import datetime
+import asyncio
 
 from src.server.dependencies import get_db, validate_project_exists
 from src.ai.iot_data_collector import SensorType, SensorStatus
 from src.ai.physics_ai_system import PhysicsAISystem
 
 # 创建路由器
-router = APIRouter()
+router = APIRouter(
+    prefix="/ai",
+    tags=["AI"],
+)
 
 # 创建物理AI系统实例
 ai_systems = {}
@@ -92,6 +96,36 @@ class AIResponse(BaseModel):
     status: str
     message: str
     result: Optional[Dict[str, Any]] = None
+
+class ParameterInversionInput(BaseModel):
+    projectId: str
+    algorithm: Literal['bayesian', 'ga', 'pso']
+    monitoringDataIds: List[str]
+    inversionParameterIds: List[str]
+
+class JobResponse(BaseModel):
+    jobId: str
+    status: str
+    message: str
+
+class JobStatusResult(BaseModel):
+    jobId: str
+    status: Literal['queued', 'running', 'completed', 'failed', 'unknown']
+    progress: int = 0
+    results: Dict[str, float] | None = None
+    error: str | None = None
+
+class SurrogateModel(BaseModel):
+    id: str
+    name: str
+    type: Literal['GaussianProcess', 'NeuralNetwork', 'RandomForest']
+    status: Literal['trained', 'training', 'pending', 'failed']
+    accuracy: float | None = None
+    trainingTime: str | None = None
+    trainingJobId: str | None = None
+
+    class Config:
+        anystr_strip_whitespace = True
 
 # 获取物理AI系统
 def get_ai_system(project_id: int) -> PhysicsAISystem:
@@ -466,4 +500,75 @@ async def start_prediction(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"启动行为预测失败: {str(e)}"
-        ) 
+        )
+
+# --- In-memory "database" and job store for simulation ---
+
+fake_jobs: Dict[str, JobStatusResult] = {}
+fake_surrogate_models: Dict[str, SurrogateModel] = {
+    "sm_1": SurrogateModel(id="sm_1", name="地表沉降预测模型", type="GaussianProcess", status="pending"),
+    "sm_2": SurrogateModel(id="sm_2", name="支撑轴力快速计算", type="NeuralNetwork", status="pending"),
+    "sm_3": SurrogateModel(id="sm_3", name="整体稳定性评估模型", type="RandomForest", status="pending"),
+}
+
+# --- Background Task Simulation ---
+
+async def simulate_long_running_task(job_id: str):
+    """Simulates a task like model training or parameter inversion."""
+    if job_id not in fake_jobs:
+        return
+    
+    fake_jobs[job_id].status = 'running'
+    
+    for i in range(1, 11):
+        await asyncio.sleep(2)
+        if job_id not in fake_jobs or fake_jobs[job_id].status != 'running':
+            break
+        fake_jobs[job_id].progress = i * 10
+        
+    if job_id in fake_jobs and fake_jobs[job_id].status == 'running':
+        fake_jobs[job_id].status = 'completed'
+        if "sm_" in job_id:
+            model_id = job_id.split("_train_")[0]
+            if model_id in fake_surrogate_models:
+                fake_surrogate_models[model_id].status = "trained"
+                fake_surrogate_models[model_id].accuracy = 0.953
+                fake_surrogate_models[model_id].trainingTime = "5 min"
+        else:
+            fake_jobs[job_id].results = {
+                "黏聚力 (kPa)": 22.5,
+                "内摩擦角 (°)": 28.1,
+            }
+
+@router.post("/parameter-inversion/start", response_model=JobResponse)
+async def start_parameter_inversion(data: ParameterInversionInput):
+    job_id = f"pi_{uuid.uuid4().hex[:8]}"
+    fake_jobs[job_id] = JobStatusResult(jobId=job_id, status='queued')
+    asyncio.create_task(simulate_long_running_task(job_id))
+    return JobResponse(jobId=job_id, status="queued", message="参数反演任务已启动")
+
+@router.get("/jobs/{job_id}/status", response_model=JobStatusResult)
+async def get_job_status(job_id: str):
+    job = fake_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
+
+@router.get("/surrogate-models", response_model=List[SurrogateModel])
+async def get_surrogate_models():
+    return list(fake_surrogate_models.values())
+
+@router.post("/surrogate-models/{model_id}/train", response_model=JobResponse)
+async def train_surrogate_model(model_id: str):
+    if model_id not in fake_surrogate_models:
+        raise HTTPException(status_code=404, detail="Model not found")
+        
+    job_id = f"{model_id}_train_{uuid.uuid4().hex[:8]}"
+    fake_jobs[job_id] = JobStatusResult(jobId=job_id, status='queued')
+    
+    fake_surrogate_models[model_id].status = "training"
+    fake_surrogate_models[model_id].trainingJobId = job_id
+
+    asyncio.create_task(simulate_long_running_task(job_id))
+    
+    return JobResponse(jobId=job_id, status="queued", message="模型训练任务已启动") 

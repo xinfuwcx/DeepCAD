@@ -12,7 +12,8 @@ export enum WorkbenchType {
   STRUCTURE = 'structure',       // 支护结构工作台
   ANALYSIS = 'analysis',         // 分析设置工作台
   RESULTS = 'results',           // 结果可视化工作台
-  MONITORING = 'monitoring'      // 监测数据工作台
+  MONITORING = 'monitoring',     // 监测数据工作台
+  PHYSICS_AI = 'physics_ai'      // 物理AI工作台
 }
 
 // 工作台接口
@@ -94,6 +95,13 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         name: '监测数据',
         icon: 'monitoring',
         description: '导入和分析现场监测数据',
+        active: false
+      },
+      {
+        id: WorkbenchType.PHYSICS_AI,
+        name: '物理AI',
+        icon: 'psychology',
+        description: '利用物理信息AI进行参数反演、代理建模和可靠度分析',
         active: false
       }
     ];

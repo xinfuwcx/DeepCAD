@@ -2,80 +2,76 @@
 @file app.py
 @description FastAPI应用程序入口文件
 @author Deep Excavation Team
-@version 1.0.0
+@version 2.0.0
 @copyright 2025
 """
-
-from fastapi import FastAPI, APIRouter
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
-from contextlib import asynccontextmanager
-
-# 从各模块导入路由
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from contextlib import asynccontextmanager
+import uvicorn
+from fastapi import FastAPI, APIRouter
+from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes.modeling_router import router as modeling_router
-from api.routes.compute_router import router as compute_router  
-from api.routes.visualization_router import router as visualization_router
-from api.routes.excavation_router import router as excavation_router
-from api.routes.iga_geometry_router import router as iga_geometry_router
+# -- Add project root to path to allow absolute imports --
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# -- Import Core Routers --
+from src.api.routes.modeling_router import router as modeling_router
+from src.api.routes.compute_router import router as compute_router
+from src.api.routes.ai_router import router as ai_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 启动时执行
-    print("深基坑CAE系统后端启动...")
+    """Handles application startup and shutdown events."""
+    print("Starting Deep Excavation CAE System Backend...")
     yield
-    # 关闭时执行
-    print("深基坑CAE系统后端关闭...")
+    print("Shutting down Deep Excavation CAE System Backend...")
 
-# 创建FastAPI应用实例
+# -- FastAPI App Initialization --
 app = FastAPI(
-    title="深基坑CAE系统 API",
-    description="深基坑工程建模、计算和分析的专业API",
-    version="1.0.0",
+    title="Deep Excavation CAE System API",
+    description="Professional API for modeling, computation, and analysis of deep excavation projects.",
+    version="2.0.0",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
 )
 
-# 配置CORS
+# -- CORS Configuration --
+# Allows the frontend development server to communicate with the backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:1000"],  # 允许前端开发服务器的源
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
-    allow_methods=["*"],  # 允许所有方法
-    allow_headers=["*"],  # 允许所有头
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# 创建API路由
+# -- API Router Setup --
+# Central router to include all domain-specific routers
 api_router = APIRouter(prefix="/api")
 
-# 将各模块路由添加到主路由
-api_router.include_router(modeling_router.router, prefix="/modeling", tags=["建模"])
-api_router.include_router(compute_router.router, prefix="/compute", tags=["计算分析"])
-api_router.include_router(visualization_router.router, prefix="/visualization", tags=["可视化"])
-api_router.include_router(excavation_router.router, prefix="/excavation", tags=["深基坑系统"])
-api_router.include_router(iga_geometry_router.router, prefix="/iga", tags=["IGA几何"])
+api_router.include_router(modeling_router, prefix="/modeling", tags=["Modeling"])
+api_router.include_router(compute_router, prefix="/compute", tags=["Computation & Analysis"])
+api_router.include_router(ai_router, prefix="/ai", tags=["Physics AI"])
 
-# 将API路由添加到应用
 app.include_router(api_router)
 
-# 根路由
-@app.get("/", tags=["根"])
+# -- Root Endpoint --
+@app.get("/", tags=["Root"])
 async def root():
-    """
-    根路径，返回API信息
-    """
+    """Provides basic information about the API."""
     return {
-        "name": "深基坑CAE系统 API",
-        "version": "1.0.0",
-        "description": "深基坑工程建模、计算和分析的专业API",
-        "docs_url": "/docs",
-        "redoc_url": "/redoc"
+        "name": "Deep Excavation CAE System API",
+        "version": "2.0.0",
+        "description": "Welcome! See API documentation at /docs",
     }
 
-# 如果直接运行此文件，则启动API服务器
+# -- Main Entry Point --
 if __name__ == "__main__":
-    uvicorn.run("src.server.app:app", host="0.0.0.0", port=6000, reload=True) 
+    uvicorn.run(
+        "src.server.app:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True
+    ) 

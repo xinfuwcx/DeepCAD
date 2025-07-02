@@ -18,6 +18,7 @@ import WallIcon from '@mui/icons-material/Wall';
 import SettingsIcon from '@mui/icons-material/Settings';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import MonitoringIcon from '@mui/icons-material/Monitoring';
+import PsychologyIcon from '@mui/icons-material/Psychology';
 
 import { WorkbenchType, useWorkbenchStore } from '../../core/workbench/WorkbenchManager';
 
@@ -27,7 +28,8 @@ const workbenchIcons: Record<WorkbenchType, React.ReactNode> = {
   [WorkbenchType.STRUCTURE]: <WallIcon />,
   [WorkbenchType.ANALYSIS]: <SettingsIcon />,
   [WorkbenchType.RESULTS]: <AssessmentIcon />,
-  [WorkbenchType.MONITORING]: <MonitoringIcon />
+  [WorkbenchType.MONITORING]: <MonitoringIcon />,
+  [WorkbenchType.PHYSICS_AI]: <PsychologyIcon />
 };
 
 interface WorkbenchSelectorProps {

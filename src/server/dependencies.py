@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 from src.database.session import SessionLocal
 from src.core.modeling.models import ModelingEngine
 from src.core.simulation.models import ComputeEngine
-from src.core.visualization.models import VisualizationEngine
 
 # 数据库会话依赖
 def get_db() -> Generator[Session, None, None]:
@@ -38,13 +37,6 @@ def get_compute_engine() -> ComputeEngine:
     提供计算引擎实例
     """
     return ComputeEngine()
-
-# 可视化引擎依赖
-def get_visualization_engine() -> VisualizationEngine:
-    """
-    提供可视化引擎实例
-    """
-    return VisualizationEngine()
 
 # 验证项目存在
 async def validate_project_exists(project_id: int, db: Session = Depends(get_db)) -> int:
