@@ -155,6 +155,29 @@ class CreateAnchorSystemFeature(BaseFeature):
     parameters: CreateAnchorSystemParameters
 
 
+class CreateExcavationParameters(BaseModel):
+    """通过轮廓点和深度定义开挖"""
+    points: List[Point2D]
+    depth: float
+
+
+class CreateExcavationFeature(BaseFeature):
+    type: Literal['CreateExcavation'] = 'CreateExcavation'
+    parameters: CreateExcavationParameters
+
+
+class CreateExcavationFromDXFParameters(BaseModel):
+    """通过DXF文件和图层名定义开挖"""
+    dxfFileContent: str
+    layerName: str
+    depth: float
+
+
+class CreateExcavationFromDXFFeature(BaseFeature):
+    type: Literal['CreateExcavationFromDXF'] = 'CreateExcavationFromDXF'
+    parameters: CreateExcavationFromDXFParameters
+
+
 class CreateGeologicalModelParameters(BaseModel):
     csvData: str
 
@@ -162,6 +185,18 @@ class CreateGeologicalModelParameters(BaseModel):
 class CreateGeologicalModelFeature(BaseFeature):
     type: Literal['CreateGeologicalModel'] = 'CreateGeologicalModel'
     parameters: CreateGeologicalModelParameters
+
+
+# --- 新增：分析设置模型 (FEABench能力融合) ---
+class MeshSettings(BaseModel):
+    """网格划分设置"""
+    global_mesh_size: float = Field(10.0, description="全局最大网格尺寸")
+    refinement_level: int = Field(1, description="局部细化等级, 1-5")
+
+class AnalysisSettings(BaseModel):
+    """分析工况设置"""
+    analysis_type: Literal['static', 'staged_construction'] = Field('static', description="分析类型")
+    num_steps: int = Field(1, description="分析步数")
 
 
 # --- 特征联合体 ---
@@ -175,6 +210,8 @@ AnyFeature = Annotated[
         CreateDiaphragmWallFeature,
         CreatePileRaftFeature,
         CreateAnchorSystemFeature,
+        CreateExcavationFeature,
+        CreateExcavationFromDXFFeature,
         CreateGeologicalModelFeature,
     ],
     Field(discriminator="type")
@@ -185,6 +222,8 @@ AnyFeature = Annotated[
 class ParametricScene(BaseModel):
     version: str = "2.0-parametric"
     features: List[AnyFeature]
+    mesh_settings: Optional[MeshSettings] = None
+    analysis_settings: Optional[AnalysisSettings] = None
 
 
 class AnalysisResult(BaseModel):
@@ -244,42 +283,49 @@ async def run_parametric_analysis(scene: ParametricScene):
 
 @router.get("/results/{filename_with_ext}", tags=["Parametric Analysis"])
 async def get_analysis_result_file(filename_with_ext: str):
-    # This is a potential security risk. In a real app,
-    # use a secure temp dir and map session IDs to results.
-    # For this project, we assume the filename is safe.
-    import tempfile # Local import to avoid clutter
+    """获取参数化分析的结果文件（如VTK）。"""
+    # 安全警告: 在真实应用中, 这是一个潜在的安全风险。
+    # 应当使用安全的临时目录，并将用户的会话ID映射到结果。
+    # 为简化项目，我们假设文件名是安全的。
+    import tempfile  # 局部导入以避免混乱
 
-    # This is a hack to find the temp dir. A real implementation
-    # should use a shared cache (e.g., Redis) to store the path.
-    all_temp_dirs = [os.path.join(tempfile.gettempdir(), d) for d in os.listdir(tempfile.gettempdir())]
-    kratos_dirs = [d for d in all_temp_dirs if os.path.isdir(d) and os.path.basename(d).startswith('kratos_v4_')]
-    
+    # Hack: 查找临时目录。真实实现应使用共享缓存（如Redis）来存储路径。
+    temp_dir = tempfile.gettempdir()
+    all_temp_dirs = [os.path.join(temp_dir, d) for d in os.listdir(temp_dir)]
+    kratos_dirs = [
+        d for d in all_temp_dirs
+        if os.path.isdir(d) and os.path.basename(d).startswith('kratos_v5_')
+    ]
+
     if not kratos_dirs:
-         raise HTTPException(status_code=404, detail="No Kratos runner temp directories found.")
+        raise HTTPException(
+            status_code=404, detail="找不到Kratos运行器的临时目录。"
+        )
 
-    # Find the most recent one
+    # 找到最新的一个
     latest_dir = max(kratos_dirs, key=os.path.getmtime)
-    
+
     file_path = os.path.join(latest_dir, filename_with_ext)
-    
+
     if not os.path.isfile(file_path):
         raise HTTPException(
             status_code=404,
-            detail=f"Result file not found at: {file_path}"
+            detail=f"结果文件未找到: {file_path}"
         )
     return FileResponse(file_path)
 
 
 # ############################################################################
-# ### 深基坑工程统一分析API
+# ### Legacy Deep Excavation API (To be deprecated)
 # ############################################################################
 
-@router.post("/deep-excavation/analyze", tags=["Deep Excavation Analysis"])
+
+@router.post("/deep-excavation/analyze", tags=["Legacy Analysis"])
 async def analyze_deep_excavation(model: DeepExcavationModel):
     """
-    执行深基坑工程统一分析，可包含多种分析类型
+    (旧) 执行深基坑工程统一分析，可包含多种分析类型
     """
-    logger.info(f"收到深基坑工程分析请求: {model.project_name}")
+    logger.info(f"收到旧版深基坑工程分析请求: {model.project_name}")
     
     try:
         # 调用统一分析入口函数
@@ -297,10 +343,12 @@ async def analyze_deep_excavation(model: DeepExcavationModel):
             detail=f"分析过程中发生错误: {str(e)}"
         )
 
-@router.get("/deep-excavation/results/{project_id}", tags=["Deep Excavation Analysis"])
+@router.get(
+    "/deep-excavation/results/{project_id}", tags=["Legacy Analysis"]
+)
 async def get_deep_excavation_results(project_id: str):
     """
-    获取深基坑工程分析结果
+    (旧) 获取深基坑工程分析结果
     """
     logger.info(f"获取深基坑工程分析结果: {project_id}")
     
@@ -332,10 +380,13 @@ async def get_deep_excavation_results(project_id: str):
         }
     }
 
-@router.get("/deep-excavation/result-file/{project_id}/{analysis_type}", tags=["Deep Excavation Analysis"])
+@router.get(
+    "/deep-excavation/result-file/{project_id}/{analysis_type}",
+    tags=["Legacy Analysis"]
+)
 async def get_deep_excavation_result_file(project_id: str, analysis_type: str):
     """
-    获取深基坑工程分析结果文件
+    (旧) 获取深基坑工程分析结果文件
     """
     logger.info(f"获取深基坑工程分析结果文件: {project_id}, 分析类型: {analysis_type}")
     

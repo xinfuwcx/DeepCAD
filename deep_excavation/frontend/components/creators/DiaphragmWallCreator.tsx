@@ -1,164 +1,115 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../../core/store';
 import { CreateDiaphragmWallFeature, Point3D } from '../../services/parametricAnalysisService';
 import { v4 as uuidv4 } from 'uuid';
+import { 
+    Box, 
+    Typography, 
+    Stack, 
+    TextField, 
+    Button, 
+    Divider, 
+    Grid,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 
-const DiaphragmWallSchematic = ({ path }: { path: Point3D[] }) => {
-  if (path.length < 2) {
-    return (
-      <div className="w-full h-48 bg-gray-700 border border-gray-600 rounded flex items-center justify-center">
-        <p className="text-gray-400">请输入起点和终点以预览</p>
-      </div>
-    );
-  }
+const DiaphragmWallCreator: React.FC = () => {
+    const [startPoint, setStartPoint] = useState<Point3D>({ x: -25, y: -25, z: 0 });
+    const [endPoint, setEndPoint] = useState<Point3D>({ x: 25, y: -25, z: 0 });
+    const [thickness, setThickness] = useState(1);
+    const [height, setHeight] = useState(25);
+    const [analysisModel, setAnalysisModel] = useState<'shell' | 'solid'>('shell');
+    const addFeature = useStore(state => state.addFeature);
 
-  const points2D = path.map(p => ({ x: p.x, y: p.z }));
-
-  const padding = 20;
-  const minX = Math.min(...points2D.map(p => p.x));
-  const maxX = Math.max(...points2D.map(p => p.x));
-  const minY = Math.min(...points2D.map(p => p.y));
-  const maxY = Math.max(...points2D.map(p => p.y));
-
-  // Handle case where wall is a point or a perfectly vertical/horizontal line
-  const width = Math.max(maxX - minX, 1);
-  const height = Math.max(maxY - minY, 1);
-  
-  const viewBox = `${minX - padding} ${minY - padding} ${width + padding * 2} ${height + padding * 2}`;
-
-  return (
-    <div className="w-full h-48 bg-gray-800 border border-gray-600 rounded overflow-hidden">
-      <svg width="100%" height="100%" viewBox={viewBox} preserveAspectRatio="xMidYMid meet">
-        {/* Draw axes */}
-        <line x1={minX - padding} y1={0} x2={maxX + padding} y2={0} stroke="#555" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-        <line x1={0} y1={minY - padding} x2={0} y2={maxY + padding} stroke="#555" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-        <text x={maxX + padding / 2} y={-5} fill="#777" fontSize="8" textAnchor="middle">X</text>
-        <text x={5} y={minY - padding / 2} fill="#777" fontSize="8" textAnchor="start">Z</text>
-        
-        {/* Draw wall path */}
-        <line 
-            x1={points2D[0].x} y1={points2D[0].y}
-            x2={points2D[1].x} y2={points2D[1].y}
-            stroke="#3B82F6" strokeWidth={4} strokeLinecap="round" vectorEffect="non-scaling-stroke" 
-        />
-      </svg>
-    </div>
-  );
-};
-
-const DiaphragmWallCreator = () => {
-  const [pathText, setPathText] = useState('10,0,10\n90,0,10');
-  const [thickness, setThickness] = useState(1);
-  const [height, setHeight] = useState(25);
-  const [analysisModel, setAnalysisModel] = useState<'shell' | 'solid'>('shell');
-  const { addFeature, startPicking, stopPicking, pickingState } = useStore(state => ({
-    addFeature: state.addFeature,
-    startPicking: state.startPicking,
-    stopPicking: state.stopPicking,
-    pickingState: state.pickingState,
-  }));
-
-  const handlePickPath = () => {
-    // If we are already picking, stop it
-    if (pickingState.isActive) {
-      stopPicking();
-      return;
-    }
-
-    // Clear existing text on new pick session
-    setPathText(''); 
-
-    startPicking((point) => {
-      const newPointStr = `${point.x},${point.y},${point.z}`;
-      setPathText(prev => prev ? `${prev}\n${newPointStr}` : newPointStr);
-    });
-  };
-
-  const parsedPath = useMemo(() => {
-    return pathText.split('\n')
-      .map(line => {
-        const parts = line.split(',').map(s => parseFloat(s.trim()));
-        return parts.length === 3 && !parts.some(isNaN) ? { x: parts[0], y: parts[1], z: parts[2] } : null;
-      })
-      .filter((p): p is Point3D => p !== null);
-  }, [pathText]);
-
-  const handleCreate = () => {
-    if (parsedPath.length !== 2) {
-      alert("请输入且仅输入两个路径点 (起点和终点) 来定义地连墙。");
-      return;
-    }
-
-    const newFeature: CreateDiaphragmWallFeature = {
-      id: uuidv4(),
-      name: '地连墙',
-      type: 'CreateDiaphragmWall',
-      parameters: {
-        path: [parsedPath[0], parsedPath[1]],
-        thickness,
-        height,
-        analysisModel,
-      },
+    const handleCreate = () => {
+        const newFeature: CreateDiaphragmWallFeature = {
+            id: uuidv4(),
+            name: '地连墙',
+            type: 'CreateDiaphragmWall',
+            parameters: {
+                path: [startPoint, endPoint],
+                thickness,
+                height,
+                analysisModel,
+            },
+        };
+        addFeature(newFeature);
+    };
+    
+    const handlePointChange = (
+        pointSetter: React.Dispatch<React.SetStateAction<Point3D>>, 
+        axis: 'x' | 'y' | 'z', 
+        value: string
+    ) => {
+        pointSetter(prev => ({ ...prev, [axis]: parseFloat(value) || 0 }));
     };
 
-    addFeature(newFeature);
-  };
+    return (
+        <Stack spacing={3}>
+            <Typography variant="h6" gutterBottom>
+                创建地连墙
+            </Typography>
 
-  return (
-    <div className="p-4 border rounded-lg mt-4">
-      <h3 className="text-lg font-bold mb-4">地连墙生成</h3>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <h4 className="text-md font-semibold mb-2">参数输入</h4>
-          <p className="text-sm text-gray-500 mb-2">
-            定义地连墙的路径、厚度和高度。
-          </p>
-          <div className="flex flex-col gap-2">
-            <label>路径 (起点, 终点):</label>
-            <div className="flex items-center gap-2">
-              <textarea
-                className="flex-grow h-16 p-2 border rounded bg-gray-700"
-                value={pathText}
-                onChange={e => setPathText(e.target.value)}
-                placeholder="10,0,10&#10;90,0,10"
-              />
-              <button 
-                onClick={handlePickPath}
-                className={`p-2 rounded ${pickingState.isActive ? 'bg-red-500 hover:bg-red-700' : 'bg-green-500 hover:bg-green-700'}`}
-                title={pickingState.isActive ? "停止拾取 (ESC)" : "在视图中拾取路径点"}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.042 21.672L13.684 16.6m0 0l-2.51-2.22m2.51 2.22l-2.22 2.51m2.22-2.51L12.07 14.5m2.614-2.128a3 3 0 10-4.242-4.242 3 3 0 004.242 4.242zM12 12a2 2 0 100-4 2 2 0 000 4z" />
-                </svg>
-              </button>
-            </div>
-            <label>墙体厚度 (m): <input type="number" value={thickness} onChange={e => setThickness(parseFloat(e.target.value) || 0)} className="p-1 border rounded bg-gray-600 ml-2" /></label>
-            <label>墙体高度 (m): <input type="number" value={height} onChange={e => setHeight(parseFloat(e.target.value) || 0)} className="p-1 border rounded bg-gray-600 ml-2" /></label>
-            <label>
-              分析模型:
-              <select
-                value={analysisModel}
-                onChange={e => setAnalysisModel(e.target.value as 'shell' | 'solid')}
-                className="p-1 border rounded bg-gray-600 ml-2"
-              >
-                <option value="shell">壳单元</option>
-                <option value="solid">实体单元</option>
-              </select>
-            </label>
-            <button onClick={handleCreate} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-2">
-              生成地连墙
-            </button>
-          </div>
-        </div>
-        
-        <div>
-          <h4 className="text-md font-semibold mb-2">示意图</h4>
-          <DiaphragmWallSchematic path={parsedPath} />
-        </div>
-      </div>
-    </div>
-  );
+            <Divider />
+            <Typography variant="subtitle1" sx={{ color: 'text.secondary' }}>几何参数</Typography>
+            
+            <Grid container spacing={2}>
+                <Grid item xs={12}>
+                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 'medium' }}>起点坐标</Typography>
+                </Grid>
+                <Grid item xs={4}>
+                    <TextField label="X" type="number" value={startPoint.x} onChange={e => handlePointChange(setStartPoint, 'x', e.target.value)} fullWidth size="small" />
+                </Grid>
+                <Grid item xs={4}>
+                    <TextField label="Y" type="number" value={startPoint.y} onChange={e => handlePointChange(setStartPoint, 'y', e.target.value)} fullWidth size="small" />
+                </Grid>
+                <Grid item xs={4}>
+                    <TextField label="Z" type="number" value={startPoint.z} onChange={e => handlePointChange(setStartPoint, 'z', e.target.value)} fullWidth size="small" />
+                </Grid>
+                
+                <Grid item xs={12}>
+                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 'medium' }}>终点坐标</Typography>
+                </Grid>
+                <Grid item xs={4}>
+                    <TextField label="X" type="number" value={endPoint.x} onChange={e => handlePointChange(setEndPoint, 'x', e.target.value)} fullWidth size="small" />
+                </Grid>
+                <Grid item xs={4}>
+                    <TextField label="Y" type="number" value={endPoint.y} onChange={e => handlePointChange(setEndPoint, 'y', e.target.value)} fullWidth size="small" />
+                </Grid>
+                <Grid item xs={4}>
+                    <TextField label="Z" type="number" value={endPoint.z} onChange={e => handlePointChange(setEndPoint, 'z', e.target.value)} fullWidth size="small" />
+                </Grid>
+            </Grid>
+            
+            <TextField label="墙体厚度 (m)" type="number" value={thickness} onChange={e => setThickness(parseFloat(e.target.value))} fullWidth size="small" />
+            <TextField label="墙体高度 (m)" type="number" value={height} onChange={e => setHeight(parseFloat(e.target.value))} fullWidth size="small" />
+
+            <Divider />
+            <Typography variant="subtitle1" sx={{ color: 'text.secondary' }}>分析参数</Typography>
+            
+            <FormControl fullWidth size="small">
+                <InputLabel>分析模型</InputLabel>
+                <Select
+                    value={analysisModel}
+                    label="分析模型"
+                    onChange={e => setAnalysisModel(e.target.value as 'shell' | 'solid')}
+                >
+                    <MenuItem value="shell">壳单元</MenuItem>
+                    <MenuItem value="solid">实体单元</MenuItem>
+                </Select>
+            </FormControl>
+
+            <Box sx={{ pt: 2 }}>
+                <Button onClick={handleCreate} variant="contained" startIcon={<AddIcon />}>
+                    创建地连墙特征
+                </Button>
+            </Box>
+        </Stack>
+    );
 };
 
 export default DiaphragmWallCreator; 

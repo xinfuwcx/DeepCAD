@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer';
+import { VTKLoader } from 'three/examples/jsm/loaders/VTKLoader';
 import { Raycaster, Vector2 } from 'three';
 import { replayFeatures } from '../../core/replayEngine';
 import { useStore } from '../../core/store';
@@ -10,6 +10,7 @@ import { createAxesGizmo } from './AxesGizmo';
 export interface ViewportHandles {
   addAnalysisMesh: (mesh: THREE.Object3D) => void;
   clearAnalysisMeshes: () => void;
+  loadVtkResults: (url: string) => void;
 }
 
 const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
@@ -24,9 +25,11 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
   // --- Axes Gizmo Refs ---
   const axesSceneRef = useRef(new THREE.Scene());
   const axesCameraRef = useRef<THREE.OrthographicCamera>();
-  const axesRendererRef = useRef<CSS2DRenderer>();
   
   const analysisMeshesRef = useRef<THREE.Object3D[]>([]);
+
+  // FEABench Fusion: Ref for results mesh
+  const resultsMeshRef = useRef<THREE.Object3D | null>(null);
 
   // --- Picker helper ---
   const pickingPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
@@ -55,6 +58,30 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
       const scene = sceneRef.current;
       analysisMeshesRef.current.forEach(mesh => scene.remove(mesh));
       analysisMeshesRef.current = [];
+    },
+    // FEABench Fusion: Implement VTK loader logic
+    loadVtkResults: (url: string) => {
+        const scene = sceneRef.current;
+        if (resultsMeshRef.current) {
+            scene.remove(resultsMeshRef.current);
+        }
+
+        const loader = new VTKLoader();
+        loader.load(url, (geometry) => {
+            geometry.computeVertexNormals();
+            const material = new THREE.MeshLambertMaterial({ 
+                vertexColors: true,
+                side: THREE.DoubleSide 
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.name = "vtk_results_mesh";
+            
+            // Optional: Scale or position the mesh if needed
+            // mesh.scale.set(1, 1, 1);
+            
+            resultsMeshRef.current = mesh;
+            scene.add(mesh);
+        });
     }
   }));
 
@@ -64,7 +91,7 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
         
     // === Main Scene Setup ===
     const scene = sceneRef.current;
-    scene.background = new THREE.Color(0x334155); // slate-700
+    scene.background = new THREE.Color(0x29303d); // A slightly lighter, more neutral dark blue
     const camera = new THREE.PerspectiveCamera(75, mountNode.clientWidth / mountNode.clientHeight, 0.1, 2000);
     camera.position.set(50, 50, 150);
     cameraRef.current = camera;
@@ -75,14 +102,6 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
     mountNode.appendChild(renderer.domElement);
     
     // === Axes Gizmo Setup ===
-    const axesRenderer = new CSS2DRenderer();
-    axesRenderer.setSize(mountNode.clientWidth, mountNode.clientHeight);
-    axesRenderer.domElement.style.position = 'absolute';
-    axesRenderer.domElement.style.top = '0px';
-    axesRenderer.domElement.style.pointerEvents = 'none'; // Pass clicks through
-    mountNode.appendChild(axesRenderer.domElement);
-    axesRendererRef.current = axesRenderer;
-    
     const axesScene = axesSceneRef.current;
     const axesCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
     axesCamera.position.set(0, 0, 10);
@@ -100,6 +119,11 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
     directionalLight.position.set(100, 100, 50);
     scene.add(directionalLight);
+
+    // Add a grid helper for better spatial orientation
+    const gridHelper = new THREE.GridHelper(500, 50, '#5A6373', '#424955'); // Brighter, more visible grid lines
+    gridHelper.position.y = -0.1; // Place it slightly below the main plane
+    scene.add(gridHelper);
 
     const animate = () => {
       requestAnimationFrame(animate);
@@ -122,23 +146,19 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
       
       renderer.render(axesScene, axesCamera);
       renderer.setScissorTest(false);
-
-      // Render CSS2D labels
-      axesRenderer.render(axesScene, axesCamera);
     };
     animate();
 
-    const handleResize = () => {
-        if (!camera || !renderer || !mountNode || !axesRenderer) return;
+    const resizeObserver = new ResizeObserver(() => {
+        if (!camera || !renderer || !mountNode) return;
         camera.aspect = mountNode.clientWidth / mountNode.clientHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(mountNode.clientWidth, mountNode.clientHeight);
-        axesRenderer.setSize(mountNode.clientWidth, mountNode.clientHeight);
-    };
-    window.addEventListener('resize', handleResize);
+    });
+    resizeObserver.observe(mountNode);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       if (mountNode && renderer.domElement) {
         mountNode.removeChild(renderer.domElement);
         rendererRef.current = undefined;

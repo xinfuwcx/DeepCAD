@@ -82,11 +82,20 @@ export interface CreateExcavationParameters {
   depth: number;
 }
 
-export interface CreateExcavationFeature extends BaseFeature {
+export type CreateExcavationFeature = BaseFeature & {
   type: 'CreateExcavation';
-  parentId: string; // Must reference a soil body
+  parentId?: string; // Should be optional
   parameters: CreateExcavationParameters;
-}
+};
+
+export type CreateExcavationFromDXFParameters = {
+  // ... existing parameters ...
+};
+
+export type CreateExcavationFromDXFFeature = BaseFeature & {
+  type: 'CreateExcavationFromDXF';
+  parameters: CreateExcavationFromDXFParameters;
+};
 
 // --- 排桩特征 ---
 export interface CreatePileRaftParameters {
@@ -207,10 +216,10 @@ export interface CreateGeologicalModelParameters {
   csvData: string; // The raw CSV string content
 }
 
-export interface CreateGeologicalModelFeature extends BaseFeature {
+export type CreateGeologicalModelFeature = BaseFeature & {
   type: 'CreateGeologicalModel';
   parameters: CreateGeologicalModelParameters;
-}
+};
 
 
 // --- 特征联合类型 ---
@@ -220,6 +229,7 @@ export type AnyFeature =
   | CreateTunnelFeature
   | CreateBuildingFeature
   | CreateExcavationFeature
+  | CreateExcavationFromDXFFeature
   | CreatePileRaftFeature
   | CreateDiaphragmWallFeature
   | CreateAnchorSystemFeature

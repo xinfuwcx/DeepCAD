@@ -13,6 +13,17 @@ export interface PickingState {
     onPick: ((point: { x: number; y: number; z: number }) => void) | null;
 }
 
+// FEABench Fusion: Add settings models to the store
+export interface MeshSettings {
+    global_mesh_size: number;
+    refinement_level: number;
+}
+
+export interface AnalysisSettings {
+    analysis_type: 'static' | 'staged_construction';
+    num_steps: number;
+}
+
 // =================================================================================
 // Store Interface
 // =================================================================================
@@ -24,6 +35,10 @@ export interface AppState {
     activeWorkbench: Workbench;
     activeModal: ModalType;
     pickingState: PickingState;
+
+    // FEABench Fusion: Add settings to state
+    meshSettings: MeshSettings;
+    analysisSettings: AnalysisSettings;
 
     // --- Actions ---
     addFeature: (feature: AnyFeature) => void;
@@ -39,6 +54,10 @@ export interface AppState {
     startPicking: (onPick: (point: { x: number; y: number; z: number }) => void) => void;
     executePick: (point: { x: number; y: number; z: number }) => void;
     stopPicking: () => void;
+
+    // FEABench Fusion: Add settings update actions
+    updateMeshSettings: (settings: Partial<MeshSettings>) => void;
+    updateAnalysisSettings: (settings: Partial<AnalysisSettings>) => void;
 
     // --- Selectors ---
     getSelectedFeature: () => AnyFeature | null;
@@ -57,6 +76,15 @@ export const useStore = create<AppState>((set, get) => ({
     pickingState: {
         isActive: false,
         onPick: null,
+    },
+    // FEABench Fusion: Initialize settings state
+    meshSettings: {
+        global_mesh_size: 25.0,
+        refinement_level: 1,
+    },
+    analysisSettings: {
+        analysis_type: 'static',
+        num_steps: 1,
     },
 
     // --- Action Implementations ---
@@ -109,6 +137,14 @@ export const useStore = create<AppState>((set, get) => ({
 
     stopPicking: () => {
         set({ pickingState: { isActive: false, onPick: null } });
+    },
+
+    // FEABench Fusion: Implement settings update actions
+    updateMeshSettings: (settings) => {
+        set(state => ({ meshSettings: { ...state.meshSettings, ...settings } }));
+    },
+    updateAnalysisSettings: (settings) => {
+        set(state => ({ analysisSettings: { ...state.analysisSettings, ...settings } }));
     },
 
     // --- Selector Implementations ---

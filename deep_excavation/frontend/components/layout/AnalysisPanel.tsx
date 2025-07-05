@@ -1,247 +1,192 @@
-import React, { useState } from 'react';
+import React, { useState, RefObject } from 'react';
 import { 
     Box, 
     Typography, 
     Button, 
     Paper, 
     Stack, 
-    Divider, 
+    Stepper,
+    Step,
+    StepLabel,
+    StepContent,
     CircularProgress,
-    Alert,
-    LinearProgress
+    Alert
 } from '@mui/material';
+import Check from '@mui/icons-material/Check';
 import SettingsIcon from '@mui/icons-material/Settings';
-import StyleIcon from '@mui/icons-material/Style';
-import LockIcon from '@mui/icons-material/Lock';
-import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import ScienceIcon from '@mui/icons-material/Science';
 
 import { useStore } from '../../core/store';
 import { runParametricAnalysis, ParametricScene, AnalysisResult } from '../../services/parametricAnalysisService';
+import { ViewportHandles } from '../viewport/Viewport';
+import MeshSettingsForm from '../forms/MeshSettingsForm';
 
-const AnalysisPanel: React.FC = () => {
-    const openModal = useStore(state => state.openModal);
-    const features = useStore(state => state.features);
+const steps = [
+  {
+    label: '网格划分设置',
+    description: `定义计算网格的精细度。`,
+    icon: SettingsIcon,
+  },
+  {
+    label: '分析工况定义',
+    description: '选择分析类型，例如静力分析或分步施工。',
+    icon: ScienceIcon,
+  },
+  {
+    label: '运行求解',
+    description: `执行计算并等待结果。`,
+    icon: PlayArrowIcon,
+  },
+];
+
+interface AnalysisPanelProps {
+    viewportRef: RefObject<ViewportHandles>;
+}
+
+const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ viewportRef }) => {
+    const { features, meshSettings, analysisSettings } = useStore(state => ({
+        features: state.features,
+        meshSettings: state.meshSettings,
+        analysisSettings: state.analysisSettings
+    }));
+    
+    const [activeStep, setActiveStep] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
-    const [analysisStatus, setAnalysisStatus] = useState<AnalysisResult | null>(null);
-    const [progress, setProgress] = useState(0);
+    const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
 
     const handleRunAnalysis = async () => {
         setIsLoading(true);
-        setAnalysisStatus(null);
-        setProgress(0);
+        setAnalysisResult(null);
         
-        const scene: ParametricScene = {
-            version: "2.0-parametric",
+        const scenePayload = {
+            version: "2.0-parametric" as const,
             features: features,
+            mesh_settings: meshSettings,
+            analysis_settings: analysisSettings
         };
 
-        // 模拟进度更新
-        const progressInterval = setInterval(() => {
-            setProgress(oldProgress => {
-                const newProgress = Math.min(oldProgress + Math.random() * 10, 95);
-                return newProgress;
-            });
-        }, 500);
-
         try {
-            const result = await runParametricAnalysis(scene);
-            setAnalysisStatus(result);
-            setProgress(100);
+            const result = await runParametricAnalysis(scenePayload);
+            setAnalysisResult(result);
+
+            if (result.status.startsWith('completed') && result.mesh_filename) {
+                const resultsUrl = `/api/analysis/results/${result.mesh_filename}`;
+                viewportRef.current?.loadVtkResults(resultsUrl);
+            }
+
         } catch (error) {
-            setAnalysisStatus({
+            setAnalysisResult({
                 status: 'Error',
                 message: error instanceof Error ? error.message : '发生未知错误',
                 mesh_statistics: {},
             });
         } finally {
-            clearInterval(progressInterval);
             setIsLoading(false);
         }
     };
 
-    return (
-        <Paper elevation={0} sx={{ p: 0, bgcolor: 'transparent' }}>
-            <Stack spacing={2}>
-                <Typography variant="h6" sx={{ fontWeight: 'medium', mb: 1 }}>
-                    分析设置
-                </Typography>
-                
-                <Paper 
-                    elevation={0} 
-                    sx={{ 
-                        p: 2, 
-                        bgcolor: 'background.paper', 
-                        borderRadius: 2,
-                        transition: 'all 0.3s ease',
-                        '&:hover': {
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                        }
-                    }}
-                >
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                        <SettingsIcon color="primary" />
-                        <Box sx={{ flexGrow: 1 }}>
-                            <Typography variant="subtitle1">网格设置</Typography>
-                            <Typography variant="body2" color="text.secondary">配置计算网格参数</Typography>
-                        </Box>
-                        <Button 
-                            variant="outlined" 
-                            onClick={() => openModal('MeshSettings')}
-                            size="small"
-                        >
-                            设置
-                        </Button>
-                    </Stack>
-                </Paper>
-                
-                <Paper 
-                    elevation={0} 
-                    sx={{ 
-                        p: 2, 
-                        bgcolor: 'background.paper', 
-                        borderRadius: 2,
-                        transition: 'all 0.3s ease',
-                        '&:hover': {
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                        }
-                    }}
-                >
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                        <StyleIcon color="secondary" />
-                        <Box sx={{ flexGrow: 1 }}>
-                            <Typography variant="subtitle1">材料管理器</Typography>
-                            <Typography variant="body2" color="text.secondary">定义材料属性和参数</Typography>
-                        </Box>
-                        <Button 
-                            variant="outlined" 
-                            onClick={() => openModal('MaterialManager')}
-                            size="small"
-                            disabled
-                        >
-                            设置
-                        </Button>
-                    </Stack>
-                </Paper>
-                
-                <Paper 
-                    elevation={0} 
-                    sx={{ 
-                        p: 2, 
-                        bgcolor: 'background.paper', 
-                        borderRadius: 2,
-                        transition: 'all 0.3s ease',
-                        '&:hover': {
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                        }
-                    }}
-                >
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                        <LockIcon sx={{ color: 'warning.main' }} />
-                        <Box sx={{ flexGrow: 1 }}>
-                            <Typography variant="subtitle1">约束条件</Typography>
-                            <Typography variant="body2" color="text.secondary">定义边界条件和约束</Typography>
-                        </Box>
-                        <Button 
-                            variant="outlined" 
-                            onClick={() => openModal('ConstraintEditor')}
-                            size="small"
-                            disabled
-                        >
-                            设置
-                        </Button>
-                    </Stack>
-                </Paper>
-                
-                <Paper 
-                    elevation={0} 
-                    sx={{ 
-                        p: 2, 
-                        bgcolor: 'background.paper', 
-                        borderRadius: 2,
-                        transition: 'all 0.3s ease',
-                        '&:hover': {
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                        }
-                    }}
-                >
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                        <LocalShippingIcon sx={{ color: 'secondary.dark' }} />
-                        <Box sx={{ flexGrow: 1 }}>
-                            <Typography variant="subtitle1">荷载定义</Typography>
-                            <Typography variant="body2" color="text.secondary">添加荷载和外部作用力</Typography>
-                        </Box>
-                        <Button 
-                            variant="outlined" 
-                            onClick={() => openModal('LoadEditor')}
-                            size="small"
-                            disabled
-                        >
-                            设置
-                        </Button>
-                    </Stack>
-                </Paper>
+    const handleNext = () => {
+        if (activeStep === steps.length - 1) {
+            handleRunAnalysis();
+        } else {
+            setActiveStep((prevActiveStep) => prevActiveStep + 1);
+        }
+    };
 
-                <Divider sx={{ my: 1 }} />
-                
-                <Box sx={{ mt: 2 }}>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        fullWidth
-                        size="large"
-                        startIcon={<PlayArrowIcon />}
-                        onClick={handleRunAnalysis}
-                        disabled={isLoading || features.length === 0}
-                        sx={{ 
-                            py: 1.5,
-                            borderRadius: 2,
-                            fontWeight: 'bold',
-                            boxShadow: 4,
-                            '&:hover': {
-                                boxShadow: 6
-                            }
+    const handleBack = () => {
+        setActiveStep((prevActiveStep) => prevActiveStep - 1);
+    };
+
+    const getStepContent = (step: number) => {
+        switch (step) {
+            case 0:
+                return <MeshSettingsForm />;
+            case 1:
+                return (
+                    <Box sx={{ p: 2 }}>
+                        <Typography>分析工况定义功能正在开发中...</Typography>
+                    </Box>
+                );
+            case 2:
+                return (
+                    <Box sx={{ p: 2 }}>
+                       <Typography>准备就绪。点击"运行分析"开始计算。</Typography>
+                       {analysisResult && (
+                            <Alert 
+                                severity={analysisResult.status.startsWith('completed') ? 'success' : 'error'} 
+                                sx={{ mt: 2 }}
+                            >
+                                {analysisResult.message}
+                            </Alert>
+                        )}
+                    </Box>
+                );
+            default:
+                return '未知步骤';
+        }
+    }
+
+    return (
+        <Paper elevation={0} sx={{ p: 2, bgcolor: 'transparent' }}>
+            <Typography variant="h6" sx={{ fontWeight: 'medium', mb: 2 }}>
+                分析工作流
+            </Typography>
+            <Stepper activeStep={activeStep} orientation="vertical">
+                {steps.map((step, index) => (
+                <Step key={step.label}>
+                    <StepLabel
+                        StepIconComponent={(props) => {
+                            const { active, completed, icon } = props;
+                            const Icon = steps[icon as number - 1].icon;
+                            return (
+                                <Box sx={{
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center',
+                                    width: 24, 
+                                    height: 24, 
+                                    borderRadius: '50%', 
+                                    bgcolor: active ? 'primary.main' : (completed ? 'success.main' : 'grey.700'),
+                                    color: 'white',
+                                    transition: 'all 0.3s'
+                                }}>
+                                    {completed ? <Check sx={{fontSize: 16}} /> : <Icon sx={{fontSize: 16}} />}
+                                </Box>
+                            );
                         }}
                     >
-                        {isLoading ? '分析中...' : '运行参数化分析'}
-                    </Button>
-                    
-                    {isLoading && (
-                        <Box sx={{ width: '100%', mt: 2 }}>
-                            <LinearProgress variant="determinate" value={progress} sx={{ height: 6, borderRadius: 3 }} />
-                            <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', mt: 1 }}>
-                                {`${Math.round(progress)}%`} 计算中...
-                            </Typography>
+                       <Typography sx={{fontWeight: activeStep === index ? 'bold' : 'normal'}}>
+                           {step.label}
+                       </Typography>
+                    </StepLabel>
+                    <StepContent>
+                        <Paper sx={{p: 2, bgcolor: 'background.paper', borderRadius: 2, my: 1}}>
+                            {getStepContent(index)}
+                        </Paper>
+                        <Box sx={{ mb: 2 }}>
+                            <div>
+                                <Button
+                                    variant="contained"
+                                    onClick={handleNext}
+                                    sx={{ mt: 1, mr: 1 }}
+                                    disabled={isLoading}
+                                >
+                                    {isLoading && index === steps.length -1 ? <CircularProgress size={24} /> : (activeStep === steps.length - 1 ? '运行分析' : '继续')}
+                                </Button>
+                                <Button
+                                    disabled={index === 0 || isLoading}
+                                    onClick={handleBack}
+                                    sx={{ mt: 1, mr: 1 }}
+                                >
+                                    返回
+                                </Button>
+                            </div>
                         </Box>
-                    )}
-                </Box>
-                
-                {analysisStatus && (
-                    <Paper 
-                        elevation={0}
-                        sx={{ 
-                            mt: 2, 
-                            p: 2, 
-                            bgcolor: analysisStatus.status === 'Success' ? 'success.dark' : 'error.dark',
-                            borderRadius: 2,
-                            animation: 'fade-in 0.5s ease-in-out'
-                        }}
-                    >
-                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#fff' }}>
-                            {analysisStatus.status}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)' }}>
-                            {analysisStatus.message}
-                        </Typography>
-                    </Paper>
-                )}
-                
-                <Box sx={{ mt: 4, p: 2, textAlign: 'center', color: 'text.secondary' }}>
-                    <Typography variant="body2">
-                        选择设置任务开始配置您的分析研究
-                    </Typography>
-                </Box>
-            </Stack>
+                    </StepContent>
+                </Step>
+                ))}
+            </Stepper>
         </Paper>
     );
 };

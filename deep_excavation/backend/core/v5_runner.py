@@ -1,5 +1,5 @@
 """
-Core logic for the V4 analysis pipeline, featuring DXF import and undulating layers.
+Core logic for the V5 analysis pipeline, integrating GemPy, PyGMSH, and Kratos.
 """
 import io
 import ezdxf
@@ -15,13 +15,19 @@ import pandas as pd
 
 # Kratos Multiphysics - 我们的核心求解器
 import KratosMultiphysics
-import KratosMultiphysics.StructuralMechanicsApplication as StructuralMechanicsApplication
-from KratosMultiphysics.StructuralMechanicsApplication.structural_mechanics_analysis import StructuralMechanicsAnalysis
+from KratosMultiphysics.StructuralMechanicsApplication import (
+    StructuralMechanicsAnalysis
+)
 
 # Netgen - 我们的核心网格生成器
 from ngsolve import Mesh
 from netgen.occ import Box, OCCGeometry
 from ezdxf.importer import Importer
+
+# 自定义模块
+from ..api.routes.analysis_router import (
+    AnyFeature, ParametricScene
+)
 
 # --- V4 Data Models: Modular & Advanced ---
 
@@ -68,7 +74,10 @@ class DXFProcessor:
             self.doc = ezdxf.read(dxf_stream)
             self.msp = self.doc.modelspace()
             self.layer_name = layer_name
-            print(f"DXFProcessor: Successfully loaded DXF document. Layers: {list(self.doc.layers.names())}")
+            print(
+                f"DXFProcessor: Loaded DXF. "
+                f"Layers: {list(self.doc.layers.names())}"
+            )
         except IOError:
             print("DXFProcessor ERROR: Invalid DXF file format or content.")
             raise ValueError("Invalid DXF file format.")
@@ -78,12 +87,15 @@ class DXFProcessor:
 
     def extract_profile_vertices(self) -> List[Tuple[float, float]]:
         """Extracts vertices from polylines on the specified layer."""
-        print(f"DXFProcessor: Searching for polylines on layer '{self.layer_name}'...")
-        # Find all LWPOLYLINE entities on the specified layer
+        print(
+            f"DXFProcessor: Searching for LWPOLYLINE on layer '{self.layer_name}'..."
+        )
         polylines = self.msp.query(f'LWPOLYLINE[layer=="{self.layer_name}"]')
-        
+
         if not polylines:
-            raise ValueError(f"No LWPOLYLINE found on layer '{self.layer_name}'.")
+            raise ValueError(
+                f"No LWPOLYLINE found on layer '{self.layer_name}'."
+            )
 
         # Assuming the first polyline found is the correct one
         profile = polylines[0]
@@ -91,13 +103,13 @@ class DXFProcessor:
         print(f"DXFProcessor: Found polyline with {len(vertices)} vertices.")
         return vertices
 
-class KratosV4Adapter:
+class KratosV5Adapter:
     """Generates geometry, meshes it, and then runs a Kratos analysis."""
     def __init__(self, features: List[AnyFeature], project_name: str = "default_project"):
         self.features = features
         self.project_name = project_name
-        self.working_dir = tempfile.mkdtemp(prefix=f"kratos_v4_{self.project_name}_")
-        print(f"\nKratosV4Adapter: Initialized. Working directory: {self.working_dir}")
+        self.working_dir = tempfile.mkdtemp(prefix=f"kratos_v5_{self.project_name}_")
+        print(f"\nKratosV5Adapter: Initialized. Working directory: {self.working_dir}")
 
     def _prepare_gempy_input_from_feature(self) -> Tuple[pd.DataFrame, pd.DataFrame, List[str]]:
         """Parses a CreateGeologicalModelFeature to get Gempy inputs."""
@@ -113,18 +125,27 @@ class KratosV4Adapter:
         df = pd.read_csv(csv_file)
         
         if not all(col in df.columns for col in ['X', 'Y', 'Z', 'surface']):
-            raise ValueError("CSV data must contain 'X', 'Y', 'Z', and 'surface' columns.")
+            raise ValueError(
+                "CSV data must contain 'X', 'Y', 'Z', and 'surface' columns."
+            )
             
         surface_points_df = df[['X', 'Y', 'Z', 'surface']].copy()
         surface_names = list(surface_points_df['surface'].unique())
         
-        print(f"    -> Successfully parsed CSV. Found {len(surface_points_df)} points and {len(surface_names)} surfaces: {surface_names}")
+        print(
+            f"    -> Parsed CSV. Found {len(surface_points_df)} points and "
+            f"{len(surface_names)} surfaces: {surface_names}"
+        )
 
-        orientations_df = pd.DataFrame(columns=['X', 'Y', 'Z', 'G_x', 'G_y', 'G_z', 'surface'])
+        orientations_df = pd.DataFrame(
+            columns=['X', 'Y', 'Z', 'G_x', 'G_y', 'G_z', 'surface']
+        )
         
         return surface_points_df, orientations_df, surface_names
 
-    def _get_extent_from_points(self, df: pd.DataFrame, padding: float = 100.0) -> List[float]:
+    def _get_extent_from_points(
+        self, df: pd.DataFrame, padding: float = 100.0
+    ) -> List[float]:
         """Calculates the model extent from points with added padding."""
         xmin, xmax = df['X'].min(), df['X'].max()
         ymin, ymax = df['Y'].min(), df['Y'].max()
@@ -132,7 +153,7 @@ class KratosV4Adapter:
         return [xmin - padding, xmax + padding, ymin - padding, ymax + padding, zmin - padding, zmax + padding]
 
     def run_analysis(self) -> dict:
-        print("KratosV4Adapter: Starting real analysis setup with GemPy...")
+        print("KratosV5Adapter: Starting real analysis setup with GemPy...")
         
         try:
             # ==================================================================
@@ -188,19 +209,67 @@ class KratosV4Adapter:
                 geom.add_physical(soil_volume, label="SOIL_VOLUME")
                 print(f"    -> Created soil volume (ID: {soil_volume.id}) from GemPy surfaces.")
 
+                # --- 查找并创建地连墙 ---
+                diaphragm_wall_features = [f for f in self.features if f.type == 'CreateDiaphragmWall']
+                if diaphragm_wall_features:
+                    print(f"    -> Found {len(diaphragm_wall_features)} Diaphragm Wall feature(s). Adding to model...")
+                    for wall_feature in diaphragm_wall_features:
+                        params = wall_feature.parameters
+                        p1 = params.path[0]
+                        p2 = params.path[1]
+                        
+                        # 为了创建墙体，我们需要一个定义方向的向量
+                        direction = (p2.x - p1.x, p2.y - p1.y, p2.z - p1.z)
+                        length = np.linalg.norm(direction)
+                        
+                        # 创建一个box来代表墙体
+                        wall_box = geom.add_box(
+                            x0=p1.x, y0=p1.y, z0=p1.z,
+                            dx=length, dy=params.thickness, dz=-params.height
+                        )
+                        # 注意：这里的旋转可能需要更复杂的逻辑来正确对齐
+                        # 暂时我们先假设它是沿着X轴的
+                        geom.add_physical(wall_box, label=f"WALL_{wall_feature.name}")
+                        print(f"      -> Added Diaphragm Wall '{wall_feature.name}'.")
+
+                # --- 查找并执行开挖 ---
                 excavation_feature = next((f for f in self.features if f.type == 'CreateExcavation'), None)
-                
+
                 if excavation_feature:
                     print("    -> Found 'CreateExcavation' feature. Performing cut...")
                     params = excavation_feature.parameters
-                    profile_points = [(p.x, p.y, 0) for p in params.points]
-                    # Assume excavation starts from a high Z and goes down. Adjust Z as needed.
-                    excavation_profile_poly = geom.add_polygon([ (p.x, p.y, extent[5]) for p in params.points])
-                    cutting_tool = geom.extrude(excavation_profile_poly, [0, 0, -params.depth * 2]) # Ensure it cuts through
                     
+                    if len(params.points) < 3:
+                        raise ValueError("Excavation profile needs at least 3 points.")
+
+                    excavation_points_3d = [(p.x, p.y, 0) for p in params.points]
+                
+                # --- 查找并执行DXF开挖 ---
+                dxf_excavation_feature = next((f for f in self.features if f.type == 'CreateExcavationFromDXF'), None)
+                if dxf_excavation_feature:
+                    print("    -> Found 'CreateExcavationFromDXF' feature. Performing cut...")
+                    params = dxf_excavation_feature.parameters
+                    
+                    processor = DXFProcessor(params.dxfFileContent, params.layerName)
+                    profile_vertices = processor.extract_profile_vertices()
+
+                    if len(profile_vertices) < 3:
+                        raise ValueError("DXF excavation profile needs at least 3 points.")
+                    
+                    excavation_points_3d = [(v[0], v[1], 0) for v in profile_vertices]
+                    excavation_depth = params.depth
+                
+                # --- 如果有任何一种开挖，执行切割 ---
+                if 'excavation_points_3d' in locals():
+                    excavation_profile_poly = geom.add_polygon(excavation_points_3d)
+                    
+                    cutting_tool = geom.extrude(
+                        excavation_profile_poly, [0, 0, -excavation_depth]
+                    )
+
                     soil_volume = geom.cut(soil_volume, cutting_tool)
                     geom.add_physical(soil_volume, label="FINAL_SOIL_BODY")
-                    print("      -> Boolean cut successful.")
+                    print("      -> Boolean cut for excavation successful.")
 
                 # ==================================================================
                 # 步骤 3: 网格划分
@@ -230,7 +299,7 @@ class KratosV4Adapter:
             }
 
         except Exception as e:
-            print(f"KratosV4Adapter ERROR: An error occurred during the process: {e}")
+            print(f"KratosV5Adapter ERROR: An error occurred during the process: {e}")
             import traceback
             traceback.print_exc()
             return {
@@ -245,7 +314,7 @@ def run_v5_analysis(scene: ParametricScene) -> dict:
     """Orchestrates the V5 analysis pipeline based on a parametric scene."""
     print(f"\n--- Starting V5 Analysis Run for project: {scene.version} ---")
 
-    kratos_sim = KratosV4Adapter(
+    kratos_sim = KratosV5Adapter(
         scene.features, project_name="parametric_project"
     )
     results = kratos_sim.run_analysis()
