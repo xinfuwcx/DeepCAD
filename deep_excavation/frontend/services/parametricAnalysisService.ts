@@ -202,6 +202,17 @@ export interface AssignGroupFeature extends BaseFeature {
 }
 
 
+// --- 新增: 地质模型特征 ---
+export interface CreateGeologicalModelParameters {
+  csvData: string; // The raw CSV string content
+}
+
+export interface CreateGeologicalModelFeature extends BaseFeature {
+  type: 'CreateGeologicalModel';
+  parameters: CreateGeologicalModelParameters;
+}
+
+
 // --- 特征联合类型 ---
 export type AnyFeature = 
   | CreateBoxFeature 
@@ -215,7 +226,8 @@ export type AnyFeature =
   | CreateSketchFeature
   | ExtrudeFeature
   | AddInfiniteDomainFeature
-  | AssignGroupFeature;
+  | AssignGroupFeature
+  | CreateGeologicalModelFeature;
 
 
 // --- 场景顶层接口 ---

@@ -100,3 +100,7 @@ meshio
 
 # Added by the colleague
 kratos-python
+
+# New additions for geological modeling
+gempy
+pandas

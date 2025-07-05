@@ -10,6 +10,8 @@ import meshio
 import numpy as np
 import tempfile
 import os
+import gempy as gp
+import pandas as pd
 
 # Kratos Multiphysics - 我们的核心求解器
 import KratosMultiphysics
@@ -90,62 +92,167 @@ class DXFProcessor:
         return vertices
 
 class KratosV4Adapter:
-    """Simulates a Kratos analysis with complex geometry from DXF and undulating layers."""
-    def __init__(self, model: V4AnalysisModel, excavation_profile: List[Tuple[float, float]]):
-        self.model = model
-        self.excavation_profile = excavation_profile
-        print("\nKratosV4Adapter: Initialized with complex geometry.")
+    """Generates geometry, meshes it, and then runs a Kratos analysis."""
+    def __init__(self, features: List[AnyFeature], project_name: str = "default_project"):
+        self.features = features
+        self.project_name = project_name
+        self.working_dir = tempfile.mkdtemp(prefix=f"kratos_v4_{self.project_name}_")
+        print(f"\nKratosV4Adapter: Initialized. Working directory: {self.working_dir}")
+
+    def _prepare_gempy_input_from_feature(self) -> Tuple[pd.DataFrame, pd.DataFrame, List[str]]:
+        """Parses a CreateGeologicalModelFeature to get Gempy inputs."""
+        print("  - Parsing CreateGeologicalModelFeature...")
+        
+        geo_model_feature = next((f for f in self.features if f.type == 'CreateGeologicalModel'), None)
+        if not geo_model_feature:
+            raise ValueError("Could not find 'CreateGeologicalModel' feature in the provided scene.")
+
+        csv_data = geo_model_feature.parameters.csvData
+        csv_file = io.StringIO(csv_data)
+        
+        df = pd.read_csv(csv_file)
+        
+        if not all(col in df.columns for col in ['X', 'Y', 'Z', 'surface']):
+            raise ValueError("CSV data must contain 'X', 'Y', 'Z', and 'surface' columns.")
+            
+        surface_points_df = df[['X', 'Y', 'Z', 'surface']].copy()
+        surface_names = list(surface_points_df['surface'].unique())
+        
+        print(f"    -> Successfully parsed CSV. Found {len(surface_points_df)} points and {len(surface_names)} surfaces: {surface_names}")
+
+        orientations_df = pd.DataFrame(columns=['X', 'Y', 'Z', 'G_x', 'G_y', 'G_z', 'surface'])
+        
+        return surface_points_df, orientations_df, surface_names
+
+    def _get_extent_from_points(self, df: pd.DataFrame, padding: float = 100.0) -> List[float]:
+        """Calculates the model extent from points with added padding."""
+        xmin, xmax = df['X'].min(), df['X'].max()
+        ymin, ymax = df['Y'].min(), df['Y'].max()
+        zmin, zmax = df['Z'].min(), df['Z'].max()
+        return [xmin - padding, xmax + padding, ymin - padding, ymax + padding, zmin - padding, zmax + padding]
 
     def run_analysis(self) -> dict:
-        print("KratosV4Adapter: Starting analysis setup...")
-        print("KratosV4Adapter: Generating 3D geometry for undulating soil layers...")
-        for i, layer in enumerate(self.model.soil_profile):
-            print(f"  - Defining surface for layer {i+1} ('{layer.material_name}') with {len(layer.surface_points)} points.")
+        print("KratosV4Adapter: Starting real analysis setup with GemPy...")
         
-        print("\nKratosV4Adapter: Generating 3D geometry for excavation...")
-        print(f"  - Extruding DXF profile with {len(self.excavation_profile)} vertices to a depth of {self.model.excavation.excavation_depth}m.")
+        try:
+            # ==================================================================
+            # 步骤 1: 使用 GemPy 创建地质模型
+            # ==================================================================
+            surface_points_df, orientations_df, surface_names = self._prepare_gempy_input_from_feature()
+            
+            extent = self._get_extent_from_points(surface_points_df)
 
-        print("\nKratosV4Adapter: Starting unified mesh generation for complex domain...")
-        # A more complex estimation for element count
-        num_elements = len(self.excavation_profile) * self.model.excavation.excavation_depth * 1000
-        print("KratosV4Adapter: Mesh generation complete.")
+            print("  - Initializing GemPy model...")
+            geo_model = gp.create_geomodel(
+                project_name=self.project_name,
+                extent=extent,
+                importer_helper=gp.data.ImporterHelper(
+                    surface_points_df=surface_points_df,
+                    orientations_df=orientations_df
+                )
+            )
 
-        print("\nKratosV4Adapter: Running non-linear solver...")
-        print("KratosV4Adapter: Solver finished successfully.")
-        
-        # Result is more complex now
-        max_displacement = self.model.excavation.excavation_depth * 1.5
-        return {
-            "status": "completed",
-            "max_displacement_mm": max_displacement,
-            "meshing_info": {
-                "num_elements": num_elements,
-                "profile_vertices": len(self.excavation_profile)
-            },
-            "excavation_volume_m3": "simulation_placeholder" 
-        }
+            print("  - Mapping stratigraphic stack to surfaces...")
+            # Assuming the layers in soil_profile are ordered from top to bottom
+            gp.map_stack_to_surfaces(
+                gempy_model=geo_model,
+                mapping_object={"Stratigraphic_Stack": tuple(surface_names)}
+            )
+
+            print("  - Computing GemPy geological model...")
+            gp.compute_model(geo_model)
+            print("    -> GemPy model computation complete.")
+
+            # ==================================================================
+            # 步骤 2: 从GemPy提取几何, 并在PyGMSH中处理
+            # ==================================================================
+            print("\n  - Step 2: Extracting surfaces from GemPy and building solid model...")
+            
+            with pygmsh.occ.Geometry() as geom:
+                pygmsh_surfaces = {}
+                for surface_name in surface_names:
+                    print(f"    - Processing surface: {surface_name}")
+                    mesh = gp.get_surface_mesh(geo_model, surface_name)
+                    if mesh is not None and len(mesh.points) > 0:
+                        pygmsh_surface = geom.add_surface(mesh.points, mesh.cells_dict['triangle'])
+                        pygmsh_surfaces[surface_name] = pygmsh_surface
+                        geom.add_physical(pygmsh_surface, label=f"surface_{surface_name}")
+                        print(f"      -> Rebuilt '{surface_name}' in PyGMSH.")
+                
+                if not pygmsh_surfaces:
+                    raise ValueError("No surfaces were rebuilt in pygmsh.")
+
+                all_surfaces = list(pygmsh_surfaces.values())
+                soil_shell = geom.sew(all_surfaces)
+                soil_volume = geom.add_volume(soil_shell)
+                geom.add_physical(soil_volume, label="SOIL_VOLUME")
+                print(f"    -> Created soil volume (ID: {soil_volume.id}) from GemPy surfaces.")
+
+                excavation_feature = next((f for f in self.features if f.type == 'CreateExcavation'), None)
+                
+                if excavation_feature:
+                    print("    -> Found 'CreateExcavation' feature. Performing cut...")
+                    params = excavation_feature.parameters
+                    profile_points = [(p.x, p.y, 0) for p in params.points]
+                    # Assume excavation starts from a high Z and goes down. Adjust Z as needed.
+                    excavation_profile_poly = geom.add_polygon([ (p.x, p.y, extent[5]) for p in params.points])
+                    cutting_tool = geom.extrude(excavation_profile_poly, [0, 0, -params.depth * 2]) # Ensure it cuts through
+                    
+                    soil_volume = geom.cut(soil_volume, cutting_tool)
+                    geom.add_physical(soil_volume, label="FINAL_SOIL_BODY")
+                    print("      -> Boolean cut successful.")
+
+                # ==================================================================
+                # 步骤 3: 网格划分
+                # ==================================================================
+                print("\n  - Step 3: Generating mesh...")
+                geom.set_mesh_size_callback(lambda dim, tag, x, y, z: 25.0) # Coarse mesh
+                mesh_result = geom.generate_mesh()
+                
+                mesh_file = os.path.join(self.working_dir, f"{self.project_name}_out.vtk")
+                meshio.write(mesh_file, mesh_result)
+                print(f"    -> Mesh generated and saved to {mesh_file}")
+
+            # ==================================================================
+            # 步骤 4: (占位符) Kratos分析
+            # ==================================================================
+            print("\n  - Step 4: Kratos analysis (placeholder)...")
+
+            return {
+                "status": "completed_meshing",
+                "message": f"Successfully generated mesh. Saved to {mesh_file}",
+                "mesh_filename": os.path.basename(mesh_file),
+                "mesh_statistics": {
+                    "num_points": len(mesh_result.points),
+                    "num_cells": sum(len(c.data) for c in mesh_result.cells),
+                },
+                "working_dir": self.working_dir
+            }
+
+        except Exception as e:
+            print(f"KratosV4Adapter ERROR: An error occurred during the process: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "status": "failed",
+                "message": str(e),
+                "working_dir": self.working_dir
+            }
 
 # --- V4 Main Runner ---
 
-def run_v4_analysis(model: V4AnalysisModel) -> dict:
-    """Orchestrates the V4 DXF-based analysis pipeline."""
-    print(f"\n--- Starting V4 Analysis Run for project: {model.project_name} ---")
-    
-    # Step 1: Process the DXF file
-    dxf_proc = DXFProcessor(model.excavation.dxf_file_content, model.excavation.layer_name)
-    excavation_vertices = dxf_proc.extract_profile_vertices()
-    
-    # Step 2: Run the simulation with the extracted geometry
-    kratos_sim = KratosV4Adapter(model, excavation_vertices)
-    fem_results = kratos_sim.run_analysis()
-    
-    print("\n--- V4 Analysis Run Finished ---")
-    
-    return {
-        "pipeline_status": "success",
-        "model_parameters": model.dict(exclude={'dxf_file_content'}), # Exclude large file content from response
-        "fem_results": fem_results
-    } 
+def run_v5_analysis(scene: ParametricScene) -> dict:
+    """Orchestrates the V5 analysis pipeline based on a parametric scene."""
+    print(f"\n--- Starting V5 Analysis Run for project: {scene.version} ---")
+
+    kratos_sim = KratosV4Adapter(
+        scene.features, project_name="parametric_project"
+    )
+    results = kratos_sim.run_analysis()
+
+    print("\n--- V5 Analysis Run Finished ---")
+
+    return {"pipeline_status": "success", "results": results}
 
 # --- V4 Seepage Analysis Models ---
 
