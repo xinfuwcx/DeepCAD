@@ -1,5 +1,6 @@
-import { create } from './zustand';
+import { create } from 'zustand';
 import { AnyFeature, Point3D } from '../services/parametricAnalysisService';
+import * as THREE from 'three';
 
 // =================================================================================
 // Type Definitions
@@ -26,28 +27,50 @@ export interface PickingState {
     onPick: ((point: Point3D) => void) | null;
 }
 
+export interface MeshSettings {
+    max_area: number;
+    refinement_level: number;
+}
+
+export interface AnalysisSettings {
+    analysis_type: 'static' | 'staged_construction';
+    num_steps: number;
+}
+
 // =================================================================================
 // Store Interface
 // =================================================================================
 
 export interface AppState {
     features: AnyFeature[];
+    meshSettings: MeshSettings;
+    analysisSettings: AnalysisSettings | null;
+    geologySettings: {
+        algorithm: string;
+        domain: { width: number; length: number; height: number; };
+    };
+    transientObjects: THREE.Object3D[];
     selectedFeatureId: string | null;
     activeWorkbench: Workbench;
     activeTask: Task | null;
-    activeModal: ModalType; // Manages which modal is open
+    activeModal: string | null;
     pickingState: PickingState; // Add picking state to the store
 
     // --- Actions ---
     addFeature: (feature: AnyFeature) => void;
     selectFeature: (id: string | null) => void;
     updateFeature: (feature: AnyFeature) => void;
-    
+    deleteFeature: (featureId: string) => void;
+    setFeatures: (features: AnyFeature[]) => void;
+    updateMeshSettings: (settings: Partial<MeshSettings>) => void;
+    updateAnalysisSettings: (settings: Partial<AnalysisSettings>) => void;
+    setGeologySettings: (settings: AppState['geologySettings']) => void;
+    setTransientObjects: (objects: THREE.Object3D[]) => void;
+    clearTransientObjects: () => void;
     setActiveWorkbench: (workbench: Workbench) => void;
     startTask: (type: AnyFeature['type'], parentId?: string) => void;
     cancelTask: () => void;
-    
-    openModal: (modal: NonNullable<ModalType>) => void;
+    openModal: (modal: string) => void;
     closeModal: () => void;
     // Picking actions
     startPicking: (onPick: (point: Point3D) => void) => void;
@@ -56,6 +79,7 @@ export interface AppState {
 
     // --- Selectors ---
     getSelectedFeature: () => AnyFeature | null;
+    getFeatureById: (id: string) => AnyFeature | undefined;
 }
 
 // =================================================================================
@@ -65,6 +89,13 @@ export interface AppState {
 export const useStore = create<AppState>((set, get) => ({
     // --- Initial State ---
     features: [],
+    meshSettings: { max_area: 10.0, refinement_level: 1 },
+    analysisSettings: null,
+    geologySettings: {
+        algorithm: 'TIN',
+        domain: { width: 100, length: 100, height: 50 },
+    },
+    transientObjects: [],
     selectedFeatureId: null,
     activeWorkbench: 'Modeling',
     activeTask: null,
@@ -124,9 +155,25 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
 
+    deleteFeature: (featureId) => set(state => ({ features: state.features.filter(f => f.id !== featureId) })),
+
+    setFeatures: (features) => set({ features: features }),
+
+    updateMeshSettings: (settings) => set(state => ({ meshSettings: { ...state.meshSettings, ...settings } })),
+
+    updateAnalysisSettings: (settings) => set(state => ({ analysisSettings: state.analysisSettings ? { ...state.analysisSettings, ...settings } : settings as AnalysisSettings })),
+
+    setGeologySettings: (settings) => set({ geologySettings: settings }),
+
+    setTransientObjects: (objects) => set({ transientObjects: objects }),
+
+    clearTransientObjects: () => set({ transientObjects: [] }),
+
     // --- Selector Implementations ---
     getSelectedFeature: () => {
         const id = get().selectedFeatureId;
         return get().features.find(f => f.id === id) || null;
     },
+
+    getFeatureById: (id: string) => get().features.find(f => f.id === id),
 })); 

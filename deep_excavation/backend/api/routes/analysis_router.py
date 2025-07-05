@@ -13,6 +13,10 @@ import meshio
 
 # --- 自定义模块 ---
 from ..core.kratos_solver import run_kratos_analysis
+from ..core.analysis_runner import (
+    DeepExcavationModel, run_deep_excavation_analysis,
+    SoilLayer, StructuralElement, BoundaryCondition, ExcavationStage
+)
 
 # --- 日志配置 ---
 logging.basicConfig(level=logging.INFO)
@@ -427,4 +431,81 @@ async def get_analysis_result_file(filename_with_ext: str):
     file_path = os.path.join(temp_dir, filename_with_ext)
     if not os.path.isfile(file_path):
         raise HTTPException(status_code=404, detail="文件未找到。")
-    return FileResponse(path=file_path, filename=os.path.basename(file_path)) 
+    return FileResponse(path=file_path, filename=os.path.basename(file_path))
+
+
+# ############################################################################
+# ### 深基坑工程统一分析API
+# ############################################################################
+
+@router.post("/deep-excavation/analyze", tags=["Deep Excavation Analysis"])
+async def analyze_deep_excavation(model: DeepExcavationModel):
+    """
+    执行深基坑工程统一分析，可包含多种分析类型
+    """
+    logger.info(f"收到深基坑工程分析请求: {model.project_name}")
+    
+    try:
+        # 调用统一分析入口函数
+        result = run_deep_excavation_analysis(model)
+        
+        return {
+            "status": "success",
+            "project_name": model.project_name,
+            "results": result
+        }
+    except Exception as e:
+        logger.error(f"深基坑工程分析失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"分析过程中发生错误: {str(e)}"
+        )
+
+@router.get("/deep-excavation/results/{project_id}", tags=["Deep Excavation Analysis"])
+async def get_deep_excavation_results(project_id: str):
+    """
+    获取深基坑工程分析结果
+    """
+    logger.info(f"获取深基坑工程分析结果: {project_id}")
+    
+    # 这里应该从数据库或文件系统中获取结果
+    # 简化处理，返回模拟结果
+    return {
+        "project_id": project_id,
+        "status": "completed",
+        "results": {
+            "seepage": {
+                "total_discharge_m3_per_s": 0.005,
+                "max_head_difference": 5.0
+            },
+            "structural": {
+                "max_displacement_mm": 15.3,
+                "max_bending_moment_kNm": 320.5
+            },
+            "deformation": {
+                "max_vertical_displacement_mm": 25.8,
+                "max_horizontal_displacement_mm": 18.2
+            },
+            "stability": {
+                "safety_factor": 1.35
+            },
+            "settlement": {
+                "max_settlement_mm": 32.5,
+                "influence_range_m": 45.2
+            }
+        }
+    }
+
+@router.get("/deep-excavation/result-file/{project_id}/{analysis_type}", tags=["Deep Excavation Analysis"])
+async def get_deep_excavation_result_file(project_id: str, analysis_type: str):
+    """
+    获取深基坑工程分析结果文件
+    """
+    logger.info(f"获取深基坑工程分析结果文件: {project_id}, 分析类型: {analysis_type}")
+    
+    # 这里应该从文件系统中获取结果文件
+    # 简化处理，返回错误
+    raise HTTPException(
+        status_code=404,
+        detail=f"未找到项目 {project_id} 的 {analysis_type} 分析结果文件"
+    ) 

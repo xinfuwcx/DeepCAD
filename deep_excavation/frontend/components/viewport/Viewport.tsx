@@ -10,6 +10,7 @@ import { createAxesGizmo } from './AxesGizmo';
 export interface ViewportHandles {
   addAnalysisMesh: (mesh: THREE.Object3D) => void;
   clearAnalysisMeshes: () => void;
+  loadVtkResults: (url: string) => void;
 }
 
 const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
@@ -27,6 +28,8 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
   const axesRendererRef = useRef<CSS2DRenderer>();
   
   const analysisMeshesRef = useRef<THREE.Object3D[]>([]);
+  const resultsMeshRef = useRef<THREE.Object3D | null>(null);
+  const transientGroupRef = useRef(new THREE.Group()); // Define the ref for the transient group
 
   // --- Picker helper ---
   const pickingPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
@@ -34,6 +37,7 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
   // --- Subscribe to global state ---
   const features = useStore(state => state.features);
   const selectedFeatureId = useStore(state => state.selectedFeatureId);
+  const transientObjects = useStore(state => state.transientObjects); // Get transient objects from store
   const { pickingState, executePick, stopPicking } = useStore(state => ({
     pickingState: state.pickingState,
     executePick: state.executePick,
@@ -55,6 +59,9 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
       const scene = sceneRef.current;
       analysisMeshesRef.current.forEach(mesh => scene.remove(mesh));
       analysisMeshesRef.current = [];
+    },
+    loadVtkResults: (url) => {
+      // Implementation of loadVtkResults method
     }
   }));
 
@@ -137,6 +144,10 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
     };
     window.addEventListener('resize', handleResize);
 
+    // Add the group for transient objects to the scene
+    transientGroupRef.current.name = "transientGeologyGroup";
+    scene.add(transientGroupRef.current);
+
     return () => {
       window.removeEventListener('resize', handleResize);
       if (mountNode && renderer.domElement) {
@@ -175,6 +186,21 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
     }
 
   }, [parametricModel, selectedFeatureId]);
+
+  // --- Scene Update Logic for Transient Geological Model ---
+  useEffect(() => {
+    const transientGroup = transientGroupRef.current;
+    
+    while (transientGroup.children.length > 0) {
+        transientGroup.remove(transientGroup.children[0]);
+    }
+
+    if (transientObjects && transientObjects.length > 0) {
+        transientObjects.forEach(obj => {
+            transientGroup.add(obj); 
+        });
+    }
+  }, [transientObjects]);
 
   // Effect for handling picking mode
   useEffect(() => {

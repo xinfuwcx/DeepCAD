@@ -1,96 +1,55 @@
-import React from 'react';
-import { useStore } from '../core/store';
+import React, { useState, useRef } from 'react';
+import { Box } from '@mui/material';
 
-import Viewport from '../components/viewport/Viewport';
-import HistoryTree from '../components/layout/HistoryTree';
-import PropertyPanel from '../components/layout/PropertyPanel';
-import AnalysisPanel from '../components/layout/AnalysisPanel'; 
+import { useStore } from '../core/store';
+import Viewport, { ViewportHandles } from '../components/viewport/Viewport';
+import LeftSidebar from '../components/layout/LeftSidebar';
+import RightSidebar from '../components/layout/RightSidebar';
+import PrimaryAppBar from '../components/layout/PrimaryAppBar';
+import BottomStatusBar from '../components/layout/BottomStatusBar';
 import MeshSettingsModal from '../components/modals/MeshSettingsModal';
-import SoilDomainCreator from '../components/creators/SoilDomainCreator';
-import TunnelCreator from '../components/creators/TunnelCreator';
-import BuildingCreator from '../components/creators/BuildingCreator';
-import ExcavationCreator from '../components/creators/ExcavationCreator';
-import PileRaftCreator from '../components/creators/PileRaftCreator';
-import DiaphragmWallCreator from '../components/creators/DiaphragmWallCreator';
-import AnchorCreator from '../components/creators/AnchorCreator';
-import VtkResultsViewer from '../components/VtkResultsViewer';
 
 const MainPage: React.FC = () => {
-    // --- Get state and actions from the global store ---
-    const activeWorkbench = useStore(state => state.activeWorkbench);
-    const setActiveWorkbench = useStore(state => state.setActiveWorkbench);
+    const [leftDrawerOpen, setLeftDrawerOpen] = useState(true);
+    const [rightDrawerOpen, setRightDrawerOpen] = useState(true);
+    const viewportRef = useRef<ViewportHandles>(null);
+    
     const activeModal = useStore(state => state.activeModal);
     const closeModal = useStore(state => state.closeModal);
-
-    // --- Component for switching workbenches ---
-    const SimpleToolbar = () => (
-        <div className="bg-gray-900 p-2 flex space-x-2 border-b border-gray-700">
-            <button 
-                onClick={() => setActiveWorkbench('Modeling')}
-                className={`px-3 py-1 rounded ${activeWorkbench === 'Modeling' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
-            >
-                Modeling
-            </button>
-            <button 
-                onClick={() => setActiveWorkbench('Analysis')}
-                className={`px-3 py-1 rounded ${activeWorkbench === 'Analysis' ? 'bg-green-600' : 'bg-gray-700 hover:bg-gray-600'}`}
-            >
-                Analysis
-            </button>
-        </div>
-    );
-
-    // --- Logic to render the correct panel based on the active workbench ---
-    const renderRightPanel = () => {
-        switch (activeWorkbench) {
-            case 'Modeling':
-                return (
-                    <div>
-                        <SoilDomainCreator />
-                        <TunnelCreator />
-                        <BuildingCreator />
-                        <ExcavationCreator />
-                        <PileRaftCreator />
-                        <DiaphragmWallCreator />
-                        <AnchorCreator />
-                        <PropertyPanel />
-                    </div>
-                );
-            case 'Analysis':
-                return (
-                    <div>
-                        <AnalysisPanel />
-                        <VtkResultsViewer resultsUrl={undefined} />
-                    </div>
-                );
-            default:
-                return null;
-        }
-    };
-
-    // --- Main component layout ---
+    
     return (
-        <div className="flex flex-col h-screen bg-gray-900 text-white">
-            <SimpleToolbar />
-            <div className="flex flex-1 overflow-hidden">
-                <div className="w-1/5 h-full bg-gray-800 p-2 overflow-y-auto">
-                    <HistoryTree />
-                </div>
-                <div className="flex-1 h-full">
-                    <Viewport />
-                </div>
-                <div className="w-1/5 h-full bg-gray-800 p-2 overflow-y-auto">
-                    {renderRightPanel()}
-                </div>
-            </div>
+        <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'grey.900' }}>
+            <PrimaryAppBar 
+                onToggleLeftDrawer={() => setLeftDrawerOpen(!leftDrawerOpen)} 
+                onToggleRightDrawer={() => setRightDrawerOpen(!rightDrawerOpen)}
+            />
+            <LeftSidebar open={leftDrawerOpen} />
             
-            {/* Render modals based on global state */}
+            <Box
+                component="main"
+                sx={{
+                    flexGrow: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    position: 'relative',
+                    mt: '64px',
+                    height: 'calc(100vh - 64px)',
+                }}
+            >
+                <Box sx={{ flexGrow: 1, position: 'relative', width: '100%', height: '100%' }}>
+                    <Viewport ref={viewportRef} />
+                </Box>
+                <BottomStatusBar />
+            </Box>
+            
+            <RightSidebar open={rightDrawerOpen} viewportRef={viewportRef} />
+            
             <MeshSettingsModal 
                 isVisible={activeModal === 'MeshSettings'} 
                 onClose={closeModal} 
             />
-        </div>
+        </Box>
     );
 };
 
-export default MainPage;
+export default MainPage; 
