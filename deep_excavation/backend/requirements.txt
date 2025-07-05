@@ -38,7 +38,11 @@ ezdxf
 # KratosMultiphysics
 # KratosMultiphysics.StructuralMechanicsApplication
 # Refer to project documentation for Kratos setup.
-kratos-python # Assuming this is a helper or custom wrapper
+kratos-python
+
+# New additions for geological modeling
+gempy
+pandas
 
 # --- Utilities ---
 python-dotenv

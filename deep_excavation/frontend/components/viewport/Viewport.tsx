@@ -1,18 +1,24 @@
-import React, { useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
+/**
+ * @file 项目核心三维视口组件
+ * @author GeoStruct-5 Team
+ * @date 2025-07-06
+ * @description 负责所有Three.js场景的渲染、相机控制、坐标系小部件以及动态对象的展示。
+ */
+import React, { useRef, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer';
+import { VTKLoader } from 'three/examples/jsm/loaders/VTKLoader';
 import { Raycaster, Vector2 } from 'three';
 import { replayFeatures } from '../../core/replayEngine';
-import { useStore } from '../../core/store';
+import { useStore, ViewportHandles } from '../../core/store';
 import { createAxesGizmo } from './AxesGizmo';
 
-export interface ViewportHandles {
-  addAnalysisMesh: (mesh: THREE.Object3D) => void;
-  clearAnalysisMeshes: () => void;
-  loadVtkResults: (url: string) => void;
-}
-
+/**
+ * @description 核心视口组件，使用 forwardRef 将其API暴露给父组件。
+ * @param {object} props - React组件的props，当前为空。
+ * @param {React.Ref<ViewportHandles>} ref - 用于父组件调用的ref。
+ * @returns {React.ReactElement} 渲染出的div容器。
+ */
 const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
   const mountRef = useRef<HTMLDivElement>(null);
   
@@ -25,7 +31,6 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
   // --- Axes Gizmo Refs ---
   const axesSceneRef = useRef(new THREE.Scene());
   const axesCameraRef = useRef<THREE.OrthographicCamera>();
-  const axesRendererRef = useRef<CSS2DRenderer>();
   
   const analysisMeshesRef = useRef<THREE.Object3D[]>([]);
   const resultsMeshRef = useRef<THREE.Object3D | null>(null);
@@ -43,27 +48,50 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
     executePick: state.executePick,
     stopPicking: state.stopPicking,
   }));
+  const setViewportApi = useStore(state => state.setViewportApi);
+
 
   // --- Replay engine generates the main model ---
   const parametricModel = useMemo(() => replayFeatures(features), [features]);
 
   // --- Imperative handles for parent component control ---
-  useImperativeHandle(ref, () => ({
-    addAnalysisMesh: (mesh) => {
-      const scene = sceneRef.current;
-      mesh.userData.isAnalysisMesh = true;
-      scene.add(mesh);
-      analysisMeshesRef.current.push(mesh);
-    },
-    clearAnalysisMeshes: () => {
-      const scene = sceneRef.current;
-      analysisMeshesRef.current.forEach(mesh => scene.remove(mesh));
-      analysisMeshesRef.current = [];
-    },
-    loadVtkResults: (url) => {
-      // Implementation of loadVtkResults method
-    }
-  }));
+  useImperativeHandle(ref, () => {
+    const api: ViewportHandles = {
+      addAnalysisMesh: (mesh) => {
+        const scene = sceneRef.current;
+        mesh.userData.isAnalysisMesh = true;
+        scene.add(mesh);
+        analysisMeshesRef.current.push(mesh);
+      },
+      clearAnalysisMeshes: () => {
+        const scene = sceneRef.current;
+        analysisMeshesRef.current.forEach(mesh => scene.remove(mesh));
+        analysisMeshesRef.current = [];
+      },
+      loadVtkResults: (url: string) => {
+          const scene = sceneRef.current;
+          if (resultsMeshRef.current) {
+              scene.remove(resultsMeshRef.current);
+          }
+  
+          const loader = new VTKLoader();
+          loader.load(url, (geometry) => {
+              geometry.computeVertexNormals();
+              const material = new THREE.MeshLambertMaterial({ 
+                  vertexColors: true,
+                  side: THREE.DoubleSide 
+              });
+              const mesh = new THREE.Mesh(geometry, material);
+              mesh.name = "vtk_results_mesh";
+              
+              resultsMeshRef.current = mesh;
+              scene.add(mesh);
+          });
+      }
+    };
+    setViewportApi(api);
+    return api;
+  }, [setViewportApi]);
 
   useEffect(() => {
     const mountNode = mountRef.current;
@@ -71,7 +99,7 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
         
     // === Main Scene Setup ===
     const scene = sceneRef.current;
-    scene.background = new THREE.Color(0x334155); // slate-700
+    scene.background = new THREE.Color(0x29303d); // A slightly lighter, more neutral dark blue
     const camera = new THREE.PerspectiveCamera(75, mountNode.clientWidth / mountNode.clientHeight, 0.1, 2000);
     camera.position.set(50, 50, 150);
     cameraRef.current = camera;
@@ -82,14 +110,6 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
     mountNode.appendChild(renderer.domElement);
     
     // === Axes Gizmo Setup ===
-    const axesRenderer = new CSS2DRenderer();
-    axesRenderer.setSize(mountNode.clientWidth, mountNode.clientHeight);
-    axesRenderer.domElement.style.position = 'absolute';
-    axesRenderer.domElement.style.top = '0px';
-    axesRenderer.domElement.style.pointerEvents = 'none'; // Pass clicks through
-    mountNode.appendChild(axesRenderer.domElement);
-    axesRendererRef.current = axesRenderer;
-    
     const axesScene = axesSceneRef.current;
     const axesCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
     axesCamera.position.set(0, 0, 10);
@@ -107,6 +127,11 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
     directionalLight.position.set(100, 100, 50);
     scene.add(directionalLight);
+
+    // Add a grid helper for better spatial orientation
+    const gridHelper = new THREE.GridHelper(500, 50, '#5A6373', '#424955'); // Brighter, more visible grid lines
+    gridHelper.position.y = -0.1; // Place it slightly below the main plane
+    scene.add(gridHelper);
 
     const animate = () => {
       requestAnimationFrame(animate);
@@ -129,27 +154,23 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
       
       renderer.render(axesScene, axesCamera);
       renderer.setScissorTest(false);
-
-      // Render CSS2D labels
-      axesRenderer.render(axesScene, axesCamera);
     };
     animate();
 
-    const handleResize = () => {
-        if (!camera || !renderer || !mountNode || !axesRenderer) return;
+    const resizeObserver = new ResizeObserver(() => {
+        if (!camera || !renderer || !mountNode) return;
         camera.aspect = mountNode.clientWidth / mountNode.clientHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(mountNode.clientWidth, mountNode.clientHeight);
-        axesRenderer.setSize(mountNode.clientWidth, mountNode.clientHeight);
-    };
-    window.addEventListener('resize', handleResize);
+    });
+    resizeObserver.observe(mountNode);
 
     // Add the group for transient objects to the scene
     transientGroupRef.current.name = "transientGeologyGroup";
     scene.add(transientGroupRef.current);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       if (mountNode && renderer.domElement) {
         mountNode.removeChild(renderer.domElement);
         rendererRef.current = undefined;

@@ -1,68 +1,71 @@
-import React from 'react';
-// import { Box, DraftingCompass, Scissors, Group, Trash2 } from 'lucide-react';
+﻿import React from 'react';
 import { useStore } from '../../core/store';
-import { AnyFeature } from '../../services/parametricAnalysisService';
+import { Box, Typography, List, ListItem, ListItemIcon, ListItemText, ListItemButton } from '@mui/material';
 
+// Icons for different feature types
+import TerrainIcon from '@mui/icons-material/Terrain';
+import BusinessIcon from '@mui/icons-material/Business';
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
+import GavelIcon from '@mui/icons-material/Gavel';
+import WavesIcon from '@mui/icons-material/Waves';
+import LooksOneIcon from '@mui/icons-material/LooksOne';
+
+const getFeatureIcon = (type: string) => {
+    switch (type) {
+        case 'SoilDomain': return <TerrainIcon color="success" />;
+        case 'Building': return <BusinessIcon color="action" />;
+        case 'Tunnel': return <CompareArrowsIcon color="secondary" />;
+        case 'Excavation': return <GavelIcon sx={{ color: '#FFB74D' }} />;
+        case 'DiaphragmWall': return <LooksOneIcon color="disabled" />;
+        case 'PileRaft': return <WavesIcon color="info" />;
+        default: return <Box sx={{ width: 24 }} />;
+    }
+}
 
 const HistoryTree: React.FC = () => {
-  const features = useStore(state => state.features);
-  const selectedFeatureId = useStore(state => state.selectedFeatureId);
-  const selectFeature = useStore(state => state.selectFeature);
-  const deleteFeature = useStore(state => state.deleteFeature);
+    const features = useStore(state => state.features);
+    const selectedFeatureId = useStore(state => state.selectedFeatureId);
+    const selectFeature = useStore(state => state.selectFeature);
 
-  const getIcon = (type: AnyFeature['type']) => {
-    // switch (type) {
-    //   case 'CreateBox':
-    //     return <Box className="w-4 h-4 text-yellow-400" />;
-    //   case 'AssignGroup':
-    //     return <Group className="w-4 h-4 text-green-400" />;
-    //   default:
-    //     // Provide a generic icon for unhandled types like CreateSketch for now
-    //     return <DraftingCompass className="w-4 h-4 text-gray-400" />;
-    // }
-    return '■'; // Return a simple character as a placeholder
-  };
-
-  const handleDeleteClick = (e: React.MouseEvent, featureId: string) => {
-    e.stopPropagation(); // Prevent the li's onClick from firing
-    deleteFeature(featureId);
-  };
-
-  return (
-    <div className="flex flex-col h-full text-sm">
-      <div className="flex-shrink-0 p-2 flex justify-between items-center border-b border-gray-700">
-        <h2 className="font-bold text-base">Model History</h2>
-      </div>
-      <div className="flex-grow overflow-y-auto">
-        {features.length === 0 ? (
-          <div className="p-4 text-center text-gray-400">No operations yet.</div>
-        ) : (
-          <ul>
-            {features.map(feature => (
-              <li
-                key={feature.id}
-                onClick={() => selectFeature(feature.id)}
-                className={`flex items-center p-2 cursor-pointer group hover:bg-blue-900/50 ${
-                  selectedFeatureId === feature.id ? 'bg-blue-800' : ''
-                }`}
-              >
-                <span className="mr-2">{getIcon(feature.type)}</span>
-                <span className="flex-grow">{feature.name}</span>
-                <button 
-                  onClick={(e) => handleDeleteClick(e, feature.id)}
-                  className="ml-2 p-1 rounded-full text-gray-400 hover:bg-red-800 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Delete Feature"
-                >
-                    {/* <Trash2 size={14} /> */}
-                    X
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
+    return (
+        <Box sx={{ width: '100%', bgcolor: 'background.paper' }}>
+            {features.length > 0 ? (
+                <List>
+                    {features.map((feature, index) => (
+                        <ListItem key={feature.id} disablePadding>
+                            <ListItemButton
+                                selected={selectedFeatureId === feature.id}
+                                onClick={() => selectFeature(feature.id)}
+                                sx={{
+                                    '&.Mui-selected': {
+                                        backgroundColor: theme => theme.palette.primary.main,
+                                        color: theme => theme.palette.primary.contrastText,
+                                        '&:hover': {
+                                            backgroundColor: theme => theme.palette.primary.dark,
+                                        },
+                                        '& .MuiListItemIcon-root': {
+                                            color: theme => theme.palette.primary.contrastText,
+                                        }
+                                    }
+                                }}
+                            >
+                                <ListItemIcon>
+                                    {getFeatureIcon(feature.type)}
+                                </ListItemIcon>
+                                <ListItemText 
+                                    primary={`${index + 1}. ${feature.name || feature.type}`} 
+                                />
+                            </ListItemButton>
+                        </ListItem>
+                    ))}
+                </List>
+            ) : (
+                <Typography sx={{ p: 2, color: 'text.secondary', textAlign: 'center' }}>
+                    暂无模型特征
+                </Typography>
+            )}
+        </Box>
+    );
 };
 
-export default HistoryTree; 
+export default HistoryTree;

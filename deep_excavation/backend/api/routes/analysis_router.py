@@ -2,20 +2,13 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import List, Union, Literal, Annotated, Any, Dict, Optional, Tuple
 import logging
-import tempfile
 import os
 from starlette.responses import FileResponse
-import uuid
-
-# --- 真实计算库 ---
-import gmsh
-import meshio
 
 # --- 自定义模块 ---
-from ..core.kratos_solver import run_kratos_analysis
+from ..core.v5_runner import run_v5_analysis
 from ..core.analysis_runner import (
-    DeepExcavationModel, run_deep_excavation_analysis,
-    SoilLayer, StructuralElement, BoundaryCondition, ExcavationStage
+    DeepExcavationModel, run_deep_excavation_analysis
 )
 
 # --- 日志配置 ---
@@ -162,6 +155,50 @@ class CreateAnchorSystemFeature(BaseFeature):
     parameters: CreateAnchorSystemParameters
 
 
+class CreateExcavationParameters(BaseModel):
+    """通过轮廓点和深度定义开挖"""
+    points: List[Point2D]
+    depth: float
+
+
+class CreateExcavationFeature(BaseFeature):
+    type: Literal['CreateExcavation'] = 'CreateExcavation'
+    parameters: CreateExcavationParameters
+
+
+class CreateExcavationFromDXFParameters(BaseModel):
+    """通过DXF文件和图层名定义开挖"""
+    dxfFileContent: str
+    layerName: str
+    depth: float
+
+
+class CreateExcavationFromDXFFeature(BaseFeature):
+    type: Literal['CreateExcavationFromDXF'] = 'CreateExcavationFromDXF'
+    parameters: CreateExcavationFromDXFParameters
+
+
+class CreateGeologicalModelParameters(BaseModel):
+    csvData: str
+
+
+class CreateGeologicalModelFeature(BaseFeature):
+    type: Literal['CreateGeologicalModel'] = 'CreateGeologicalModel'
+    parameters: CreateGeologicalModelParameters
+
+
+# --- 新增：分析设置模型 (FEABench能力融合) ---
+class MeshSettings(BaseModel):
+    """网格划分设置"""
+    global_mesh_size: float = Field(10.0, description="全局最大网格尺寸")
+    refinement_level: int = Field(1, description="局部细化等级, 1-5")
+
+class AnalysisSettings(BaseModel):
+    """分析工况设置"""
+    analysis_type: Literal['static', 'staged_construction'] = Field('static', description="分析类型")
+    num_steps: int = Field(1, description="分析步数")
+
+
 # --- 特征联合体 ---
 AnyFeature = Annotated[
     Union[
@@ -173,6 +210,9 @@ AnyFeature = Annotated[
         CreateDiaphragmWallFeature,
         CreatePileRaftFeature,
         CreateAnchorSystemFeature,
+        CreateExcavationFeature,
+        CreateExcavationFromDXFFeature,
+        CreateGeologicalModelFeature,
     ],
     Field(discriminator="type")
 ]
@@ -182,6 +222,8 @@ AnyFeature = Annotated[
 class ParametricScene(BaseModel):
     version: str = "2.0-parametric"
     features: List[AnyFeature]
+    mesh_settings: Optional[MeshSettings] = None
+    analysis_settings: Optional[AnalysisSettings] = None
 
 
 class AnalysisResult(BaseModel):
@@ -192,261 +234,83 @@ class AnalysisResult(BaseModel):
 
 
 # ############################################################################
-# ### 后端特征重放引擎 (The Backend Replay Engine)
-# ############################################################################
-
-def replay_features_and_mesh(scene: ParametricScene) -> tuple[meshio.Mesh, str]:
-    """
-    后端的特征重放与网格生成引擎
-    1. 遍历特征树
-    2. 使用Gmsh/OCC执行几何操作
-    3. 使用Gmsh/OCC指派物理组
-    4. 生成网格并导出
-    """
-    logger.info("开始后端特征重放与网格生成...")
-    gmsh.initialize()
-    try:
-        gmsh.model.add("parametric_model")
-        
-        # 这个字典将用于存储特征ID与其在Gmsh中生成的几何实体tag的映射
-        feature_to_gmsh_tags: Dict[
-            str, Union[int, List[int], List[Tuple[int, int]]]
-        ] = {}
-
-        for feature in scene.features:
-            logger.info(
-                f"正在处理特征: {feature.name} (类型: {feature.type})"
-            )
-
-            if feature.type == 'CreateBox':
-                p = feature.parameters
-                box_tag = gmsh.model.occ.addBox(
-                    p.position.x - p.width / 2,
-                    p.position.y - p.height / 2,
-                    p.position.z - p.depth / 2,
-                    p.width, p.height, p.depth
-                )
-                gmsh.model.occ.synchronize()
-                feature_to_gmsh_tags[feature.id] = box_tag
-                logger.info(
-                    f"特征 '{feature.name}' (ID: {feature.id}) 已创建Box, "
-                    f"Gmsh Tag: {box_tag}"
-                )
-
-            elif feature.type == 'CreateSketch':
-                p = feature.parameters
-                # 在选定的平面上创建一系列点，然后连接成线
-                points_tags = []
-                for point2d in p.points:
-                    if p.plane == 'XY':
-                        pt = gmsh.model.occ.addPoint(
-                            point2d.x, point2d.y, p.plane_offset
-                        )
-                        points_tags.append(pt)
-                    elif p.plane == 'XZ':
-                        pt = gmsh.model.occ.addPoint(
-                            point2d.x, p.plane_offset, point2d.y
-                        )
-                        points_tags.append(pt)
-                    elif p.plane == 'YZ':
-                        pt = gmsh.model.occ.addPoint(
-                            p.plane_offset, point2d.x, point2d.y
-                        )
-                        points_tags.append(pt)
-                
-                # 连接点成线
-                lines_tags = []
-                for i in range(len(points_tags)):
-                    p1 = points_tags[i]
-                    p2 = points_tags[(i + 1) % len(points_tags)]  # 循环连接
-                    lines_tags.append(gmsh.model.occ.addLine(p1, p2))
-
-                # 从线创建一个线圈 (Wire)
-                curve_loop = gmsh.model.occ.addCurveLoop(lines_tags)
-                feature_to_gmsh_tags[feature.id] = curve_loop
-                logger.info(
-                    f"特征 '{feature.name}' 已创建Sketch, "
-                    f"Gmsh CurveLoop Tag: {curve_loop}"
-                )
-
-            elif feature.type == 'Extrude':
-                p = feature.parameters
-                parent_id = feature.parentId
-                if not parent_id or parent_id not in feature_to_gmsh_tags:
-                    raise ValueError(
-                        f"Extrude feature '{feature.name}' has a missing or "
-                        f"invalid parent sketch."
-                    )
-                
-                sketch_tag = feature_to_gmsh_tags[parent_id]
-                
-                # 从线圈创建一个平面
-                surface = gmsh.model.occ.addPlaneSurface([sketch_tag])
-
-                # 拉伸平面成体 (暂时只支持沿Z轴正向拉伸)
-                extrude_dim_tags = gmsh.model.occ.extrude(
-                    [(2, surface)], 0, 0, p.depth
-                )
-                gmsh.model.occ.synchronize()
-
-                # 从拉伸结果中找到体的tag
-                volume_tag = next(
-                    (tag for dim, tag in extrude_dim_tags if dim == 3), None
-                )
-                if volume_tag is None:
-                    raise ValueError("Extrusion did not result in a 3D volume.")
-                
-                feature_to_gmsh_tags[feature.id] = volume_tag
-                logger.info(
-                    f"特征 '{feature.name}' 已拉伸父草图 '{parent_id}', "
-                    f"Gmsh Volume Tag: {volume_tag}"
-                )
-
-            elif feature.type == 'AddInfiniteDomain':
-                p = feature.parameters
-                parent_id = feature.parentId
-                if not parent_id or parent_id not in feature_to_gmsh_tags:
-                    raise ValueError(
-                        f"InfiniteDomain feature '{feature.name}' has a "
-                        f"missing or invalid parent body."
-                    )
-                
-                parent_tag = feature_to_gmsh_tags[parent_id]
-                if not isinstance(parent_tag, int):
-                    raise ValueError("InfiniteDomain can only be applied to a single 3D volume.")
-                
-                # 创建一个更大的外壳
-                min_x, min_y, min_z, max_x, max_y, max_z = gmsh.model.occ.getBoundingBox(3, parent_tag)
-                
-                shell_tag = gmsh.model.occ.addBox(
-                    min_x - p.thickness, min_y - p.thickness, min_z - p.thickness,
-                    (max_x - min_x) + 2 * p.thickness,
-                    (max_y - min_y) + 2 * p.thickness,
-                    (max_z - min_z) + 2 * p.thickness
-                )
-
-                # 执行 fragment 操作
-                logger.info(f"对体 {parent_tag} 和外壳 {shell_tag} 执行 Fragment 操作...")
-                out_tags, out_map = gmsh.model.occ.fragment([(3, parent_tag)], [(3, shell_tag)])
-                gmsh.model.occ.synchronize()
-
-                # out_map[0] 是原始parent_tag被切碎后的结果
-                # 一般来说，如果完全包含，结果只有一个，就是它自己
-                inner_soil_tag = out_map[0][0][1]
-                
-                # out_map[1] 是原始shell_tag被切碎后的结果
-                # 它会被切成两部分：与内部体相减的部分（壳），和内部体本身
-                # 我们需要找到那个 "壳"
-                all_shell_fragments = [tag for dim, tag in out_map[1]]
-                infinite_domain_tag = next(tag for tag in all_shell_fragments if tag != inner_soil_tag)
-                
-                # 为新的区域创建物理组
-                gmsh.model.addPhysicalGroup(3, [inner_soil_tag], name="SOIL_CORE")
-                gmsh.model.addPhysicalGroup(3, [infinite_domain_tag], name="INFINITE_DOMAIN")
-                logger.info(
-                    f"Fragment 操作成功. 核心土体: {inner_soil_tag}, "
-                    f"无限元域: {infinite_domain_tag}"
-                )
-
-                # 更新父级特征的几何ID，以便后续操作能找到正确的几何体
-                feature_to_gmsh_tags[parent_id] = inner_soil_tag
-
-            elif feature.type == 'AssignGroup':
-                # **这是最体现Fusion思想的地方**
-                # 我们需要找到这个组所要附加到的几何实体
-                # 在一个更复杂的场景中,我们需要一个复杂的映射逻辑
-                # 但在这里我们简化: 假设物理组是直接附加在某个几何特征上
-                # 并且前端已经通过某种方式(如拾取)获取了表面的tag
-                p = feature.parameters
-                if p.entity_type == 'face':
-                    # 前端直接提供了面的tags, 我们直接用
-                    pg_tag = gmsh.model.addPhysicalGroup(2, p.entity_tags, name=p.group_name)
-                    logger.info(f"特征 '{feature.name}' 已指派物理组, Gmsh Physical Tag: {pg_tag}")
-                # TODO: 添加对volume的处理
-        
-        # 3. 生成网格
-        logger.info("开始网格划分...")
-        gmsh.model.mesh.setSize(gmsh.model.getEntities(0), 10.0) # 暂时使用较粗的网格
-        gmsh.model.mesh.generate(3)
-        logger.info("网格划分完成。")
-
-        # 4. 导出为 Kratos 所需的 MDPA 格式
-        unique_id = uuid.uuid4()
-        msh_filename = os.path.join(tempfile.gettempdir(), f"{unique_id}.msh")
-        mdpa_filename = os.path.join(tempfile.gettempdir(), f"{unique_id}.mdpa")
-
-        gmsh.write(msh_filename)
-        mesh_data = meshio.read(msh_filename)
-        meshio.write(mdpa_filename, mesh_data, file_format="mdpa")
-        
-        os.remove(msh_filename)
-        logger.info(f"网格已成功转换为MDPA格式: {mdpa_filename}")
-        
-        return mesh_data, mdpa_filename
-
-    finally:
-        gmsh.finalize()
-
-
-# ############################################################################
 # ### API Endpoints
 # ############################################################################
 
 @router.post("/analyze", response_model=AnalysisResult, tags=["Parametric Analysis"])
 async def run_parametric_analysis(scene: ParametricScene):
     """
-    接收前端参数化场景, 进行特征重放、建模、网格划分、Kratos计算, 并返回结果。
+    接收参数化场景，调用V5分析引擎，并返回分析结果。
     """
-    logger.info("接收到V2.0参数化场景数据，开始完整分析流程...")
-    
+    logger.info(f"接收到对 v5 引擎的参数化分析请求: {scene.version}")
     try:
-        mesh_data, mdpa_filename = replay_features_and_mesh(scene)
-        result_vtk_filename = run_kratos_analysis(mdpa_filename)
-        
-        stats = {
-            "num_points": len(mesh_data.points),
-            "num_cells": sum(len(cell.data) for cell in mesh_data.cells),
-            "cell_types": [cell.type for cell in mesh_data.cells],
-        }
+        results = run_v5_analysis(scene)
+        fem_results = results.get("results", {})
 
-        final_result_filename = os.path.basename(result_vtk_filename)
-        return {
-            "status": "success",
-            "message": "参数化场景分析成功。",
-            "mesh_statistics": stats,
-            "mesh_filename": final_result_filename
-        }
+        if fem_results.get("status") == "failed":
+            raise HTTPException(
+                status_code=500,
+                detail=fem_results.get("message", "V5 Runner failed")
+            )
+
+        return AnalysisResult(
+            status=fem_results.get("status", "unknown"),
+            message=fem_results.get(
+                "message",
+                "Analysis finished with unknown status."
+            ),
+            mesh_statistics=fem_results.get("mesh_statistics", {}),
+            mesh_filename=fem_results.get("mesh_filename")
+        )
 
     except Exception as e:
-        logger.error(f"参数化分析流程中发生错误: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"分析失败: {str(e)}")
+        logger.error(f"参数化分析失败: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"An unexpected error occurred in router: {str(e)}"
+        )
 
 
 @router.get("/results/{filename_with_ext}", tags=["Parametric Analysis"])
 async def get_analysis_result_file(filename_with_ext: str):
-    """ 提供结果文件的下载 """
-    if ".." in filename_with_ext or filename_with_ext.startswith(("/", "\\")):
-        raise HTTPException(status_code=400, detail="无效的文件名。")
+    """获取参数化分析的结果文件（如VTK）。"""
+    import tempfile
     temp_dir = tempfile.gettempdir()
-    file_path = os.path.join(temp_dir, filename_with_ext)
+    all_temp_dirs = [os.path.join(temp_dir, d) for d in os.listdir(temp_dir)]
+    kratos_dirs = [
+        d for d in all_temp_dirs
+        if os.path.isdir(d) and os.path.basename(d).startswith('kratos_v5_')
+    ]
+
+    if not kratos_dirs:
+        raise HTTPException(
+            status_code=404, detail="找不到Kratos运行器的临时目录。"
+        )
+
+    latest_dir = max(kratos_dirs, key=os.path.getmtime)
+    file_path = os.path.join(latest_dir, filename_with_ext)
+
     if not os.path.isfile(file_path):
-        raise HTTPException(status_code=404, detail="文件未找到。")
-    return FileResponse(path=file_path, filename=os.path.basename(file_path))
+        raise HTTPException(
+            status_code=404,
+            detail=f"结果文件未找到: {file_path}"
+        )
+    return FileResponse(file_path)
 
 
 # ############################################################################
-# ### 深基坑工程统一分析API
+# ### Legacy Deep Excavation API (To be deprecated)
 # ############################################################################
 
-@router.post("/deep-excavation/analyze", tags=["Deep Excavation Analysis"])
+
+@router.post("/deep-excavation/analyze", tags=["Legacy Analysis"])
 async def analyze_deep_excavation(model: DeepExcavationModel):
     """
-    执行深基坑工程统一分析，可包含多种分析类型
+    (旧) 执行深基坑工程统一分析，可包含多种分析类型
     """
-    logger.info(f"收到深基坑工程分析请求: {model.project_name}")
+    logger.info(f"收到旧版深基坑工程分析请求: {model.project_name}")
     
     try:
-        # 调用统一分析入口函数
         result = run_deep_excavation_analysis(model)
         
         return {
@@ -461,15 +325,15 @@ async def analyze_deep_excavation(model: DeepExcavationModel):
             detail=f"分析过程中发生错误: {str(e)}"
         )
 
-@router.get("/deep-excavation/results/{project_id}", tags=["Deep Excavation Analysis"])
+@router.get(
+    "/deep-excavation/results/{project_id}", tags=["Legacy Analysis"]
+)
 async def get_deep_excavation_results(project_id: str):
     """
-    获取深基坑工程分析结果
+    (旧) 获取深基坑工程分析结果
     """
     logger.info(f"获取深基坑工程分析结果: {project_id}")
     
-    # 这里应该从数据库或文件系统中获取结果
-    # 简化处理，返回模拟结果
     return {
         "project_id": project_id,
         "status": "completed",
@@ -496,15 +360,16 @@ async def get_deep_excavation_results(project_id: str):
         }
     }
 
-@router.get("/deep-excavation/result-file/{project_id}/{analysis_type}", tags=["Deep Excavation Analysis"])
+@router.get(
+    "/deep-excavation/result-file/{project_id}/{analysis_type}",
+    tags=["Legacy Analysis"]
+)
 async def get_deep_excavation_result_file(project_id: str, analysis_type: str):
     """
-    获取深基坑工程分析结果文件
+    (旧) 获取深基坑工程分析结果文件
     """
     logger.info(f"获取深基坑工程分析结果文件: {project_id}, 分析类型: {analysis_type}")
     
-    # 这里应该从文件系统中获取结果文件
-    # 简化处理，返回错误
     raise HTTPException(
         status_code=404,
         detail=f"未找到项目 {project_id} 的 {analysis_type} 分析结果文件"

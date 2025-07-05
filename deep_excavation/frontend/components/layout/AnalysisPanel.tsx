@@ -1,29 +1,84 @@
-import React, { useState } from 'react';
+import React, { useState, RefObject } from 'react';
+import { 
+    Box, 
+    Typography, 
+    Button, 
+    Paper, 
+    Stack, 
+    Stepper,
+    Step,
+    StepLabel,
+    StepContent,
+    CircularProgress,
+    Alert
+} from '@mui/material';
+import Check from '@mui/icons-material/Check';
+import SettingsIcon from '@mui/icons-material/Settings';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import ScienceIcon from '@mui/icons-material/Science';
+
 import { useStore } from '../../core/store';
 import { runParametricAnalysis, ParametricScene, AnalysisResult } from '../../services/parametricAnalysisService';
+import { ViewportHandles } from '../viewport/Viewport';
+import MeshSettingsForm from '../forms/MeshSettingsForm';
 
-const AnalysisPanel: React.FC = () => {
-    const openModal = useStore(state => state.openModal);
-    const features = useStore(state => state.features);
+const steps = [
+  {
+    label: '网格划分设置',
+    description: `定义计算网格的精细度。`,
+    icon: SettingsIcon,
+  },
+  {
+    label: '分析工况定义',
+    description: '选择分析类型，例如静力分析或分步施工。',
+    icon: ScienceIcon,
+  },
+  {
+    label: '运行求解',
+    description: `执行计算并等待结果。`,
+    icon: PlayArrowIcon,
+  },
+];
+
+interface AnalysisPanelProps {
+    viewportRef: RefObject<ViewportHandles>;
+}
+
+const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ viewportRef }) => {
+    const { features, meshSettings, analysisSettings } = useStore(state => ({
+        features: state.features,
+        meshSettings: state.meshSettings,
+        analysisSettings: state.analysisSettings
+    }));
+    
+    const [activeStep, setActiveStep] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
-    const [analysisStatus, setAnalysisStatus] = useState<AnalysisResult | null>(null);
+    const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
 
     const handleRunAnalysis = async () => {
         setIsLoading(true);
-        setAnalysisStatus(null);
+        setAnalysisResult(null);
         
-        const scene: ParametricScene = {
-            version: "2.0-parametric",
+        const scenePayload = {
+            version: "2.0-parametric" as const,
             features: features,
+            mesh_settings: meshSettings,
+            analysis_settings: analysisSettings
         };
 
         try {
-            const result = await runParametricAnalysis(scene);
-            setAnalysisStatus(result);
+            const result = await runParametricAnalysis(scenePayload);
+            setAnalysisResult(result);
+
+            if (result.status.startsWith('completed') && result.mesh_filename) {
+                const resultsUrl = `/api/analysis/results/${result.mesh_filename}`;
+                viewportRef.current?.loadVtkResults(resultsUrl);
+            }
+
         } catch (error) {
-            setAnalysisStatus({
+            setAnalysisResult({
                 status: 'Error',
-                message: error instanceof Error ? error.message : 'An unknown error occurred.',
+                message: error instanceof Error ? error.message : '发生未知错误',
                 mesh_statistics: {},
             });
         } finally {
@@ -31,63 +86,108 @@ const AnalysisPanel: React.FC = () => {
         }
     };
 
-    // In the future, this will show context-sensitive information
-    // and launch the various modals for setting up the analysis.
+    const handleNext = () => {
+        if (activeStep === steps.length - 1) {
+            handleRunAnalysis();
+        } else {
+            setActiveStep((prevActiveStep) => prevActiveStep + 1);
+        }
+    };
+
+    const handleBack = () => {
+        setActiveStep((prevActiveStep) => prevActiveStep - 1);
+    };
+
+    const getStepContent = (step: number) => {
+        switch (step) {
+            case 0:
+                return <MeshSettingsForm />;
+            case 1:
+                return (
+                    <Box sx={{ p: 2 }}>
+                        <Typography>分析工况定义功能正在开发中...</Typography>
+                    </Box>
+                );
+            case 2:
+                return (
+                    <Box sx={{ p: 2 }}>
+                       <Typography>准备就绪。点击"运行分析"开始计算。</Typography>
+                       {analysisResult && (
+                            <Alert 
+                                severity={analysisResult.status.startsWith('completed') ? 'success' : 'error'} 
+                                sx={{ mt: 2 }}
+                            >
+                                {analysisResult.message}
+                            </Alert>
+                        )}
+                    </Box>
+                );
+            default:
+                return '未知步骤';
+        }
+    }
+
     return (
-        <div className="p-4 bg-gray-800 text-white h-full">
-            <h2 className="text-xl font-bold mb-4 border-b border-gray-600 pb-2">Analysis Workbench</h2>
-            
-            <div className="space-y-2">
-                <button 
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-300"
-                    onClick={() => openModal('MeshSettings')}
-                >
-                    Mesh Settings
-                </button>
-                <button 
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition duration-300 disabled:opacity-50"
-                    onClick={() => openModal('MaterialManager')}
-                    disabled // Temporarily disabled until implemented
-                >
-                    Material Manager
-                </button>
-                <button 
-                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded transition duration-300 disabled:opacity-50"
-                    onClick={() => openModal('ConstraintEditor')}
-                    disabled // Temporarily disabled until implemented
-                >
-                    Define Constraints
-                </button>
-                <button 
-                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded transition duration-300 disabled:opacity-50"
-                    onClick={() => openModal('LoadEditor')}
-                    disabled // Temporarily disabled until implemented
-                >
-                    Define Loads
-                </button>
-            </div>
-
-            <div className="mt-8 pt-4 border-t border-gray-700">
-                <button
-                    className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded text-lg transition duration-300 disabled:opacity-50"
-                    onClick={handleRunAnalysis}
-                    disabled={isLoading || features.length === 0}
-                >
-                    {isLoading ? 'Analyzing...' : 'Run Parametric Analysis'}
-                </button>
-            </div>
-            
-            {analysisStatus && (
-                <div className={`mt-4 p-3 rounded ${analysisStatus.status === 'Success' ? 'bg-green-900' : 'bg-red-900'}`}>
-                    <h3 className="font-bold">{analysisStatus.status}</h3>
-                    <p className="text-sm">{analysisStatus.message}</p>
-                </div>
-            )}
-
-            <div className="mt-8 p-4 text-center text-gray-400 border-t border-gray-700">
-                <p>Select a setup task to begin configuring your analysis study.</p>
-            </div>
-        </div>
+        <Paper elevation={0} sx={{ p: 2, bgcolor: 'transparent' }}>
+            <Typography variant="h6" sx={{ fontWeight: 'medium', mb: 2 }}>
+                分析工作流
+            </Typography>
+            <Stepper activeStep={activeStep} orientation="vertical">
+                {steps.map((step, index) => (
+                <Step key={step.label}>
+                    <StepLabel
+                        StepIconComponent={(props) => {
+                            const { active, completed, icon } = props;
+                            const Icon = steps[icon as number - 1].icon;
+                            return (
+                                <Box sx={{
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center',
+                                    width: 24, 
+                                    height: 24, 
+                                    borderRadius: '50%', 
+                                    bgcolor: active ? 'primary.main' : (completed ? 'success.main' : 'grey.700'),
+                                    color: 'white',
+                                    transition: 'all 0.3s'
+                                }}>
+                                    {completed ? <Check sx={{fontSize: 16}} /> : <Icon sx={{fontSize: 16}} />}
+                                </Box>
+                            );
+                        }}
+                    >
+                       <Typography sx={{fontWeight: activeStep === index ? 'bold' : 'normal'}}>
+                           {step.label}
+                       </Typography>
+                    </StepLabel>
+                    <StepContent>
+                        <Paper sx={{p: 2, bgcolor: 'background.paper', borderRadius: 2, my: 1}}>
+                            {getStepContent(index)}
+                        </Paper>
+                        <Box sx={{ mb: 2 }}>
+                            <div>
+                                <Button
+                                    variant="contained"
+                                    onClick={handleNext}
+                                    sx={{ mt: 1, mr: 1 }}
+                                    disabled={isLoading}
+                                >
+                                    {isLoading && index === steps.length -1 ? <CircularProgress size={24} /> : (activeStep === steps.length - 1 ? '运行分析' : '继续')}
+                                </Button>
+                                <Button
+                                    disabled={index === 0 || isLoading}
+                                    onClick={handleBack}
+                                    sx={{ mt: 1, mr: 1 }}
+                                >
+                                    返回
+                                </Button>
+                            </div>
+                        </Box>
+                    </StepContent>
+                </Step>
+                ))}
+            </Stepper>
+        </Paper>
     );
 };
 

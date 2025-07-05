@@ -9,7 +9,7 @@ from typing import Dict, List, Any, Optional, Union
 from pydantic import BaseModel, Field
 
 # 导入各个分析模块
-from .v4_runner import DXFProcessor, SeepageAnalysisModel
+from .v5_runner import DXFProcessor
 from .kratos_solver import run_seepage_analysis
 
 # 配置日志
@@ -285,4 +285,4 @@ def run_deep_excavation_analysis(model: DeepExcavationModel) -> Dict[str, Any]:
         "message": result.message,
         "results": result.results,
         "result_files": result.files
-    } 
+    }

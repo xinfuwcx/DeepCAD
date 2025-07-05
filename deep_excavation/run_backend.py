@@ -1,18 +1,14 @@
-"""
-Backend Server Runner
-
-This script starts the FastAPI backend server for the Deep Excavation application.
-It sets up the proper Python path and runs the app.py file.
-"""
-import os
 import sys
+import os
 import uvicorn
 
-# 添加当前目录到Python路径
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, current_dir)
+# Add the current working directory to the Python path.
+# This ensures that the 'backend' module can be found when the script
+# is run from the project root directory.
+sys.path.insert(0, os.getcwd())
 
 if __name__ == "__main__":
-    print("=== Starting Deep Excavation Backend Server ===")
-    # 启动FastAPI服务器
+    """
+    Main entry point for the backend server.
+    """
     uvicorn.run("backend.app:app", host="0.0.0.0", port=8000, reload=True) 

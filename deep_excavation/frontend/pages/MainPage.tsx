@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Box } from '@mui/material';
+import { Box, Theme } from '@mui/material';
 
-import { useStore } from '../core/store';
-import Viewport, { ViewportHandles } from '../components/viewport/Viewport';
+import { useStore, ViewportHandles } from '../core/store';
+import Viewport from '../components/viewport/Viewport';
 import LeftSidebar from '../components/layout/LeftSidebar';
 import RightSidebar from '../components/layout/RightSidebar';
 import PrimaryAppBar from '../components/layout/PrimaryAppBar';
@@ -18,27 +18,31 @@ const MainPage: React.FC = () => {
     const closeModal = useStore(state => state.closeModal);
     
     return (
-        <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'grey.900' }}>
+        <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'background.dark' }}>
             <PrimaryAppBar 
                 onToggleLeftDrawer={() => setLeftDrawerOpen(!leftDrawerOpen)} 
-                onToggleRightDrawer={() => setRightDrawerOpen(!rightDrawerOpen)}
+                onToggleRightDrawer={() => setRightDrawerOpen(!rightDrawerOpen)} 
             />
+            
             <LeftSidebar open={leftDrawerOpen} />
             
             <Box
                 component="main"
                 sx={{
                     flexGrow: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    position: 'relative',
-                    mt: '64px',
+                    p: 0,
+                    mt: '64px', // AppBar height
                     height: 'calc(100vh - 64px)',
+                    position: 'relative',
+                    transition: (theme: Theme) => theme.transitions.create('margin', {
+                        easing: theme.transitions.easing.sharp,
+                        duration: theme.transitions.duration.leavingScreen,
+                    }),
+                    ml: leftDrawerOpen ? '280px' : 0, // LeftSidebar.WIDTH
+                    mr: rightDrawerOpen ? '320px' : 0, // RightSidebar.WIDTH
                 }}
             >
-                <Box sx={{ flexGrow: 1, position: 'relative', width: '100%', height: '100%' }}>
-                    <Viewport ref={viewportRef} />
-                </Box>
+                <Viewport ref={viewportRef} />
                 <BottomStatusBar />
             </Box>
             

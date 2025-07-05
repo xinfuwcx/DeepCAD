@@ -3,13 +3,13 @@
 @tailwind utilities;
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
+  color-scheme: dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  background-color: #263238; /* Use theme background */
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -19,49 +19,59 @@
 
 body {
   margin: 0;
-  display: flex;
-  min-width: 320px;
-  min-height: 100vh;
+  background-color: #263238;
 }
 
 #root {
   width: 100%;
   height: 100vh;
   overflow: hidden;
+  background: #263238;
 }
 
-.app-container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+/* Glassmorphism Card Style */
+.glass-card {
+  background: rgba(55, 71, 79, 0.6); /* background.paper with alpha */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
 }
 
-/* 图例样式 */
-.seepage-legend {
-  font-family: Arial, sans-serif;
-  transition: opacity 0.3s ease;
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-.seepage-legend:hover {
-  opacity: 0.9;
+::-webkit-scrollbar-track {
+  background: rgba(38, 50, 56, 0.5);
+  border-radius: 10px;
 }
 
-/* 动画效果 */
-@keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1); }
+::-webkit-scrollbar-thumb {
+  background-color: rgba(79, 93, 102, 0.7);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 
-.pulse-animation {
-  animation: pulse 2s infinite;
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(90, 105, 114, 0.9);
 }
 
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .seepage-legend {
-    font-size: 10px;
-    padding: 5px;
+/* Animation for components */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
-} 
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fadeIn 0.4s ease-out forwards;
+}
