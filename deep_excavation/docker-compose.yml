@@ -1,0 +1,351 @@
+version: '3.8'
+
+services:
+  # API网关
+  api-gateway:
+    image: nginx:alpine
+    ports:
+      - "8000:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - consul
+      - geometry-service
+      - mesh-service
+      - analysis-service
+      - result-service
+      - project-service
+    networks:
+      - phoenix-network
+
+  # 服务发现
+  consul:
+    image: consul:latest
+    ports:
+      - "8500:8500"
+    command: consul agent -dev -client=0.0.0.0 -ui
+    environment:
+      - CONSUL_BIND_INTERFACE=eth0
+    networks:
+      - phoenix-network
+
+  # 消息队列
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin123
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - phoenix-network
+
+  # 缓存
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - phoenix-network
+
+  # 数据库
+  postgres:
+    image: postgres:13
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=deep_excavation
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - phoenix-network
+
+  # 对象存储
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=admin123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - phoenix-network
+
+  # 监控系统
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - phoenix-network
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - phoenix-network
+
+  # 日志系统
+  elasticsearch:
+    image: elasticsearch:7.14.0
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - phoenix-network
+
+  kibana:
+    image: kibana:7.14.0
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - phoenix-network
+
+  # 链路追踪
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - phoenix-network
+
+  # 几何服务
+  geometry-service:
+    build:
+      context: ./services/geometry
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_AGENT_PORT=6831
+    depends_on:
+      - consul
+      - redis
+      - rabbitmq
+      - jaeger
+    volumes:
+      - ./data/geometry:/app/data
+    networks:
+      - phoenix-network
+
+  # 网格服务
+  mesh-service:
+    build:
+      context: ./services/mesh
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_AGENT_PORT=6831
+    depends_on:
+      - consul
+      - redis
+      - rabbitmq
+      - jaeger
+      - geometry-service
+    volumes:
+      - ./data/mesh:/app/data
+    networks:
+      - phoenix-network
+
+  # 分析服务
+  analysis-service:
+    build:
+      context: ./services/analysis
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_AGENT_PORT=6831
+    depends_on:
+      - consul
+      - redis
+      - rabbitmq
+      - jaeger
+      - mesh-service
+    volumes:
+      - ./data/analysis:/app/data
+    networks:
+      - phoenix-network
+
+  # 结果服务
+  result-service:
+    build:
+      context: ./services/result
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - MINIO_HOST=minio
+      - MINIO_PORT=9000
+      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_AGENT_PORT=6831
+    depends_on:
+      - consul
+      - redis
+      - rabbitmq
+      - minio
+      - jaeger
+      - analysis-service
+    volumes:
+      - ./data/result:/app/data
+    networks:
+      - phoenix-network
+
+  # 项目服务
+  project-service:
+    build:
+      context: ./services/project
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=deep_excavation
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_AGENT_PORT=6831
+    depends_on:
+      - consul
+      - postgres
+      - redis
+      - jaeger
+    networks:
+      - phoenix-network
+
+  # 文件服务
+  file-service:
+    build:
+      context: ./services/file
+      dockerfile: Dockerfile
+    ports:
+      - "8006:8006"
+    environment:
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - MINIO_HOST=minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=admin
+      - MINIO_SECRET_KEY=admin123
+      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_AGENT_PORT=6831
+    depends_on:
+      - consul
+      - minio
+      - jaeger
+    networks:
+      - phoenix-network
+
+  # 通知服务
+  notification-service:
+    build:
+      context: ./services/notification
+      dockerfile: Dockerfile
+    ports:
+      - "8007:8007"
+    environment:
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_AGENT_PORT=6831
+    depends_on:
+      - consul
+      - redis
+      - rabbitmq
+      - jaeger
+    networks:
+      - phoenix-network
+
+  # 前端服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    depends_on:
+      - api-gateway
+    networks:
+      - phoenix-network
+
+volumes:
+  rabbitmq_data:
+  redis_data:
+  postgres_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:
+  elasticsearch_data:
+
+networks:
+  phoenix-network:
+    driver: bridge 

@@ -1,10 +1,10 @@
 import React, { RefObject } from 'react';
 import { Drawer, Box } from '@mui/material';
-import { useStore } from '../../core/store';
+import { useStore, ViewportHandles } from '../../core/store';
 import TaskPanel from './TaskPanel';
+import MeshPanel from './MeshPanel';
 import AnalysisPanel from './AnalysisPanel';
 import VtkResultsViewer from '../VtkResultsViewer';
-import { ViewportHandles } from '../viewport/Viewport';
 
 const DRAWER_WIDTH = 320;
 
@@ -20,8 +20,10 @@ const RightSidebar: React.FC<RightSidebarProps> & { WIDTH: number } = ({ open, v
         switch (activeWorkbench) {
             case 'Modeling':
                 return <TaskPanel />;
+            case 'Mesh':
+                return <MeshPanel />;
             case 'Analysis':
-                return <AnalysisPanel viewportRef={viewportRef} />;
+                return <AnalysisPanel />;
             case 'Results':
                 return <VtkResultsViewer resultsUrl={undefined} />;
             default:

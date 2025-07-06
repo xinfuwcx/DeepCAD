@@ -214,6 +214,8 @@ export interface AssignGroupFeature extends BaseFeature {
 // --- 新增: 地质模型特征 ---
 export interface CreateGeologicalModelParameters {
   csvData: string; // The raw CSV string content
+  terrainParams?: Record<string, any>; // 地形建模参数
+  layerInfo?: Array<Record<string, any>>; // 地层信息
 }
 
 export type CreateGeologicalModelFeature = BaseFeature & {

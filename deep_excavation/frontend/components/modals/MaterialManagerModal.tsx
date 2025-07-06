@@ -39,12 +39,12 @@ interface Material {
 }
 
 interface MaterialManagerModalProps {
-    isVisible: boolean;
+    open: boolean;
     onClose: () => void;
 }
 
 const MaterialManagerModal: React.FC<MaterialManagerModalProps> = ({
-    isVisible,
+    open,
     onClose,
 }) => {
     const [materials, setMaterials] = useState<Material[]>([
@@ -119,7 +119,7 @@ const MaterialManagerModal: React.FC<MaterialManagerModalProps> = ({
     return (
         <>
             <Dialog 
-                open={isVisible} 
+                open={open} 
                 onClose={onClose} 
                 maxWidth="lg" 
                 fullWidth

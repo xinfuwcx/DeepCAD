@@ -29,6 +29,10 @@ gempy
 pyvista
 # Gmsh for meshing
 pygmsh
+# 添加原生 Gmsh 支持
+gmsh>=4.11.0
+# Gmsh with OpenCASCADE support (如果可用)
+# gmsh[occ]>=4.11.0
 meshio
 # DXF support
 ezdxf

@@ -6,8 +6,8 @@ import os
 from starlette.responses import FileResponse
 
 # --- 自定义模块 ---
-from ..core.v5_runner import run_v5_analysis
-from ..core.analysis_runner import (
+from ...core.v5_runner import run_v5_analysis
+from ...core.analysis_runner import (
     DeepExcavationModel, run_deep_excavation_analysis
 )
 
@@ -180,6 +180,8 @@ class CreateExcavationFromDXFFeature(BaseFeature):
 
 class CreateGeologicalModelParameters(BaseModel):
     csvData: str
+    terrainParams: Optional[Dict[str, Any]] = None
+    layerInfo: Optional[List[Dict[str, Any]]] = None
 
 
 class CreateGeologicalModelFeature(BaseFeature):
@@ -193,9 +195,11 @@ class MeshSettings(BaseModel):
     global_mesh_size: float = Field(10.0, description="全局最大网格尺寸")
     refinement_level: int = Field(1, description="局部细化等级, 1-5")
 
+
 class AnalysisSettings(BaseModel):
     """分析工况设置"""
-    analysis_type: Literal['static', 'staged_construction'] = Field('static', description="分析类型")
+    analysis_type: Literal['static', 'staged_construction'] = Field(
+        'static', description="分析类型")
     num_steps: int = Field(1, description="分析步数")
 
 
@@ -237,7 +241,8 @@ class AnalysisResult(BaseModel):
 # ### API Endpoints
 # ############################################################################
 
-@router.post("/analyze", response_model=AnalysisResult, tags=["Parametric Analysis"])
+@router.post("/analyze", response_model=AnalysisResult,
+             tags=["Parametric Analysis"])
 async def run_parametric_analysis(scene: ParametricScene):
     """
     接收参数化场景，调用V5分析引擎，并返回分析结果。
@@ -325,6 +330,7 @@ async def analyze_deep_excavation(model: DeepExcavationModel):
             detail=f"分析过程中发生错误: {str(e)}"
         )
 
+
 @router.get(
     "/deep-excavation/results/{project_id}", tags=["Legacy Analysis"]
 )
@@ -359,6 +365,7 @@ async def get_deep_excavation_results(project_id: str):
             }
         }
     }
+
 
 @router.get(
     "/deep-excavation/result-file/{project_id}/{analysis_type}",

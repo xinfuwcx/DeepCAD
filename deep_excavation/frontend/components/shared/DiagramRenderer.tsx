@@ -142,42 +142,48 @@ function drawExcavationDiagram(scene: THREE.Scene, data: any) {
 // 绘制隧道断面示意图
 function drawTunnelDiagram(scene: THREE.Scene, data: any) {
     const group = new THREE.Group();
-    
+
     const tunnelType = data?.shape || 'horseshoe';
-    const diameter = data?.diameter || 80;
-    
+    const width = data?.width || data?.diameter || 80;
+    const height = data?.height || width;
+    const archHeight = data?.archHeight || height * 0.6;
+    const radius = data?.radius || width / 2;
+
+    let geometry: THREE.BufferGeometry | THREE.ShapeGeometry;
+    let material: THREE.MeshBasicMaterial;
+
     if (tunnelType === 'horseshoe') {
-        // 马蹄形隧道
+        const straightHeight = height - archHeight;
         const shape = new THREE.Shape();
-        const radius = diameter / 2;
-        
-        // 马蹄形路径
-        shape.moveTo(-radius, 0);
-        shape.quadraticCurveTo(-radius, radius, 0, radius);
-        shape.quadraticCurveTo(radius, radius, radius, 0);
-        shape.lineTo(radius, -radius * 0.3);
-        shape.quadraticCurveTo(0, -radius * 0.5, -radius, -radius * 0.3);
-        shape.lineTo(-radius, 0);
-        
-        const geometry = new THREE.ShapeGeometry(shape);
-        const material = new THREE.MeshBasicMaterial({ 
-            color: 0x424242,
-            transparent: true,
-            opacity: 0.7
-        });
-        const tunnel = new THREE.Mesh(geometry, material);
-        group.add(tunnel);
-        
-        // 边框
-        const edges = new THREE.EdgesGeometry(geometry);
-        const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
-        const wireframe = new THREE.LineSegments(edges, edgeMaterial);
-        group.add(wireframe);
+        shape.moveTo(-width/2, -straightHeight/2);
+        shape.lineTo(-width/2, straightHeight/2);
+        shape.absarc(0, straightHeight/2, width/2, Math.PI, 0, false);
+        shape.lineTo(width/2, -straightHeight/2);
+        shape.closePath();
+        geometry = new THREE.ShapeGeometry(shape);
+        material = new THREE.MeshBasicMaterial({ color: 0x424242, transparent: true, opacity: 0.7 });
+    } else if (tunnelType === 'circular') {
+        geometry = new THREE.CircleGeometry(radius, 64);
+        material = new THREE.MeshBasicMaterial({ color: 0x424242, transparent: true, opacity: 0.7 });
+    } else {
+        geometry = new THREE.PlaneGeometry(width, height);
+        material = new THREE.MeshBasicMaterial({ color: 0x424242, transparent: true, opacity: 0.7 });
     }
-    
-    // 尺寸标注
-    addDimensionLine(group, -diameter/2, diameter/2, -diameter/2 - 30, `Ø${diameter}m`);
-    
+
+    const tunnelMesh = new THREE.Mesh(geometry, material);
+    group.add(tunnelMesh);
+
+    const edges = new THREE.EdgesGeometry(geometry);
+    const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
+    const wireframe = new THREE.LineSegments(edges, edgeMaterial);
+    group.add(wireframe);
+
+    if (tunnelType === 'circular') {
+        addDimensionLine(group, -radius, radius, -radius - 30, `Ø${radius * 2}m`);
+    } else {
+        addDimensionLine(group, -width/2, width/2, -height/2 - 30, `${width}×${height}m`);
+    }
+
     scene.add(group);
 }
 
@@ -226,7 +232,7 @@ function drawGeologicalSection(scene: THREE.Scene, data: any) {
     
     let currentY = 100;
     
-    layers.forEach((layer, index) => {
+    layers.forEach((layer: any, index: number) => {
         const layerGeometry = new THREE.PlaneGeometry(300, layer.thickness);
         const layerMaterial = new THREE.MeshBasicMaterial({ 
             color: layer.color,

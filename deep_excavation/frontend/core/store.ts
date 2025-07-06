@@ -6,7 +6,7 @@ import * as THREE from 'three';
 // Type Definitions
 // =================================================================================
 
-export type Workbench = 'Modeling' | 'Analysis' | 'Results';
+export type Workbench = 'Modeling' | 'Mesh' | 'Analysis' | 'Results';
 export type ModalType = 'MeshSettings' | 'MaterialManager' | null;
 
 export interface PickingState {
@@ -21,13 +21,59 @@ export interface ViewportHandles {
 }
 
 export interface MeshSettings {
+    // 全局网格参数
     global_mesh_size: number;
-    refinement_level: number;
+    min_mesh_size: number;
+    max_mesh_size: number;
+    mesh_growth_rate: number;
+    
+    // 局部网格参数
+    refinement_regions: {
+        enabled: boolean;
+        excavation_boundary_size: number;
+        diaphragm_wall_size: number;
+        strut_size: number;
+        anchor_size: number;
+    };
+    
+    // 网格质量参数
+    quality_settings: {
+        optimize_steps: number;
+        min_quality: number;
+        smooth_iterations: number;
+        recombination: boolean;
+    };
+    
+    // 高级设置
+    advanced_settings: {
+        algorithm: 'delaunay' | 'frontal' | 'hxt';
+        dimension: '2D' | '3D';
+        use_occ: boolean;
+        parallel_meshing: boolean;
+        thread_count: number;
+    };
+}
+
+export interface MeshInfo {
+    id: string;
+    name: string;
+    elementCount: number;
+    nodeCount: number;
+    quality: number;
+    status: 'ready' | 'generating' | 'error' | 'none';
+    visible: boolean;
+    type: '2D' | '3D';
+    algorithm: string;
+    timestamp: Date;
 }
 
 export interface AnalysisSettings {
-    analysis_type: 'static' | 'staged_construction';
+    analysis_type: 'static' | 'staged_construction' | 'seepage';
     num_steps: number;
+    solver: 'direct' | 'iterative' | 'amg';
+    nonlinear: boolean;
+    gravity: boolean;
+    initialStress: boolean;
 }
 
 // =================================================================================
@@ -40,6 +86,11 @@ export interface AppState {
     
     // Settings
     meshSettings: MeshSettings;
+    meshes: MeshInfo[];
+    selectedMeshId: string | null;
+    isMeshGenerating: boolean;
+    meshGenerationProgress: number;
+    
     analysisSettings: AnalysisSettings;
     geologySettings: {
         algorithm: string;
@@ -62,7 +113,16 @@ export interface AppState {
     deleteFeature: (featureId: string) => void;
     setFeatures: (features: AnyFeature[]) => void;
     
+    // 网格相关操作
     updateMeshSettings: (settings: Partial<MeshSettings>) => void;
+    addMesh: (mesh: MeshInfo) => void;
+    selectMesh: (id: string | null) => void;
+    deleteMesh: (id: string) => void;
+    toggleMeshVisibility: (id: string) => void;
+    setMeshGenerating: (isGenerating: boolean) => void;
+    updateMeshGenerationProgress: (progress: number) => void;
+    
+    // 分析相关操作
     updateAnalysisSettings: (settings: Partial<AnalysisSettings>) => void;
     setGeologySettings: (settings: AppState['geologySettings']) => void;
 
@@ -73,6 +133,7 @@ export interface AppState {
     startPicking: (onPick: (point: { x: number; y: number; z: number }) => void) => void;
     executePick: (point: { x: number; y: number; z: number }) => void;
     stopPicking: () => void;
+    exitEditMode: () => void;
     
     setTransientObjects: (objects: THREE.Object3D[]) => void;
     clearTransientObjects: () => void;
@@ -81,28 +142,65 @@ export interface AppState {
     // --- Selectors ---
     getSelectedFeature: () => AnyFeature | null;
     getFeatureById: (id: string) => AnyFeature | undefined;
+    getSelectedMesh: () => MeshInfo | null;
 }
 
 // =================================================================================
 // Store Implementation
 // =================================================================================
 
+const defaultMeshSettings: MeshSettings = {
+    global_mesh_size: 5.0,
+    min_mesh_size: 0.5,
+    max_mesh_size: 20.0,
+    mesh_growth_rate: 1.3,
+    
+    refinement_regions: {
+        enabled: true,
+        excavation_boundary_size: 1.0,
+        diaphragm_wall_size: 0.5,
+        strut_size: 0.8,
+        anchor_size: 0.8,
+    },
+    
+    quality_settings: {
+        optimize_steps: 10,
+        min_quality: 0.3,
+        smooth_iterations: 5,
+        recombination: true,
+    },
+    
+    advanced_settings: {
+        algorithm: 'delaunay',
+        dimension: '3D',
+        use_occ: true,
+        parallel_meshing: true,
+        thread_count: 4,
+    }
+};
+
 export const useStore = create<AppState>((set, get) => ({
     // --- Initial State ---
     features: [],
     selectedFeatureId: null,
     
-    meshSettings: {
-        global_mesh_size: 25.0,
-        refinement_level: 1,
-    },
+    meshSettings: defaultMeshSettings,
+    meshes: [],
+    selectedMeshId: null,
+    isMeshGenerating: false,
+    meshGenerationProgress: 0,
+    
     analysisSettings: {
         analysis_type: 'static',
         num_steps: 1,
+        solver: 'direct',
+        nonlinear: false,
+        gravity: true,
+        initialStress: true,
     },
     geologySettings: {
-        algorithm: 'TIN',
-        domain: { width: 100, length: 100, height: 50 },
+        algorithm: 'GemPy',
+        domain: { width: 504, length: 612, height: 53 },
     },
 
     activeWorkbench: 'Modeling',
@@ -142,9 +240,58 @@ export const useStore = create<AppState>((set, get) => ({
     
     setFeatures: (features) => set({ features: features }),
 
+    // 网格相关操作
     updateMeshSettings: (settings) => {
-        set(state => ({ meshSettings: { ...state.meshSettings, ...settings } }));
+        set(state => ({ 
+            meshSettings: { 
+                ...state.meshSettings, 
+                ...settings,
+                refinement_regions: {
+                    ...state.meshSettings.refinement_regions,
+                    ...(settings.refinement_regions || {})
+                },
+                quality_settings: {
+                    ...state.meshSettings.quality_settings,
+                    ...(settings.quality_settings || {})
+                },
+                advanced_settings: {
+                    ...state.meshSettings.advanced_settings,
+                    ...(settings.advanced_settings || {})
+                }
+            } 
+        }));
     },
+    
+    addMesh: (mesh) => {
+        set(state => ({ 
+            meshes: [...state.meshes, mesh],
+            selectedMeshId: mesh.id
+        }));
+    },
+    
+    selectMesh: (id) => set({ selectedMeshId: id }),
+    
+    deleteMesh: (id) => {
+        set(state => ({
+            meshes: state.meshes.filter(m => m.id !== id),
+            selectedMeshId: state.selectedMeshId === id ? null : state.selectedMeshId
+        }));
+    },
+    
+    toggleMeshVisibility: (id) => {
+        set(state => ({
+            meshes: state.meshes.map(m => 
+                m.id === id ? { ...m, visible: !m.visible } : m
+            )
+        }));
+    },
+    
+    setMeshGenerating: (isGenerating) => set({ 
+        isMeshGenerating: isGenerating,
+        meshGenerationProgress: isGenerating ? 0 : 100
+    }),
+    
+    updateMeshGenerationProgress: (progress) => set({ meshGenerationProgress: progress }),
     
     updateAnalysisSettings: (settings) => {
         set(state => ({ analysisSettings: { ...state.analysisSettings, ...settings } }));
@@ -152,7 +299,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     setGeologySettings: (settings) => set({ geologySettings: settings }),
     
-    setActiveWorkbench: (workbench) => set({ activeWorkbench: workbench, selectedFeatureId: null }),
+    setActiveWorkbench: (workbench) => set({ activeWorkbench: workbench }),
     
     openModal: (modal) => set({ activeModal: modal }),
     
@@ -170,6 +317,16 @@ export const useStore = create<AppState>((set, get) => ({
     stopPicking: () => {
         set({ pickingState: { isActive: false, onPick: null } });
     },
+
+    exitEditMode: () => {
+        // 退出所有编辑模式
+        set({ 
+            pickingState: { isActive: false, onPick: null },
+            selectedFeatureId: null,  // 取消选择
+            activeModal: null,        // 关闭任何打开的模态框
+        });
+        console.log('已退出所有编辑模式');
+    },
     
     setTransientObjects: (objects) => set({ transientObjects: objects }),
 
@@ -184,4 +341,9 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     getFeatureById: (id: string) => get().features.find(f => f.id === id),
+    
+    getSelectedMesh: () => {
+        const id = get().selectedMeshId;
+        return get().meshes.find(m => m.id === id) || null;
+    },
 }));
