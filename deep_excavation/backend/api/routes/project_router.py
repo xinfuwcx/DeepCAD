@@ -261,7 +261,85 @@ async def get_seepage_model(
     if not model:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="未找到模型"
+            detail="未找到渗流模型或无权访问"
         )
     
-    return model 
+    return model
+
+# New endpoint for optimizable parameters
+@router.get("/{project_id}/optimizable-parameters")
+async def get_optimizable_parameters(
+    project_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieves a list of parameters from the project that can be used for
+    inverse analysis or design optimization.
+
+    **This is a mock implementation.** In a real scenario, this would inspect
+    the project's geological model, material properties, and geometric entities.
+    """
+    # First, verify the user has access to the project.
+    project = db.query(Project).filter(Project.id == project_id, Project.user_id == current_user.id).first()
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="未找到项目或无权访问"
+        )
+
+    # Mock data representing parameters from different parts of the model
+    mock_parameters = [
+        {
+            "id": "soil_layer_1_E",
+            "name": "第1层土 - 弹性模量 (E)",
+            "group": "土层材料",
+            "value": 15e6,
+            "min": 5e6,
+            "max": 50e6,
+            "step": 1e6,
+            "unit": "Pa"
+        },
+        {
+            "id": "soil_layer_1_c",
+            "name": "第1层土 - 内聚力 (c)",
+            "group": "土层材料",
+            "value": 20000,
+            "min": 5000,
+            "max": 100000,
+            "step": 1000,
+            "unit": "Pa"
+        },
+        {
+            "id": "soil_layer_2_E",
+            "name": "第2层土 - 弹性模量 (E)",
+            "group": "土层材料",
+            "value": 30e6,
+            "min": 10e6,
+            "max": 80e6,
+            "step": 1e6,
+            "unit": "Pa"
+        },
+        {
+            "id": "anchor_1_length",
+            "name": "锚杆组1 - 长度",
+            "group": "支护结构",
+            "value": 15.0,
+            "min": 8.0,
+            "max": 25.0,
+            "step": 0.5,
+            "unit": "m"
+        },
+        {
+            "id": "diaphragm_wall_thickness",
+            "name": "地连墙 - 厚度",
+            "group": "支护结构",
+            "value": 0.8,
+            "min": 0.6,
+            "max": 1.2,
+            "step": 0.1,
+            "unit": "m"
+        }
+    ]
+
+    return mock_parameters 

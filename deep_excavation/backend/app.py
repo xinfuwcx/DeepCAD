@@ -8,7 +8,8 @@ from .api.routes import (
     analysis_router,
     auth_router,
     project_router,
-    geology_router
+    geology_router,
+    physics_ai_router
 )
 from .database import init_db
 
@@ -51,6 +52,9 @@ app.include_router(
     geology_router.router,
     prefix="/api/geology",
     tags=["Geology"]
+)
+app.include_router(
+    physics_ai_router.router
 )
 
 @app.get("/")

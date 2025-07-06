@@ -8,7 +8,7 @@ import React, { useState, useRef } from 'react';
 import {
     Box, Button, Typography, Stack, Paper, FormControl, InputLabel, Select, MenuItem, TextField, Grid, Divider, IconButton, Alert, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, LinearProgress, Tabs, Tab
 } from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon, Terrain as TerrainIcon, UploadFile as UploadFileIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, Terrain as TerrainIcon, UploadFile as UploadFileIcon, Map as MapIcon, DataObject as DataObjectIcon, EditLocation as EditLocationIcon } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
 import { produce } from 'immer';
 import Papa from 'papaparse';
@@ -17,12 +17,13 @@ import { useStore } from '../../core/store';
 import { SOIL_MATERIALS } from '../../core/bimColorSystem';
 import { LITHOLOGY_COLORS } from '../../core/geologicalColorSchemes';
 import DiagramRenderer from '../shared/DiagramRenderer';
-import { CreateGeologicalModelFeature, CreateConceptualLayersFeature } from '../../services/parametricAnalysisService';
+import { CreateGeologicalModelFeature, CreateConceptualLayersFeature, ConceptualLayer, GemPyParams as StoreGemPyParams } from '../../services/parametricAnalysisService';
 
 // --- 类型定义 ---
 interface BoreholePoint { id: string; x: number; y: number; z: number; surface: string; }
+interface Orientation { id: string; x: number; y: number; z: number; azimuth: number; dip: number; polarity: number; surface: string; }
 interface LocalSoilLayer { id: string; name: string; thickness: number; soilType: string; color: string; }
-interface GemPyParams { resolution: [number, number, number]; c_o: number; algorithm: 'kriging' | 'cokriging'; }
+interface GemPyParams extends StoreGemPyParams {}
 interface TabPanelProps { children?: React.ReactNode; index: number; value: number; }
 
 // --- 辅助组件 ---
@@ -52,9 +53,11 @@ const GeologicalModelCreator: React.FC = () => {
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [layerToDelete, setLayerToDelete] = useState<string | null>(null);
 
-    // 钻孔建模状态
+    // 数据与算法状态 (原钻孔建模)
     const [boreholePoints, setBoreholePoints] = useState<BoreholePoint[]>([]);
-    const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+    const [orientations, setOrientations] = useState<Orientation[]>([]);
+    const [uploadedBoreholeFileName, setUploadedBoreholeFileName] = useState<string | null>(null);
+    const [uploadedOrientationFileName, setUploadedOrientationFileName] = useState<string | null>(null);
     const [gempyParams, setGempyParams] = useState<GemPyParams>({ resolution: [50, 50, 50], c_o: 50000, algorithm: 'kriging' });
     const [error, setError] = useState<string | null>(null);
 
@@ -67,7 +70,14 @@ const GeologicalModelCreator: React.FC = () => {
 
     // 概念建模
     const handleAddLayer = () => {
-        const newLayer: LocalSoilLayer = { id: uuidv4(), name: `土层 ${soilLayers.length + 1}`, thickness: 10, soilType: 'clay_silty', color: LITHOLOGY_COLORS['clay_silty'] || '#cccccc' };
+        const defaultSoilType = 'clay_silty';
+        const newLayer: LocalSoilLayer = { 
+            id: uuidv4(), 
+            name: `土层 ${soilLayers.length + 1}`, 
+            thickness: 10, 
+            soilType: defaultSoilType, 
+            color: LITHOLOGY_COLORS[defaultSoilType as keyof typeof LITHOLOGY_COLORS] || '#cccccc' 
+        };
         setSoilLayers(produce(draft => { draft.push(newLayer); }));
     };
     const handleUpdateLayer = (id: string, field: keyof LocalSoilLayer, value: any) => {
@@ -88,30 +98,44 @@ const GeologicalModelCreator: React.FC = () => {
     const handleGenerateConceptualModel = () => {
         const newFeature: CreateConceptualLayersFeature = {
             id: uuidv4(), name: '概念地质模型', type: 'CreateConceptualLayers',
-            parameters: { layers: soilLayers.map(l => ({ name: l.name, thickness: l.thickness, material: l.soilType })) }
+            parameters: { 
+                layers: soilLayers.map(l => ({ 
+                    name: l.name, 
+                    thickness: l.thickness, 
+                    material: l.soilType 
+                }))
+            }
         };
         addFeature(newFeature);
     };
 
-    // 钻孔建模
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    // 数据与算法处理 (原钻孔建模)
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>, type: 'borehole' | 'orientation') => {
         const file = event.target.files?.[0];
         if (file) {
-            setUploadedFileName(file.name);
+            if (type === 'borehole') setUploadedBoreholeFileName(file.name);
+            if (type === 'orientation') setUploadedOrientationFileName(file.name);
             setError(null);
             Papa.parse(file, {
                 header: true, skipEmptyLines: true,
                 complete: (results) => {
-                    const parsedData = (results.data as any[]).map(row => ({ id: uuidv4(), x: parseFloat(row.X), y: parseFloat(row.Y), z: parseFloat(row.Z), surface: row.surface }))
-                        .filter(p => !isNaN(p.x) && !isNaN(p.y) && !isNaN(p.z) && p.surface);
-                    if (parsedData.length === 0) { setError(`无法从 "${file.name}" 解析有效数据。`); return; }
-                    setBoreholePoints(parsedData);
+                    if (type === 'borehole') {
+                        const parsedData = (results.data as any[]).map(row => ({ id: uuidv4(), x: parseFloat(row.X), y: parseFloat(row.Y), z: parseFloat(row.Z), surface: row.surface }))
+                            .filter(p => !isNaN(p.x) && !isNaN(p.y) && !isNaN(p.z) && p.surface);
+                        if (parsedData.length === 0) { setError(`Borehole: No valid data in "${file.name}".`); return; }
+                        setBoreholePoints(parsedData);
+                    } else if (type === 'orientation') {
+                        const parsedData = (results.data as any[]).map(row => ({ id: uuidv4(), x: parseFloat(row.X), y: parseFloat(row.Y), z: parseFloat(row.Z), azimuth: parseFloat(row.azimuth), dip: parseFloat(row.dip), polarity: 1, surface: row.surface }))
+                            .filter(p => !isNaN(p.x) && !isNaN(p.y) && !isNaN(p.z) && !isNaN(p.azimuth) && !isNaN(p.dip) && p.surface);
+                        if (parsedData.length === 0) { setError(`Orientation: No valid data in "${file.name}".`); return; }
+                        setOrientations(parsedData);
+                    }
                 },
-                error: (err: any) => setError(`文件解析失败: ${err.message}`)
+                error: (err: any) => setError(`File parsing error: ${err.message}`)
             });
         }
     };
-    const handleGempyParamChange = (event: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
+    const handleGempyParamChange = (event: any) => {
         const { name, value } = event.target;
         if(name === 'resX') setGempyParams(p => ({...p, resolution: [Number(value), p.resolution[1], p.resolution[2]]}));
         else if(name === 'resY') setGempyParams(p => ({...p, resolution: [p.resolution[0], Number(value), p.resolution[2]]}));
@@ -120,8 +144,12 @@ const GeologicalModelCreator: React.FC = () => {
     };
     const handleGenerateBoreholeModel = () => {
         const feature: CreateGeologicalModelFeature = {
-            id: uuidv4(), name: `地质模型 - ${uploadedFileName || '钻孔'}`, type: 'CreateGeologicalModel',
-            parameters: { boreholes: boreholePoints, gempy_params: gempyParams }
+            id: uuidv4(), name: `地质模型 - GemPy`, type: 'CreateGeologicalModel',
+            parameters: {
+                boreholes: boreholePoints,
+                orientations: orientations,
+                gempy_params: gempyParams
+            }
         };
         addFeature(feature);
     };
@@ -132,7 +160,11 @@ const GeologicalModelCreator: React.FC = () => {
                 <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><TerrainIcon />地质模型</Typography>
                 <Divider sx={{ my: 1 }} />
                 <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                    <Tabs value={activeTab} onChange={handleTabChange} variant="fullWidth"><Tab label="概念建模" /><Tab label="钻孔建模" /></Tabs>
+                    <Tabs value={activeTab} onChange={handleTabChange} variant="fullWidth">
+                        <Tab label="概念建模" />
+                        <Tab label="地质图模式" icon={<MapIcon />} iconPosition="start" />
+                        <Tab label="数据与算法" icon={<DataObjectIcon />} iconPosition="start" />
+                    </Tabs>
                 </Box>
             </Paper>
 
@@ -168,14 +200,30 @@ const GeologicalModelCreator: React.FC = () => {
             </TabPanel>
 
             <TabPanel value={activeTab} index={1}>
+                <Stack spacing={2}>
+                    <Typography variant="subtitle1">交互式地质图建模</Typography>
+                    <Paper variant="outlined" sx={{ p: 1, height: 400, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', bgcolor: 'rgba(0,0,0,0.1)' }}>
+                        <EditLocationIcon sx={{ fontSize: 40, color: 'text.secondary' }} />
+                        <Typography variant="h6" color="text.secondary">2D交互式绘图区</Typography>
+                        <Typography variant="caption" color="text.secondary">（未来将支持加载底图、绘制点、线和等高线）</Typography>
+                    </Paper>
+                     <Button fullWidth variant="contained" onClick={() => {}} disabled>从交互输入生成模型</Button>
+                </Stack>
+            </TabPanel>
+
+            <TabPanel value={activeTab} index={2}>
                 <Stack spacing={3}>
                     <Paper variant="outlined" sx={{ p: 2 }}>
                         <Stack spacing={2}>
-                            <Box>
-                                <Typography variant="subtitle2" gutterBottom>1. 上传钻孔数据</Typography>
+                             <Box>
+                                <Typography variant="subtitle2" gutterBottom>1. 上传地质数据 (CSV)</Typography>
+                                <Stack direction="row" spacing={2} alignItems="center" sx={{mb: 1}}>
+                                    <Button size="small" variant="outlined" startIcon={<UploadFileIcon />} component="label">钻孔点<input type="file" onChange={(e) => handleFileChange(e, 'borehole')} hidden accept=".csv" /></Button>
+                                    {uploadedBoreholeFileName && <Typography variant="caption" noWrap>已选: {uploadedBoreholeFileName}</Typography>}
+                                </Stack>
                                 <Stack direction="row" spacing={2} alignItems="center">
-                                    <Button variant="outlined" startIcon={<UploadFileIcon />} component="label">选择CSV文件<input type="file" ref={fileInputRef} onChange={handleFileChange} hidden accept=".csv" /></Button>
-                                    {uploadedFileName && <Typography variant="caption" noWrap>已选: {uploadedFileName}</Typography>}
+                                    <Button size="small" variant="outlined" startIcon={<UploadFileIcon />} component="label">构造方向<input type="file" onChange={(e) => handleFileChange(e, 'orientation')} hidden accept=".csv" /></Button>
+                                    {uploadedOrientationFileName && <Typography variant="caption" noWrap>已选: {uploadedOrientationFileName}</Typography>}
                                 </Stack>
                                 {error && <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>}
                             </Box>
@@ -198,7 +246,7 @@ const GeologicalModelCreator: React.FC = () => {
                         </Stack>
                     </Paper>
                     <BoreholePreview2D points={boreholePoints} />
-                    <Button fullWidth variant="contained" onClick={handleGenerateBoreholeModel} disabled={isCreating || boreholePoints.length === 0}>{isCreating ? '正在生成...' : '生成地质模型'}</Button>
+                    <Button fullWidth variant="contained" onClick={handleGenerateBoreholeModel} disabled={isCreating || (boreholePoints.length === 0 && orientations.length === 0)}>{isCreating ? '正在生成...' : '生成地质模型'}</Button>
                     {isCreating && <LinearProgress sx={{ mt: 1 }} />}
                 </Stack>
             </TabPanel>

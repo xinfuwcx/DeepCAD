@@ -53,6 +53,17 @@ export interface SeepageModelCreateRequest {
   project_id: number;
 }
 
+export interface OptimizableParameter {
+  id: string;
+  name: string;
+  group: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  unit: string;
+}
+
 /**
  * 获取所有项目
  */
@@ -179,6 +190,23 @@ export const createSeepageModel = async (
   }
 };
 
+/**
+ * 获取项目的可优化参数列表
+ */
+export const getOptimizableParameters = async (
+  projectId: number
+): Promise<OptimizableParameter[]> => {
+  try {
+    const response = await axios.get<OptimizableParameter[]>(
+      `${API_URL}/${projectId}/optimizable-parameters`
+    );
+    return response.data;
+  } catch (error) {
+    console.error(`获取项目(ID: ${projectId})的可优化参数失败:`, error);
+    throw new Error('获取可优化参数列表失败');
+  }
+};
+
 export default {
   getProjects,
   getProject,
@@ -187,5 +215,6 @@ export default {
   deleteProject,
   getSeepageModels,
   getSeepageModel,
-  createSeepageModel
+  createSeepageModel,
+  getOptimizableParameters,
 }; 

@@ -4,7 +4,7 @@ import { useStore, ViewportHandles } from '../../core/store';
 import TaskPanel from './TaskPanel';
 import MeshPanel from './MeshPanel';
 import AnalysisPanel from './AnalysisPanel';
-import VtkResultsViewer from '../VtkResultsViewer';
+import { ScientificVisualizationPanel } from '../visualization/ScientificVisualizationPanel';
 
 const DRAWER_WIDTH = 320;
 
@@ -25,7 +25,7 @@ const RightSidebar: React.FC<RightSidebarProps> & { WIDTH: number } = ({ open, v
             case 'Analysis':
                 return <AnalysisPanel />;
             case 'Results':
-                return <VtkResultsViewer resultsUrl={undefined} />;
+                return <ScientificVisualizationPanel />;
             default:
                 return null;
         }

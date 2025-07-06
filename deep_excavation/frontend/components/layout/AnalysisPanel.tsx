@@ -36,6 +36,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Slider,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -46,8 +47,11 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import WaterIcon from '@mui/icons-material/Water';
 import EngineeringIcon from '@mui/icons-material/Engineering';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import TuneIcon from '@mui/icons-material/Tune';
 import { useStore } from '../../core/store';
 import { AnyFeature, runParametricAnalysis, ParametricScene } from '../../services/parametricAnalysisService';
+import { OptimizableParameter } from '../../core/store';
 
 // 新增的材料数据类型
 interface Material {
@@ -141,6 +145,47 @@ const MATERIAL_LIBRARY: Material[] = [
     }
   }
 ];
+
+// A new component to manage and display design variables
+const DesignVariableManager: React.FC<{
+    parameters: OptimizableParameter[];
+    onParameterChange: (id: string, value: number) => void;
+}> = ({ parameters, onParameterChange }) => {
+    
+    const groupedParams = parameters.reduce((acc, param) => {
+        if (!acc[param.group]) {
+            acc[param.group] = [];
+        }
+        acc[param.group].push(param);
+        return acc;
+    }, {} as Record<string, OptimizableParameter[]>);
+
+    return (
+        <Stack spacing={2}>
+            {Object.entries(groupedParams).map(([groupName, params]) => (
+                <Paper key={groupName} variant="outlined" sx={{ p: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom>{groupName}</Typography>
+                    <Stack spacing={2}>
+                        {params.map(param => (
+                            <Box key={param.id}>
+                                <Typography variant="body2">{param.name} ({param.unit})</Typography>
+                                <Slider
+                                    value={param.value}
+                                    min={param.min}
+                                    max={param.max}
+                                    step={param.step}
+                                    onChange={(_, newValue) => onParameterChange(param.id, newValue as number)}
+                                    valueLabelDisplay="auto"
+                                    marks={[{ value: param.min, label: `${param.min}` }, { value: param.max, label: `${param.max}` }]}
+                                />
+                            </Box>
+                        ))}
+                    </Stack>
+                </Paper>
+            ))}
+        </Stack>
+    );
+};
 
 // 材料管理组件
 const MaterialManager: React.FC = () => {
@@ -585,206 +630,209 @@ const KratosSolverSettings: React.FC = () => {
 };
 
 const AnalysisPanel: React.FC = () => {
-  const [tabValue, setTabValue] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
+  const [value, setValue] = useState(0);
+  // const { features, geologicalModel, excavations, diaphragmWalls, anchors, pileRafts, buildings, tunnels } = useStore();
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [analysisType, setAnalysisType] = useState<string>("mechanical");
-  const features = useStore(state => state.features);
-  const viewportApi = useStore(state => state.viewportApi);
+  const [progress, setProgress] = useState(0);
+  const [analysisResults, setAnalysisResults] = useState<any | null>(null);
+  // const showResultsInViewport = useStore(state => state.showResultsInViewport);
 
-  
+
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
+    setValue(newValue);
   };
-  
-  const handleRunAnalysis = async () => {
-    setIsRunning(true);
-    setError(null);
 
+  const handleRunAnalysis = async () => {
+    setIsLoading(true);
+    setError(null);
+    setProgress(0);
+
+    // This is a placeholder for the scene creation logic
     const scene: ParametricScene = {
-        version: "2.0-parametric",
-        features: features,
+        // geologicalModel,
+        // excavations,
+        // structures: [...diaphragmWalls, ...anchors, ...pileRafts, ...buildings, ...tunnels],
     };
 
     try {
-        const result = await runParametricAnalysis(scene);
-        console.log('Analysis successful:', result);
-        if (result.mesh_filename && viewportApi) {
-            const vtkUrl = `/api/analysis/results/${result.mesh_filename}`;
-            viewportApi.loadVtkResults(vtkUrl);
-        }
+      console.log("Running analysis with scene:", scene);
+      const results = await runParametricAnalysis(scene, (p) => setProgress(p * 100));
+      setAnalysisResults(results);
+      // Assuming results contain a file path to the vtkjs/gltf model
+      if (results.visualization_url) {
+        // This function was removed, need a new way to show results.
+        // For now, we just log it.
+        console.log("Analysis complete, results URL:", results.visualization_url);
+        // showResultsInViewport(results.visualization_url, results.legend_data);
+      }
+      
     } catch (err: any) {
-        console.error('Analysis failed:', err);
-        setError(err.message || 'An unknown error occurred during analysis.');
+      setError(err.message || 'An unknown error occurred during analysis.');
     } finally {
-        setIsRunning(false);
+      setIsLoading(false);
     }
   };
 
-  const FemAnalysisTab = () => (
-    <Stack spacing={1}>
-        <Accordion defaultExpanded>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="subtitle1">步骤一: 分析工况</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-                <FormControl component="fieldset">
-                    <RadioGroup 
-                      row 
-                      value={analysisType}
-                      onChange={(e) => setAnalysisType(e.target.value)}
-                    >
-                        <FormControlLabel value="mechanical" control={<Radio />} label="固体力学" />
-                        <FormControlLabel value="seepage" control={<Radio />} label="渗流分析" />
-                        <FormControlLabel value="coupled" control={<Radio />} label="流固耦合" />
-                    </RadioGroup>
-                </FormControl>
-                
-                <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-                  <Chip 
-                    icon={<EngineeringIcon />} 
-                    label="Kratos结构分析" 
-                    color={analysisType === 'mechanical' ? 'primary' : 'default'} 
-                    variant={analysisType === 'mechanical' ? 'filled' : 'outlined'}
-                  />
-                  <Chip 
-                    icon={<WaterIcon />} 
-                    label="Kratos渗流分析" 
-                    color={analysisType === 'seepage' ? 'primary' : 'default'} 
-                    variant={analysisType === 'seepage' ? 'filled' : 'outlined'}
-                  />
-                </Box>
-            </AccordionDetails>
-        </Accordion>
-
-        <Accordion defaultExpanded>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="subtitle1">步骤二: 材料管理</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-                <MaterialManager />
-            </AccordionDetails>
-        </Accordion>
-
-        <Accordion defaultExpanded>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="subtitle1">步骤三: 材料分配</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-                <MaterialAssignment />
-            </AccordionDetails>
-        </Accordion>
-
-        <Accordion>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="subtitle1">步骤四: 边界条件</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-                <BoundaryConditionManager />
-            </AccordionDetails>
-        </Accordion>
-        
-        <Accordion>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="subtitle1">步骤五: 荷载</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-                <Typography color="text.secondary">在此处添加施加重力、面荷载、线荷载等的UI。</Typography>
-            </AccordionDetails>
-        </Accordion>
-        
-        <Accordion>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="subtitle1">步骤六: 求解器设置</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-                <KratosSolverSettings />
-            </AccordionDetails>
-        </Accordion>
-    </Stack>
+  // Simplified and refactored Tab for "Expert Mode"
+  const ExpertModeTab = () => (
+    <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }}>
+      <Accordion>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="subtitle1">材料库与分配</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <MaterialManager />
+          <Divider sx={{ my: 2 }} />
+          <MaterialAssignment />
+        </AccordionDetails>
+      </Accordion>
+      <Accordion>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="subtitle1">边界条件</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <BoundaryConditionManager />
+        </AccordionDetails>
+      </Accordion>
+      <Accordion>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="subtitle1">求解器设置</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <KratosSolverSettings />
+        </AccordionDetails>
+      </Accordion>
+    </Box>
   );
 
-  const PhysicsAiTab = () => (
-     <Stack spacing={1}>
-        <Accordion defaultExpanded>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="subtitle1">步骤一: 选择监测数据</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-                <Button variant="outlined" component="label">
-                    上传监测数据
-                    <input type="file" hidden />
-                </Button>
-                <Typography variant="caption" display="block" color="text.secondary" sx={{mt: 1}}>支持 .csv, .txt 格式</Typography>
-            </AccordionDetails>
-        </Accordion>
-        <Accordion>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="subtitle1">步骤二: 定义反演参数</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-                <Typography color="text.secondary">在此处添加用于选择要反演的岩土参数的UI。</Typography>
-            </AccordionDetails>
-        </Accordion>
-        <Accordion>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="subtitle1">步骤三: AI模型设置</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-                 <Stack spacing={2}>
-                    <FormControl fullWidth size="small">
-                        <InputLabel>反演算法</InputLabel>
-                        <Select label="反演算法" defaultValue="adam">
-                            <MenuItem value="adam">Adam</MenuItem>
-                            <MenuItem value="sgd">SGD</MenuItem>
-                            <MenuItem value="lbfgs">L-BFGS</MenuItem>
-                        </Select>
-                    </FormControl>
-                    <TextField size="small" label="学习率" defaultValue={0.01} />
-                    <TextField size="small" label="最大迭代次数" defaultValue={100} />
-                 </Stack>
-            </AccordionDetails>
-        </Accordion>
-     </Stack>
-  );
+  // New Tab for "AI-Driven Analysis"
+  const AiDrivenAnalysisTab = () => {
+    const [analysisType, setAnalysisType] = useState('forward');
+    const { 
+        optimizableParameters, 
+        areParametersLoading, 
+        parameterError, 
+        fetchOptimizableParameters 
+    } = useStore(state => ({
+        optimizableParameters: state.optimizableParameters,
+        areParametersLoading: state.areParametersLoading,
+        parameterError: state.parameterError,
+        fetchOptimizableParameters: state.fetchOptimizableParameters,
+    }));
+    const [editableParameters, setEditableParameters] = useState<OptimizableParameter[]>([]);
+
+    useEffect(() => {
+        // Fetch parameters when switching to a relevant analysis type
+        if (analysisType === 'inverse' || analysisType === 'optimization') {
+            // Assume a placeholder project ID for now
+            fetchOptimizableParameters(1); 
+        }
+    }, [analysisType, fetchOptimizableParameters]);
+
+    useEffect(() => {
+        // Sync local editable state when parameters are fetched from the store
+        setEditableParameters(optimizableParameters);
+    }, [optimizableParameters]);
+
+    const handleParameterChange = (id: string, value: number) => {
+        setEditableParameters(prev =>
+            prev.map(p => (p.id === id ? { ...p, value } : p))
+        );
+    };
+
+    return (
+        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 3, height: '100%' }}>
+            {/* Step 1: Select Analysis Type */}
+            <FormControl component="fieldset">
+                <FormLabel component="legend">1. 选择分析类型</FormLabel>
+                <RadioGroup row value={analysisType} onChange={(e) => setAnalysisType(e.target.value)}>
+                    <FormControlLabel value="forward" control={<Radio />} label="正向预测" />
+                    <FormControlLabel value="inverse" control={<Radio />} label="逆向分析" />
+                    <FormControlLabel value="optimization" control={<Radio />} label="优化设计" />
+                </RadioGroup>
+            </FormControl>
+
+            {/* Step 2: Configure based on type */}
+            <Box>
+                <FormLabel component="legend" sx={{ mb: 1 }}>2. 配置参数</FormLabel>
+                {analysisType === 'forward' && (
+                    <Paper variant="outlined" sx={{ p: 2 }}>
+                        <Typography>AI模型将根据当前设计进行快速性能预测。</Typography>
+                        {/* Placeholder for AI model selection */}
+                    </Paper>
+                )}
+                {analysisType === 'inverse' && (
+                    <Paper variant="outlined" sx={{ p: 2 }}>
+                        <Typography sx={{ mb: 2 }}>上传现场监测数据，AI将反算并校准模型参数。</Typography>
+                        <Button variant="contained" component="label">
+                            上传数据
+                            <input type="file" hidden />
+                        </Button>
+                    </Paper>
+                )}
+                {analysisType === 'optimization' && (
+                    <Paper variant="outlined" sx={{ p: 2 }}>
+                        <Typography sx={{ mb: 2 }}>设定优化目标和变量范围，AI将寻找最佳设计方案。</Typography>
+                        <FormControl fullWidth sx={{ mb: 2 }}>
+                            <InputLabel>优化目标</InputLabel>
+                            <Select label="优化目标">
+                                <MenuItem value="cost">成本最低</MenuItem>
+                                <MenuItem value="displacement">关键位移最小</MenuItem>
+                                <MenuItem value="safety">安全系数最大</MenuItem>
+                            </Select>
+                        </FormControl>
+                        {areParametersLoading && <CircularProgress size={24} />}
+                        {parameterError && <Alert severity="error">{parameterError}</Alert>}
+                        {!areParametersLoading && !parameterError && editableParameters.length > 0 && (
+                            <DesignVariableManager parameters={editableParameters} onParameterChange={handleParameterChange} />
+                        )}
+                    </Paper>
+                )}
+            </Box>
+        </Box>
+    );
+  };
 
   return (
-    <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Tabs value={tabValue} onChange={handleTabChange} variant="fullWidth">
-          <Tab label="FEM 分析" icon={<ScienceIcon/>} iconPosition="start" value={0} />
-          <Tab label="物理 AI" icon={<MemoryIcon/>} iconPosition="start" value={1} />
-      </Tabs>
-      <Divider />
-      
-      <Box sx={{flexGrow: 1, overflow: 'auto'}}>
-        <TabPanel value={tabValue} index={0}>
-            <FemAnalysisTab />
+    <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs value={value} onChange={handleTabChange} aria-label="analysis tabs" variant="fullWidth">
+          <Tab icon={<AutoAwesomeIcon />} label="智能分析 (AI-Driven)" />
+          <Tab icon={<TuneIcon />} label="专家模式 (Expert Mode)" />
+        </Tabs>
+      </Box>
+
+      {/* Main Content Area */}
+      <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+        <TabPanel value={value} index={0}>
+          <AiDrivenAnalysisTab />
         </TabPanel>
-        <TabPanel value={tabValue} index={1}>
-            <PhysicsAiTab />
+        <TabPanel value={value} index={1}>
+          <ExpertModeTab />
         </TabPanel>
       </Box>
 
+      {/* Bottom Action Area */}
       <Divider />
       <Box sx={{ p: 2 }}>
-          {isRunning && <LinearProgress sx={{mb: 2}}/>}
-          <Button 
-            variant="contained" 
-            startIcon={isRunning ? <CircularProgress size={20} color="inherit" /> : <PlayArrowIcon />}
-            fullWidth
-            onClick={handleRunAnalysis}
-            disabled={isRunning || features.length === 0}
+        {isLoading && <LinearProgress variant="determinate" value={progress} sx={{ mb: 2 }} />}
+        <Button
+          variant="contained"
+          startIcon={<PlayArrowIcon />}
+          onClick={handleRunAnalysis}
+          disabled={isLoading}
+          fullWidth
         >
-            {isRunning ? '计算中...' : '开始计算'}
-          </Button>
-          
-          {error && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {error}
-            </Alert>
-          )}
+          {isLoading ? `分析中... (${progress.toFixed(0)}%)` : '运行分析'}
+        </Button>
+        {error && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {error}
+          </Alert>
+        )}
       </Box>
-    </Paper>
+    </Box>
   );
 };
 

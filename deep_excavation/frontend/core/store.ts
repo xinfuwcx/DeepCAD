@@ -15,7 +15,8 @@ import {
     BoreholeData,
     CreateGeologicalModelParameters
 } from '../services/parametricAnalysisService';
-import { VisualizationData } from '../services/visualizationService';
+import { VisualizationData } from '../components/visualization/ScientificVisualizationPanel';
+import { OptimizableParameter, getOptimizableParameters } from '../services/projectService';
 
 // =================================================================================
 // Type Definitions - Centralized Feature Types
@@ -109,6 +110,9 @@ export interface AnalysisSettings {
     initialStress: boolean;
 }
 
+// Re-export for convenience
+export type { OptimizableParameter };
+
 // =================================================================================
 // Store Interface
 // =================================================================================
@@ -138,6 +142,11 @@ export interface AppState {
     activeScalarName: string;
     modelOpacity: number;
     isResultLoading: boolean;
+
+    // AI-Driven Analysis State
+    optimizableParameters: OptimizableParameter[];
+    areParametersLoading: boolean;
+    parameterError: string | null;
 
     // UI State
     activeWorkbench: Workbench;
@@ -180,6 +189,10 @@ export interface AppState {
     setModelOpacity: (opacity: number) => void;
     setIsResultLoading: (isLoading: boolean) => void;
 
+    // AI-Driven Analysis Actions
+    fetchOptimizableParameters: (projectId: number) => Promise<void>;
+
+    // --- UI Actions ---
     setActiveWorkbench: (workbench: Workbench) => void;
     openModal: (modal: NonNullable<ModalType>) => void;
     closeModal: () => void;
@@ -268,6 +281,11 @@ export const useStore = create<AppState>((set, get) => ({
     modelOpacity: 1.0,
     isResultLoading: false,
 
+    // AI-Driven Analysis State
+    optimizableParameters: [],
+    areParametersLoading: false,
+    parameterError: null,
+
     activeWorkbench: 'Modeling',
     activeModal: null,
     pickingState: {
@@ -292,23 +310,17 @@ export const useStore = create<AppState>((set, get) => ({
     selectFeature: (id) => set({ selectedFeatureId: id }),
 
     updateFeature: (featureId, updatedParams) => {
-        set(produce(draft => {
+        set(produce((draft: AppState) => {
             const feature = draft.features.find((f: AnyFeature) => f.id === featureId);
             if (feature) {
-                const updatedFeature = produce(feature, draft => {
-                    Object.assign(draft.parameters, updatedParams);
-                });
-                const index = get().features.findIndex(f => f.id === featureId);
-                const newFeatures = [...get().features];
-                newFeatures[index] = updatedFeature;
-                set({ features: newFeatures });
+                Object.assign(feature.parameters, updatedParams);
             }
         }));
     },
 
     deleteFeature: (featureId) => {
         const currentFeatures = get().features;
-        set(produce(draft => {
+        set(produce((draft: AppState) => {
             draft.features = draft.features.filter((f: AnyFeature) => f.id !== featureId);
             draft.history.past.push(currentFeatures);
             draft.history.future = [];
@@ -318,7 +330,7 @@ export const useStore = create<AppState>((set, get) => ({
         }));
     },
     
-    setFeatures: (features) => set({ features: features }),
+    setFeatures: (features) => set({ features }),
     
     // 撤销操作实现
     undo: () => {
@@ -414,11 +426,24 @@ export const useStore = create<AppState>((set, get) => ({
     // Visualization Actions
     setVisualizationData: (data: VisualizationData | null) => set({ visualizationData: data }),
     setActiveScalarName: (scalarName: string) => set({ activeScalarName: scalarName }),
-    setModelOpacity: (opacity: number) => {
-        set({ modelOpacity: opacity });
-        get().viewportApi?.setModelOpacity(opacity);
-    },
+    setModelOpacity: (opacity: number) => set(produce((state: AppState) => {
+        state.modelOpacity = opacity;
+        if (state.viewportApi) {
+            state.viewportApi.setModelOpacity(opacity);
+        }
+    })),
     setIsResultLoading: (isLoading: boolean) => set({ isResultLoading: isLoading }),
+
+    // AI-Driven Analysis Actions
+    fetchOptimizableParameters: async (projectId) => {
+        set({ areParametersLoading: true, parameterError: null });
+        try {
+            const params = await getOptimizableParameters(projectId);
+            set({ optimizableParameters: params, areParametersLoading: false });
+        } catch (error: any) {
+            set({ parameterError: error.message, areParametersLoading: false });
+        }
+    },
 
     // --- UI Actions ---
     setActiveWorkbench: (workbench) => set({ activeWorkbench: workbench }),

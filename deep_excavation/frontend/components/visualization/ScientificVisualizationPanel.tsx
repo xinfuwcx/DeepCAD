@@ -10,12 +10,31 @@ import {
 } from '@mui/material';
 import { Science as ScienceIcon, Palette as PaletteIcon, Opacity as OpacityIcon } from '@mui/icons-material';
 import { useStore } from '../../core/store';
-import { getLatestVisualizationData, getVisualizationDataForScalar, LegendData } from '../../services/visualizationService';
+import { visualizationService } from '../../services/visualizationService';
+
+// Define data structures locally to resolve import and type errors
+export interface LegendData {
+    title: string;
+    min: number;
+    max: number;
+    colorMap: {
+        name: string;
+        points: [number, number, number, number][];
+    };
+}
+
+export interface VisualizationData {
+    resultId: string;
+    vtkJsonUrl: string;
+    availableScalars: string[];
+    legend: LegendData;
+}
 
 // --- Legend Component ---
 const Legend: React.FC<{ legendData: LegendData }> = ({ legendData }) => {
+    if (!legendData) return null;
     const { title, min, max, colorMap } = legendData;
-    const gradientStops = colorMap.points.map(p => `rgb(${p[1]*255}, ${p[2]*255}, ${p[3]*255})`);
+    const gradientStops = colorMap.points.map((p: any) => `rgb(${p[1]*255}, ${p[2]*255}, ${p[3]*255})`);
     const backgroundGradient = `linear-gradient(to top, ${gradientStops.join(', ')})`;
 
     return (
@@ -55,7 +74,9 @@ export const ScientificVisualizationPanel: React.FC = () => {
         if (!currentProjectId) return;
         setIsResultLoading(true);
         try {
-            const data = await getLatestVisualizationData(currentProjectId);
+            // Placeholder: assuming we want the 'latest' or a specific default result
+            const resultId = "latest"; 
+            const data = await visualizationService.getResult(currentProjectId, resultId);
             setVisualizationData(data);
             if (data.vtkJsonUrl && viewportApi) {
                 await viewportApi.loadVtkResults(data.vtkJsonUrl, modelOpacity);
@@ -70,12 +91,18 @@ export const ScientificVisualizationPanel: React.FC = () => {
 
     const handleScalarChange = async (event: SelectChangeEvent<string>) => {
         const newScalar = event.target.value;
-        if (!currentProjectId || !newScalar) return;
+        if (!visualizationData?.resultId || !newScalar) return;
         
         setIsResultLoading(true);
         setActiveScalarName(newScalar);
         try {
-            const data = await getVisualizationDataForScalar(currentProjectId, newScalar);
+            // Use the applyFilter service call to change the active scalar
+            const data = await visualizationService.applyFilter(visualizationData.resultId, [{
+                type: 'set_active_scalar',
+                parameters: {
+                    name: newScalar,
+                }
+            }]);
             setVisualizationData(data);
             if (data.vtkJsonUrl && viewportApi) {
                 await viewportApi.loadVtkResults(data.vtkJsonUrl, modelOpacity);
@@ -114,7 +141,7 @@ export const ScientificVisualizationPanel: React.FC = () => {
                                 <FormControl fullWidth size="small">
                                     <InputLabel>着色标量</InputLabel>
                                     <Select value={activeScalarName} label="着色标量" onChange={handleScalarChange}>
-                                        {visualizationData.availableScalars.map(scalar => (
+                                        {visualizationData.availableScalars.map((scalar: string) => (
                                             <MenuItem key={scalar} value={scalar}>{scalar}</MenuItem>
                                         ))}
                                     </Select>
