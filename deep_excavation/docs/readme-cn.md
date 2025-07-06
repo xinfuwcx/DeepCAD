@@ -1,8 +1,8 @@
-# 深基坑工程分析平台
+# 凤凰架构 - DeepCAD v3.2
+
+## 简介
 
 ## 项目介绍
-
-深基坑工程分析平台是一个专门为基坑工程设计的分析和可视化工具，支持渗流分析、稳定性计算等功能。
 
 ## 当前问题修复
 
@@ -60,12 +60,14 @@
 ## 项目结构
 
 - `frontend/` - 前端React应用
-  - `components/` - UI组件
-    - `chili3d/` - 3D可视化组件
+  - `components/` - 可复用的React组件
+    - `creators/` - 用于创建BIM元素的组件
+    - `layout/` - 布局相关的组件
+    - `modals/` - 模态框组件
   - `services/` - 服务层代码
 - `backend/` - 后端Python API
   - `api/` - API路由定义
-  - `core/` - 核心计算逻辑
+  - `core/` - 核心逻辑，包括状态管理(Zustand)、渲染器等
   - `models/` - 数据模型
 
 ## 联系方式

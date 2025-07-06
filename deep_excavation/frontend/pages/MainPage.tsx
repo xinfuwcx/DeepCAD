@@ -1,12 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Box, useTheme, useMediaQuery } from '@mui/material';
 
-import { useStore, ViewportHandles } from '../core/store';
+import { useStore, ViewportHandles, AppState } from '../core/store';
 import PrimaryAppBar from '../components/layout/PrimaryAppBar';
 import MeshSettingsModal from '../components/modals/MeshSettingsModal';
 import MaterialManagerModal from '../components/modals/MaterialManagerModal';
-import HorizontalLayout from '../components/layout/HorizontalLayout';
-import VerticalLayout from '../components/layout/VerticalLayout';
+import LeftSidebar from '../components/layout/LeftSidebar';
+import RightSidebar from '../components/layout/RightSidebar';
+import Viewport from '../components/viewport/Viewport';
+import BottomStatusBar from '../components/layout/BottomStatusBar';
+
+const APP_BAR_HEIGHT = '72px';
+const BOTTOM_BAR_HEIGHT = '48px';
 
 const MainPage: React.FC = () => {
     const theme = useTheme();
@@ -16,31 +21,24 @@ const MainPage: React.FC = () => {
     const [rightDrawerOpen, setRightDrawerOpen] = useState(!isMobile);
     
     const viewportRef = useRef<ViewportHandles>(null);
-    
-    const { activeModal, closeModal, updateMeshSettings, meshSettings, activeWorkbench } = useStore(state => ({
-        activeModal: state.activeModal,
-        closeModal: state.closeModal,
-        updateMeshSettings: state.updateMeshSettings,
-        meshSettings: state.meshSettings,
-        activeWorkbench: state.activeWorkbench,
-    }));
-    
-    const isVerticalLayout = activeWorkbench === 'Modeling' || activeWorkbench === 'Results';
+
+    const activeModal = useStore((state: AppState) => state.activeModal);
+    const closeModal = useStore((state: AppState) => state.closeModal);
+    const updateMeshSettings = useStore((state: AppState) => state.updateMeshSettings);
+    const meshSettings = useStore((state: AppState) => state.meshSettings);
 
     useEffect(() => {
-        if (isMobile || isVerticalLayout) {
-            setLeftDrawerOpen(false);
-            setRightDrawerOpen(false);
-        } else {
-            setLeftDrawerOpen(!isMobile);
-            setRightDrawerOpen(!isMobile);
-        }
-    }, [isMobile, isVerticalLayout]);
+        setLeftDrawerOpen(!isMobile);
+        setRightDrawerOpen(!isMobile);
+    }, [isMobile]);
     
     const handleApplyMeshSettings = (settings: any) => {
         updateMeshSettings(settings);
         closeModal();
     };
+
+    const leftSidebarWidth = leftDrawerOpen ? LeftSidebar.WIDTH : 0;
+    const rightSidebarWidth = rightDrawerOpen ? RightSidebar.WIDTH : 0;
     
     return (
         <Box 
@@ -52,24 +50,59 @@ const MainPage: React.FC = () => {
                 width: '100vw',
                 overflow: 'hidden',
                 background: 'linear-gradient(135deg, #121828 0%, #1a2035 100%)',
-                position: 'relative',
             }}
         >
             <PrimaryAppBar 
                 onToggleLeftDrawer={() => setLeftDrawerOpen(!leftDrawerOpen)} 
                 onToggleRightDrawer={() => setRightDrawerOpen(!rightDrawerOpen)} 
-                showDrawerToggles={!isVerticalLayout}
             />
             
-            {isVerticalLayout ? (
-                <VerticalLayout viewportRef={viewportRef} />
-            ) : (
-                <HorizontalLayout 
-                    leftDrawerOpen={leftDrawerOpen}
-                    rightDrawerOpen={rightDrawerOpen}
-                    viewportRef={viewportRef}
-                />
-            )}
+            <Box
+                className="content-area"
+                sx={{
+                    display: 'flex',
+                    flex: 1,
+                    mt: APP_BAR_HEIGHT,
+                    height: `calc(100vh - ${APP_BAR_HEIGHT})`,
+                    position: 'relative',
+                }}
+            >
+                <LeftSidebar open={leftDrawerOpen} />
+                
+                <Box
+                    className="main-content"
+                    sx={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        position: 'relative',
+                        transition: theme.transitions.create(['margin', 'width'], {
+                            easing: theme.transitions.easing.easeOut,
+                            duration: theme.transitions.duration.enteringScreen,
+                        }),
+                        marginLeft: `${leftSidebarWidth}px`,
+                        marginRight: `${rightSidebarWidth}px`,
+                        overflow: 'hidden',
+                    }}
+                >
+                    <Box 
+                        className="viewport-wrapper"
+                        sx={{ 
+                            flex: 1,
+                            position: 'relative',
+                            height: `calc(100% - ${BOTTOM_BAR_HEIGHT})`,
+                            width: '100%',
+                            overflow: 'hidden',
+                        }}
+                    >
+                        <Viewport ref={viewportRef} />
+                    </Box>
+                    
+                    <BottomStatusBar />
+                </Box>
+
+                <RightSidebar open={rightDrawerOpen} />
+            </Box>
             
             <MeshSettingsModal 
                 open={activeModal === 'MeshSettings'}
