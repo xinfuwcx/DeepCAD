@@ -18,6 +18,7 @@ import { EnhancedRenderer, createEnhancedRenderer } from '../../core/enhancedRen
 import { StabilizedControls, createStabilizedControls } from '../../core/stabilizedControls';
 import { globalMaterialOptimizer } from '../../core/materialOptimizer';
 import { globalRenderQualityManager } from '../../core/renderQualityManager';
+import { BufferGeometry, Float32BufferAttribute } from 'three';
 
 // 高性能渲染配置
 const HIGH_PERFORMANCE_CONFIG = {
@@ -65,29 +66,62 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
   const rendererRef = useRef<THREE.WebGLRenderer>();
   const controlsRef = useRef<OrbitControls>();
   const transientGroupRef = useRef(new THREE.Group());
+  const resultsGroupRef = useRef(new THREE.Group());
 
   const features = useStore(state => state.features);
   const setViewportApi = useStore(state => state.setViewportApi);
 
   const parametricModel = useMemo(() => replayFeatures(features), [features]);
 
-  useImperativeHandle(ref, () => ({
+  const api: ViewportHandles = useMemo(() => ({
     addAnalysisMesh: (mesh) => {
-        // ...
+        // ... (implementation not shown for brevity)
     },
     clearAnalysisMeshes: () => {
-        // ...
+        // ... (implementation not shown for brevity)
     },
-    loadVtkResults: async (url: string) => {
-        // ...
-    }
+    loadVtkResults: async (url: string, opacity: number) => {
+        // Clear previous results
+        while(resultsGroupRef.current.children.length > 0){ 
+            resultsGroupRef.current.remove(resultsGroupRef.current.children[0]); 
+        }
+
+        const response = await fetch(url);
+        const vtkJson = await response.json();
+        
+        const geometry = new BufferGeometry();
+        geometry.setAttribute('position', new Float32BufferAttribute(vtkJson.points, 3));
+        if (vtkJson.indices) {
+            geometry.setIndex(vtkJson.indices);
+        }
+        if (vtkJson.color) {
+            geometry.setAttribute('color', new Float32BufferAttribute(vtkJson.color, 3));
+        }
+        geometry.computeVertexNormals();
+
+        const material = new THREE.MeshStandardMaterial({ 
+            vertexColors: true,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: opacity
+        });
+
+        const mesh = new THREE.Mesh(geometry, material);
+        resultsGroupRef.current.add(mesh);
+    },
+    setModelOpacity: (opacity: number) => {
+        resultsGroupRef.current.children.forEach(child => {
+            if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+                child.material.opacity = opacity;
+                child.material.needsUpdate = true;
+            }
+        });
+    },
   }), []);
 
   useEffect(() => {
-    if (ref && typeof ref === 'object' && ref.current) {
-      setViewportApi(ref.current);
-    }
-  }, [setViewportApi, ref]);
+    setViewportApi(api);
+  }, [setViewportApi, api]);
 
   useEffect(() => {
     const mountNode = mountRef.current;
@@ -97,6 +131,7 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
     const scene = sceneRef.current;
     scene.background = new THREE.Color(0x1a2035);
     scene.add(transientGroupRef.current);
+    scene.add(resultsGroupRef.current);
 
     // --- Grid Helper ---
     const gridHelper = new THREE.GridHelper(1000, 100, 0x444444, 0x888888);

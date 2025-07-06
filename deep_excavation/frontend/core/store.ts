@@ -15,6 +15,7 @@ import {
     BoreholeData,
     CreateGeologicalModelParameters
 } from '../services/parametricAnalysisService';
+import { VisualizationData } from '../services/visualizationService';
 
 // =================================================================================
 // Type Definitions - Centralized Feature Types
@@ -43,7 +44,8 @@ export interface PickingState {
 export interface ViewportHandles {
   addAnalysisMesh: (mesh: THREE.Object3D) => void;
   clearAnalysisMeshes: () => void;
-  loadVtkResults: (url: string) => void;
+  loadVtkResults: (url: string, opacity: number) => Promise<void>;
+  setModelOpacity: (opacity: number) => void;
 }
 
 export interface HistoryState {
@@ -131,6 +133,12 @@ export interface AppState {
         domain: { width: number; length: number; height: number; };
     };
 
+    // Visualization State
+    visualizationData: VisualizationData | null;
+    activeScalarName: string;
+    modelOpacity: number;
+    isResultLoading: boolean;
+
     // UI State
     activeWorkbench: Workbench;
     activeModal: ModalType;
@@ -165,6 +173,12 @@ export interface AppState {
     // 分析相关操作
     updateAnalysisSettings: (settings: Partial<AnalysisSettings>) => void;
     setGeologySettings: (settings: AppState['geologySettings']) => void;
+
+    // Visualization Actions
+    setVisualizationData: (data: VisualizationData | null) => void;
+    setActiveScalarName: (scalarName: string) => void;
+    setModelOpacity: (opacity: number) => void;
+    setIsResultLoading: (isLoading: boolean) => void;
 
     setActiveWorkbench: (workbench: Workbench) => void;
     openModal: (modal: NonNullable<ModalType>) => void;
@@ -249,6 +263,11 @@ export const useStore = create<AppState>((set, get) => ({
         domain: { width: 504, length: 612, height: 53 },
     },
 
+    visualizationData: null,
+    activeScalarName: 'Displacement',
+    modelOpacity: 1.0,
+    isResultLoading: false,
+
     activeWorkbench: 'Modeling',
     activeModal: null,
     pickingState: {
@@ -276,7 +295,13 @@ export const useStore = create<AppState>((set, get) => ({
         set(produce(draft => {
             const feature = draft.features.find((f: AnyFeature) => f.id === featureId);
             if (feature) {
-                Object.assign(feature.parameters, updatedParams);
+                const updatedFeature = produce(feature, draft => {
+                    Object.assign(draft.parameters, updatedParams);
+                });
+                const index = get().features.findIndex(f => f.id === featureId);
+                const newFeatures = [...get().features];
+                newFeatures[index] = updatedFeature;
+                set({ features: newFeatures });
             }
         }));
     },
@@ -386,10 +411,18 @@ export const useStore = create<AppState>((set, get) => ({
 
     setGeologySettings: (settings) => set({ geologySettings: settings }),
     
+    // Visualization Actions
+    setVisualizationData: (data: VisualizationData | null) => set({ visualizationData: data }),
+    setActiveScalarName: (scalarName: string) => set({ activeScalarName: scalarName }),
+    setModelOpacity: (opacity: number) => {
+        set({ modelOpacity: opacity });
+        get().viewportApi?.setModelOpacity(opacity);
+    },
+    setIsResultLoading: (isLoading: boolean) => set({ isResultLoading: isLoading }),
+
+    // --- UI Actions ---
     setActiveWorkbench: (workbench) => set({ activeWorkbench: workbench }),
-    
     openModal: (modal) => set({ activeModal: modal }),
-    
     closeModal: () => set({ activeModal: null }),
 
     startPicking: (onPick) => {
