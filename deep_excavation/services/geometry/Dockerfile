@@ -1,39 +1,40 @@
-FROM python:3.9-slim
-
-# 设置工作目录
-WORKDIR /app
+FROM python:3.10-slim
 
 # 安装系统依赖
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
     libglu1-mesa-dev \
-    libxi-dev \
+    libgl1-mesa-dev \
     libxmu-dev \
-    libglu1-mesa-dev \
+    libxi-dev \
+    libfreetype6-dev \
+    libfontconfig1-dev \
+    libxrender-dev \
+    libxcursor-dev \
+    libxft-dev \
+    libxinerama-dev \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# 复制requirements文件
+# 设置工作目录
+WORKDIR /app
+
+# 复制依赖文件
 COPY requirements.txt .
 
 # 安装Python依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 复制应用代码
+# 复制服务代码
 COPY . .
-
-# 复制共享的后端代码
-COPY ../../backend ./backend
-
-# 设置Python路径
-ENV PYTHONPATH="${PYTHONPATH}:/app:/app/backend"
 
 # 暴露端口
 EXPOSE 8001
 
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8001/health || exit 1
+# 设置环境变量
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 # 启动命令
-CMD ["python", "main.py"] 
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"] 

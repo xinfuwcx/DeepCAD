@@ -5,15 +5,23 @@ import { Box, Typography, Paper, Stack, Tooltip, IconButton, Divider } from '@mu
 import TerrainIcon from '@mui/icons-material/Terrain';
 import GavelIcon from '@mui/icons-material/Gavel';
 import LooksOneIcon from '@mui/icons-material/LooksOne';
+import AnchorIcon from '@mui/icons-material/Anchor';
+import ViewInArIcon from '@mui/icons-material/ViewInAr';
+import SubwayIcon from '@mui/icons-material/Subway';
+import ApartmentIcon from '@mui/icons-material/Apartment';
 
 // Import creator components
 import GeologicalModelCreator from '../creators/GeologicalModelCreator';
 import ExcavationCreator from '../creators/ExcavationCreator';
 import DiaphragmWallCreator from '../creators/DiaphragmWallCreator';
+import AnchorCreator from '../creators/AnchorCreator';
+import PileRaftCreator from '../creators/PileRaftCreator';
+import TunnelCreator from '../creators/TunnelCreator';
+import BuildingCreator from '../creators/BuildingCreator';
 import PropertyPanel from './PropertyPanel';
 import { AnyFeature } from '../../services/parametricAnalysisService';
 
-type CreatorType = AnyFeature['type'] | 'CreateGeologicalModel' | 'CreateDiaphragmWall' | null;
+type CreatorType = AnyFeature['type'] | 'CreateGeologicalModel' | 'CreateDiaphragmWall' | 'CreateAnchor' | 'CreatePileRaft' | 'CreateTunnel' | 'CreateBuilding' | null;
 
 const TaskPanel: React.FC = () => {
     const [activeCreator, setActiveCreator] = useState<CreatorType>(null);
@@ -26,6 +34,14 @@ const TaskPanel: React.FC = () => {
                 return <ExcavationCreator />;
             case 'CreateDiaphragmWall':
                 return <DiaphragmWallCreator />;
+            case 'CreateAnchor':
+                return <AnchorCreator />;
+            case 'CreatePileRaft':
+                return <PileRaftCreator />;
+            case 'CreateTunnel':
+                return <TunnelCreator />;
+            case 'CreateBuilding':
+                return <BuildingCreator />;
             default:
                 return (
                     <Box sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
@@ -40,7 +56,7 @@ const TaskPanel: React.FC = () => {
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>建模工具</Typography>
             
             <Paper elevation={1} sx={{ p: 1, bgcolor: 'rgba(255,255,255,0.05)' }}>
-                <Stack direction="row" spacing={1} justifyContent="center">
+                <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap">
                     <Tooltip title="创建地质模型">
                         <IconButton onClick={() => setActiveCreator('CreateGeologicalModel')} color={activeCreator === 'CreateGeologicalModel' ? 'primary' : 'default'}>
                             <TerrainIcon />
@@ -54,6 +70,26 @@ const TaskPanel: React.FC = () => {
                     <Tooltip title="创建地连墙">
                         <IconButton onClick={() => setActiveCreator('CreateDiaphragmWall')} color={activeCreator === 'CreateDiaphragmWall' ? 'primary' : 'default'}>
                             <LooksOneIcon />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title="创建锚杆">
+                        <IconButton onClick={() => setActiveCreator('CreateAnchor')} color={activeCreator === 'CreateAnchor' ? 'primary' : 'default'}>
+                            <AnchorIcon />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title="创建桩筏">
+                        <IconButton onClick={() => setActiveCreator('CreatePileRaft')} color={activeCreator === 'CreatePileRaft' ? 'primary' : 'default'}>
+                            <ViewInArIcon />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title="创建隧道">
+                        <IconButton onClick={() => setActiveCreator('CreateTunnel')} color={activeCreator === 'CreateTunnel' ? 'primary' : 'default'}>
+                            <SubwayIcon />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title="创建建筑">
+                        <IconButton onClick={() => setActiveCreator('CreateBuilding')} color={activeCreator === 'CreateBuilding' ? 'primary' : 'default'}>
+                            <ApartmentIcon />
                         </IconButton>
                     </Tooltip>
                 </Stack>

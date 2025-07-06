@@ -1,15 +1,21 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, Depends
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from typing import List, Union, Literal, Annotated, Any, Dict, Optional, Tuple
 import logging
 import os
-from starlette.responses import FileResponse
+import tempfile
+import json
+import uuid
+import shutil
+from datetime import datetime
 
 # --- 自定义模块 ---
 from ...core.v5_runner import run_v5_analysis
 from ...core.analysis_runner import (
     DeepExcavationModel, run_deep_excavation_analysis
 )
+from ...core.kratos_solver import KratosSolver
 
 # --- 日志配置 ---
 logging.basicConfig(level=logging.INFO)
@@ -230,11 +236,82 @@ class ParametricScene(BaseModel):
     analysis_settings: Optional[AnalysisSettings] = None
 
 
-class AnalysisResult(BaseModel):
+class AnalysisRequest(BaseModel):
+    """Analysis request with scene data"""
+    scene: ParametricScene
+    settings: Dict[str, Any] = {}
+
+
+class Material(BaseModel):
+    """材料定义"""
+    id: str
+    name: str
+    type: str = "soil"
+    properties: Dict[str, float]
+
+
+class BoundaryCondition(BaseModel):
+    """边界条件定义"""
+    id: str
+    name: str
+    type: str
+    target: str
+    value: Union[float, List[float]]
+    constrained: Optional[List[bool]] = None
+
+
+class Load(BaseModel):
+    """荷载定义"""
+    id: str
+    name: str
+    type: str
+    target: str
+    value: Union[float, List[float]]
+
+
+class KratosAnalysisSettings(BaseModel):
+    """Kratos分析设置"""
+    analysis_type: str = "static"
+    solver_type: str = "direct"
+    tolerance: float = 1e-6
+    max_iterations: int = 1000
+    time_step: Optional[float] = None
+    end_time: Optional[float] = None
+
+
+class StructuralAnalysisRequest(BaseModel):
+    """结构分析请求"""
+    mesh_file: str
+    materials: List[Material]
+    boundary_conditions: List[BoundaryCondition]
+    loads: Optional[List[Load]] = None
+    settings: KratosAnalysisSettings
+
+
+class SeepageAnalysisRequest(BaseModel):
+    """渗流分析请求"""
+    mesh_file: str
+    materials: List[Material]
+    boundary_conditions: List[BoundaryCondition]
+    settings: KratosAnalysisSettings
+
+
+class CoupledAnalysisRequest(BaseModel):
+    """流固耦合分析请求"""
+    mesh_file: str
+    materials: List[Material]
+    boundary_conditions: List[BoundaryCondition]
+    coupling_settings: Dict[str, Any]
+    settings: KratosAnalysisSettings
+
+
+class AnalysisResponse(BaseModel):
+    """Analysis response"""
     status: str
     message: str
-    mesh_statistics: Dict[str, Any]
+    result_id: Optional[str] = None
     mesh_filename: Optional[str] = None
+    visualization_data: Optional[Dict[str, Any]] = None
 
 
 # ############################################################################
@@ -380,4 +457,356 @@ async def get_deep_excavation_result_file(project_id: str, analysis_type: str):
     raise HTTPException(
         status_code=404,
         detail=f"未找到项目 {project_id} 的 {analysis_type} 分析结果文件"
-    ) 
+    )
+
+
+@router.post("/run", response_model=AnalysisResponse)
+async def run_analysis(request: AnalysisRequest):
+    """
+    Run a parametric analysis based on the provided scene.
+    """
+    try:
+        # 运行V5分析
+        result = run_v5_analysis(request.scene.dict())
+        
+        return {
+            "status": "success",
+            "message": "Analysis completed successfully",
+            "result_id": result.get("result_id", str(uuid.uuid4())),
+            "mesh_filename": result.get("mesh_filename"),
+            "visualization_data": result.get("visualization_data")
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/results/{filename}")
+async def get_analysis_result(filename: str):
+    """
+    Get an analysis result file by filename.
+    """
+    # 安全检查，确保文件名不包含路径遍历
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    
+    # 假设结果文件存储在临时目录中
+    temp_dir = tempfile.gettempdir()
+    file_path = os.path.join(temp_dir, filename)
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Result file not found")
+    
+    return FileResponse(file_path)
+
+
+@router.post("/structural", response_model=AnalysisResponse)
+async def run_structural_analysis(request: StructuralAnalysisRequest, background_tasks: BackgroundTasks):
+    """
+    运行结构分析
+    """
+    try:
+        # 创建唯一的工作目录
+        work_dir = tempfile.mkdtemp(prefix="kratos_structural_")
+        
+        # 准备材料数据
+        materials_data = []
+        for material in request.materials:
+            kratos_material = {
+                "model_part_name": f"Structure.{material.name}",
+                "properties_id": material.id,
+                "Material": {
+                    "constitutive_law": {"name": "LinearElastic3DLaw"},
+                    "Variables": material.properties
+                }
+            }
+            materials_data.append(kratos_material)
+        
+        # 准备边界条件
+        boundary_conditions = []
+        for bc in request.boundary_conditions:
+            boundary_conditions.append(bc.dict())
+        
+        # 准备荷载
+        loads = []
+        if request.loads:
+            for load in request.loads:
+                loads.append(load.dict())
+        
+        # 准备求解器设置
+        solver_settings = {
+            "solver_type": request.settings.solver_type,
+            "linear_solver_settings": {
+                "solver_type": request.settings.solver_type,
+                "tolerance": request.settings.tolerance,
+                "max_iteration": request.settings.max_iterations
+            }
+        }
+        
+        if request.settings.time_step and request.settings.end_time:
+            solver_settings["time_stepping"] = {
+                "time_step": request.settings.time_step,
+                "end_time": request.settings.end_time
+            }
+        
+        # 创建求解器实例
+        solver = KratosSolver(work_dir)
+        
+        # 在后台任务中运行分析
+        result_id = str(uuid.uuid4())
+        
+        def run_analysis_task():
+            try:
+                # 复制网格文件到工作目录
+                mesh_src = request.mesh_file
+                mesh_dest = os.path.join(work_dir, os.path.basename(mesh_src))
+                shutil.copy(mesh_src, mesh_dest)
+                
+                # 运行分析
+                result_file = solver.run_structural_analysis(
+                    mesh_dest,
+                    materials_data,
+                    request.settings.analysis_type,
+                    solver_settings,
+                    boundary_conditions,
+                    loads
+                )
+                
+                # 保存结果元数据
+                result_meta = {
+                    "id": result_id,
+                    "type": "structural",
+                    "timestamp": datetime.now().isoformat(),
+                    "result_file": result_file,
+                    "settings": request.settings.dict()
+                }
+                
+                with open(os.path.join(work_dir, "result_meta.json"), "w") as f:
+                    json.dump(result_meta, f)
+                
+            except Exception as e:
+                print(f"Analysis failed: {str(e)}")
+        
+        # 添加后台任务
+        background_tasks.add_task(run_analysis_task)
+        
+        return {
+            "status": "processing",
+            "message": "Structural analysis started",
+            "result_id": result_id
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/seepage", response_model=AnalysisResponse)
+async def run_seepage_analysis(request: SeepageAnalysisRequest, background_tasks: BackgroundTasks):
+    """
+    运行渗流分析
+    """
+    try:
+        # 创建唯一的工作目录
+        work_dir = tempfile.mkdtemp(prefix="kratos_seepage_")
+        
+        # 准备材料数据
+        materials_data = []
+        for material in request.materials:
+            materials_data.append({
+                "name": material.name,
+                "hydraulic_conductivity_x": material.properties.get("hydraulic_conductivity_x", 1e-5),
+                "hydraulic_conductivity_y": material.properties.get("hydraulic_conductivity_y", 1e-5),
+                "hydraulic_conductivity_z": material.properties.get("hydraulic_conductivity_z", 1e-5),
+                "porosity": material.properties.get("porosity", 0.3)
+            })
+        
+        # 准备边界条件
+        boundary_conditions = []
+        for bc in request.boundary_conditions:
+            boundary_conditions.append(bc.dict())
+        
+        # 准备求解器设置
+        solver_settings = {
+            "solver_type": request.settings.solver_type,
+            "linear_solver_settings": {
+                "solver_type": request.settings.solver_type,
+                "tolerance": request.settings.tolerance,
+                "max_iteration": request.settings.max_iterations
+            }
+        }
+        
+        if request.settings.time_step and request.settings.end_time:
+            solver_settings["time_stepping"] = {
+                "time_step": request.settings.time_step,
+                "end_time": request.settings.end_time
+            }
+        
+        # 创建求解器实例
+        solver = KratosSolver(work_dir)
+        
+        # 在后台任务中运行分析
+        result_id = str(uuid.uuid4())
+        
+        def run_analysis_task():
+            try:
+                # 复制网格文件到工作目录
+                mesh_src = request.mesh_file
+                mesh_dest = os.path.join(work_dir, os.path.basename(mesh_src))
+                shutil.copy(mesh_src, mesh_dest)
+                
+                # 运行分析
+                result_file = solver.run_seepage_analysis(
+                    mesh_dest,
+                    materials_data,
+                    boundary_conditions,
+                    "steady_state" if request.settings.analysis_type == "steady_state" else "transient",
+                    solver_settings
+                )
+                
+                # 保存结果元数据
+                result_meta = {
+                    "id": result_id,
+                    "type": "seepage",
+                    "timestamp": datetime.now().isoformat(),
+                    "result_file": result_file,
+                    "settings": request.settings.dict()
+                }
+                
+                with open(os.path.join(work_dir, "result_meta.json"), "w") as f:
+                    json.dump(result_meta, f)
+                
+            except Exception as e:
+                print(f"Analysis failed: {str(e)}")
+        
+        # 添加后台任务
+        background_tasks.add_task(run_analysis_task)
+        
+        return {
+            "status": "processing",
+            "message": "Seepage analysis started",
+            "result_id": result_id
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/coupled", response_model=AnalysisResponse)
+async def run_coupled_analysis(request: CoupledAnalysisRequest, background_tasks: BackgroundTasks):
+    """
+    运行流固耦合分析
+    """
+    try:
+        # 创建唯一的工作目录
+        work_dir = tempfile.mkdtemp(prefix="kratos_coupled_")
+        
+        # 准备材料数据
+        materials_data = []
+        for material in request.materials:
+            materials_data.append(material.dict())
+        
+        # 准备边界条件
+        boundary_conditions = []
+        for bc in request.boundary_conditions:
+            boundary_conditions.append(bc.dict())
+        
+        # 创建求解器实例
+        solver = KratosSolver(work_dir)
+        
+        # 在后台任务中运行分析
+        result_id = str(uuid.uuid4())
+        
+        def run_analysis_task():
+            try:
+                # 复制网格文件到工作目录
+                mesh_src = request.mesh_file
+                mesh_dest = os.path.join(work_dir, os.path.basename(mesh_src))
+                shutil.copy(mesh_src, mesh_dest)
+                
+                # 运行分析
+                result_file = solver.run_coupled_analysis(
+                    mesh_dest,
+                    materials_data,
+                    boundary_conditions,
+                    request.coupling_settings
+                )
+                
+                # 保存结果元数据
+                result_meta = {
+                    "id": result_id,
+                    "type": "coupled",
+                    "timestamp": datetime.now().isoformat(),
+                    "result_file": result_file,
+                    "settings": request.settings.dict(),
+                    "coupling_settings": request.coupling_settings
+                }
+                
+                with open(os.path.join(work_dir, "result_meta.json"), "w") as f:
+                    json.dump(result_meta, f)
+                
+            except Exception as e:
+                print(f"Analysis failed: {str(e)}")
+        
+        # 添加后台任务
+        background_tasks.add_task(run_analysis_task)
+        
+        return {
+            "status": "processing",
+            "message": "Coupled analysis started",
+            "result_id": result_id
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/status/{result_id}")
+async def get_analysis_status(result_id: str):
+    """
+    获取分析状态
+    """
+    # 在临时目录中查找结果元数据
+    temp_dir = tempfile.gettempdir()
+    
+    # 搜索包含结果ID的目录
+    result_dirs = []
+    for root, dirs, files in os.walk(temp_dir):
+        for dir_name in dirs:
+            if "kratos_" in dir_name:
+                meta_file = os.path.join(temp_dir, dir_name, "result_meta.json")
+                if os.path.exists(meta_file):
+                    try:
+                        with open(meta_file, "r") as f:
+                            meta = json.load(f)
+                            if meta.get("id") == result_id:
+                                result_dirs.append(os.path.join(temp_dir, dir_name))
+                    except:
+                        pass
+    
+    if not result_dirs:
+        raise HTTPException(status_code=404, detail="Analysis result not found")
+    
+    # 使用找到的第一个目录
+    result_dir = result_dirs[0]
+    meta_file = os.path.join(result_dir, "result_meta.json")
+    
+    with open(meta_file, "r") as f:
+        meta = json.load(f)
+    
+    # 检查结果文件是否存在
+    if "result_file" in meta and os.path.exists(meta["result_file"]):
+        return {
+            "status": "completed",
+            "message": "Analysis completed",
+            "result_id": result_id,
+            "result_file": os.path.basename(meta["result_file"]),
+            "type": meta.get("type", "unknown"),
+            "timestamp": meta.get("timestamp")
+        }
+    else:
+        return {
+            "status": "processing",
+            "message": "Analysis is still running",
+            "result_id": result_id,
+            "type": meta.get("type", "unknown"),
+            "timestamp": meta.get("timestamp")
+        } 

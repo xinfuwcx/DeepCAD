@@ -20,14 +20,15 @@ services:
 
   # 服务发现
   consul:
-    image: consul:latest
+    image: consul:1.14
+    container_name: consul
     ports:
       - "8500:8500"
-    command: consul agent -dev -client=0.0.0.0 -ui
-    environment:
-      - CONSUL_BIND_INTERFACE=eth0
+    volumes:
+      - consul-data:/consul/data
+    command: "agent -server -bootstrap-expect=1 -ui -client=0.0.0.0"
     networks:
-      - phoenix-network
+      - zhuque-network
 
   # 消息队列
   rabbitmq:
@@ -55,17 +56,18 @@ services:
 
   # 数据库
   postgres:
-    image: postgres:13
+    image: postgres:14
+    container_name: postgres
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_DB=deep_excavation
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=admin123
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=deepcad
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
     networks:
-      - phoenix-network
+      - zhuque-network
 
   # 对象存储
   minio:
@@ -84,25 +86,35 @@ services:
 
   # 监控系统
   prometheus:
-    image: prom/prometheus
+    image: prom/prometheus:v2.42.0
+    container_name: prometheus
     ports:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
     networks:
-      - phoenix-network
+      - zhuque-network
 
   grafana:
-    image: grafana/grafana
+    image: grafana/grafana:9.4.7
+    container_name: grafana
     ports:
       - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin123
     volumes:
-      - grafana_data:/var/lib/grafana
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
     networks:
-      - phoenix-network
+      - zhuque-network
 
   # 日志系统
   elasticsearch:
@@ -130,94 +142,78 @@ services:
 
   # 链路追踪
   jaeger:
-    image: jaegertracing/all-in-one:latest
+    image: jaegertracing/all-in-one:1.42
+    container_name: jaeger
     ports:
-      - "16686:16686"
-      - "14268:14268"
+      - "16686:16686"  # UI
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     networks:
-      - phoenix-network
+      - zhuque-network
 
   # 几何服务
   geometry-service:
     build:
       context: ./services/geometry
       dockerfile: Dockerfile
+    container_name: geometry-service
     ports:
       - "8001:8001"
     environment:
+      - SERVICE_PORT=8001
       - CONSUL_HOST=consul
-      - CONSUL_PORT=8500
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - JAEGER_AGENT_HOST=jaeger
-      - JAEGER_AGENT_PORT=6831
+      - OTLP_ENDPOINT=http://jaeger:4317
     depends_on:
       - consul
-      - redis
-      - rabbitmq
       - jaeger
     volumes:
       - ./data/geometry:/app/data
     networks:
-      - phoenix-network
+      - zhuque-network
 
   # 网格服务
   mesh-service:
     build:
       context: ./services/mesh
       dockerfile: Dockerfile
+    container_name: mesh-service
     ports:
       - "8002:8002"
     environment:
+      - SERVICE_PORT=8002
       - CONSUL_HOST=consul
-      - CONSUL_PORT=8500
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - JAEGER_AGENT_HOST=jaeger
-      - JAEGER_AGENT_PORT=6831
+      - OTLP_ENDPOINT=http://jaeger:4317
     depends_on:
       - consul
-      - redis
-      - rabbitmq
       - jaeger
       - geometry-service
     volumes:
       - ./data/mesh:/app/data
     networks:
-      - phoenix-network
+      - zhuque-network
 
   # 分析服务
   analysis-service:
     build:
       context: ./services/analysis
       dockerfile: Dockerfile
+    container_name: analysis-service
     ports:
       - "8003:8003"
     environment:
+      - SERVICE_PORT=8003
       - CONSUL_HOST=consul
-      - CONSUL_PORT=8500
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - JAEGER_AGENT_HOST=jaeger
-      - JAEGER_AGENT_PORT=6831
+      - OTLP_ENDPOINT=http://jaeger:4317
     depends_on:
       - consul
-      - redis
-      - rabbitmq
       - jaeger
       - mesh-service
     volumes:
       - ./data/analysis:/app/data
     networks:
-      - phoenix-network
+      - zhuque-network
 
   # 结果服务
   result-service:
@@ -254,98 +250,111 @@ services:
     build:
       context: ./services/project
       dockerfile: Dockerfile
+    container_name: project-service
     ports:
-      - "8005:8005"
+      - "8004:8004"
     environment:
+      - SERVICE_PORT=8004
       - CONSUL_HOST=consul
-      - CONSUL_PORT=8500
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=deep_excavation
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=admin123
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - JAEGER_AGENT_HOST=jaeger
-      - JAEGER_AGENT_PORT=6831
+      - OTLP_ENDPOINT=http://jaeger:4317
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/deepcad
     depends_on:
       - consul
-      - postgres
-      - redis
       - jaeger
+      - postgres
+    volumes:
+      - ./data/project:/app/data
     networks:
-      - phoenix-network
+      - zhuque-network
 
   # 文件服务
   file-service:
     build:
       context: ./services/file
       dockerfile: Dockerfile
+    container_name: file-service
     ports:
-      - "8006:8006"
+      - "8005:8005"
     environment:
+      - SERVICE_PORT=8005
       - CONSUL_HOST=consul
-      - CONSUL_PORT=8500
-      - MINIO_HOST=minio
-      - MINIO_PORT=9000
-      - MINIO_ACCESS_KEY=admin
-      - MINIO_SECRET_KEY=admin123
-      - JAEGER_AGENT_HOST=jaeger
-      - JAEGER_AGENT_PORT=6831
+      - OTLP_ENDPOINT=http://jaeger:4317
+      - STORAGE_PATH=/app/storage
+    volumes:
+      - file-storage:/app/storage
     depends_on:
       - consul
-      - minio
       - jaeger
     networks:
-      - phoenix-network
+      - zhuque-network
 
   # 通知服务
   notification-service:
     build:
       context: ./services/notification
       dockerfile: Dockerfile
+    container_name: notification-service
     ports:
-      - "8007:8007"
+      - "8006:8006"
     environment:
+      - SERVICE_PORT=8006
       - CONSUL_HOST=consul
-      - CONSUL_PORT=8500
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - JAEGER_AGENT_HOST=jaeger
-      - JAEGER_AGENT_PORT=6831
+      - OTLP_ENDPOINT=http://jaeger:4317
     depends_on:
       - consul
-      - redis
-      - rabbitmq
       - jaeger
     networks:
-      - phoenix-network
+      - zhuque-network
 
   # 前端服务
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    container_name: frontend
     ports:
-      - "3001:3000"
+      - "3001:3001"
     environment:
-      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_API_BASE_URL=http://localhost/api
     depends_on:
-      - api-gateway
+      - nginx
     networks:
-      - phoenix-network
+      - zhuque-network
 
 volumes:
   rabbitmq_data:
   redis_data:
-  postgres_data:
+  postgres-data:
   minio_data:
-  prometheus_data:
-  grafana_data:
+  prometheus-data:
+  grafana-data:
   elasticsearch_data:
+  consul-data:
+  file-storage:
 
 networks:
   phoenix-network:
-    driver: bridge 
+    driver: bridge
+  zhuque-network:
+    driver: bridge
+
+# 后端应用（传统模式，用于过渡）
+backend:
+  build:
+    context: ./backend
+    dockerfile: Dockerfile
+  container_name: backend
+  ports:
+    - "8000:8000"
+  environment:
+    - CONSUL_HOST=consul
+    - GEOMETRY_SERVICE_URL=http://geometry-service:8001
+    - MESH_SERVICE_URL=http://mesh-service:8002
+    - ANALYSIS_SERVICE_URL=http://analysis-service:8003
+  depends_on:
+    - consul
+    - geometry-service
+    - mesh-service
+    - analysis-service
+  networks:
+    - zhuque-network 

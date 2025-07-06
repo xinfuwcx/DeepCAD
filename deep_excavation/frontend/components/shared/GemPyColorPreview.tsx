@@ -1,17 +1,22 @@
 import React from 'react';
 import { Box, Typography, Chip, Paper, Grid } from '@mui/material';
-import { gempyColorSystem } from '../../core/gempyInspiredColorSystem';
+import { LITHOLOGY_COLORS, SHANGHAI_SOIL_COLORS } from '../../core/geologicalColorSchemes';
 
-const GemPyColorPreview: React.FC = () => {
-    const colorScheme = gempyColorSystem.getColorScheme();
+interface GemPyColorPreviewProps {
+    colorScheme?: Record<string, string>;
+}
+
+const GemPyColorPreview: React.FC<GemPyColorPreviewProps> = ({ colorScheme }) => {
+    // 如果没有提供colorScheme，则使用默认的岩性颜色方案
+    const colors = colorScheme || LITHOLOGY_COLORS;
 
     return (
-        <Paper elevation={3} sx={{ p: 2, mt: 2, background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)' }}>
+        <Paper elevation={3} sx={{ p: 2, background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)' }}>
             <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
-                GemPy地质配色方案
+                地质配色方案
             </Typography>
             <Grid container spacing={1}>
-                {Object.entries(colorScheme).map(([name, color]) => (
+                {Object.entries(colors).map(([name, color]) => (
                     <Grid item key={name}>
                         <Chip
                             label={name}

@@ -1,0 +1,20 @@
+warning: in the working copy of 'deep_excavation/frontend/components/layout/PrimaryAppBar.tsx', LF will be replaced by CRLF the next time Git touches it
+deep_excavation/frontend/components/creators/AnchorCreator.tsx
+deep_excavation/frontend/components/creators/BuildingCreator.tsx
+deep_excavation/frontend/components/creators/DiaphragmWallCreator.tsx
+deep_excavation/frontend/components/creators/ExcavationCreator.tsx
+deep_excavation/frontend/components/creators/GeologicalModelCreator.tsx
+deep_excavation/frontend/components/creators/GeologicalModelViewer.tsx
+deep_excavation/frontend/components/creators/PileRaftCreator.tsx
+deep_excavation/frontend/components/creators/TunnelCreator.tsx
+deep_excavation/frontend/components/forms/MeshSettingsForm.tsx
+deep_excavation/frontend/components/layout/AnalysisPanel.tsx
+deep_excavation/frontend/components/layout/PrimaryAppBar.tsx
+deep_excavation/frontend/components/layout/TaskPanel.tsx
+deep_excavation/frontend/components/shared/GemPyColorPreview.tsx
+deep_excavation/frontend/components/visualization/ScientificVisualizationPanel.tsx
+deep_excavation/frontend/core/bimColorSystem.ts
+deep_excavation/frontend/core/store.ts
+deep_excavation/frontend/services/parametricAnalysisService.ts
+package-lock.json
+package.json

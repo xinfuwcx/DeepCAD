@@ -12,9 +12,6 @@ import tempfile
 import os
 import gempy as gp
 import pandas as pd
-import logging
-import json
-from pathlib import Path
 
 # Kratos Multiphysics - 我们的核心求解器
 import KratosMultiphysics
@@ -23,9 +20,7 @@ from KratosMultiphysics.StructuralMechanicsApplication import (
 )
 
 # Netgen - 我们的核心网格生成器
-from ngsolve import Mesh
 from netgen.occ import Box, OCCGeometry
-from ezdxf.importer import Importer
 
 # 自定义模块
 from ..api.routes.analysis_router import (
@@ -126,9 +121,14 @@ class KratosV5Adapter:
         """Parses a CreateGeologicalModelFeature to get Gempy inputs."""
         print("  - Parsing CreateGeologicalModelFeature...")
         
-        geo_model_feature = next((f for f in self.features if f.type == 'CreateGeologicalModel'), None)
+        geo_model_feature = next(
+            (f for f in self.features if f.type == 'CreateGeologicalModel'), 
+            None
+        )
         if not geo_model_feature:
-            raise ValueError("Could not find 'CreateGeologicalModel' feature in the provided scene.")
+            raise ValueError(
+                "Could not find 'CreateGeologicalModel' feature in the scene."
+            )
 
         csv_data = geo_model_feature.parameters.csvData
         csv_file = io.StringIO(csv_data)
@@ -221,9 +221,14 @@ class KratosV5Adapter:
                 print(f"    -> Created soil volume (ID: {soil_volume.id}) from GemPy surfaces.")
 
                 # --- 查找并创建地连墙 ---
-                diaphragm_wall_features = [f for f in self.features if f.type == 'CreateDiaphragmWall']
+                diaphragm_wall_features = [
+                    f for f in self.features if f.type == 'CreateDiaphragmWall'
+                ]
                 if diaphragm_wall_features:
-                    print(f"    -> Found {len(diaphragm_wall_features)} Diaphragm Wall feature(s). Adding to model...")
+                    print(
+                        f"    -> Found {len(diaphragm_wall_features)} "
+                        f"Diaphragm Wall feature(s). Adding to model..."
+                    )
                     for wall_feature in diaphragm_wall_features:
                         params = wall_feature.parameters
                         p1 = params.path[0]
@@ -243,41 +248,42 @@ class KratosV5Adapter:
                         geom.add_physical(wall_box, label=f"WALL_{wall_feature.name}")
                         print(f"      -> Added Diaphragm Wall '{wall_feature.name}'.")
 
-                # --- 查找并执行开挖 ---
+                # --- 查找并执行常规开挖 ---
                 excavation_feature = next((f for f in self.features if f.type == 'CreateExcavation'), None)
-
                 if excavation_feature:
                     print("    -> Found 'CreateExcavation' feature. Performing cut...")
                     params = excavation_feature.parameters
                     
-                    if len(params.points) < 3:
-                        raise ValueError("Excavation profile needs at least 3 points.")
-
-                    excavation_points_3d = [(p.x, p.y, 0) for p in params.points]
-                
+                    # Assuming rectangular excavation for this feature type
+                    l, w, d = params.length, params.width, params.depth
+                    pos = params.position
+                    
+                    excavation_box = geom.add_box(
+                        x0=pos[0] - l/2, y0=pos[1] - w/2, z0=pos[2] + d/2,
+                        dx=l, dy=w, dz=-d
+                    )
+                    cutting_tool = excavation_box
+                    
                 # --- 查找并执行DXF开挖 ---
                 dxf_excavation_feature = next((f for f in self.features if f.type == 'CreateExcavationFromDXF'), None)
                 if dxf_excavation_feature:
                     print("    -> Found 'CreateExcavationFromDXF' feature. Performing cut...")
                     params = dxf_excavation_feature.parameters
                     
-                    processor = DXFProcessor(params.dxfFileContent, params.layerName)
-                    profile_vertices = processor.extract_profile_vertices()
-
-                    if len(profile_vertices) < 3:
+                    # NEW LOGIC: Use points directly from the feature
+                    if len(params.points) < 3:
                         raise ValueError("DXF excavation profile needs at least 3 points.")
                     
-                    excavation_points_3d = [(v[0], v[1], 0) for v in profile_vertices]
+                    excavation_points_3d = [(p.x, p.y, 0) for p in params.points]
                     excavation_depth = params.depth
-                
-                # --- 如果有任何一种开挖，执行切割 ---
-                if 'excavation_points_3d' in locals():
-                    excavation_profile_poly = geom.add_polygon(excavation_points_3d)
                     
+                    excavation_profile_poly = geom.add_polygon(excavation_points_3d)
                     cutting_tool = geom.extrude(
                         excavation_profile_poly, [0, 0, -excavation_depth]
                     )
 
+                # --- 如果有任何一种开挖，执行切割 ---
+                if 'cutting_tool' in locals():
                     soil_volume = geom.cut(soil_volume, cutting_tool)
                     geom.add_physical(soil_volume, label="FINAL_SOIL_BODY")
                     print("      -> Boolean cut for excavation successful.")

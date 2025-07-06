@@ -4,6 +4,8 @@
  */
 
 import { SoilParams } from '../components/creators/CreatorInterface';
+import axios from 'axios';
+import { CreateGeologicalModelParameters } from './parametricAnalysisService';
 
 /**
  * GemPy模型参数
@@ -31,13 +33,29 @@ interface GmshParams {
  */
 class GeologyService {
   /**
-   * 创建GemPy地质模型
+   * (新) 根据钻孔数据创建地质模型
+   * @param params 包含钻孔数据和建模选项的参数对象
+   * @returns 后端返回的包含模型ID和预览数据的对象
+   */
+  async createModelFromBoreholes(params: CreateGeologicalModelParameters): Promise<any> {
+    try {
+      const response = await axios.post('/api/geology/model-from-boreholes', params);
+      return response.data;
+    } catch (error) {
+      console.error("从钻孔数据创建地质模型失败:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * (旧的，基于厚度，已废弃) 创建GemPy地质模型
    * @param soilLayers 土层参数数组
    * @param modelParams GemPy模型参数
    * @returns 地质模型ID
    */
+  /*
   async createGeologicalModel(
-    soilLayers: SoilParams[],
+    soilLayers: any[], // 之前的类型是 SoilParams[]
     modelParams: Partial<GemPyModelParams> = {}
   ): Promise<string> {
     console.log('创建GemPy地质模型', { soilLayers, modelParams });
@@ -58,6 +76,7 @@ class GeologyService {
       }, 500);
     });
   }
+  */
   
   /**
    * 使用Gmsh(OCC)生成网格

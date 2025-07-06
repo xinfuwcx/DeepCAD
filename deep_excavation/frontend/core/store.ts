@@ -1,10 +1,36 @@
 import { create } from 'zustand';
-import { AnyFeature } from '../services/parametricAnalysisService';
 import * as THREE from 'three';
+import { produce } from 'immer';
+import {
+    AnyFeature as ParametricAnyFeature,
+    BaseFeature,
+    CreateBoxFeature,
+    CreateBuildingFeature,
+    CreateDiaphragmWallFeature,
+    CreateExcavationFeature,
+    CreateGeologicalModelFeature,
+    CreatePileRaftFeature,
+    CreateTunnelFeature,
+    GemPyParams,
+    BoreholeData,
+    CreateGeologicalModelParameters
+} from '../services/parametricAnalysisService';
 
 // =================================================================================
-// Type Definitions
+// Type Definitions - Centralized Feature Types
 // =================================================================================
+
+// Re-export some types for convenience in other components
+export type { GemPyParams, BoreholeData, CreateGeologicalModelParameters };
+export type { BaseFeature };
+
+// --- Feature Interfaces ---
+// (此处放置所有Feature接口，如 CreateBoxFeature, etc.)
+
+// ... (其他所有Feature接口，确保它们都继承自 BaseFeature 或有相似结构)
+
+// --- The Union Type ---
+export type AnyFeature = ParametricAnyFeature;
 
 export type Workbench = 'Modeling' | 'Mesh' | 'Analysis' | 'Results';
 export type ModalType = 'MeshSettings' | 'MaterialManager' | null;
@@ -18,6 +44,11 @@ export interface ViewportHandles {
   addAnalysisMesh: (mesh: THREE.Object3D) => void;
   clearAnalysisMeshes: () => void;
   loadVtkResults: (url: string) => void;
+}
+
+export interface HistoryState {
+  past: AppState['features'][];  // 过去的状态
+  future: AppState['features'][]; // 未来的状态
 }
 
 export interface MeshSettings {
@@ -84,6 +115,9 @@ export interface AppState {
     features: AnyFeature[];
     selectedFeatureId: string | null;
     
+    // 历史记录状态
+    history: HistoryState;
+    
     // Settings
     meshSettings: MeshSettings;
     meshes: MeshInfo[];
@@ -112,6 +146,12 @@ export interface AppState {
     updateFeature: (featureId: string, updatedParams: Partial<AnyFeature['parameters']>) => void;
     deleteFeature: (featureId: string) => void;
     setFeatures: (features: AnyFeature[]) => void;
+    
+    // 撤销和重做操作
+    undo: () => void;
+    redo: () => void;
+    canUndo: () => boolean;
+    canRedo: () => boolean;
     
     // 网格相关操作
     updateMeshSettings: (settings: Partial<MeshSettings>) => void;
@@ -184,6 +224,12 @@ export const useStore = create<AppState>((set, get) => ({
     features: [],
     selectedFeatureId: null,
     
+    // 初始化历史记录状态
+    history: {
+        past: [],
+        future: []
+    },
+    
     meshSettings: defaultMeshSettings,
     meshes: [],
     selectedMeshId: null,
@@ -215,30 +261,71 @@ export const useStore = create<AppState>((set, get) => ({
 
     // --- Action Implementations ---
     addFeature: (feature) => {
-        set(state => ({ features: [...state.features, feature] }));
-        get().selectFeature(feature.id);
+        const currentFeatures = get().features;
+        set(produce(draft => {
+            draft.features.push(feature);
+            draft.history.past.push(currentFeatures);
+            draft.history.future = [];
+            draft.selectedFeatureId = feature.id;
+        }));
     },
 
     selectFeature: (id) => set({ selectedFeatureId: id }),
 
     updateFeature: (featureId, updatedParams) => {
-        set(state => ({
-            features: state.features.map(f => 
-                f.id === featureId 
-                    ? { ...f, parameters: { ...f.parameters, ...updatedParams } } 
-                    : f
-            ) as AnyFeature[],
+        set(produce(draft => {
+            const feature = draft.features.find((f: AnyFeature) => f.id === featureId);
+            if (feature) {
+                Object.assign(feature.parameters, updatedParams);
+            }
         }));
     },
 
     deleteFeature: (featureId) => {
-        set(state => ({
-            features: state.features.filter(f => f.id !== featureId),
-            selectedFeatureId: get().selectedFeatureId === featureId ? null : get().selectedFeatureId,
+        const currentFeatures = get().features;
+        set(produce(draft => {
+            draft.features = draft.features.filter((f: AnyFeature) => f.id !== featureId);
+            draft.history.past.push(currentFeatures);
+            draft.history.future = [];
+            if (draft.selectedFeatureId === featureId) {
+                draft.selectedFeatureId = null;
+            }
         }));
     },
     
     setFeatures: (features) => set({ features: features }),
+    
+    // 撤销操作实现
+    undo: () => {
+        set(produce(draft => {
+            const past = draft.history.past;
+            if (past.length > 0) {
+                const previousState = past.pop();
+                draft.history.future.unshift(draft.features);
+                draft.features = previousState;
+                draft.selectedFeatureId = null;
+            }
+        }));
+    },
+    
+    // 重做操作实现
+    redo: () => {
+        set(produce(draft => {
+            const future = draft.history.future;
+            if (future.length > 0) {
+                const nextState = future.shift();
+                draft.history.past.push(draft.features);
+                draft.features = nextState;
+                draft.selectedFeatureId = null;
+            }
+        }));
+    },
+    
+    // 检查是否可以撤销
+    canUndo: () => get().history.past.length > 0,
+    
+    // 检查是否可以重做
+    canRedo: () => get().history.future.length > 0,
 
     // 网格相关操作
     updateMeshSettings: (settings) => {
@@ -336,14 +423,21 @@ export const useStore = create<AppState>((set, get) => ({
 
     // --- Selector Implementations ---
     getSelectedFeature: () => {
-        const id = get().selectedFeatureId;
-        return get().features.find(f => f.id === id) || null;
+        const { features, selectedFeatureId } = get();
+        if (!selectedFeatureId) return null;
+        return features.find((f: AnyFeature) => f.id === selectedFeatureId) || null;
     },
 
-    getFeatureById: (id: string) => get().features.find(f => f.id === id),
+    getFeatureById: (id: string) => get().features.find((f: AnyFeature) => f.id === id),
     
     getSelectedMesh: () => {
-        const id = get().selectedMeshId;
-        return get().meshes.find(m => m.id === id) || null;
+        const { meshes, selectedMeshId } = get();
+        if (!selectedMeshId) return null;
+        return meshes.find(m => m.id === selectedMeshId) || null;
     },
+    
+    // 示例：一个更复杂的selector，用于过滤特定类型的features
+    getFeaturesByType: (type: string) => {
+        return get().features.filter((f: AnyFeature) => f.type === type);
+    }
 }));

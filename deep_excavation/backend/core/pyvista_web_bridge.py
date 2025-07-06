@@ -14,18 +14,24 @@ from pathlib import Path
 import numpy as np
 import pyvista as pv
 import meshio
+from pyvista.plotting.exporter import export_gltf
+import base64
+from io import BytesIO
 
 logger = logging.getLogger(__name__)
+
+# 全局的内存缓存，用于存储加载的原始PyVista网格对象
+# 键是结果文件的唯一标识符 (例如 project_id + result_name)
+MESH_CACHE: Dict[str, pv.UnstructuredGrid] = {}
 
 class PyVistaWebBridge:
     """
     PyVista到Web的数据桥梁
     
-    核心功能：
-    1. 读取Kratos输出的VTK文件
-    2. 使用PyVista进行后处理计算
-    3. 转换为Three.js友好的JSON格式
-    4. 提供缓存和增量更新机制
+    新架构核心功能：
+    1. 按需加载和缓存原始结果网格。
+    2. 提供一个统一的 `apply_filters` 接口，用于执行后处理。
+    3. 将处理后的结果直接导出为高效的 glTF 格式。
     """
     
     def __init__(self, cache_dir: Optional[str] = None):
@@ -400,6 +406,97 @@ class PyVistaWebBridge:
                 logger.warning(f"删除缓存文件失败: {e}")
         
         logger.info("缓存已清理")
+
+    async def load_result_to_cache(self, result_id: str, vtk_file_path: str) -> bool:
+        """
+        加载VTK文件到内存缓存中。
+        """
+        if result_id in MESH_CACHE:
+            return True
+        
+        if not Path(vtk_file_path).exists():
+            logger.error(f"VTK文件不存在: {vtk_file_path}")
+            return False
+            
+        try:
+            mesh = pv.read(vtk_file_path)
+            MESH_CACHE[result_id] = mesh
+            logger.info(f"成功加载并缓存了结果 '{result_id}' (来源: {vtk_file_path})")
+            return True
+        except Exception as e:
+            logger.error(f"为 '{result_id}' 读取VTK文件失败: {e}")
+            return False
+
+    async def apply_filters(self, result_id: str, filters: List[Dict[str, Any]]) -> Optional[str]:
+        """
+        对缓存的网格应用一系列滤镜，并返回glTF场景的base64编码。
+
+        Args:
+            result_id: 缓存中网格的ID。
+            filters: 滤镜指令列表。
+
+        Returns:
+            glTF场景的base64编码字符串，如果出错则返回None。
+        """
+        if result_id not in MESH_CACHE:
+            logger.error(f"结果ID '{result_id}' 不在缓存中。请先加载。")
+            return None
+        
+        mesh = MESH_CACHE[result_id].copy()  # 使用副本以避免修改缓存中的原始网格
+        
+        # 滤镜处理管道
+        for f in filters:
+            filter_type = f.get('type')
+            settings = f.get('settings', {})
+            logger.info(f"应用滤镜: {filter_type} with settings {settings}")
+            
+            try:
+                if filter_type == 'slice':
+                    origin = settings.get('origin', mesh.center)
+                    normal = settings.get('normal', (1, 0, 0))
+                    mesh = mesh.slice(normal=normal, origin=origin)
+                elif filter_type == 'clip':
+                    origin = settings.get('origin', mesh.center)
+                    normal = settings.get('normal', (1, 0, 0))
+                    invert = settings.get('invert', False)
+                    mesh = mesh.clip(normal=normal, origin=origin, invert=invert)
+                elif filter_type == 'contour':
+                    isosurfaces = settings.get('isosurfaces', 10)
+                    scalar_field = settings.get('scalar_field', mesh.active_scalars_name)
+                    if scalar_field not in mesh.array_names:
+                        raise ValueError(f"标量场 '{scalar_field}' 不存在。")
+                    mesh = mesh.contour(isosurfaces=isosurfaces, scalars=scalar_field)
+                elif filter_type == 'warp':
+                    vector_field = settings.get('vector_field', 'DISPLACEMENT')
+                    scale_factor = settings.get('scale_factor', 1.0)
+                    if vector_field not in mesh.array_names:
+                         raise ValueError(f"矢量场 '{vector_field}' 不存在。")
+                    mesh = mesh.warp_by_vector(vectors=vector_field, factor=scale_factor)
+                # 可在此处添加更多滤镜...
+            except Exception as e:
+                logger.error(f"应用滤镜 '{filter_type}' 失败: {e}")
+                return None
+        
+        if mesh.n_points == 0:
+            logger.warning("滤镜处理后没有剩余的点。")
+            return None
+            
+        # 导出为glTF
+        try:
+            plotter = pv.Plotter(off_screen=True)
+            plotter.add_mesh(mesh, scalars=mesh.active_scalars_name, cmap='viridis')
+            
+            mem_file = BytesIO()
+            export_gltf(mem_file, plotter)
+            mem_file.seek(0)
+            
+            base64_gltf = base64.b64encode(mem_file.read()).decode('utf-8')
+            logger.info(f"成功将处理后的网格导出为base64编码的glTF。")
+            return base64_gltf
+            
+        except Exception as e:
+            logger.error(f"导出glTF失败: {e}")
+            return None
 
 # 便捷函数
 async def process_kratos_vtk_for_web(vtk_file_path: str, 

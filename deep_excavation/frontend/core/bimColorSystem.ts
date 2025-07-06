@@ -7,10 +7,37 @@
 
 import { Color } from 'three';
 
+// 定义材料属性接口
+interface MaterialProperties {
+  color: string;
+  roughness: number;
+  metalness: number;
+  opacity: number;
+  category: string;
+  description: string;
+  [key: string]: any; // 允许额外属性如 strength, thickness 等
+}
+
+// 定义材料字典接口
+interface MaterialDictionary {
+  [key: string]: MaterialProperties;
+}
+
+// 定义土壤材料项接口
+export interface SoilMaterialItem {
+  value: string;
+  label: string;
+  color: string;
+  category: string;
+  roughness: number;
+  metalness: number;
+  opacity: number;
+}
+
 // ==================== 土体材质配色系统 ====================
 
 // 基于Revit Materials的土体配色（RGB值）
-export const SOIL_MATERIALS = {
+const SOIL_MATERIALS_OBJ: MaterialDictionary = {
   // 填土类 (Fill Materials)
   'fill_soil': {
     color: '#8B4513',           // 马鞍棕色
@@ -124,10 +151,24 @@ export const SOIL_MATERIALS = {
   }
 };
 
+// 将对象转换为数组，以便可以使用 map 方法
+export const SOIL_MATERIALS: SoilMaterialItem[] = Object.keys(SOIL_MATERIALS_OBJ).map(key => ({
+  value: key,
+  label: SOIL_MATERIALS_OBJ[key].description,
+  color: SOIL_MATERIALS_OBJ[key].color,
+  category: SOIL_MATERIALS_OBJ[key].category,
+  roughness: SOIL_MATERIALS_OBJ[key].roughness,
+  metalness: SOIL_MATERIALS_OBJ[key].metalness,
+  opacity: SOIL_MATERIALS_OBJ[key].opacity,
+}));
+
+// 保留原始对象以便按键查找
+export const SOIL_MATERIALS_BY_KEY = SOIL_MATERIALS_OBJ;
+
 // ==================== 结构构件配色系统 ====================
 
 // 基于Revit Structure的结构构件配色
-export const STRUCTURAL_MATERIALS = {
+export const STRUCTURAL_MATERIALS: MaterialDictionary = {
   // 混凝土构件 (Concrete Elements)
   'concrete_c30': {
     color: '#C0C0C0',           // 银色 - C30混凝土
@@ -252,7 +293,7 @@ export const STRUCTURAL_MATERIALS = {
 // ==================== 隧道工程配色系统 ====================
 
 // 基于隧道工程BIM标准的配色
-export const TUNNEL_MATERIALS = {
+export const TUNNEL_MATERIALS: MaterialDictionary = {
   // 隧道衬砌 (Tunnel Lining)
   'primary_lining': {
     color: '#B0C4DE',           // 淡钢蓝色 - 初期支护
@@ -361,7 +402,7 @@ export const HYDRAULIC_MATERIALS = {
 // ==================== 基坑工程配色系统 ====================
 
 // 基坑构件配色（基于深基坑工程实践）
-export const EXCAVATION_MATERIALS = {
+export const EXCAVATION_MATERIALS: MaterialDictionary = {
   // 基坑本体 (Excavation Geometry)
   'excavation_zone': {
     color: '#8B4513',               // 马鞍棕色 - 开挖区域
@@ -511,7 +552,7 @@ export const EXCAVATION_MATERIALS = {
 
 // ==================== 监测设备配色系统 ====================
 
-export const MONITORING_MATERIALS = {
+export const MONITORING_MATERIALS: MaterialDictionary = {
   // 位移监测 (Displacement Monitoring)
   'inclinometer': {
     color: '#FF69B4',           // 热粉色 - 测斜仪
@@ -640,7 +681,7 @@ export function getBIMMaterial(category: string, materialName: string) {
   
   switch (category) {
     case 'soil':
-      materialData = SOIL_MATERIALS[materialName];
+      materialData = SOIL_MATERIALS_BY_KEY[materialName];
       break;
     case 'structure':
       materialData = STRUCTURAL_MATERIALS[materialName];
@@ -742,7 +783,7 @@ export function getPhaseColor(
  * 导出所有材质类别
  */
 export const ALL_MATERIAL_CATEGORIES = {
-  soil: SOIL_MATERIALS,
+  soil: SOIL_MATERIALS_BY_KEY,
   structure: STRUCTURAL_MATERIALS,
   tunnel: TUNNEL_MATERIALS,
   excavation: EXCAVATION_MATERIALS,

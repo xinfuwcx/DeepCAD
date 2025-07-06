@@ -3,7 +3,8 @@
 # --- Core Framework ---
 fastapi
 uvicorn[standard]
-pydantic[email]
+pydantic
+requests
 
 # --- Database ---
 sqlalchemy
@@ -21,6 +22,7 @@ scipy
 pandas
 h5py
 matplotlib
+vtk
 
 # --- Geology & Meshing ---
 # GemPy for geological modeling
@@ -63,3 +65,12 @@ pytest
 pytest-asyncio
 pytest-cov
 httpx
+
+# --- Trame ---
+trame
+trame-vuetify
+trame-vtk
+
+# New additions from the code block
+openpyxl
+gunicorn

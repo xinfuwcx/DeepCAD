@@ -2,226 +2,215 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '../../core/store';
 import { CreatePileRaftFeature, Point3D } from '../../services/parametricAnalysisService';
 import { v4 as uuidv4 } from 'uuid';
-import * as THREE from 'three';
+import {
+    Box,
+    Button,
+    Typography,
+    Stack,
+    TextField,
+    Paper,
+    Grid,
+    Divider,
+    InputAdornment,
+    FormLabel,
+    LinearProgress,
+} from '@mui/material';
+import ViewModuleIcon from '@mui/icons-material/ViewModule';
 
-const PileRaftSchematic = ({ 
-    path, 
-    pileDiameter, 
-    pileSpacing, 
-    capBeamWidth 
-}: { 
-    path: Point3D[], 
-    pileDiameter: number, 
-    pileSpacing: number,
-    capBeamWidth: number
-}) => {
-  if (path.length < 2) {
+interface PileRaftParams {
+  name: string;
+  beamLength: number;
+  beamWidth: number;
+  beamHeight: number;
+  pileDiameter: number;
+  pileLength: number;
+  pileSpacing: number;
+}
+
+// A 2D schematic preview for the pile raft
+const PileRaft2DPreview: React.FC<{ params: PileRaftParams }> = ({ params }) => {
+    const { beamLength, beamWidth, beamHeight, pileDiameter, pileLength, pileSpacing } = params;
+    const numPiles = pileSpacing > 0 ? Math.floor(beamLength / pileSpacing) + 1 : 1;
+
+    const sideViewHeight = 200;
+    const sideViewWidth = 250;
+    const sideScale = Math.min(sideViewWidth / (beamLength * 1.1), sideViewHeight / ((beamHeight + pileLength) * 1.1));
+    
+    const planViewSize = 250;
+    const planScale = planViewSize / (beamLength * 1.1);
+
     return (
-      <div className="w-full h-48 bg-gray-700 border border-gray-600 rounded flex items-center justify-center">
-        <p className="text-gray-400">请输入起点和终点以预览路径</p>
-      </div>
+        <Stack spacing={2} sx={{ width: '100%', alignItems: 'center', p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+            {/* Side View (Elevation) */}
+            <Box>
+                <Typography variant="caption" display="block" align="center">立面图</Typography>
+                <Box sx={{ width: sideViewWidth, height: sideViewHeight, border: '1px solid #ccc', position: 'relative', mt: 1 }}>
+                    {/* Cap Beam */}
+                    <Box sx={{
+                        position: 'absolute',
+                        top: 20,
+                        left: (sideViewWidth - beamLength * sideScale) / 2,
+                        width: beamLength * sideScale,
+                        height: beamHeight * sideScale,
+                        bgcolor: 'grey.500',
+                    }}>
+                         <Typography variant="caption" sx={{position: 'absolute', top: -18, width: '100%', textAlign: 'center'}}>{beamLength}m</Typography>
+                    </Box>
+
+                    {/* Piles */}
+                    {Array.from({ length: numPiles }).map((_, i) => (
+                        <Box key={i} sx={{
+                            position: 'absolute',
+                            top: 20 + beamHeight * sideScale,
+                            left: (sideViewWidth - beamLength * sideScale) / 2 + (numPiles > 1 ? i * pileSpacing * sideScale : (beamLength * sideScale)/2) - (pileDiameter * sideScale / 2),
+                            width: pileDiameter * sideScale,
+                            height: pileLength * sideScale,
+                            bgcolor: 'grey.400',
+                        }} />
+                    ))}
+                     <Typography variant="caption" sx={{position: 'absolute', top: 20 + beamHeight * sideScale, left: 5}}>桩长: {pileLength}m</Typography>
+                </Box>
+            </Box>
+
+            <Divider sx={{ width: '80%' }} />
+
+            {/* Top View (Plan) */}
+            <Box>
+                <Typography variant="caption" display="block" align="center">平面图</Typography>
+                <Box sx={{ width: planViewSize, height: 100, border: '1px solid #ccc', position: 'relative', mt: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                     {/* Cap Beam */}
+                     <Box sx={{
+                        width: beamLength * planScale,
+                        height: beamWidth * planScale * 5, // Exaggerate
+                        bgcolor: 'grey.500',
+                        position: 'relative',
+                    }}>
+                        {/* Piles */}
+                        {Array.from({ length: numPiles }).map((_, i) => (
+                            <Box key={i} sx={{
+                                position: 'absolute',
+                                top: '50%',
+                                left: (numPiles > 1 ? i * pileSpacing * planScale : (beamLength * planScale) / 2) - (pileDiameter * planScale / 2),
+                                width: pileDiameter * planScale,
+                                height: pileDiameter * planScale,
+                                borderRadius: '50%',
+                                bgcolor: 'grey.700',
+                                transform: 'translateY(-50%)',
+                            }} />
+                        ))}
+                     </Box>
+                     <Typography variant="caption" sx={{position: 'absolute', bottom: 5, width: '100%', textAlign: 'center'}}>桩间距: {pileSpacing}m</Typography>
+                </Box>
+            </Box>
+        </Stack>
     );
-  }
-
-  const points2D = path.map(p => ({ x: p.x, y: p.z }));
-  const start = new THREE.Vector2(points2D[0].x, points2D[0].y);
-  const end = new THREE.Vector2(points2D[1].x, points2D[1].y);
-  const length = start.distanceTo(end);
-  const direction = new THREE.Vector2().subVectors(end, start).normalize();
-
-  // Calculate pile positions
-  const numPiles = pileSpacing > 0 ? Math.floor(length / pileSpacing) + 1 : 1;
-  const pilePositions: {x: number, y: number}[] = [];
-  for (let i = 0; i < numPiles; i++) {
-    const posVec = new THREE.Vector2().copy(start).addScaledVector(direction, i * pileSpacing);
-    pilePositions.push({x: posVec.x, y: posVec.y});
-  }
-
-  // Calculate viewBox
-  const allPoints = [...points2D, ...pilePositions];
-  const padding = 20;
-  const minX = Math.min(...allPoints.map(p => p.x));
-  const maxX = Math.max(...allPoints.map(p => p.x));
-  const minY = Math.min(...allPoints.map(p => p.y));
-  const maxY = Math.max(...allPoints.map(p => p.y));
-  const width = Math.max(maxX - minX, capBeamWidth, 1);
-  const height = Math.max(maxY - minY, capBeamWidth, 1);
-  const viewBox = `${minX - padding} ${minY - padding} ${width + padding * 2} ${height + padding * 2}`;
-  
-  return (
-    <div className="w-full h-48 bg-gray-800 border border-gray-600 rounded overflow-hidden">
-      <svg width="100%" height="100%" viewBox={viewBox} preserveAspectRatio="xMidYMid meet">
-        {/* Draw axes */}
-        <line x1={minX - padding} y1={0} x2={maxX + padding} y2={0} stroke="#555" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-        <line x1={0} y1={minY - padding} x2={0} y2={maxY + padding} stroke="#555" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-        <text x={maxX + padding / 2} y={-5} fill="#777" fontSize="8" textAnchor="middle">X</text>
-        <text x={5} y={minY - padding / 2} fill="#777" fontSize="8" textAnchor="start">Z</text>
-        
-        {/* Draw Cap Beam (as a thick line) */}
-        <line 
-            x1={start.x} y1={start.y}
-            x2={end.x} y2={end.y}
-            stroke="#6B7280" // gray-500
-            strokeWidth={capBeamWidth} 
-            strokeLinecap="round" 
-            vectorEffect="non-scaling-stroke" 
-        />
-
-        {/* Draw Piles */}
-        {pilePositions.map((pos, i) => (
-            <circle
-                key={i}
-                cx={pos.x}
-                cy={pos.y}
-                r={pileDiameter / 2}
-                fill="#3B82F6"
-                stroke="#FFFFFF"
-                strokeWidth={0.5}
-                vectorEffect="non-scaling-stroke"
-            />
-        ))}
-      </svg>
-    </div>
-  );
 };
 
-const PileRaftCreator = () => {
-  const [pathText, setPathText] = useState('10,0,10\n90,0,10'); // Start and end points
-  const [pileDiameter, setPileDiameter] = useState(0.8);
-  const [pileSpacing, setPileSpacing] = useState(2);
-  const [pileLength, setPileLength] = useState(20);
-  const [capBeamWidth, setCapBeamWidth] = useState(1);
-  const [capBeamHeight, setCapBeamHeight] = useState(1);
-  const [pileAnalysisModel, setPileAnalysisModel] = useState<'beam' | 'solid'>('beam');
-  const [capBeamAnalysisModel, setCapBeamAnalysisModel] = useState<'beam' | 'solid'>('beam');
-  const { addFeature, startPicking, stopPicking, pickingState } = useStore(state => ({
-    addFeature: state.addFeature,
-    startPicking: state.startPicking,
-    stopPicking: state.stopPicking,
-    pickingState: state.pickingState,
-  }));
 
-  const handlePickPath = () => {
-    if (pickingState.isActive) {
-      stopPicking();
-      return;
-    }
-    setPathText(''); // Clear on new pick
-    startPicking((point) => {
-      const newPointStr = `${point.x},${point.y},${point.z}`;
-      setPathText(prev => prev ? `${prev}\n${newPointStr}` : newPointStr);
-    });
+const PileRaftCreator: React.FC = () => {
+  const addFeature = useStore(state => state.addFeature);
+  const [params, setParams] = useState<PileRaftParams>({
+      name: '第一排桩',
+      beamLength: 40,
+      beamWidth: 1.2,
+      beamHeight: 1.5,
+      pileDiameter: 0.8,
+      pileLength: 18,
+      pileSpacing: 3,
+  });
+  const [isCreating, setIsCreating] = useState(false);
+
+  const handleParamChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const { name, value } = event.target;
+      setParams(p => ({ ...p, [name]: name === 'name' ? value : Number(value) }));
   };
 
-  const parsedPath = useMemo(() => {
-    return pathText.split('\n')
-      .map(line => {
-        const parts = line.split(',').map(s => parseFloat(s.trim()));
-        return parts.length === 3 && !parts.some(isNaN) ? { x: parts[0], y: parts[1], z: parts[2] } : null;
-      })
-      .filter((p): p is Point3D => p !== null);
-  }, [pathText]);
-
   const handleCreate = () => {
-    if (parsedPath.length !== 2) {
-      alert("请输入且仅输入两个路径点 (起点和终点) 来定义排桩。");
-      return;
-    }
+    const { beamLength, beamWidth, beamHeight, pileDiameter, pileLength, pileSpacing, name } = params;
 
-    // 2. Create the feature
+    const halfLength = beamLength / 2;
+    const path: [Point3D, Point3D] = [
+        { x: -halfLength, y: 0, z: 0 },
+        { x: halfLength, y: 0, z: 0 },
+    ];
+
     const newFeature: CreatePileRaftFeature = {
       id: uuidv4(),
-      name: '排桩',
+      name: name,
       type: 'CreatePileRaft',
       parameters: {
-        path: [parsedPath[0], parsedPath[1]],
+        path,
+        capBeamWidth: beamWidth,
+        capBeamHeight: beamHeight,
         pileDiameter,
-        pileSpacing,
         pileLength,
-        capBeamWidth,
-        capBeamHeight,
-        pileAnalysisModel,
-        capBeamAnalysisModel,
+        pileSpacing,
+        // Using default analysis models
+        pileAnalysisModel: 'beam',
+        capBeamAnalysisModel: 'beam',
       },
     };
 
-    // 3. Add to store
     addFeature(newFeature);
+    setIsCreating(true);
+    setTimeout(() => setIsCreating(false), 1500);
   };
 
   return (
-    <div className="p-4 border rounded-lg mt-4">
-      <h3 className="text-lg font-bold mb-4">排桩生成</h3>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <h4 className="text-md font-semibold mb-2">参数输入</h4>
-          <p className="text-sm text-gray-500 mb-2">
-            定义排桩的路径、桩参数和冠梁尺寸。
-          </p>
-          <div className="flex flex-col gap-2">
-            <label>路径 (起点, 终点):</label>
-            <div className="flex items-center gap-2">
-              <textarea
-                className="flex-grow h-16 p-2 border rounded bg-gray-700"
-                value={pathText}
-                onChange={e => setPathText(e.target.value)}
-                placeholder="10,0,10&#10;90,0,10"
-              />
-              <button 
-                onClick={handlePickPath}
-                className={`p-2 rounded ${pickingState.isActive ? 'bg-red-500 hover:bg-red-700' : 'bg-green-500 hover:bg-green-700'}`}
-                title={pickingState.isActive ? "停止拾取 (ESC)" : "在视图中拾取路径点"}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.042 21.672L13.684 16.6m0 0l-2.51-2.22m2.51 2.22l-2.22 2.51m2.22-2.51L12.07 14.5m2.614-2.128a3 3 0 10-4.242-4.242 3 3 0 004.242 4.242zM12 12a2 2 0 100-4 2 2 0 000 4z" />
-                </svg>
-              </button>
-            </div>
-            <label>桩径 (m): <input type="number" value={pileDiameter} onChange={e => setPileDiameter(parseFloat(e.target.value) || 0)} className="p-1 border rounded bg-gray-600 ml-2" /></label>
-            <label>桩间距 (m): <input type="number" value={pileSpacing} onChange={e => setPileSpacing(parseFloat(e.target.value) || 0)} className="p-1 border rounded bg-gray-600 ml-2" /></label>
-            <label>桩长 (m): <input type="number" value={pileLength} onChange={e => setPileLength(parseFloat(e.target.value) || 0)} className="p-1 border rounded bg-gray-600 ml-2" /></label>
-            <label>冠梁宽度 (m): <input type="number" value={capBeamWidth} onChange={e => setCapBeamWidth(parseFloat(e.target.value) || 0)} className="p-1 border rounded bg-gray-600 ml-2" /></label>
-            <label>冠梁高度 (m): <input type="number" value={capBeamHeight} onChange={e => setCapBeamHeight(parseFloat(e.target.value) || 0)} className="p-1 border rounded bg-gray-600 ml-2" /></label>
-            <label>
-              桩分析模型:
-              <select
-                value={pileAnalysisModel}
-                onChange={e => setPileAnalysisModel(e.target.value as 'beam' | 'solid')}
-                className="p-1 border rounded bg-gray-600 ml-2"
-              >
-                <option value="beam">梁单元</option>
-                <option value="solid">实体单元</option>
-              </select>
-            </label>
-            <label>
-              冠梁分析模型:
-              <select
-                value={capBeamAnalysisModel}
-                onChange={e => setCapBeamAnalysisModel(e.target.value as 'beam' | 'solid')}
-                className="p-1 border rounded bg-gray-600 ml-2"
-              >
-                <option value="beam">梁单元</option>
-                <option value="solid">实体单元</option>
-              </select>
-            </label>
-            <button onClick={handleCreate} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-2">
-              生成排桩
-            </button>
-          </div>
-        </div>
-        
-        <div>
-          <h4 className="text-md font-semibold mb-2">平面示意图</h4>
-          <PileRaftSchematic 
-            path={parsedPath} 
-            pileDiameter={pileDiameter}
-            pileSpacing={pileSpacing}
-            capBeamWidth={capBeamWidth}
-          />
-        </div>
-      </div>
-    </div>
+    <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
+        <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <ViewModuleIcon />
+            桩承台创建器
+        </Typography>
+        <Divider sx={{ my: 2 }} />
+        <Grid container spacing={4}>
+            <Grid item xs={12} md={6}>
+                <Stack spacing={3}>
+                    <TextField
+                        label="桩排名称"
+                        name="name"
+                        value={params.name}
+                        onChange={handleParamChange}
+                        fullWidth
+                        size="small"
+                    />
+
+                    <Box>
+                        <FormLabel>承台梁参数</FormLabel>
+                        <Stack spacing={2} sx={{ mt: 1, p: 2, border: '1px solid #eee', borderRadius: 1 }}>
+                            <TextField label="梁长" name="beamLength" type="number" value={params.beamLength} onChange={handleParamChange} size="small" InputProps={{ endAdornment: <InputAdornment position="end">m</InputAdornment> }} />
+                            <TextField label="梁宽" name="beamWidth" type="number" value={params.beamWidth} onChange={handleParamChange} size="small" InputProps={{ endAdornment: <InputAdornment position="end">m</InputAdornment> }} />
+                            <TextField label="梁高" name="beamHeight" type="number" value={params.beamHeight} onChange={handleParamChange} size="small" InputProps={{ endAdornment: <InputAdornment position="end">m</InputAdornment> }} />
+                        </Stack>
+                    </Box>
+                    
+                    <Box>
+                        <FormLabel>桩参数</FormLabel>
+                        <Stack spacing={2} sx={{ mt: 1, p: 2, border: '1px solid #eee', borderRadius: 1 }}>
+                            <TextField label="桩径" name="pileDiameter" type="number" value={params.pileDiameter} onChange={handleParamChange} size="small" InputProps={{ endAdornment: <InputAdornment position="end">m</InputAdornment> }} />
+                            <TextField label="桩长" name="pileLength" type="number" value={params.pileLength} onChange={handleParamChange} size="small" InputProps={{ endAdornment: <InputAdornment position="end">m</InputAdornment> }} />
+                            <TextField label="桩间距" name="pileSpacing" type="number" value={params.pileSpacing} onChange={handleParamChange} size="small" InputProps={{ endAdornment: <InputAdornment position="end">m</InputAdornment> }} />
+                        </Stack>
+                    </Box>
+
+                    <Box sx={{ pt: 2 }}>
+                        <Button variant="contained" color="primary" onClick={handleCreate} disabled={isCreating} fullWidth>
+                            {isCreating ? '创建中...' : '创建桩排'}
+                        </Button>
+                        {isCreating && <LinearProgress sx={{ mt: 1 }} />}
+                    </Box>
+                </Stack>
+            </Grid>
+            <Grid item xs={12} md={6}>
+                <Stack spacing={1}>
+                    <FormLabel>二维示意图</FormLabel>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 320, bgcolor: 'transparent' }}>
+                        <PileRaft2DPreview params={params} />
+                    </Box>
+                </Stack>
+            </Grid>
+        </Grid>
+    </Paper>
   );
 };
 

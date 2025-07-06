@@ -1,860 +1,691 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     Box,
     Button,
     Typography,
     Stack,
-    Chip,
     Paper,
-    List,
-    ListItem,
-    ListItemText,
     FormControl,
     InputLabel,
     Select,
     MenuItem,
     TextField,
-    FormControlLabel,
-    Switch,
-    Alert,
-    LinearProgress,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     Grid,
-    Card,
-    CardContent,
-    CardActions,
-    IconButton,
-    Tooltip,
-    Badge,
     Divider,
+    IconButton,
+    Alert,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogContentText,
+    DialogTitle,
+    Tooltip,
+    LinearProgress,
+    Accordion,
+    AccordionSummary,
+    AccordionDetails,
+    FormControlLabel,
+    Checkbox,
     Tabs,
-    Tab
+    Tab,
 } from '@mui/material';
 import {
-    UploadFile as UploadFileIcon,
+    Add as AddIcon,
+    Delete as DeleteIcon,
     Terrain as TerrainIcon,
     Layers as LayersIcon,
-    Delete as DeleteIcon,
-    Visibility as VisibilityIcon,
-    VisibilityOff as VisibilityOffIcon,
-    Edit as EditIcon,
     Save as SaveIcon,
-    Folder as FolderIcon,
-    Palette as PaletteIcon,
     Science as ScienceIcon,
-    Download as DownloadIcon,
-    Upload as UploadIcon,
-    Backup as BackupIcon,
-    Add as AddIcon,
-    InfoOutlined as InfoOutlinedIcon
+    Hub as HubIcon,
+    Grain as GrainIcon,
+    UploadFile as UploadFileIcon,
 } from '@mui/icons-material';
-import { Vector3 } from 'three';
 import { v4 as uuidv4 } from 'uuid';
-
-import { useStore } from '../../core/store';
-import { AnyFeature } from '../../services/parametricAnalysisService';
+import { produce } from 'immer';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import Papa from 'papaparse';
+import { 
+    useStore,
+    GemPyParams,
+    BoreholeData,
+} from '../../core/store';
 import { 
     getGeologicalColor, 
     createGeologicalMaterial, 
     SHANGHAI_SOIL_COLORS,
-    GEOLOGICAL_PRESETS,
-    generateGeologicalGradient,
-    getDepthBasedColor,
     LITHOLOGY_COLORS,
-    GEOLOGICAL_TIME_COLORS
+    GEMPY_COLOR_SCHEMES,
 } from '../../core/geologicalColorSchemes';
-
-import { 
-    SOIL_MATERIALS, 
-    EXCAVATION_MATERIALS,
-    getBIMMaterial, 
-    createBIMMaterial
-} from '../../core/bimColorSystem';
-import { 
-    geologicalDataManager, 
-    GeologicalLayer, 
-    GeologicalModel 
-} from '../../core/geologicalDataManager';
+import { SOIL_MATERIALS, SoilMaterialItem } from '../../core/bimColorSystem';
 import DiagramRenderer from '../shared/DiagramRenderer';
-import ExcavationColorPreview from '../shared/ExcavationColorPreview';
-import { GeologicalModelDiagram } from '../diagrams/ModelingDiagrams';
 import GemPyColorPreview from '../shared/GemPyColorPreview';
 import { geologyService } from '../../services/geologyService';
-import GeologicalModelViewer from './GeologicalModelViewer';
+import { CreateGeologicalModelFeature, CreateConceptualLayersFeature } from '../../services/parametricAnalysisService';
 
-// 地层信息接口
-interface SoilLayer {
+// 定义颜色方案的联合类型
+type ColorScheme = 'gempy_standard' | 'gempy_highContrast' | 'gempy_pastel' | 'shanghai' | 'lithology';
+
+interface BoreholePoint {
+    id: string;
+    x: number;
+    y: number;
+    z: number;
+    surface: string;
+    description: string;
+}
+
+interface LocalSoilLayer {
+    id: string;
     name: string;
-    pointCount: number;
-    avgDepth: number;
-    extent: {
-        x_min: number;
-        x_max: number;
-        y_min: number;
-        y_max: number;
-        z_min: number;
-        z_max: number;
-    };
+    thickness: number;
     soilType: string;
     color: string;
 }
 
-// 地形建模参数接口
-interface TerrainModelingParams {
-    algorithm: 'GemPy';
-    resolution: [number, number, number];
-    bufferRatio: number;
-    enableUndulatingTop: boolean;
-    meshSize: number;
-    useOCC: boolean;
-    colorScheme: 'shanghai' | 'lithology' | 'time' | 'excavation';
-    visualizationPreset: 'realistic' | 'scientific' | 'artistic' | 'analysis';
-}
-
-// 2D剖面图绘制函数
-const drawGeologicalSection = (
-    ctx: CanvasRenderingContext2D,
-    canvas: HTMLCanvasElement,
-    soilLayers: SoilLayer[]
-) => {
-    const { width, height } = canvas;
-    
-    // 清除画布
-    ctx.clearRect(0, 0, width, height);
-    
-    // 绘制背景
-    ctx.fillStyle = '#f5f5f5';
-    ctx.fillRect(0, 0, width, height);
-    
-    // 设置坐标系
-    const margin = 40;
-    const plotWidth = width - 2 * margin;
-    const plotHeight = height - 2 * margin;
-    
-    // 绘制坐标轴
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 1;
-    
-    // X轴
-    ctx.beginPath();
-    ctx.moveTo(margin, height - margin);
-    ctx.lineTo(width - margin, height - margin);
-    ctx.stroke();
-    
-    // Y轴
-    ctx.beginPath();
-    ctx.moveTo(margin, margin);
-    ctx.lineTo(margin, height - margin);
-    ctx.stroke();
-    
-    // 绘制刻度
-    ctx.fillStyle = '#000000';
-    ctx.font = '12px Arial';
-    
-    // X轴刻度
-    for (let i = 0; i <= 10; i++) {
-        const x = margin + (i * plotWidth / 10);
-        ctx.beginPath();
-        ctx.moveTo(x, height - margin);
-        ctx.lineTo(x, height - margin + 5);
-        ctx.stroke();
-        
-        const value = i * 50 - 250;
-        ctx.fillText(value.toString(), x - 10, height - margin + 20);
-    }
-    
-    // Y轴刻度
-    for (let i = 0; i <= 5; i++) {
-        const y = height - margin - (i * plotHeight / 5);
-        ctx.beginPath();
-        ctx.moveTo(margin - 5, y);
-        ctx.lineTo(margin, y);
-        ctx.stroke();
-        
-        const value = -i * 10;
-        ctx.fillText(value.toString(), margin - 25, y + 5);
-    }
-    
-    // 绘制标签
-    ctx.font = '14px Arial';
-    ctx.fillText('X (m)', width - margin - 30, height - margin + 30);
-    ctx.save();
-    ctx.translate(margin - 30, margin + 50);
-    ctx.rotate(-Math.PI / 2);
-    ctx.fillText('Z (m)', 0, 0);
-    ctx.restore();
-    
-    // 如果没有土层数据，则不绘制
-    if (!soilLayers || soilLayers.length === 0) return;
-    
-    // 按Z坐标排序，从下到上绘制
-    const sortedLayers = [...soilLayers].sort((a, b) => 
-        ((a.extent.z_max - (a.extent.z_max - a.extent.z_min)) - (b.extent.z_max - (b.extent.z_max - b.extent.z_min)))
-    );
-    
-    // 绘制土层
-    sortedLayers.forEach(layer => {
-        const top = layer.extent.z_max;
-        const bottom = layer.extent.z_min;
-        const left = -250;
-        const right = 250;
-        
-        // 转换为画布坐标
-        const x1 = margin;
-        const x2 = width - margin;
-        const y1 = height - margin - ((top / -50) * plotHeight);
-        const y2 = height - margin - ((bottom / -50) * plotHeight);
-        
-        // 绘制土层矩形
-        ctx.fillStyle = layer.color;
-        ctx.beginPath();
-        ctx.rect(x1, y1, x2 - x1, y2 - y1);
-        ctx.fill();
-        
-        // 绘制土层边界
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        
-        // 添加土层标签
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '12px Arial';
-        const soilType = layer.soilType;
-        const label = `${soilType} (${bottom.toFixed(1)}m ~ ${top.toFixed(1)}m)`;
-        const textWidth = ctx.measureText(label).width;
-        
-        if (y2 - y1 > 20) { // 只有当土层足够高时才显示标签
-            ctx.fillText(label, (x1 + x2 - textWidth) / 2, (y1 + y2) / 2);
-        }
-    });
-};
-
 interface TabPanelProps {
-    children?: React.ReactNode;
-    index: number;
-    value: number;
+  children?: React.ReactNode;
+  index: number;
+  value: number;
 }
 
 function TabPanel(props: TabPanelProps) {
-    const { children, value, index, ...other } = props;
+  const { children, value, index, ...other } = props;
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`geology-tabpanel-${index}`}
+      aria-labelledby={`geology-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+    </div>
+  );
+}
+
+const BoreholePreview2D: React.FC<{ points: BoreholePoint[] }> = ({ points }) => {
+    if (points.length === 0) return null;
+
+    const padding = 40;
+    const width = 400;
+    const height = 300;
+
+    const xCoords = points.map(p => p.x);
+    const yCoords = points.map(p => p.y);
+    const minX = Math.min(...xCoords);
+    const maxX = Math.max(...xCoords);
+    const minY = Math.min(...yCoords);
+    const maxY = Math.max(...yCoords);
+
+    const dataWidth = maxX - minX;
+    const dataHeight = maxY - minY;
+    const scaleX = (width - 2 * padding) / (dataWidth || 1);
+    const scaleY = (height - 2 * padding) / (dataHeight || 1);
+    const scale = Math.min(scaleX, scaleY);
+
+    const getSvgX = (x: number) => padding + (x - minX) * scale;
+    const getSvgY = (y: number) => height - padding - (y - minY) * scale;
 
     return (
-        <div
-            role="tabpanel"
-            hidden={value !== index}
-            id={`geo-model-tabpanel-${index}`}
-            aria-labelledby={`geo-model-tab-${index}`}
-            {...other}
-            style={{ height: '100%', overflow: 'auto' }}
-        >
-            {value === index && (
-                <Box sx={{ p: 2, height: '100%' }}>
-                    {children}
-                </Box>
-            )}
-        </div>
+        <Box sx={{ mt: 2 }}>
+            <Typography variant="h6">钻孔平面分布预览</Typography>
+            <svg width="100%" viewBox={`0 0 ${width} ${height}`} style={{ border: '1px solid #ccc', borderRadius: 4 }}>
+                {/* Axes */}
+                <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#aaa" />
+                <line x1={padding} y1={height - padding} x2={padding} y2={padding} stroke="#aaa" />
+                <text x={width - padding} y={height - padding + 15} fontSize="10" textAnchor="middle">X-坐标</text>
+                <text x={padding - 15} y={padding} fontSize="10" textAnchor="middle" transform={`rotate(-90, ${padding-15}, ${padding})`}>Y-坐标</text>
+
+                {/* Points */}
+                {points.map(p => (
+                    <Tooltip key={p.id} title={`(${p.x.toFixed(1)}, ${p.y.toFixed(1)})`}>
+                        <circle cx={getSvgX(p.x)} cy={getSvgY(p.y)} r="4" fill="#1976d2" />
+                    </Tooltip>
+                ))}
+            </svg>
+        </Box>
     );
 }
 
 const GeologicalModelCreator: React.FC = () => {
-    const [tabValue, setTabValue] = useState(0);
-    const [soilLayers, setSoilLayers] = useState<SoilLayer[]>([]);
-    const [currentLayer, setCurrentLayer] = useState<SoilLayer>({
-        name: '',
-        pointCount: 0,
-        avgDepth: 0,
-        extent: {
-            x_min: 0,
-            x_max: 0,
-            y_min: 0,
-            y_max: 0,
-            z_min: 0,
-            z_max: 0
-        },
-        soilType: 'clay',
-        color: '#A67F5D'
-    });
+    const [soilLayers, setSoilLayers] = useState<LocalSoilLayer[]>([]);
+    const [boreholePoints, setBoreholePoints] = useState<BoreholePoint[]>([]);
+    const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+    const [modelExtent, setModelExtent] = useState({ x: 500, y: 500 });
+    const [topElevation, setTopElevation] = useState(0);
     const [modelId, setModelId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
-    const [errors, setErrors] = useState<{[key: string]: string}>({});
-    
-    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [layerToDelete, setLayerToDelete] = useState<string | null>(null);
+    const [colorScheme, setColorScheme] = useState<ColorScheme>('gempy_standard');
+    const [gempyParams, setGempyParams] = useState<GemPyParams>({
+        resolution: [50, 50, 50],
+        c_o: 50000,
+        algorithm: 'kriging',
+        generateContours: true,
+    });
+    const [previewData, setPreviewData] = useState<any>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    const [activeAccordion, setActiveAccordion] = useState<string | false>('dataInput');
+    const [activeTab, setActiveTab] = useState(0);
+
     const addFeature = useStore(state => state.addFeature);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     
-    // 绘制2D剖面图
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        
-        drawGeologicalSection(ctx, canvas, soilLayers);
-    }, [soilLayers]);
-    
-    const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-        setTabValue(newValue);
+    // 准备地质剖面图数据
+    const geologicalSectionData = {
+        type: 'geological_section' as const,
+        layers: soilLayers.map(layer => ({
+            name: layer.name,
+            thickness: layer.thickness,
+            color: parseInt(layer.color.replace('#', '0x')),
+        }))
     };
     
-    const handleLayerChange = (field: string, value: any) => {
-        if (field === 'soilType' && value !== 'custom') {
-            const selectedMaterial = SOIL_MATERIALS.find(material => material.value === value);
-            if (selectedMaterial) {
-                setCurrentLayer({
-                    ...currentLayer,
-                    soilType: value,
-                    color: selectedMaterial.color,
-                });
-            }
-        } else if (field.includes('.')) {
-            // 处理嵌套属性，如 extent
-            const [parent, child] = field.split('.');
-            setCurrentLayer({
-                ...currentLayer,
-                [parent]: {
-                    ...currentLayer[parent as keyof SoilLayer],
-                    [child]: value
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            setUploadedFileName(file.name);
+            setError(null);
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: (results) => {
+                    if (results.errors.length > 0) {
+                        console.error("CSV解析错误:", results.errors);
+                        setError(`文件 "${file.name}" 解析失败，请检查CSV格式。`);
+                        return;
+                    }
+                    const parsedData = results.data.map((row: any) => ({
+                        id: uuidv4(),
+                        x: parseFloat(row.X || row.x),
+                        y: parseFloat(row.Y || row.y),
+                        z: parseFloat(row.Z || row.z),
+                        surface: row.surface,
+                        description: row.description || '',
+                    })).filter(p => !isNaN(p.x) && !isNaN(p.y) && !isNaN(p.z) && p.surface);
+                    
+                    if (parsedData.length === 0) {
+                        setError(`无法从 "${file.name}" 中解析出有效的钻孔数据。请确保列标题为 'X', 'Y', 'Z', 和 'surface'。`);
+                        return;
+                    }
+                    setBoreholePoints(parsedData);
+                },
+                error: (error: any) => {
+                    console.error("CSV解析错误:", error);
+                    setError(`文件解析失败: ${error.message}`);
                 }
             });
-        } else {
-            setCurrentLayer({
-                ...currentLayer,
-                [field]: value
-            });
-        }
-        
-        // 清除错误
-        if (errors[field]) {
-            setErrors({
-                ...errors,
-                [field]: ''
-            });
         }
     };
-    
-    const validateLayer = (): boolean => {
-        const newErrors: {[key: string]: string} = {};
-        
-        // 验证土层厚度
-        if (!currentLayer.extent.z_max || currentLayer.extent.z_max <= 0) {
-            newErrors['extent.z_max'] = '土层厚度必须大于0';
-        }
-        
-        // 验证土层宽度
-        if (!currentLayer.extent.x_max || currentLayer.extent.x_max <= 0) {
-            newErrors['extent.x_max'] = '土层宽度必须大于0';
-        }
-        
-        // 验证土层长度
-        if (!currentLayer.extent.y_max || currentLayer.extent.y_max <= 0) {
-            newErrors['extent.y_max'] = '土层长度必须大于0';
-        }
-        
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
+
+    const handleUploadClick = () => {
+        fileInputRef.current?.click();
     };
-    
+
     const handleAddLayer = () => {
-        if (!validateLayer()) return;
+        const defaultSoilType = 'clay_silty';
+        const colors = colorScheme === 'shanghai' ? SHANGHAI_SOIL_COLORS : LITHOLOGY_COLORS;
         
-        // 添加新土层
-        setSoilLayers([...soilLayers, { ...currentLayer, id: uuidv4() }]);
-        
-        // 准备下一个土层，调整Z坐标
-        const nextZ = currentLayer.extent.z_max;
-        const nextThickness = currentLayer.extent.z_max - currentLayer.extent.z_min;
-        
-        setCurrentLayer({
-            ...currentLayer,
-            extent: {
-                ...currentLayer.extent,
-                z_min: nextZ - nextThickness,
-                z_max: nextZ
+        const newLayer: LocalSoilLayer = {
+            id: uuidv4(),
+            name: `土层 ${soilLayers.length + 1}`,
+            thickness: 10,
+            soilType: defaultSoilType,
+            color: (colors as any)[defaultSoilType] || '#cccccc',
+        };
+        setSoilLayers(produce(draft => {
+            draft.push(newLayer);
+        }));
+    };
+    
+    const handleUpdateLayer = (id: string, field: keyof LocalSoilLayer, value: any) => {
+        setSoilLayers(produce(draft => {
+            const layer = draft.find(l => l.id === id);
+            if (layer) {
+                (layer[field] as any) = value;
+
+                if (field === 'soilType') {
+                    let colors: { [key: string]: string };
+                    if (colorScheme.startsWith('gempy')) {
+                        const schemeKey = colorScheme.replace('gempy_', '') as keyof typeof GEMPY_COLOR_SCHEMES;
+                        colors = GEMPY_COLOR_SCHEMES[schemeKey];
+                    } else if (colorScheme === 'shanghai') {
+                        colors = SHANGHAI_SOIL_COLORS;
+                    } else {
+                        colors = LITHOLOGY_COLORS;
+                    }
+                    layer.color = colors[value as keyof typeof colors] || (colors as any).default || '#cccccc';
+                }
             }
-        });
+        }));
     };
     
-    const handleRemoveLayer = (index: number) => {
-        const newLayers = [...soilLayers];
-        newLayers.splice(index, 1);
-        setSoilLayers(newLayers);
+    const handleOpenDeleteConfirm = (id: string) => {
+        setLayerToDelete(id);
+        setDeleteConfirmOpen(true);
     };
     
-    const handleCreateGeologicalModel = async () => {
-        if (soilLayers.length === 0) {
-            alert('请至少添加一个土层');
+    const handleCloseDeleteConfirm = () => {
+        setLayerToDelete(null);
+        setDeleteConfirmOpen(false);
+    };
+    
+    const handleConfirmDelete = () => {
+        if (layerToDelete) {
+            setSoilLayers(produce(draft => {
+                const index = draft.findIndex(l => l.id === layerToDelete);
+                if (index !== -1) {
+                    draft.splice(index, 1);
+                }
+            }));
+        }
+        handleCloseDeleteConfirm();
+    };
+    
+    const handleGenerateModel = async () => {
+        if (boreholePoints.length === 0) {
+            setError('请先上传并成功解析钻孔数据。');
             return;
         }
-        
         setIsCreating(true);
-        
+        setError(null);
+
         try {
-            // 调用GemPy创建地质模型
-            const modelId = await geologyService.createGeologicalModel(soilLayers);
-            setModelId(modelId);
-            
-            // 创建地质模型特征
-            const feature: AnyFeature = {
-                id: uuidv4(),
-                name: '地质模型',
-                type: 'CreateGeologicalModel',
-                parameters: {
-                    soilLayers: soilLayers,
-                    modelId: modelId
-                },
+            const params = {
+                boreholeData: boreholePoints,
+                colorScheme,
+                gempyParams,
             };
+
+            const result = await geologyService.createModelFromBoreholes(params);
             
-            // 添加到模型中
+            const feature: CreateGeologicalModelFeature = {
+                id: uuidv4(),
+                name: `地质模型 - ${uploadedFileName || '自定义数据'}`,
+                type: 'CreateGeologicalModel',
+                parameters: params,
+            };
             addFeature(feature);
             
-            // 切换到预览选项卡
-            setTabValue(1);
-            
-        } catch (error) {
-            console.error('创建地质模型失败:', error);
-            alert('创建地质模型失败');
+            setModelId(result.modelId);
+            setPreviewData(result.previewData);
+
+        } catch (err) {
+            const errorMessage = (err instanceof Error) ? err.message : '发生未知错误';
+            console.error("创建地质模型失败:", err);
+            setError(`创建地质模型失败: ${errorMessage}。请检查浏览器控制台获取详细信息。`);
         } finally {
             setIsCreating(false);
         }
     };
-    
-    const handleGenerateMesh = async () => {
-        if (!modelId) {
-            alert('请先创建地质模型');
-            return;
+
+    const handleColorSchemeChange = (e: any) => {
+        const newScheme = e.target.value as ColorScheme;
+        setColorScheme(newScheme);
+
+        // 当配色方案改变时，更新所有现有图层的颜色
+        setSoilLayers(produce(draft => {
+            let colors: { [key: string]: string };
+            if (newScheme.startsWith('gempy')) {
+                const schemeKey = newScheme.replace('gempy_', '') as keyof typeof GEMPY_COLOR_SCHEMES;
+                colors = GEMPY_COLOR_SCHEMES[schemeKey];
+            } else if (newScheme === 'shanghai') {
+                colors = SHANGHAI_SOIL_COLORS;
+            } else {
+                colors = LITHOLOGY_COLORS;
+            }
+
+            draft.forEach(layer => {
+                layer.color = colors[layer.soilType as keyof typeof colors] || (colors as any).default ||'#cccccc';
+            });
+        }));
+    };
+
+    const relevantSoilMaterials = SOIL_MATERIALS.filter(material => 
+        Object.keys(colorScheme === 'shanghai' ? SHANGHAI_SOIL_COLORS : LITHOLOGY_COLORS).includes(material.value)
+    );
+
+    let cumulativeElevation = topElevation;
+    const layerData = soilLayers.map(layer => {
+        const top = cumulativeElevation;
+        cumulativeElevation -= layer.thickness;
+        const bottom = cumulativeElevation;
+        return { ...layer, top, bottom };
+    });
+
+    const handleAccordionChange = (panel: string) => (event: React.SyntheticEvent, isExpanded: boolean) => {
+        setActiveAccordion(isExpanded ? panel : false);
+    };
+
+    const handleParamChange = (panel: 'gempyParams') => (e: any) => {
+        const { name, value, type, checked } = e.target;
+        const val = type === 'checkbox' ? checked : type === 'number' ? parseFloat(value) : value;
+
+        if (panel === 'gempyParams') {
+            setGempyParams(prev => ({ ...prev, [name]: val }));
         }
+    };
+    
+    const handleResolutionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const parts = e.target.value.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+        const newResolution: [number, number, number] = [
+            parts.length > 0 ? parts[0] : 50,
+            parts.length > 1 ? parts[1] : 50,
+            parts.length > 2 ? parts[2] : 50,
+        ];
+        setGempyParams(prev => ({ ...prev, resolution: newResolution }));
+    };
+
+    const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+        setActiveTab(newValue);
+    };
+
+    // A new handler for generating conceptual model
+    const handleGenerateConceptualModel = () => {
+        const newFeature: CreateConceptualLayersFeature = {
+            id: uuidv4(),
+            name: '概念地质模型',
+            type: 'CreateConceptualLayers',
+            parameters: {
+                layers: soilLayers,
+                baseElevation: topElevation,
+            }
+        };
+        addFeature(newFeature);
         
-        try {
-            // 调用Gmsh(OCC)生成网格
-            const meshId = await geologyService.generateMeshWithGmshOCC(modelId);
-            
-            // 创建网格特征
-            const feature: AnyFeature = {
-                id: uuidv4(),
-                name: '地质网格',
-                type: 'CreateMesh',
-                parameters: {
-                    modelId: modelId,
-                    meshId: meshId
-                },
-            };
-            
-            // 添加到模型中
-            addFeature(feature);
-            
-            alert('网格生成成功');
-            
-        } catch (error) {
-            console.error('生成网格失败:', error);
-            alert('生成网格失败');
-        }
+        // Maybe show a success message
+        console.log("Conceptual geological model feature added to store.", newFeature);
     };
-    
-    const handleImportBorehole = () => {
-        // 这里应该实现钻孔数据导入功能
-        alert('钻孔数据导入功能尚未实现');
-    };
-    
+
     return (
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Paper elevation={3} sx={{ p: 2, m: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 120px)' }}>
+            <Typography variant="h6" gutterBottom>地质建模</Typography>
+
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                <Tabs value={tabValue} onChange={handleTabChange} aria-label="geological model tabs">
-                    <Tab label="土层定义" />
-                    <Tab label="模型预览" />
-                    <Tab label="钻孔数据" />
+                <Tabs value={activeTab} onChange={handleTabChange} aria-label="Geological modeling tabs">
+                    <Tab label="专业钻孔建模 (GemPy)" id="geology-tab-0" />
+                    <Tab label="快速概念建模" id="geology-tab-1" />
                 </Tabs>
             </Box>
-            
-            <TabPanel value={tabValue} index={0}>
-                <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
-                        <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
-                            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <TerrainIcon />
-                                土层参数设置
-                            </Typography>
-                            
-                            <Divider sx={{ my: 2 }} />
-                            
-                            <Grid container spacing={2}>
-                                {/* 土层类型选择 */}
-                                <Grid item xs={12} sm={6}>
-                                    <FormControl fullWidth>
-                                        <InputLabel>土层类型</InputLabel>
+
+            {/* Tab Panel for Borehole Modeling */}
+            <TabPanel value={activeTab} index={0}>
+                <Accordion expanded={activeAccordion === 'dataInput'} onChange={handleAccordionChange('dataInput')}>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                        <Typography>1. 数据输入 (钻孔数据)</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                        <Stack spacing={2}>
+                            <Alert severity="info">请上传包含钻孔位置和地层分层信息的CSV或Excel文件。</Alert>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                style={{ display: 'none' }}
+                                accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                            />
+                            <Button
+                                variant="outlined"
+                                startIcon={<UploadFileIcon />}
+                                onClick={handleUploadClick}
+                            >
+                                上传钻孔文件
+                            </Button>
+                            {uploadedFileName && (
+                                <Typography variant="body2" color="text.secondary">
+                                    已上传: {uploadedFileName}
+                                </Typography>
+                            )}
+                            {boreholePoints.length > 0 && (
+                                <>
+                                    <BoreholePreview2D points={boreholePoints} />
+                                    <Paper sx={{ maxHeight: 300, overflow: 'auto', mt: 2 }}>
+                                        <TableContainer>
+                                            <Table stickyHeader size="small">
+                                                <TableHead>
+                                                    <TableRow>
+                                                        <TableCell>X</TableCell>
+                                                        <TableCell>Y</TableCell>
+                                                        <TableCell>Z</TableCell>
+                                                        <TableCell>地层表面</TableCell>
+                                                        <TableCell>描述</TableCell>
+                                                    </TableRow>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {boreholePoints.slice(0, 100).map((point) => ( // 最多显示100条预览
+                                                        <TableRow key={point.id}>
+                                                            <TableCell>{point.x.toFixed(2)}</TableCell>
+                                                            <TableCell>{point.y.toFixed(2)}</TableCell>
+                                                            <TableCell>{point.z.toFixed(2)}</TableCell>
+                                                            <TableCell>{point.surface}</TableCell>
+                                                            <TableCell>{point.description}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </TableContainer>
+                                    </Paper>
+                                </>
+                            )}
+                        </Stack>
+                    </AccordionDetails>
+                </Accordion>
+                
+                <Accordion expanded={activeAccordion === 'modelingParams'} onChange={handleAccordionChange('modelingParams')}>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                        <Typography>2. 地质建模参数 (GemPy)</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                        <Grid container spacing={2}>
+                            <Grid item xs={12}>
+                                <TextField
+                                    name="resolution"
+                                    label="模型分辨率 (nx,ny,nz)"
+                                    value={gempyParams.resolution.join(', ')}
+                                    onChange={handleResolutionChange}
+                                    fullWidth
+                                    helperText="以逗号分隔, e.g., 50,50,50"
+                                    variant="standard"
+                                    InputLabelProps={{ shrink: true }}
+                                    inputProps={{ 'aria-label': 'model-resolution' }}
+                                />
+                            </Grid>
+                            <Grid item xs={6}>
+                                <FormControl fullWidth>
+                                    <InputLabel>插值算法</InputLabel>
+                                    <Select
+                                        value={gempyParams.algorithm}
+                                        label="插值算法"
+                                        onChange={handleParamChange('gempyParams')}
+                                    >
+                                        <MenuItem value="kriging">克里金</MenuItem>
+                                        <MenuItem value="cokriging">协同克里金</MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+                            <Grid item xs={6}>
+                                <TextField
+                                    name="c_o"
+                                    label="相关长度 (c_o)"
+                                    type="number"
+                                    value={gempyParams.c_o}
+                                    onChange={handleParamChange('gempyParams')}
+                                    fullWidth
+                                    helperText="影响插值结果的平滑程度"
+                                    variant="standard"
+                                />
+                            </Grid>
+                            <Grid item xs={12}>
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            checked={gempyParams.generateContours}
+                                            onChange={handleParamChange('gempyParams')}
+                                            name="generateContours"
+                                        />
+                                    }
+                                    label="生成结构等高线"
+                                />
+                            </Grid>
+                            <Grid item xs={12}>
+                                <FormControl fullWidth>
+                                    <InputLabel id="color-scheme-label">颜色方案</InputLabel>
+                                    <Select
+                                        labelId="color-scheme-label"
+                                        value={colorScheme}
+                                        label="颜色方案"
+                                        onChange={handleColorSchemeChange}
+                                    >
+                                        <MenuItem value="gempy_standard">GemPy 标准</MenuItem>
+                                        <MenuItem value="gempy_highContrast">GemPy 高对比度</MenuItem>
+                                        <MenuItem value="gempy_pastel">GemPy 柔和</MenuItem>
+                                        <MenuItem value="shanghai">上海标准</MenuItem>
+                                        <MenuItem value="lithology">通用岩性</MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+                        </Grid>
+                    </AccordionDetails>
+                </Accordion>
+
+                <Box sx={{ mt: 2, p: 2, backgroundColor: '#f9f9f9', borderRadius: 1 }}>
+                    <Typography variant="h6">生成模型</Typography>
+                    <Button 
+                        variant="contained" 
+                        color="primary" 
+                        onClick={handleGenerateModel}
+                        disabled={isCreating || boreholePoints.length === 0}
+                        startIcon={<SaveIcon />}
+                    >
+                        {isCreating ? '正在生成...' : '生成专业地质模型'}
+                    </Button>
+                    {isCreating && <LinearProgress sx={{ mt: 1 }} />}
+                    {modelId && (
+                        <Alert severity="success" sx={{ mt: 2 }}>
+                            地质模型创建成功！ID: {modelId}
+                        </Alert>
+                    )}
+                </Box>
+            </TabPanel>
+
+            {/* Tab Panel for Conceptual Modeling */}
+            <TabPanel value={activeTab} index={1}>
+                <Typography variant="h6">手动定义水平地层</Typography>
+                <Alert severity="info" sx={{mb: 2}}>
+                    此功能用于快速创建概念性的、水平均匀的地质模型。
+                </Alert>
+
+                <TableContainer component={Paper} variant="outlined">
+                    <Table size="small">
+                        <TableHead>
+                            <TableRow>
+                                <TableCell>图层名称</TableCell>
+                                <TableCell>厚度 (m)</TableCell>
+                                <TableCell>材料类型</TableCell>
+                                <TableCell>颜色</TableCell>
+                                <TableCell>操作</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {soilLayers.map((layer) => (
+                                <TableRow key={layer.id}>
+                                    <TableCell>
+                                        <TextField 
+                                            variant="standard"
+                                            value={layer.name}
+                                            onChange={(e) => handleUpdateLayer(layer.id, 'name', e.target.value)}
+                                            inputProps={{ 'aria-label': `layer-name-${layer.id}` }}
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <TextField 
+                                            variant="standard"
+                                            type="number"
+                                            value={layer.thickness}
+                                            onChange={(e) => handleUpdateLayer(layer.id, 'thickness', parseFloat(e.target.value))}
+                                            sx={{width: '80px'}}
+                                            inputProps={{ 'aria-label': `layer-thickness-${layer.id}` }}
+                                        />
+                                    </TableCell>
+                                    <TableCell>
                                         <Select
-                                            value={currentLayer.soilType}
-                                            label="土层类型"
-                                            onChange={(e) => handleLayerChange('soilType', e.target.value)}
+                                            variant="standard"
+                                            value={layer.soilType}
+                                            onChange={(e) => handleUpdateLayer(layer.id, 'soilType', e.target.value)}
+                                            inputProps={{ 'aria-label': `layer-soil-type-${layer.id}` }}
                                         >
-                                            {SOIL_MATERIALS.map((material) => (
-                                                <MenuItem key={material.value} value={material.value} sx={{ display: 'flex', alignItems: 'center' }}>
-                                                    <Box 
-                                                        sx={{ 
-                                                            width: 16, 
-                                                            height: 16, 
-                                                            bgcolor: material.color, 
-                                                            mr: 1, 
-                                                            borderRadius: '2px' 
-                                                        }} 
-                                                    />
+                                            {SOIL_MATERIALS.map(material => (
+                                                <MenuItem key={material.value} value={material.value}>
                                                     {material.label}
                                                 </MenuItem>
                                             ))}
                                         </Select>
-                                    </FormControl>
-                                </Grid>
-                                
-                                {/* 土层颜色 */}
-                                <Grid item xs={12} sm={6}>
-                                    <TextField
-                                        fullWidth
-                                        label="土层颜色"
-                                        type="text"
-                                        value={currentLayer.color}
-                                        onChange={(e) => handleLayerChange('color', e.target.value)}
-                                        InputProps={{
-                                            startAdornment: (
-                                                <Box 
-                                                    sx={{ 
-                                                        width: 16, 
-                                                        height: 16, 
-                                                        bgcolor: currentLayer.color || '#A67F5D', 
-                                                        mr: 1, 
-                                                        borderRadius: '2px' 
-                                                    }} 
-                                                />
-                                            )
-                                        }}
-                                    />
-                                </Grid>
-                                
-                                <Grid item xs={12}>
-                                    <Divider sx={{ my: 1 }}>
-                                        <Typography variant="body2" color="text.secondary">
-                                            土层尺寸
-                                        </Typography>
-                                    </Divider>
-                                </Grid>
-                                
-                                {/* 土层厚度 */}
-                                <Grid item xs={12} sm={4}>
-                                    <TextField
-                                        fullWidth
-                                        label="土层厚度 (m)"
-                                        type="number"
-                                        value={currentLayer.extent.z_max - currentLayer.extent.z_min}
-                                        onChange={(e) => handleLayerChange('extent.z_max', parseFloat(e.target.value))}
-                                        error={!!errors['extent.z_max']}
-                                        helperText={errors['extent.z_max']}
-                                        InputProps={{
-                                            inputProps: { min: 0.1, step: 0.5 }
-                                        }}
-                                    />
-                                </Grid>
-                                
-                                {/* 土层宽度 */}
-                                <Grid item xs={12} sm={4}>
-                                    <TextField
-                                        fullWidth
-                                        label="土层宽度 (m)"
-                                        type="number"
-                                        value={currentLayer.extent.x_max - currentLayer.extent.x_min}
-                                        onChange={(e) => handleLayerChange('extent.x_max', parseFloat(e.target.value))}
-                                        error={!!errors['extent.x_max']}
-                                        helperText={errors['extent.x_max']}
-                                        InputProps={{
-                                            inputProps: { min: 1, step: 10 }
-                                        }}
-                                    />
-                                </Grid>
-                                
-                                {/* 土层长度 */}
-                                <Grid item xs={12} sm={4}>
-                                    <TextField
-                                        fullWidth
-                                        label="土层长度 (m)"
-                                        type="number"
-                                        value={currentLayer.extent.y_max - currentLayer.extent.y_min}
-                                        onChange={(e) => handleLayerChange('extent.y_max', parseFloat(e.target.value))}
-                                        error={!!errors['extent.y_max']}
-                                        helperText={errors['extent.y_max']}
-                                        InputProps={{
-                                            inputProps: { min: 1, step: 10 }
-                                        }}
-                                    />
-                                </Grid>
-                                
-                                <Grid item xs={12}>
-                                    <Divider sx={{ my: 1 }}>
-                                        <Typography variant="body2" color="text.secondary">
-                                            土层位置
-                                        </Typography>
-                                    </Divider>
-                                </Grid>
-                                
-                                {/* Z坐标 */}
-                                <Grid item xs={12} sm={4}>
-                                    <TextField
-                                        fullWidth
-                                        label="Z坐标 (m)"
-                                        type="number"
-                                        value={currentLayer.extent.z_min}
-                                        onChange={(e) => handleLayerChange('extent.z_min', parseFloat(e.target.value))}
-                                        InputProps={{
-                                            inputProps: { step: 0.5 }
-                                        }}
-                                    />
-                                </Grid>
-                                
-                                {/* X坐标 */}
-                                <Grid item xs={12} sm={4}>
-                                    <TextField
-                                        fullWidth
-                                        label="X坐标 (m)"
-                                        type="number"
-                                        value={currentLayer.extent.x_min}
-                                        onChange={(e) => handleLayerChange('extent.x_min', parseFloat(e.target.value))}
-                                        InputProps={{
-                                            inputProps: { step: 10 }
-                                        }}
-                                    />
-                                </Grid>
-                                
-                                {/* Y坐标 */}
-                                <Grid item xs={12} sm={4}>
-                                    <TextField
-                                        fullWidth
-                                        label="Y坐标 (m)"
-                                        type="number"
-                                        value={currentLayer.extent.y_min}
-                                        onChange={(e) => handleLayerChange('extent.y_min', parseFloat(e.target.value))}
-                                        InputProps={{
-                                            inputProps: { step: 10 }
-                                        }}
-                                    />
-                                </Grid>
-                            </Grid>
-                            
-                            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-                                <Button 
-                                    variant="contained" 
-                                    color="primary" 
-                                    onClick={handleAddLayer}
-                                    startIcon={<AddIcon />}
-                                >
-                                    添加土层
-                                </Button>
-                            </Box>
-                        </Paper>
-                        
-                        <Paper elevation={2} sx={{ p: 2 }}>
-                            <Typography variant="subtitle1" gutterBottom>
-                                已添加的土层
-                            </Typography>
-                            
-                            {soilLayers.length === 0 ? (
-                                <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
-                                    尚未添加任何土层
-                                </Typography>
-                            ) : (
-                                <Stack spacing={1} sx={{ maxHeight: 200, overflow: 'auto' }}>
-                                    {soilLayers.map((layer, index) => (
-                                        <Box 
-                                            key={layer.id || index} 
-                                            sx={{ 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
-                                                justifyContent: 'space-between',
-                                                p: 1,
-                                                border: '1px solid rgba(0, 0, 0, 0.12)',
-                                                borderRadius: 1,
-                                                bgcolor: 'background.paper'
-                                            }}
-                                        >
-                                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                <Box 
-                                                    sx={{ 
-                                                        width: 16, 
-                                                        height: 16, 
-                                                        bgcolor: layer.color || '#A67F5D', 
-                                                        mr: 1, 
-                                                        borderRadius: '2px' 
-                                                    }} 
-                                                />
-                                                <Typography variant="body2">
-                                                    {SOIL_MATERIALS.find(m => m.value === layer.soilType)?.label || '自定义'} 
-                                                    ({layer.extent.z_min.toFixed(1)}m ~ {(layer.extent.z_max - layer.extent.z_min).toFixed(1)}m)
-                                                </Typography>
-                                            </Box>
-                                            <IconButton size="small" onClick={() => handleRemoveLayer(index)}>
-                                                <DeleteIcon fontSize="small" />
-                                            </IconButton>
-                                        </Box>
-                                    ))}
-                                </Stack>
-                            )}
-                            
-                            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
-                                <Button 
-                                    variant="outlined" 
-                                    color="primary"
-                                    onClick={handleImportBorehole}
-                                    startIcon={<UploadIcon />}
-                                >
-                                    导入钻孔数据
-                                </Button>
-                                <Button 
-                                    variant="contained" 
-                                    color="primary" 
-                                    onClick={handleCreateGeologicalModel}
-                                    disabled={isCreating || soilLayers.length === 0}
-                                >
-                                    {isCreating ? '创建中...' : '创建地质模型'}
-                                </Button>
-                            </Box>
-                        </Paper>
-                    </Grid>
-                    
-                    <Grid item xs={12} md={6}>
-                        <Paper 
-                            elevation={2} 
-                            sx={{ 
-                                p: 2, 
-                                height: '100%', 
-                                display: 'flex', 
-                                flexDirection: 'column'
-                            }}
-                        >
-                            <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                地质剖面示意图
-                                <Tooltip title="基于当前添加的土层绘制的XZ平面剖面图">
-                                    <InfoOutlinedIcon fontSize="small" color="action" />
-                                </Tooltip>
-                            </Typography>
-                            
-                            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                <canvas 
-                                    ref={canvasRef} 
-                                    width={500} 
-                                    height={400}
-                                    style={{ maxWidth: '100%', maxHeight: '100%' }}
-                                />
-                            </Box>
-                        </Paper>
-                    </Grid>
-                </Grid>
-            </TabPanel>
-            
-            <TabPanel value={tabValue} index={1}>
-                <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                    <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                        <Button 
-                            variant="contained" 
-                            color="primary" 
-                            onClick={handleGenerateMesh}
-                            disabled={!modelId}
-                            sx={{ mr: 1 }}
-                        >
-                            生成网格
-                        </Button>
-                        <Button 
-                            variant="outlined" 
-                            color="primary" 
-                            onClick={() => {
-                                if (modelId) {
-                                    geologyService.exportGeologicalModel(modelId, 'vtk');
-                                }
-                            }}
-                            disabled={!modelId}
-                            startIcon={<DownloadIcon />}
-                        >
-                            导出模型
-                        </Button>
-                    </Box>
-                    
-                    <Box sx={{ flex: 1 }}>
-                        {modelId ? (
-                            <GeologicalModelViewer
-                                soilLayers={soilLayers}
-                                modelId={modelId}
-                                height="100%"
-                            />
-                        ) : (
-                            <Paper 
-                                sx={{ 
-                                    height: '100%', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    justifyContent: 'center',
-                                    p: 3
-                                }}
-                            >
-                                <Typography variant="body1" color="text.secondary" align="center">
-                                    请先在"土层定义"选项卡中创建地质模型
-                                </Typography>
-                            </Paper>
-                        )}
-                    </Box>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Box sx={{ width: 24, height: 24, bgcolor: layer.color, borderRadius: 1, border: '1px solid #ccc' }} />
+                                    </TableCell>
+                                    <TableCell>
+                                        <IconButton size="small" onClick={() => handleOpenDeleteConfirm(layer.id)}>
+                                            <DeleteIcon />
+                                        </IconButton>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+
+                <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+                    <Button startIcon={<AddIcon />} onClick={handleAddLayer}>
+                        添加新图层
+                    </Button>
+                </Stack>
+                
+                <Box sx={{ mt: 3, p: 2, backgroundColor: '#f9f9f9', borderRadius: 1 }}>
+                    <Typography variant="h6">二维剖面示意图</Typography>
+                    <DiagramRenderer 
+                        type='geological_section' 
+                        data={{ layers: soilLayers.map(l => ({ name: l.name, thickness: l.thickness, color: l.color }))}} 
+                    />
+                     <Button 
+                        variant="contained" 
+                        color="primary" 
+                        onClick={handleGenerateConceptualModel}
+                        disabled={isCreating || soilLayers.length === 0}
+                        startIcon={<SaveIcon />}
+                        sx={{mt: 2}}
+                    >
+                        {isCreating ? '正在生成...' : '生成概念模型'}
+                    </Button>
                 </Box>
             </TabPanel>
-            
-            <TabPanel value={tabValue} index={2}>
-                <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                    <Paper sx={{ p: 3, mb: 2 }}>
-                        <Typography variant="h6" gutterBottom>
-                            钻孔数据导入
-                        </Typography>
-                        
-                        <Typography variant="body2" paragraph>
-                            通过导入钻孔数据，可以自动生成地质模型。支持CSV、Excel格式的钻孔数据文件。
-                        </Typography>
-                        
-                        <Box sx={{ display: 'flex', gap: 2 }}>
-                            <Button 
-                                variant="contained" 
-                                color="primary" 
-                                startIcon={<UploadIcon />}
-                                onClick={handleImportBorehole}
-                            >
-                                导入钻孔数据
-                            </Button>
-                            <Button 
-                                variant="outlined"
-                                startIcon={<DownloadIcon />}
-                            >
-                                下载模板
-                            </Button>
-                        </Box>
-                    </Paper>
-                    
-                    <Paper sx={{ p: 3, flex: 1 }}>
-                        <Typography variant="subtitle1" gutterBottom>
-                            钻孔数据格式说明
-                        </Typography>
-                        
-                        <Typography variant="body2" paragraph>
-                            钻孔数据文件应包含以下字段：
-                        </Typography>
-                        
-                        <ul>
-                            <li>钻孔ID (BoreID)</li>
-                            <li>X坐标 (X)</li>
-                            <li>Y坐标 (Y)</li>
-                            <li>地面高程 (Z)</li>
-                            <li>层位深度 (Depth)</li>
-                            <li>土层类型 (SoilType)</li>
-                        </ul>
-                        
-                        <Typography variant="body2" paragraph>
-                            系统将使用GemPy插值算法，基于钻孔数据生成三维地质模型。
-                        </Typography>
-                    </Paper>
-                </Box>
-            </TabPanel>
-        </Box>
+
+            <Dialog
+                open={deleteConfirmOpen}
+                onClose={handleCloseDeleteConfirm}
+            >
+                <DialogTitle id="alert-dialog-title">确认删除</DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        您确定要删除这个土层吗？此操作无法撤销。
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDeleteConfirm}>取消</Button>
+                    <Button onClick={handleConfirmDelete} color="error">
+                        删除
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        </Paper>
     );
 };
 

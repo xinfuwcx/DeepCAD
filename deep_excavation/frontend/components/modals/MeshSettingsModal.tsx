@@ -52,7 +52,7 @@ interface MeshSettingsModalProps {
   open: boolean;
   onClose: () => void;
   initialSettings?: Partial<MeshSettings>;
-  onApply: (settings: MeshSettings) => void;
+  onApply: (settings: Partial<MeshSettings>) => void;
 }
 
 const MeshSettingsModal: React.FC<MeshSettingsModalProps> = ({
@@ -62,13 +62,13 @@ const MeshSettingsModal: React.FC<MeshSettingsModalProps> = ({
   onApply,
 }) => {
   const [tabValue, setTabValue] = useState(0);
-  const [settings, setSettings] = useState<MeshSettings | null>(null);
+  const [settings, setSettings] = useState<Partial<MeshSettings> | null>(null);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
-  const handleSettingsChange = (newSettings: MeshSettings) => {
+  const handleSettingsChange = (newSettings: Partial<MeshSettings>) => {
     setSettings(newSettings);
   };
 

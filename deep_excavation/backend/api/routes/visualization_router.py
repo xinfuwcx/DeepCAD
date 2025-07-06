@@ -3,7 +3,7 @@
 集成PyVista Web桥梁，提供Kratos分析结果的Web可视化接口
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Body
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 
 from ...core.unified_cae_engine import UnifiedCAEEngine
-from ...core.pyvista_web_bridge import PyVistaWebBridge, process_kratos_vtk_for_web
+from ...core.pyvista_web_bridge import PyVistaWebBridge, process_kratos_vtk_for_web, MESH_CACHE
 
 logger = logging.getLogger(__name__)
 
@@ -429,4 +429,40 @@ async def generate_test_visualization_data():
         raise HTTPException(
             status_code=500,
             detail=f"生成测试数据时出错: {str(e)}"
-        ) 
+        )
+
+@router.post("/load-result-for-test")
+async def load_result_for_test(
+    result_id: str = Body(..., embed=True), vtk_path: str = Body(..., embed=True)
+):
+    """一个用于测试的临时端点，用于将一个VTK文件加载到内存缓存。"""
+    bridge = get_pyvista_bridge()
+    success = await bridge.load_result_to_cache(result_id, vtk_path)
+    if success:
+        return {"message": f"Result '{result_id}' loaded successfully."}
+
+    raise HTTPException(
+        status_code=404, detail=f"Failed to load VTK file from '{vtk_path}'"
+    )
+
+@router.post("/apply-filter")
+async def apply_visualization_filter(
+    result_id: str = Body(...), filters: List[Dict[str, Any]] = Body(...)
+):
+    """应用一个或多个滤镜到指定的已加载结果上，并返回glTF数据。"""
+    if result_id not in MESH_CACHE:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Result ID '{result_id}' not found in cache. Please load it first.",
+        )
+
+    bridge = get_pyvista_bridge()
+    gltf_b64 = await bridge.apply_filters(result_id, filters)
+
+    if gltf_b64:
+        # 返回base64编码的glTF字符串，前端可以直接使用
+        return {"status": "success", "gltf_data": gltf_b64}
+
+    raise HTTPException(
+        status_code=500, detail="Error applying visualization filter on the backend."
+    ) 

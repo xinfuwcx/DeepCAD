@@ -38,12 +38,18 @@ import { globalPerformanceMonitor } from '../../core/performanceMonitor';
 interface PrimaryAppBarProps {
     onToggleLeftDrawer: () => void;
     onToggleRightDrawer: () => void;
+    showDrawerToggles?: boolean;
 }
 
-const PrimaryAppBar: React.FC<PrimaryAppBarProps> = ({ onToggleLeftDrawer, onToggleRightDrawer }) => {
+const PrimaryAppBar: React.FC<PrimaryAppBarProps> = ({ onToggleLeftDrawer, onToggleRightDrawer, showDrawerToggles = true }) => {
+    // --- 性能优化：将单个 useStore 拆分为多个，每个只选择自己需要的状态 ---
     const activeWorkbench = useStore(state => state.activeWorkbench);
     const setActiveWorkbench = useStore(state => state.setActiveWorkbench);
     const openModal = useStore(state => state.openModal);
+    const undo = useStore(state => state.undo);
+    const redo = useStore(state => state.redo);
+    const canUndo = useStore(state => state.history.past.length > 0);
+    const canRedo = useStore(state => state.history.future.length > 0);
     
     // 性能监控状态
     const [performanceMetrics, setPerformanceMetrics] = useState({
@@ -61,7 +67,7 @@ const PrimaryAppBar: React.FC<PrimaryAppBarProps> = ({ onToggleLeftDrawer, onTog
                 const metrics = globalPerformanceMonitor.getMetrics();
                 setPerformanceMetrics({
                     fps: Math.round(metrics.fps),
-                    memoryUsage: metrics.memoryUsage.percentage
+                    memoryUsage: Math.round(metrics.memoryUsage.percentage)
                 });
             }
         }, 1000);
@@ -86,23 +92,25 @@ const PrimaryAppBar: React.FC<PrimaryAppBarProps> = ({ onToggleLeftDrawer, onTog
         >
             <Toolbar sx={{ minHeight: '72px !important' }}>
                 {/* 左侧菜单按钮 */}
-                <Tooltip title="项目浏览器">
-                    <IconButton
-                        color="inherit"
-                        aria-label="toggle left drawer"
-                        onClick={onToggleLeftDrawer}
-                        edge="start"
-                        sx={{
-                            mr: 1,
-                            background: (theme) => alpha(theme.palette.primary.main, 0.1),
-                            '&:hover': {
-                                background: (theme) => alpha(theme.palette.primary.main, 0.2),
-                            }
-                        }}
-                    >
-                        <MenuIcon />
-                    </IconButton>
-                </Tooltip>
+                {showDrawerToggles && (
+                    <Tooltip title="切换项目浏览器">
+                        <IconButton
+                            color="inherit"
+                            aria-label="toggle left drawer"
+                            onClick={onToggleLeftDrawer}
+                            edge="start"
+                            sx={{
+                                mr: 1,
+                                background: (theme) => alpha(theme.palette.primary.main, 0.1),
+                                '&:hover': {
+                                    background: (theme) => alpha(theme.palette.primary.main, 0.2),
+                                }
+                            }}
+                        >
+                            <MenuIcon />
+                        </IconButton>
+                    </Tooltip>
+                )}
                 
                 {/* Logo */}
                 <Box 
@@ -267,25 +275,21 @@ const PrimaryAppBar: React.FC<PrimaryAppBarProps> = ({ onToggleLeftDrawer, onTog
                         </IconButton>
                     </Tooltip>
                     <Tooltip title="撤销 (Ctrl+Z)">
-                        <IconButton 
+                        <IconButton
                             color="inherit"
-                            sx={{
-                                '&:hover': {
-                                    background: (theme) => alpha(theme.palette.primary.main, 0.1),
-                                }
-                            }}
+                            aria-label="undo change"
+                            onClick={undo}
+                            disabled={!canUndo}
                         >
                             <UndoIcon />
                         </IconButton>
                     </Tooltip>
                     <Tooltip title="重做 (Ctrl+Y)">
-                        <IconButton 
+                        <IconButton
                             color="inherit"
-                            sx={{
-                                '&:hover': {
-                                    background: (theme) => alpha(theme.palette.primary.main, 0.1),
-                                }
-                            }}
+                            aria-label="redo change"
+                            onClick={redo}
+                            disabled={!canRedo}
                         >
                             <RedoIcon />
                         </IconButton>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -11,34 +11,63 @@ import {
   RadioGroup,
   Radio,
   FormControlLabel,
-  Checkbox,
   TextField,
   Select,
   MenuItem,
   InputLabel,
   Grid,
   Paper,
-  IconButton,
-  Tooltip,
   LinearProgress,
-  Chip,
-  Alert,
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Stack
+  Stack,
+  InputAdornment,
+  List,
+  ListItem,
+  ListItemText,
+  IconButton,
+  Alert,
+  Snackbar,
+  Chip,
+  Tooltip,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import StopIcon from '@mui/icons-material/Stop';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import SettingsIcon from '@mui/icons-material/Settings';
-import SaveIcon from '@mui/icons-material/Save';
-import InfoIcon from '@mui/icons-material/Info';
-import WarningIcon from '@mui/icons-material/Warning';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import MemoryIcon from '@mui/icons-material/Memory';
-import TimelineIcon from '@mui/icons-material/Timeline';
-import BarChartIcon from '@mui/icons-material/BarChart';
+import ScienceIcon from '@mui/icons-material/Science';
+import EditIcon from '@mui/icons-material/Edit';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
+import WaterIcon from '@mui/icons-material/Water';
+import EngineeringIcon from '@mui/icons-material/Engineering';
+import { useStore } from '../../core/store';
+import { AnyFeature, runParametricAnalysis, ParametricScene } from '../../services/parametricAnalysisService';
+
+// 新增的材料数据类型
+interface Material {
+  id: string;
+  name: string;
+  type: 'soil' | 'concrete' | 'steel';
+  properties: {
+    [key: string]: number;
+  };
+}
+
+// 新增的边界条件数据类型
+interface BoundaryCondition {
+  id: string;
+  name: string;
+  type: 'displacement' | 'force' | 'pressure' | 'hydraulic_head';
+  target: string; // 几何实体ID
+  value: number | [number, number, number];
+  isConstrained?: boolean;
+}
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -48,517 +77,714 @@ interface TabPanelProps {
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
-
   return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`analysis-tabpanel-${index}`}
-      aria-labelledby={`analysis-tab-${index}`}
-      {...other}
-      style={{ height: '100%', overflow: 'auto' }}
-    >
-      {value === index && (
-        <Box sx={{ p: 1, height: '100%' }}>
-          {children}
-        </Box>
-      )}
+    <div role="tabpanel" hidden={value !== index} id={`analysis-tabpanel-${index}`} style={{ height: 'calc(100% - 48px)', overflow: 'auto' }}>
+      {value === index && <Box sx={{ p: 2 }}>{children}</Box>}
     </div>
   );
 }
 
-function a11yProps(index: number) {
-  return {
-    id: `analysis-tab-${index}`,
-    'aria-controls': `analysis-tabpanel-${index}`,
+// 预定义材料库
+const MATERIAL_LIBRARY: Material[] = [
+  {
+    id: 'soil-1',
+    name: '黏土',
+    type: 'soil',
+    properties: {
+      young_modulus: 5.0e6,
+      poisson_ratio: 0.3,
+      density: 1800,
+      cohesion: 20000,
+      friction_angle: 20,
+      hydraulic_conductivity_x: 1e-8,
+      hydraulic_conductivity_y: 1e-8,
+      hydraulic_conductivity_z: 1e-9,
+      porosity: 0.4
+    }
+  },
+  {
+    id: 'soil-2',
+    name: '砂土',
+    type: 'soil',
+    properties: {
+      young_modulus: 3.0e7,
+      poisson_ratio: 0.25,
+      density: 2000,
+      cohesion: 0,
+      friction_angle: 35,
+      hydraulic_conductivity_x: 1e-5,
+      hydraulic_conductivity_y: 1e-5,
+      hydraulic_conductivity_z: 1e-5,
+      porosity: 0.3
+    }
+  },
+  {
+    id: 'concrete-1',
+    name: 'C30混凝土',
+    type: 'concrete',
+    properties: {
+      young_modulus: 3.0e10,
+      poisson_ratio: 0.2,
+      density: 2500,
+      compressive_strength: 30e6
+    }
+  },
+  {
+    id: 'steel-1',
+    name: 'Q345钢材',
+    type: 'steel',
+    properties: {
+      young_modulus: 2.1e11,
+      poisson_ratio: 0.3,
+      density: 7850,
+      yield_strength: 345e6
+    }
+  }
+];
+
+// 材料管理组件
+const MaterialManager: React.FC = () => {
+  const [materials, setMaterials] = useState<Material[]>([...MATERIAL_LIBRARY]);
+  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  
+  const handleEditMaterial = (material: Material) => {
+    setSelectedMaterial(material);
+    setDialogOpen(true);
   };
+  
+  const handleSaveMaterial = () => {
+    if (selectedMaterial) {
+      setMaterials(prev => 
+        prev.map(m => m.id === selectedMaterial.id ? selectedMaterial : m)
+      );
+      setDialogOpen(false);
+    }
+  };
+  
+  return (
+    <>
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between' }}>
+        <Typography variant="subtitle2">材料库</Typography>
+        <Button size="small" startIcon={<AddIcon />}>添加材料</Button>
+      </Box>
+      
+      <List dense sx={{ bgcolor: 'background.paper' }}>
+        {materials.map((material) => (
+          <ListItem
+            key={material.id}
+            secondaryAction={
+              <IconButton edge="end" onClick={() => handleEditMaterial(material)}>
+                <EditIcon fontSize="small" />
+              </IconButton>
+            }
+          >
+            <ListItemText 
+              primary={material.name} 
+              secondary={
+                <Typography variant="caption" color="text.secondary">
+                  {material.type === 'soil' ? '土体' : material.type === 'concrete' ? '混凝土' : '钢材'}
+                </Typography>
+              } 
+            />
+          </ListItem>
+        ))}
+      </List>
+      
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
+        <DialogTitle>编辑材料属性</DialogTitle>
+        <DialogContent>
+          {selectedMaterial && (
+            <Stack spacing={2} sx={{ mt: 1, minWidth: 300 }}>
+              <TextField
+                label="材料名称"
+                value={selectedMaterial.name}
+                onChange={(e) => setSelectedMaterial({...selectedMaterial, name: e.target.value})}
+                fullWidth
+                size="small"
+              />
+              
+              {Object.entries(selectedMaterial.properties).map(([key, value]) => (
+                <TextField
+                  key={key}
+                  label={getPropertyLabel(key)}
+                  value={value}
+                  onChange={(e) => {
+                    const newProps = {...selectedMaterial.properties};
+                    newProps[key] = parseFloat(e.target.value);
+                    setSelectedMaterial({
+                      ...selectedMaterial, 
+                      properties: newProps
+                    });
+                  }}
+                  type="number"
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">{getPropertyUnit(key)}</InputAdornment>
+                  }}
+                  fullWidth
+                  size="small"
+                />
+              ))}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogOpen(false)}>取消</Button>
+          <Button onClick={handleSaveMaterial} variant="contained">保存</Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+};
+
+// 获取属性标签
+function getPropertyLabel(key: string): string {
+  const labels: {[key: string]: string} = {
+    young_modulus: '弹性模量',
+    poisson_ratio: '泊松比',
+    density: '密度',
+    cohesion: '粘聚力',
+    friction_angle: '内摩擦角',
+    hydraulic_conductivity_x: 'X向渗透系数',
+    hydraulic_conductivity_y: 'Y向渗透系数',
+    hydraulic_conductivity_z: 'Z向渗透系数',
+    porosity: '孔隙率',
+    compressive_strength: '抗压强度',
+    yield_strength: '屈服强度'
+  };
+  return labels[key] || key;
 }
+
+// 获取属性单位
+function getPropertyUnit(key: string): string {
+  const units: {[key: string]: string} = {
+    young_modulus: 'Pa',
+    poisson_ratio: '',
+    density: 'kg/m³',
+    cohesion: 'Pa',
+    friction_angle: '°',
+    hydraulic_conductivity_x: 'm/s',
+    hydraulic_conductivity_y: 'm/s',
+    hydraulic_conductivity_z: 'm/s',
+    porosity: '',
+    compressive_strength: 'Pa',
+    yield_strength: 'Pa'
+  };
+  return units[key] || '';
+}
+
+// 材料分配组件
+const MaterialAssignment: React.FC = () => {
+    const features = useStore(state => state.features);
+    const [assignments, setAssignments] = useState<{[key: string]: string}>({});
+    
+    const handleAssignMaterial = (featureId: string, materialId: string) => {
+      setAssignments(prev => ({...prev, [featureId]: materialId}));
+    };
+
+    return (
+        <List dense>
+            {features.filter(f => f.type !== 'CreateAnchorSystem').map(feature => (
+                <ListItem
+                    key={feature.id}
+                    secondaryAction={
+                        <Select
+                          value={assignments[feature.id] || ''}
+                          onChange={(e) => handleAssignMaterial(feature.id, e.target.value)}
+                          size="small"
+                          sx={{ minWidth: 120 }}
+                        >
+                          <MenuItem value="">
+                            <em>未分配</em>
+                          </MenuItem>
+                          {MATERIAL_LIBRARY.map(mat => (
+                            <MenuItem key={mat.id} value={mat.id}>
+                              {mat.name}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                    }
+                >
+                    <ListItemText 
+                      primary={feature.name} 
+                      secondary={feature.type.replace('Create', '')} 
+                    />
+                </ListItem>
+            ))}
+        </List>
+    );
+};
+
+// 边界条件组件
+const BoundaryConditionManager: React.FC = () => {
+  const features = useStore(state => state.features);
+  const [boundaryConditions, setBoundaryConditions] = useState<BoundaryCondition[]>([]);
+  const [selectedFeature, setSelectedFeature] = useState<string>('');
+  const [conditionType, setConditionType] = useState<string>('displacement');
+  const [valueX, setValueX] = useState<number>(0);
+  const [valueY, setValueY] = useState<number>(0);
+  const [valueZ, setValueZ] = useState<number>(0);
+  const [isConstrained, setIsConstrained] = useState<boolean>(true);
+  
+  const handleAddBoundaryCondition = () => {
+    if (!selectedFeature) return;
+    
+    const newCondition: BoundaryCondition = {
+      id: `bc-${Date.now()}`,
+      name: `边界条件 ${boundaryConditions.length + 1}`,
+      type: conditionType as any,
+      target: selectedFeature,
+      value: conditionType === 'hydraulic_head' ? valueX : [valueX, valueY, valueZ],
+      isConstrained
+    };
+    
+    setBoundaryConditions([...boundaryConditions, newCondition]);
+    // 重置表单
+    setValueX(0);
+    setValueY(0);
+    setValueZ(0);
+  };
+  
+  const handleDeleteBoundaryCondition = (id: string) => {
+    setBoundaryConditions(boundaryConditions.filter(bc => bc.id !== id));
+  };
+  
+  return (
+    <Stack spacing={2}>
+      <Typography variant="subtitle2">已定义的边界条件</Typography>
+      
+      {boundaryConditions.length > 0 ? (
+        <List dense>
+          {boundaryConditions.map(bc => {
+            const targetFeature = features.find(f => f.id === bc.target);
+            return (
+              <ListItem
+                key={bc.id}
+                secondaryAction={
+                  <IconButton edge="end" onClick={() => handleDeleteBoundaryCondition(bc.id)}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                }
+              >
+                <ListItemText
+                  primary={bc.name}
+                  secondary={`${getBoundaryTypeLabel(bc.type)} - ${targetFeature?.name || '未知实体'}`}
+                />
+              </ListItem>
+            );
+          })}
+        </List>
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          尚未定义边界条件
+        </Typography>
+      )}
+      
+      <Divider />
+      
+      <Typography variant="subtitle2">添加新边界条件</Typography>
+      
+      <FormControl fullWidth size="small">
+        <InputLabel>几何实体</InputLabel>
+        <Select
+          value={selectedFeature}
+          onChange={(e) => setSelectedFeature(e.target.value)}
+          label="几何实体"
+        >
+          <MenuItem value="">
+            <em>选择几何实体</em>
+          </MenuItem>
+          {features.map(feature => (
+            <MenuItem key={feature.id} value={feature.id}>
+              {feature.name}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      
+      <FormControl fullWidth size="small">
+        <InputLabel>边界条件类型</InputLabel>
+        <Select
+          value={conditionType}
+          onChange={(e) => setConditionType(e.target.value)}
+          label="边界条件类型"
+        >
+          <MenuItem value="displacement">位移约束</MenuItem>
+          <MenuItem value="force">力约束</MenuItem>
+          <MenuItem value="pressure">压力约束</MenuItem>
+          <MenuItem value="hydraulic_head">水头约束</MenuItem>
+        </Select>
+      </FormControl>
+      
+      {conditionType === 'hydraulic_head' ? (
+        <TextField
+          label="总水头"
+          type="number"
+          value={valueX}
+          onChange={(e) => setValueX(parseFloat(e.target.value))}
+          InputProps={{
+            endAdornment: <InputAdornment position="end">m</InputAdornment>,
+          }}
+          size="small"
+        />
+      ) : (
+        <Grid container spacing={1}>
+          <Grid item xs={4}>
+            <TextField
+              label="X方向"
+              type="number"
+              value={valueX}
+              onChange={(e) => setValueX(parseFloat(e.target.value))}
+              fullWidth
+              size="small"
+            />
+          </Grid>
+          <Grid item xs={4}>
+            <TextField
+              label="Y方向"
+              type="number"
+              value={valueY}
+              onChange={(e) => setValueY(parseFloat(e.target.value))}
+              fullWidth
+              size="small"
+            />
+          </Grid>
+          <Grid item xs={4}>
+            <TextField
+              label="Z方向"
+              type="number"
+              value={valueZ}
+              onChange={(e) => setValueZ(parseFloat(e.target.value))}
+              fullWidth
+              size="small"
+            />
+          </Grid>
+        </Grid>
+      )}
+      
+      {conditionType === 'displacement' && (
+        <FormControlLabel
+          control={
+            <Radio
+              checked={isConstrained}
+              onChange={(e) => setIsConstrained(e.target.checked)}
+            />
+          }
+          label="约束位移"
+        />
+      )}
+      
+      <Button
+        variant="outlined"
+        startIcon={<AddIcon />}
+        onClick={handleAddBoundaryCondition}
+        disabled={!selectedFeature}
+      >
+        添加边界条件
+      </Button>
+    </Stack>
+  );
+};
+
+// 获取边界条件类型标签
+function getBoundaryTypeLabel(type: string): string {
+  const labels: {[key: string]: string} = {
+    displacement: '位移约束',
+    force: '力约束',
+    pressure: '压力约束',
+    hydraulic_head: '水头约束'
+  };
+  return labels[type] || type;
+}
+
+// Kratos求解器设置组件
+const KratosSolverSettings: React.FC = () => {
+  const [solverType, setSolverType] = useState<string>('direct');
+  const [tolerance, setTolerance] = useState<number>(1e-6);
+  const [maxIterations, setMaxIterations] = useState<number>(1000);
+  const [timeStep, setTimeStep] = useState<number>(0.1);
+  const [endTime, setEndTime] = useState<number>(1.0);
+  const [analysisType, setAnalysisType] = useState<string>('static');
+  
+  return (
+    <Stack spacing={2}>
+      <FormControl fullWidth size="small">
+        <InputLabel>分析类型</InputLabel>
+        <Select
+          value={analysisType}
+          onChange={(e) => setAnalysisType(e.target.value)}
+          label="分析类型"
+        >
+          <MenuItem value="static">静力分析</MenuItem>
+          <MenuItem value="dynamic">动力分析</MenuItem>
+          <MenuItem value="modal">模态分析</MenuItem>
+          <MenuItem value="steady_state_seepage">稳态渗流</MenuItem>
+          <MenuItem value="transient_seepage">瞬态渗流</MenuItem>
+        </Select>
+      </FormControl>
+      
+      <FormControl fullWidth size="small">
+        <InputLabel>求解器</InputLabel>
+        <Select
+          value={solverType}
+          onChange={(e) => setSolverType(e.target.value)}
+          label="求解器"
+        >
+          <MenuItem value="direct">直接求解器 (MUMPS)</MenuItem>
+          <MenuItem value="iterative">迭代求解器 (CG)</MenuItem>
+          <MenuItem value="amgcl">AMGCL</MenuItem>
+        </Select>
+      </FormControl>
+      
+      <TextField
+        label="收敛容差"
+        type="number"
+        value={tolerance}
+        onChange={(e) => setTolerance(parseFloat(e.target.value))}
+        InputProps={{
+          endAdornment: <InputAdornment position="end">ε</InputAdornment>,
+        }}
+        size="small"
+      />
+      
+      <TextField
+        label="最大迭代次数"
+        type="number"
+        value={maxIterations}
+        onChange={(e) => setMaxIterations(parseInt(e.target.value))}
+        size="small"
+      />
+      
+      {(analysisType === 'dynamic' || analysisType === 'transient_seepage') && (
+        <>
+          <TextField
+            label="时间步长"
+            type="number"
+            value={timeStep}
+            onChange={(e) => setTimeStep(parseFloat(e.target.value))}
+            InputProps={{
+              endAdornment: <InputAdornment position="end">s</InputAdornment>,
+            }}
+            size="small"
+          />
+          
+          <TextField
+            label="终止时间"
+            type="number"
+            value={endTime}
+            onChange={(e) => setEndTime(parseFloat(e.target.value))}
+            InputProps={{
+              endAdornment: <InputAdornment position="end">s</InputAdornment>,
+            }}
+            size="small"
+          />
+        </>
+      )}
+    </Stack>
+  );
+};
 
 const AnalysisPanel: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [analysisType, setAnalysisType] = useState('mechanical');
-  const [inverseMethod, setInverseMethod] = useState('gradient');
-  const [selectedMesh, setSelectedMesh] = useState('mesh-1');
-  
-  // 正向分析设置
-  const [forwardSettings, setForwardSettings] = useState({
-    solver: 'direct',
-    iterations: 100,
-    tolerance: 1e-6,
-    timesteps: 10,
-    nonlinear: true,
-    gravity: true,
-    initialStress: true,
-    dampingRatio: 0.05,
-  });
-  
-  // 反演分析设置
-  const [inverseSettings, setInverseSettings] = useState({
-    method: 'gradient',
-    maxIterations: 50,
-    tolerance: 1e-4,
-    regularization: 0.01,
-    learningRate: 0.1,
-    batchSize: 5,
-    useGPU: true,
-  });
+  const [error, setError] = useState<string | null>(null);
+  const [analysisType, setAnalysisType] = useState<string>("mechanical");
+  const features = useStore(state => state.features);
+  const viewportApi = useStore(state => state.viewportApi);
+
   
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
   
-  const handleRunAnalysis = () => {
+  const handleRunAnalysis = async () => {
     setIsRunning(true);
-    setProgress(0);
-    
-    // 模拟分析进度
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        const newProgress = prev + (Math.random() * 5);
-        if (newProgress >= 100) {
-          clearInterval(interval);
-          setIsRunning(false);
-          return 100;
+    setError(null);
+
+    const scene: ParametricScene = {
+        version: "2.0-parametric",
+        features: features,
+    };
+
+    try {
+        const result = await runParametricAnalysis(scene);
+        console.log('Analysis successful:', result);
+        if (result.mesh_filename && viewportApi) {
+            const vtkUrl = `/api/analysis/results/${result.mesh_filename}`;
+            viewportApi.loadVtkResults(vtkUrl);
         }
-        return newProgress;
-      });
-    }, 500);
+    } catch (err: any) {
+        console.error('Analysis failed:', err);
+        setError(err.message || 'An unknown error occurred during analysis.');
+    } finally {
+        setIsRunning(false);
+    }
   };
-  
-  const handleStopAnalysis = () => {
-    setIsRunning(false);
-  };
-  
-  const handleForwardSettingChange = (key: string, value: any) => {
-    setForwardSettings(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  };
-  
-  const handleInverseSettingChange = (key: string, value: any) => {
-    setInverseSettings(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  };
-  
+
+  const FemAnalysisTab = () => (
+    <Stack spacing={1}>
+        <Accordion defaultExpanded>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle1">步骤一: 分析工况</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+                <FormControl component="fieldset">
+                    <RadioGroup 
+                      row 
+                      value={analysisType}
+                      onChange={(e) => setAnalysisType(e.target.value)}
+                    >
+                        <FormControlLabel value="mechanical" control={<Radio />} label="固体力学" />
+                        <FormControlLabel value="seepage" control={<Radio />} label="渗流分析" />
+                        <FormControlLabel value="coupled" control={<Radio />} label="流固耦合" />
+                    </RadioGroup>
+                </FormControl>
+                
+                <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                  <Chip 
+                    icon={<EngineeringIcon />} 
+                    label="Kratos结构分析" 
+                    color={analysisType === 'mechanical' ? 'primary' : 'default'} 
+                    variant={analysisType === 'mechanical' ? 'filled' : 'outlined'}
+                  />
+                  <Chip 
+                    icon={<WaterIcon />} 
+                    label="Kratos渗流分析" 
+                    color={analysisType === 'seepage' ? 'primary' : 'default'} 
+                    variant={analysisType === 'seepage' ? 'filled' : 'outlined'}
+                  />
+                </Box>
+            </AccordionDetails>
+        </Accordion>
+
+        <Accordion defaultExpanded>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle1">步骤二: 材料管理</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+                <MaterialManager />
+            </AccordionDetails>
+        </Accordion>
+
+        <Accordion defaultExpanded>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle1">步骤三: 材料分配</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+                <MaterialAssignment />
+            </AccordionDetails>
+        </Accordion>
+
+        <Accordion>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle1">步骤四: 边界条件</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+                <BoundaryConditionManager />
+            </AccordionDetails>
+        </Accordion>
+        
+        <Accordion>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle1">步骤五: 荷载</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+                <Typography color="text.secondary">在此处添加施加重力、面荷载、线荷载等的UI。</Typography>
+            </AccordionDetails>
+        </Accordion>
+        
+        <Accordion>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle1">步骤六: 求解器设置</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+                <KratosSolverSettings />
+            </AccordionDetails>
+        </Accordion>
+    </Stack>
+  );
+
+  const PhysicsAiTab = () => (
+     <Stack spacing={1}>
+        <Accordion defaultExpanded>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle1">步骤一: 选择监测数据</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+                <Button variant="outlined" component="label">
+                    上传监测数据
+                    <input type="file" hidden />
+                </Button>
+                <Typography variant="caption" display="block" color="text.secondary" sx={{mt: 1}}>支持 .csv, .txt 格式</Typography>
+            </AccordionDetails>
+        </Accordion>
+        <Accordion>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle1">步骤二: 定义反演参数</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+                <Typography color="text.secondary">在此处添加用于选择要反演的岩土参数的UI。</Typography>
+            </AccordionDetails>
+        </Accordion>
+        <Accordion>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle1">步骤三: AI模型设置</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+                 <Stack spacing={2}>
+                    <FormControl fullWidth size="small">
+                        <InputLabel>反演算法</InputLabel>
+                        <Select label="反演算法" defaultValue="adam">
+                            <MenuItem value="adam">Adam</MenuItem>
+                            <MenuItem value="sgd">SGD</MenuItem>
+                            <MenuItem value="lbfgs">L-BFGS</MenuItem>
+                        </Select>
+                    </FormControl>
+                    <TextField size="small" label="学习率" defaultValue={0.01} />
+                    <TextField size="small" label="最大迭代次数" defaultValue={100} />
+                 </Stack>
+            </AccordionDetails>
+        </Accordion>
+     </Stack>
+  );
+
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={tabValue} onChange={handleTabChange} aria-label="analysis tabs">
-          <Tab label="FEM分析" {...a11yProps(0)} />
-          <Tab label="物理AI" {...a11yProps(1)} />
-        </Tabs>
+    <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Tabs value={tabValue} onChange={handleTabChange} variant="fullWidth">
+          <Tab label="FEM 分析" icon={<ScienceIcon/>} iconPosition="start" value={0} />
+          <Tab label="物理 AI" icon={<MemoryIcon/>} iconPosition="start" value={1} />
+      </Tabs>
+      <Divider />
+      
+      <Box sx={{flexGrow: 1, overflow: 'auto'}}>
+        <TabPanel value={tabValue} index={0}>
+            <FemAnalysisTab />
+        </TabPanel>
+        <TabPanel value={tabValue} index={1}>
+            <PhysicsAiTab />
+        </TabPanel>
       </Box>
-      
-      <TabPanel value={tabValue} index={0}>
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-          {/* 正向分析设置 */}
-          <Paper sx={{ p: 2, mb: 2 }}>
-            <Typography variant="subtitle1" gutterBottom>
-              分析类型
-            </Typography>
-            
-            <FormControl component="fieldset">
-              <RadioGroup
-                row
-                value={analysisType}
-                onChange={(e) => setAnalysisType(e.target.value)}
-              >
-                <FormControlLabel value="mechanical" control={<Radio />} label="固体力学分析" />
-                <FormControlLabel value="seepage" control={<Radio />} label="渗流分析" />
-                <FormControlLabel value="coupled" control={<Radio />} label="耦合分析" />
-              </RadioGroup>
-            </FormControl>
-            
-            <Divider sx={{ my: 2 }} />
-            
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel id="mesh-select-label">选择网格</InputLabel>
-                  <Select
-                    labelId="mesh-select-label"
-                    value={selectedMesh}
-                    label="选择网格"
-                    onChange={(e) => setSelectedMesh(e.target.value)}
-                  >
-                    <MenuItem value="mesh-1">标准三维网格 (45,678 单元)</MenuItem>
-                    <MenuItem value="mesh-2">精细化网格 (123,456 单元)</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel id="solver-select-label">求解器</InputLabel>
-                  <Select
-                    labelId="solver-select-label"
-                    value={forwardSettings.solver}
-                    label="求解器"
-                    onChange={(e) => handleForwardSettingChange('solver', e.target.value)}
-                  >
-                    <MenuItem value="direct">直接求解器 (MUMPS)</MenuItem>
-                    <MenuItem value="iterative">迭代求解器 (CG)</MenuItem>
-                    <MenuItem value="amg">代数多重网格 (AMG)</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </Paper>
+
+      <Divider />
+      <Box sx={{ p: 2 }}>
+          {isRunning && <LinearProgress sx={{mb: 2}}/>}
+          <Button 
+            variant="contained" 
+            startIcon={isRunning ? <CircularProgress size={20} color="inherit" /> : <PlayArrowIcon />}
+            fullWidth
+            onClick={handleRunAnalysis}
+            disabled={isRunning || features.length === 0}
+        >
+            {isRunning ? '计算中...' : '开始计算'}
+          </Button>
           
-          {/* 高级设置 */}
-          <Accordion sx={{ mb: 2 }}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography>高级求解设置</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="最大迭代次数"
-                    type="number"
-                    value={forwardSettings.iterations}
-                    onChange={(e) => handleForwardSettingChange('iterations', parseInt(e.target.value))}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="收敛容差"
-                    type="number"
-                    value={forwardSettings.tolerance}
-                    onChange={(e) => handleForwardSettingChange('tolerance', parseFloat(e.target.value))}
-                    inputProps={{ step: '1e-7' }}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="时间步数"
-                    type="number"
-                    value={forwardSettings.timesteps}
-                    onChange={(e) => handleForwardSettingChange('timesteps', parseInt(e.target.value))}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="阻尼比"
-                    type="number"
-                    value={forwardSettings.dampingRatio}
-                    onChange={(e) => handleForwardSettingChange('dampingRatio', parseFloat(e.target.value))}
-                    inputProps={{ step: '0.01' }}
-                  />
-                </Grid>
-                
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={forwardSettings.nonlinear}
-                        onChange={(e) => handleForwardSettingChange('nonlinear', e.target.checked)}
-                      />
-                    }
-                    label="启用非线性分析"
-                  />
-                </Grid>
-                
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={forwardSettings.gravity}
-                        onChange={(e) => handleForwardSettingChange('gravity', e.target.checked)}
-                      />
-                    }
-                    label="考虑重力作用"
-                  />
-                </Grid>
-                
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={forwardSettings.initialStress}
-                        onChange={(e) => handleForwardSettingChange('initialStress', e.target.checked)}
-                      />
-                    }
-                    label="考虑初始应力状态"
-                  />
-                </Grid>
-              </Grid>
-            </AccordionDetails>
-          </Accordion>
-          
-          {/* 运行控制 */}
-          <Box sx={{ mt: 'auto', pt: 2 }}>
-            {isRunning && (
-              <Box sx={{ mb: 2 }}>
-                <LinearProgress variant="determinate" value={progress} />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-                  <Typography variant="caption">
-                    正在计算... {Math.round(progress)}%
-                  </Typography>
-                  <Typography variant="caption">
-                    剩余时间: 约 {Math.ceil((100 - progress) / 10)} 分钟
-                  </Typography>
-                </Box>
-              </Box>
-            )}
-            
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Button
-                variant="outlined"
-                startIcon={<SaveIcon />}
-                disabled={isRunning}
-              >
-                保存设置
-              </Button>
-              
-              {isRunning ? (
-                <Button
-                  variant="contained"
-                  color="error"
-                  startIcon={<StopIcon />}
-                  onClick={handleStopAnalysis}
-                >
-                  停止计算
-                </Button>
-              ) : (
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<PlayArrowIcon />}
-                  onClick={handleRunAnalysis}
-                >
-                  开始计算
-                </Button>
-              )}
-            </Box>
-          </Box>
-        </Box>
-      </TabPanel>
-      
-      <TabPanel value={tabValue} index={1}>
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-          {/* 反演分析设置 */}
-          <Paper sx={{ p: 2, mb: 2 }}>
-            <Typography variant="subtitle1" gutterBottom>
-              反演分析设置
-              <Tooltip title="基于PDE约束的反演优化分析，可用于参数识别和设计优化">
-                <IconButton size="small">
-                  <InfoIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Typography>
-            
-            <FormControl component="fieldset">
-              <FormLabel component="legend">优化方法</FormLabel>
-              <RadioGroup
-                row
-                value={inverseSettings.method}
-                onChange={(e) => handleInverseSettingChange('method', e.target.value)}
-              >
-                <FormControlLabel value="gradient" control={<Radio />} label="梯度下降" />
-                <FormControlLabel value="lbfgs" control={<Radio />} label="L-BFGS" />
-                <FormControlLabel value="bayesian" control={<Radio />} label="贝叶斯优化" />
-              </RadioGroup>
-            </FormControl>
-            
-            <Divider sx={{ my: 2 }} />
-            
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel id="inverse-problem-label">反演问题类型</InputLabel>
-                  <Select
-                    labelId="inverse-problem-label"
-                    value="material"
-                    label="反演问题类型"
-                  >
-                    <MenuItem value="material">材料参数识别</MenuItem>
-                    <MenuItem value="boundary">边界条件识别</MenuItem>
-                    <MenuItem value="geometry">几何形状优化</MenuItem>
-                    <MenuItem value="support">支护结构优化</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel id="observation-data-label">观测数据</InputLabel>
-                  <Select
-                    labelId="observation-data-label"
-                    value="displacement"
-                    label="观测数据"
-                  >
-                    <MenuItem value="displacement">位移监测数据</MenuItem>
-                    <MenuItem value="strain">应变监测数据</MenuItem>
-                    <MenuItem value="pressure">水压监测数据</MenuItem>
-                    <MenuItem value="mixed">混合监测数据</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </Paper>
-          
-          {/* 高级优化设置 */}
-          <Accordion sx={{ mb: 2 }}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography>高级优化设置</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="最大迭代次数"
-                    type="number"
-                    value={inverseSettings.maxIterations}
-                    onChange={(e) => handleInverseSettingChange('maxIterations', parseInt(e.target.value))}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="收敛容差"
-                    type="number"
-                    value={inverseSettings.tolerance}
-                    onChange={(e) => handleInverseSettingChange('tolerance', parseFloat(e.target.value))}
-                    inputProps={{ step: '1e-5' }}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="正则化参数"
-                    type="number"
-                    value={inverseSettings.regularization}
-                    onChange={(e) => handleInverseSettingChange('regularization', parseFloat(e.target.value))}
-                    inputProps={{ step: '0.001' }}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="学习率"
-                    type="number"
-                    value={inverseSettings.learningRate}
-                    onChange={(e) => handleInverseSettingChange('learningRate', parseFloat(e.target.value))}
-                    inputProps={{ step: '0.01' }}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="批次大小"
-                    type="number"
-                    value={inverseSettings.batchSize}
-                    onChange={(e) => handleInverseSettingChange('batchSize', parseInt(e.target.value))}
-                  />
-                </Grid>
-                
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={inverseSettings.useGPU}
-                        onChange={(e) => handleInverseSettingChange('useGPU', e.target.checked)}
-                      />
-                    }
-                    label="使用GPU加速"
-                  />
-                </Grid>
-              </Grid>
-            </AccordionDetails>
-          </Accordion>
-          
-          {/* 优化目标 */}
-          <Paper sx={{ p: 2, mb: 2 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              优化目标
-            </Typography>
-            
-            <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
-              <Chip icon={<TrendingUpIcon />} label="最小化监测误差" color="primary" />
-              <Chip icon={<BarChartIcon />} label="参数平滑约束" variant="outlined" />
-            </Stack>
-            
-            <Alert severity="info" sx={{ mt: 1 }}>
-              反演分析可能需要较长计算时间，建议使用GPU加速。
+          {error && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {error}
             </Alert>
-          </Paper>
-          
-          {/* 运行控制 */}
-          <Box sx={{ mt: 'auto', pt: 2 }}>
-            {isRunning && (
-              <Box sx={{ mb: 2 }}>
-                <LinearProgress variant="determinate" value={progress} />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-                  <Typography variant="caption">
-                    正在优化... {Math.round(progress)}%
-                  </Typography>
-                  <Typography variant="caption">
-                    剩余时间: 约 {Math.ceil((100 - progress) / 5)} 分钟
-                  </Typography>
-                </Box>
-              </Box>
-            )}
-            
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Button
-                variant="outlined"
-                startIcon={<MemoryIcon />}
-                disabled={isRunning}
-              >
-                加载观测数据
-              </Button>
-              
-              {isRunning ? (
-                <Button
-                  variant="contained"
-                  color="error"
-                  startIcon={<StopIcon />}
-                  onClick={handleStopAnalysis}
-                >
-                  停止优化
-                </Button>
-              ) : (
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<PlayArrowIcon />}
-                  onClick={handleRunAnalysis}
-                >
-                  开始优化
-                </Button>
-              )}
-            </Box>
-          </Box>
-        </Box>
-      </TabPanel>
-    </Box>
+          )}
+      </Box>
+    </Paper>
   );
 };
 

@@ -2,6 +2,10 @@
 // We are confident the TS interfaces now match the Pydantic models.
 // import { AnalysisResult } from '../../../../backend/api/routes/analysis_router';
 
+// 导入必要的类型和依赖
+import { create } from 'zustand';
+import { useStore } from '../core/store';
+
 /**
  * =================================================================================================
  * 全新的、与后端 `analysis_router.py` 完全匹配的参数化场景数据结构。
@@ -24,7 +28,8 @@ export interface Point3D {
 export interface BaseFeature {
   id: string;
   name: string;
-  parentId?: string;
+  type: string;
+  parameters: Record<string, any>;
 }
 
 // --- 几何特征 ---
@@ -84,12 +89,17 @@ export interface CreateExcavationParameters {
 
 export type CreateExcavationFeature = BaseFeature & {
   type: 'CreateExcavation';
-  parentId?: string; // Should be optional
-  parameters: CreateExcavationParameters;
+  parameters: {
+    depth: number;
+    width: number;
+    length: number;
+    position: [number, number, number];
+  };
 };
 
 export type CreateExcavationFromDXFParameters = {
-  // ... existing parameters ...
+  points: Point2D[]; // The vertices of the excavation polygon
+  depth: number;
 };
 
 export type CreateExcavationFromDXFFeature = BaseFeature & {
@@ -130,7 +140,11 @@ export interface CreateDiaphragmWallParameters {
 
 export interface CreateDiaphragmWallFeature extends BaseFeature {
   type: 'CreateDiaphragmWall';
-  parameters: CreateDiaphragmWallParameters;
+  parameters: {
+    depth: number;
+    thickness: number;
+    path: [number, number][];
+  };
 }
 
 // --- 预应力锚杆系统特征 ---
@@ -211,18 +225,94 @@ export interface AssignGroupFeature extends BaseFeature {
 }
 
 
-// --- 新增: 地质模型特征 ---
-export interface CreateGeologicalModelParameters {
-  csvData: string; // The raw CSV string content
-  terrainParams?: Record<string, any>; // 地形建模参数
-  layerInfo?: Array<Record<string, any>>; // 地层信息
+// --- 新增: GemPy和Gmsh参数接口 ---
+export interface BoreholeData {
+    // 定义与后端匹配的钻孔数据结构
+    id: string;
+    x: number;
+    y: number;
+    z: number;
+    surface: string;
+    description: string;
 }
 
-export type CreateGeologicalModelFeature = BaseFeature & {
-  type: 'CreateGeologicalModel';
-  parameters: CreateGeologicalModelParameters;
+export interface GemPyParams {
+    resolution: [number, number, number];
+    c_o: number;
+    algorithm: string;
+    generateContours?: boolean; // 确保这个是可选的
+}
+
+export interface GmshParams {
+    meshSizeFactor: number;
+    meshAlgorithm: 'meshadapt' | 'del2d' | 'frontal' | 'del3d';
+    meshOrder: 1 | 2;
+    useOCC: boolean;
+}
+
+// --- 新增: 地质模型特征 ---
+export interface CreateGeologicalModelParameters {
+  boreholeData: BoreholeData[];
+  colorScheme: string;
+  gempyParams: GemPyParams;
+}
+
+export interface CreateGeologicalModelFeature {
+    id: string;
+    name: string;
+    type: 'CreateGeologicalModel';
+    parameters: CreateGeologicalModelParameters;
+}
+
+// --- 新增: 地质网格特征 ---
+export interface CreateGeologicalMeshParameters {
+  meshId: string;
+  colorScheme?: 'shanghai' | 'lithology' | 'time' | 'excavation';
+}
+
+export type CreateGeologicalMeshFeature = BaseFeature & {
+  type: 'CreateGeologicalMesh';
+  parameters: {
+    meshId: string;
+    colorScheme: 'shanghai' | 'lithology';
+  };
 };
 
+// --- 新增: 概念地层特征 ---
+export interface ConceptualLayer {
+    name: string;
+    thickness: number;
+    soilType: string;
+    color: string;
+}
+
+export interface CreateConceptualLayersParameters {
+    layers: ConceptualLayer[];
+    baseElevation: number; // The elevation of the top of the first layer
+}
+
+export interface CreateConceptualLayersFeature extends BaseFeature {
+    type: 'CreateConceptualLayers';
+    parameters: CreateConceptualLayersParameters;
+}
+
+// --- 土层接口 ---
+export interface SoilLayer {
+  id?: string;
+  name: string;
+  pointCount: number;
+  avgDepth: number;
+  extent: {
+    x_min: number;
+    x_max: number;
+    y_min: number;
+    y_max: number;
+    z_min: number;
+    z_max: number;
+  };
+  soilType: string;
+  color: string;
+}
 
 // --- 特征联合类型 ---
 export type AnyFeature = 
@@ -239,7 +329,9 @@ export type AnyFeature =
   | ExtrudeFeature
   | AddInfiniteDomainFeature
   | AssignGroupFeature
-  | CreateGeologicalModelFeature;
+  | CreateGeologicalModelFeature
+  | CreateGeologicalMeshFeature
+  | CreateConceptualLayersFeature;
 
 
 // --- 场景顶层接口 ---
@@ -291,4 +383,24 @@ export const getAnalysisResultFile = async (filename: string): Promise<Blob> => 
         throw new Error(`Could not fetch result file: ${filename}`);
     }
     return response.blob();
-}; 
+};
+
+/**
+ * 参数化分析服务
+ * 
+ * 这个服务现在主要负责与后端API交互，
+ * 而状态管理和类型定义则由Zustand store负责。
+ */
+class ParametricAnalysisService {
+    
+    // ... (这里可以保留与API调用相关的函数)
+
+    /**
+     * @deprecated 状态管理已移至Zustand store
+     */
+    addFeature(feature: AnyFeature) {
+        useStore.getState().addFeature(feature);
+    }
+}
+
+export const parametricAnalysisService = new ParametricAnalysisService(); 
