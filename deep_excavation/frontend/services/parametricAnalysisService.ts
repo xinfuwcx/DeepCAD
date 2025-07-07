@@ -227,13 +227,22 @@ export interface AssignGroupFeature extends BaseFeature {
 
 // --- 新增: GemPy和Gmsh参数接口 ---
 export interface BoreholeData {
-    // 定义与后端匹配的钻孔数据结构
     id: string;
     x: number;
     y: number;
     z: number;
     surface: string;
-    description: string;
+}
+
+export interface OrientationData {
+    id: string;
+    x: number;
+    y: number;
+    z: number;
+    azimuth: number;
+    dip: number;
+    polarity: number;
+    surface: string;
 }
 
 export interface GemPyParams {
@@ -252,9 +261,9 @@ export interface GmshParams {
 
 // --- 新增: 地质模型特征 ---
 export interface CreateGeologicalModelParameters {
-  boreholeData: BoreholeData[];
-  colorScheme: string;
-  gempyParams: GemPyParams;
+  boreholes?: BoreholeData[];
+  orientations?: OrientationData[];
+  gempy_params: GemPyParams;
 }
 
 export interface CreateGeologicalModelFeature {
@@ -282,13 +291,11 @@ export type CreateGeologicalMeshFeature = BaseFeature & {
 export interface ConceptualLayer {
     name: string;
     thickness: number;
-    soilType: string;
-    color: string;
+    material: string;
 }
 
 export interface CreateConceptualLayersParameters {
     layers: ConceptualLayer[];
-    baseElevation: number; // The elevation of the top of the first layer
 }
 
 export interface CreateConceptualLayersFeature extends BaseFeature {

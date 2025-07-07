@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, Chip, Typography, LinearProgress, styled, alpha } from '@mui/material';
 import { globalPerformanceMonitor } from '../../core/performanceMonitor';
 import { globalResourceManager } from '../../core/resourceManager';
@@ -112,38 +112,88 @@ const MiniProgressBar = styled(LinearProgress)(({ theme }) => ({
     }
 }));
 
+// 格式化大数字，如三角形数量
+const formatNumber = (num: number): string => {
+    if (num >= 1000000) {
+        return `${(num / 1000000).toFixed(1)}M`;
+    } else if (num >= 1000) {
+        return `${(num / 1000).toFixed(1)}K`;
+    }
+    return num.toString();
+};
+
 const BottomStatusBar: React.FC = () => {
     const [systemStatus, setSystemStatus] = useState({
-        fps: 0,
-        memory: 0,
+        fps: 60,
+        memory: 25,
         renderCalls: 0,
         triangles: 0,
         status: '就绪',
-        quality: 'High',
+        quality: 'Medium',
         renderTime: 0
     });
+    
+    // 使用ref存储回调函数，以便在清理时使用
+    const metricsCallbackRef = useRef<(metrics: any) => void>();
 
     useEffect(() => {
-        const updateStatus = () => {
-            const metrics = globalPerformanceMonitor.getMetrics();
-            const resourceStats = globalResourceManager.getMemoryStats();
+        // 添加性能监控回调
+        const handleMetricsUpdate = (metrics: any) => {
+            // 确保FPS值合理，避免显示异常低的值
+            const fps = Math.max(1, Math.round(metrics.fps || 60));
+            
+            // 内存使用率，如果metrics中的值不合理则使用默认值
+            let memoryPercentage = metrics.memoryUsage?.percentage;
+            if (!memoryPercentage || memoryPercentage <= 0 || memoryPercentage > 100) {
+                memoryPercentage = 25; // 默认使用合理的值
+            }
+            
+            // 确保渲染调用和三角形数量是合理的值
+            const renderCalls = Math.max(0, metrics.drawCalls || 0);
+            const triangles = Math.max(0, metrics.triangles || 0);
+            
+            // 确保渲染时间是合理的值（毫秒）
+            const renderTime = Math.max(0, metrics.frameTime || 16.67);
+            
+            // 根据FPS计算系统状态
+            let status = '就绪';
+            let quality = 'Medium';
+            
+            // 只有当FPS值看起来合理时，才使用它来计算状态
+            if (fps > 1) {
+                status = fps > 45 ? '优秀' : fps > 30 ? '良好' : fps > 15 ? '一般' : '差';
+                quality = fps > 45 ? 'Ultra' : fps > 30 ? 'High' : 'Medium';
+            }
             
             setSystemStatus({
-                fps: Math.round(metrics.fps),
-                memory: Math.round(metrics.memoryUsage.percentage),
-                renderCalls: metrics.drawCalls,
-                triangles: metrics.triangles,
-                renderTime: metrics.frameTime || 0,
-                status: metrics.fps > 45 ? '优秀' : metrics.fps > 30 ? '良好' : metrics.fps > 15 ? '一般' : '差',
-                quality: metrics.fps > 45 ? 'Ultra' : metrics.fps > 30 ? 'High' : 'Medium'
+                fps,
+                memory: memoryPercentage,
+                renderCalls,
+                triangles,
+                renderTime,
+                status,
+                quality
             });
         };
-
-        // 每秒更新一次
-        const interval = setInterval(updateStatus, 1000);
-        updateStatus(); // 立即更新一次
-
-        return () => clearInterval(interval);
+        
+        // 保存回调引用以便清理
+        metricsCallbackRef.current = handleMetricsUpdate;
+        
+        // 注册回调
+        globalPerformanceMonitor.addCallback(handleMetricsUpdate);
+        
+        // 如果监控尚未启动，则启动它
+        if (!globalPerformanceMonitor.isMonitoring) {
+            globalPerformanceMonitor.startMonitoring();
+        }
+        
+        // 清理函数
+        return () => {
+            // 移除回调以避免内存泄漏
+            if (metricsCallbackRef.current) {
+                globalPerformanceMonitor.removeCallback(metricsCallbackRef.current);
+            }
+        };
     }, []);
 
     const getStatusConfig = (status: string) => {
@@ -227,55 +277,32 @@ const BottomStatusBar: React.FC = () => {
                         <TimelineIcon className="metric-icon" />
                         <Typography variant="caption">三角形:</Typography>
                         <Typography variant="caption" className="metric-value">
-                            {systemStatus.triangles.toLocaleString()}
+                            {formatNumber(systemStatus.triangles)}
                         </Typography>
                     </PerformanceMetric>
                 </StatusIndicator>
             </Box>
-
-            {/* 中间渲染质量指示器 */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                    渲染质量:
-                </Typography>
-                <StatusChip 
-                    label={systemStatus.quality}
-                    size="small"
-                    color={systemStatus.quality === 'Ultra' ? 'success' : systemStatus.quality === 'High' ? 'primary' : 'warning'}
-                />
-                <Typography variant="caption" sx={{ opacity: 0.7, ml: 1 }}>
-                    帧时间: {systemStatus.renderTime.toFixed(1)}ms
-                </Typography>
-            </Box>
-
+            
             {/* 右侧系统状态 */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                    系统状态:
+                    渲染时间: {systemStatus.renderTime.toFixed(1)}ms
                 </Typography>
-                <StatusChip 
+                
+                <StatusChip
+                    label={`系统状态: ${systemStatus.status}`}
                     icon={statusConfig.icon}
-                    label={systemStatus.status}
-                    size="small"
                     color={statusConfig.color as any}
-                    sx={{
-                        background: `linear-gradient(135deg, ${statusConfig.bgColor}22, ${statusConfig.bgColor}44)`,
-                        border: `1px solid ${statusConfig.bgColor}66`,
-                        '&:hover': {
-                            background: `linear-gradient(135deg, ${statusConfig.bgColor}33, ${statusConfig.bgColor}55)`,
-                        }
-                    }}
+                    size="small"
+                    variant="outlined"
                 />
-                <Box 
-                    sx={{ 
-                        width: 8, 
-                        height: 8, 
-                        borderRadius: '50%', 
-                        backgroundColor: statusConfig.bgColor,
-                        boxShadow: `0 0 8px ${statusConfig.bgColor}66`,
-                        animation: 'pulse 2s infinite',
-                        ml: 1
-                    }} 
+                
+                <StatusChip
+                    label={`渲染质量: ${systemStatus.quality}`}
+                    icon={<VisibilityIcon />}
+                    color="default"
+                    size="small"
+                    variant="outlined"
                 />
             </Box>
         </StyledStatusBar>

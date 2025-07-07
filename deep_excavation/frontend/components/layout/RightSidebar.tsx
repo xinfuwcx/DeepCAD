@@ -7,7 +7,7 @@ import AnalysisPanel from './AnalysisPanel';
 import { ScientificVisualizationPanel } from '../visualization/ScientificVisualizationPanel';
 
 const DRAWER_WIDTH = 320;
-
+// A comment to force HMR refresh
 interface RightSidebarProps {
     open: boolean;
     viewportRef: RefObject<ViewportHandles>;

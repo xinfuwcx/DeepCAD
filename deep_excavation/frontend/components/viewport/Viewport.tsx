@@ -10,7 +10,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Raycaster, Vector2 } from 'three';
 import { replayFeatures } from '../../core/replayEngine';
 import { useStore, ViewportHandles } from '../../core/store';
-import { createAxesGizmo } from './AxesGizmo';
+import { createAxesGizmo, setupAxesGizmo } from './AxesGizmo';
 import { globalResourceManager } from '../../core/resourceManager';
 import { OptimizedRenderer } from '../../core/optimizedRenderer';
 import { globalPerformanceMonitor } from '../../core/performanceMonitor';
@@ -67,6 +67,7 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
   const controlsRef = useRef<OrbitControls>();
   const transientGroupRef = useRef(new THREE.Group());
   const resultsGroupRef = useRef(new THREE.Group());
+  const axesGizmoRef = useRef<{ update: () => void; dispose: () => void }>();
 
   const features = useStore(state => state.features);
   const setViewportApi = useStore(state => state.setViewportApi);
@@ -123,6 +124,17 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
     setViewportApi(api);
   }, [setViewportApi, api]);
 
+  // 启动性能监控
+  useEffect(() => {
+    // 启动全局性能监控
+    globalPerformanceMonitor.startMonitoring();
+    
+    return () => {
+      // 清理时停止监控
+      globalPerformanceMonitor.stopMonitoring();
+    };
+  }, []);
+
   useEffect(() => {
     const mountNode = mountRef.current;
     if (!mountNode || rendererRef.current) return;
@@ -133,9 +145,94 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
     scene.add(transientGroupRef.current);
     scene.add(resultsGroupRef.current);
 
-    // --- Grid Helper ---
-    const gridHelper = new THREE.GridHelper(1000, 100, 0x444444, 0x888888);
-    scene.add(gridHelper);
+    // --- 创建专业的网格地面 ---
+    const createProfessionalGrid = () => {
+      const gridGroup = new THREE.Group();
+      gridGroup.name = "ProfessionalGrid";
+      
+      // 地面平面
+      const groundGeometry = new THREE.PlaneGeometry(1000, 1000);
+      const groundMaterial = new THREE.MeshBasicMaterial({
+        color: 0x1a2035,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.8
+      });
+      const groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
+      groundPlane.rotation.x = -Math.PI / 2;
+      groundPlane.position.y = -0.01; // 稍微下沉以避免z-fighting
+      gridGroup.add(groundPlane);
+      
+      // 创建主网格线
+      const mainGridSize = 1000;
+      const mainGridDivisions = 10;
+      const mainGridStep = mainGridSize / mainGridDivisions;
+      
+      const mainGridGeometry = new THREE.BufferGeometry();
+      const mainGridPositions = [];
+      
+      // 创建主网格线
+      for (let i = -mainGridSize/2; i <= mainGridSize/2; i += mainGridStep) {
+        // X方向线
+        mainGridPositions.push(i, 0, -mainGridSize/2);
+        mainGridPositions.push(i, 0, mainGridSize/2);
+        
+        // Z方向线
+        mainGridPositions.push(-mainGridSize/2, 0, i);
+        mainGridPositions.push(mainGridSize/2, 0, i);
+      }
+      
+      mainGridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(mainGridPositions, 3));
+      const mainGridMaterial = new THREE.LineBasicMaterial({ color: 0x4488cc, linewidth: 1.5 });
+      const mainGrid = new THREE.LineSegments(mainGridGeometry, mainGridMaterial);
+      gridGroup.add(mainGrid);
+      
+      // 创建次网格线
+      const subGridGeometry = new THREE.BufferGeometry();
+      const subGridPositions = [];
+      const subGridStep = mainGridStep / 5; // 每个主格再分5格
+      
+      for (let i = -mainGridSize/2; i <= mainGridSize/2; i += subGridStep) {
+        // 跳过主网格线位置
+        if (Math.abs(i % mainGridStep) < 0.001) continue;
+        
+        // X方向线
+        subGridPositions.push(i, 0, -mainGridSize/2);
+        subGridPositions.push(i, 0, mainGridSize/2);
+        
+        // Z方向线
+        subGridPositions.push(-mainGridSize/2, 0, i);
+        subGridPositions.push(mainGridSize/2, 0, i);
+      }
+      
+      subGridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(subGridPositions, 3));
+      const subGridMaterial = new THREE.LineBasicMaterial({ color: 0x2a3a5a, linewidth: 0.5, transparent: true, opacity: 0.5 });
+      const subGrid = new THREE.LineSegments(subGridGeometry, subGridMaterial);
+      gridGroup.add(subGrid);
+      
+      // 添加坐标轴指示线
+      const axisLength = mainGridSize / 2;
+      
+      // X轴 (红色)
+      const xAxisGeometry = new THREE.BufferGeometry();
+      xAxisGeometry.setAttribute('position', new THREE.Float32BufferAttribute([0, 0.1, 0, axisLength, 0.1, 0], 3));
+      const xAxisMaterial = new THREE.LineBasicMaterial({ color: 0xff4444, linewidth: 2 });
+      const xAxis = new THREE.Line(xAxisGeometry, xAxisMaterial);
+      gridGroup.add(xAxis);
+      
+      // Z轴 (蓝色)
+      const zAxisGeometry = new THREE.BufferGeometry();
+      zAxisGeometry.setAttribute('position', new THREE.Float32BufferAttribute([0, 0.1, 0, 0, 0.1, axisLength], 3));
+      const zAxisMaterial = new THREE.LineBasicMaterial({ color: 0x4444ff, linewidth: 2 });
+      const zAxis = new THREE.Line(zAxisGeometry, zAxisMaterial);
+      gridGroup.add(zAxis);
+      
+      return gridGroup;
+    };
+    
+    // 创建并添加专业网格地面
+    const professionalGrid = createProfessionalGrid();
+    scene.add(professionalGrid);
 
     // --- Camera ---
     const camera = new THREE.PerspectiveCamera(75, mountNode.clientWidth / mountNode.clientHeight, 0.1, 2000);
@@ -161,6 +258,13 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
     directionalLight.position.set(100, 200, 150);
     scene.add(directionalLight);
 
+    // --- 设置ABAQUS风格的坐标系指示器 ---
+    // 确保正确创建和设置坐标系指示器
+    if (!axesGizmoRef.current) {
+      axesGizmoRef.current = setupAxesGizmo(scene, camera, renderer);
+      console.log('坐标系指示器已创建');
+    }
+
     // --- Resize Handling ---
     const handleResize = () => {
       if (mountNode) {
@@ -175,14 +279,41 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
     // --- Animation Loop ---
     const animate = () => {
       requestAnimationFrame(animate);
+      
+      // 记录渲染开始时间
+      const renderStartTime = globalPerformanceMonitor.startRender();
+      
       controls.update();
       renderer.render(scene, camera);
+      
+      // 更新坐标系指示器
+      if (axesGizmoRef.current) {
+        axesGizmoRef.current.update();
+      }
+      
+      // 记录渲染结束时间
+      globalPerformanceMonitor.endRender(renderStartTime);
+      
+      // 更新渲染器统计信息
+      if (renderer && renderer.info) {
+        globalPerformanceMonitor.updateRendererStats(renderer);
+      }
     };
     animate();
 
     return () => {
+      // 停止动画循环
+      if (mountNode && renderer.domElement) {
+        mountNode.removeChild(renderer.domElement);
+      }
+      
+      // 清理坐标系指示器
+      if (axesGizmoRef.current) {
+        axesGizmoRef.current.dispose();
+      }
+      
+      // 清理观察器
       resizeObserver.disconnect();
-      mountNode.removeChild(renderer.domElement);
     };
   }, []);
 

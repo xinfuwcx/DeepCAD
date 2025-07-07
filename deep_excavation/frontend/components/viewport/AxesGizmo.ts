@@ -29,39 +29,160 @@ function createAxisLabel(text: string, color: string, size: number = 64): THREE.
     return sprite;
 }
 
-
 /**
- * Creates a professional-looking 3D axes gizmo using ArrowHelpers and Sprite labels.
+ * 创建ABAQUS风格的坐标轴指示器
+ * @returns {THREE.Object3D} 坐标轴指示器对象
  */
 export function createAxesGizmo(): THREE.Object3D {
-    const gizmo = new THREE.Object3D();
-
-    const origin = new THREE.Vector3(0, 0, 0);
-    const length = 1;
-    const headLength = 0.2;
-    const headWidth = 0.1;
-
-    // --- Axes ---
-    const xAxis = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), origin, length, 0xff7777, headLength, headWidth);
-    const yAxis = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), origin, length, 0x77ff77, headLength, headWidth);
-    const zAxis = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), origin, length, 0x7777ff, headLength, headWidth);
+  // 创建一个组来容纳所有坐标轴元素
+  const axesGroup = new THREE.Group();
+  axesGroup.name = 'AxesGizmo';
+  
+  // 坐标轴长度
+  const axisLength = 1.0;
+  const headLength = 0.2; // 箭头头部长度
+  const headWidth = 0.07; // 箭头头部宽度
+  const lineWidth = 2; // 线宽
+  
+  // X轴 (红色)
+  const xAxis = new THREE.ArrowHelper(
+    new THREE.Vector3(1, 0, 0), // 方向
+    new THREE.Vector3(0, 0, 0), // 原点
+    axisLength,
+    0xff0000, // 红色
+    headLength,
+    headWidth
+  );
+  axesGroup.add(xAxis);
+  
+  // Y轴 (绿色)
+  const yAxis = new THREE.ArrowHelper(
+    new THREE.Vector3(0, 1, 0), // 方向
+    new THREE.Vector3(0, 0, 0), // 原点
+    axisLength,
+    0x00ff00, // 绿色
+    headLength,
+    headWidth
+  );
+  axesGroup.add(yAxis);
+  
+  // Z轴 (蓝色)
+  const zAxis = new THREE.ArrowHelper(
+    new THREE.Vector3(0, 0, 1), // 方向
+    new THREE.Vector3(0, 0, 0), // 原点
+    axisLength,
+    0x0000ff, // 蓝色
+    headLength,
+    headWidth
+  );
+  axesGroup.add(zAxis);
+  
+  // 添加轴标签
+  const createLabel = (text: string, position: THREE.Vector3, color: number) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
     
-    // Softer, more modern colors for the axes
-    (xAxis.line.material as THREE.LineBasicMaterial).linewidth = 2;
-    (yAxis.line.material as THREE.LineBasicMaterial).linewidth = 2;
-    (zAxis.line.material as THREE.LineBasicMaterial).linewidth = 2;
+    const context = canvas.getContext('2d');
+    if (!context) return null;
     
-    // --- Labels ---
-    const xLabel = createAxisLabel('X', '#ff7777');
-    xLabel.position.set(length + 0.2, 0, 0);
-
-    const yLabel = createAxisLabel('Y', '#77ff77');
-    yLabel.position.set(0, length + 0.2, 0);
-
-    const zLabel = createAxisLabel('Z', '#7777ff');
-    zLabel.position.set(0, 0, length + 0.2);
-
-    gizmo.add(xAxis, yAxis, zAxis, xLabel, yLabel, zLabel);
+    context.fillStyle = `rgb(${color >> 16 & 255}, ${color >> 8 & 255}, ${color & 255})`;
+    context.font = 'bold 48px Arial';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(text, 32, 32);
     
-    return gizmo;
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture });
+    const sprite = new THREE.Sprite(material);
+    sprite.position.copy(position);
+    sprite.scale.set(0.3, 0.3, 0.3);
+    
+    return sprite;
+  };
+  
+  // 添加X、Y、Z标签
+  const xLabel = createLabel('X', new THREE.Vector3(axisLength + 0.2, 0, 0), 0xff0000);
+  const yLabel = createLabel('Y', new THREE.Vector3(0, axisLength + 0.2, 0), 0x00ff00);
+  const zLabel = createLabel('Z', new THREE.Vector3(0, 0, axisLength + 0.2), 0x0000ff);
+  
+  if (xLabel) axesGroup.add(xLabel);
+  if (yLabel) axesGroup.add(yLabel);
+  if (zLabel) axesGroup.add(zLabel);
+  
+  // 添加原点小球
+  const originGeometry = new THREE.SphereGeometry(0.05, 16, 16);
+  const originMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const originSphere = new THREE.Mesh(originGeometry, originMaterial);
+  axesGroup.add(originSphere);
+  
+  return axesGroup;
+}
+
+/**
+ * 将坐标轴指示器添加到场景和相机中
+ * @param {THREE.Scene} scene - Three.js场景
+ * @param {THREE.Camera} camera - Three.js相机
+ * @param {THREE.WebGLRenderer} renderer - Three.js渲染器
+ * @returns {Object} 包含更新和清理方法的对象
+ */
+export function setupAxesGizmo(scene: THREE.Scene, camera: THREE.Camera, renderer: THREE.WebGLRenderer) {
+  // 创建坐标轴指示器
+  const axesGizmo = createAxesGizmo();
+  
+  // 设置位置在左下角
+  const gizmoSize = 80; // 指示器大小（像素）
+  const padding = 20; // 边距（像素）
+  
+  // 创建一个正交相机用于渲染指示器
+  const gizmoCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+  gizmoCamera.position.set(0, 0, 1);
+  
+  // 创建一个场景用于渲染指示器
+  const gizmoScene = new THREE.Scene();
+  gizmoScene.add(axesGizmo);
+  
+  // 更新函数，在主渲染循环中调用
+  const update = () => {
+    // 复制主相机的旋转到坐标轴上
+    axesGizmo.quaternion.copy(camera.quaternion).invert();
+    
+    // 获取渲染器尺寸
+    const { width, height } = renderer.getSize(new THREE.Vector2());
+    
+    // 保存当前视口和剪裁设置
+    const currentViewport = renderer.getViewport(new THREE.Vector4());
+    const currentScissor = renderer.getScissor(new THREE.Vector4());
+    const currentScissorTest = renderer.getScissorTest();
+    
+    // 设置左下角的视口
+    renderer.setViewport(padding, padding, gizmoSize, gizmoSize);
+    renderer.setScissor(padding, padding, gizmoSize, gizmoSize);
+    renderer.setScissorTest(true);
+    
+    // 渲染坐标轴指示器
+    renderer.render(gizmoScene, gizmoCamera);
+    
+    // 恢复之前的设置
+    renderer.setViewport(currentViewport);
+    renderer.setScissor(currentScissor);
+    renderer.setScissorTest(currentScissorTest);
+  };
+  
+  // 清理函数
+  const dispose = () => {
+    gizmoScene.remove(axesGizmo);
+    axesGizmo.traverse((object) => {
+      if (object instanceof THREE.Mesh) {
+        object.geometry.dispose();
+        if (Array.isArray(object.material)) {
+          object.material.forEach(material => material.dispose());
+        } else {
+          object.material.dispose();
+        }
+      }
+    });
+  };
+  
+  return { update, dispose };
 } 
