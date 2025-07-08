@@ -1,113 +1,75 @@
 import logging
 from typing import List, Dict, Any
 
-from deep_excavation.backend.core.geology_modeler import GeologyModeler
-# from deep_excavation.backend.core.pyvista_web_bridge import gempy_mesh_to_json
+from deep_excavation.backend.api.routes.geology_router import GeologyOptions
+from deep_excavation.backend.core.geology_modeler import create_geological_model_geometry
+from deep_excavation.backend.core.geometry_converter import pyvista_to_threejs_json
 
 logger = logging.getLogger(__name__)
 
 
 class GeologyService:
     """
-    The service layer for geological operations. It acts as a bridge between the
-    API layer (router) and the core logic (modeler), decoupling them.
+    The service层，处理地质建模相关操作。
     """
-    def __init__(self, modeler: GeologyModeler = GeologyModeler()):
-        """
-        Initializes the geology service.
-        It can be injected with a modeler, or creates its own instance.
-        """
-        self._modeler = modeler
-
+    
     async def create_geological_model(
         self,
-        surface_points: List[List[float]],
         borehole_data: List[Dict[str, Any]],
         formations: Dict[str, str],
-        options: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        options: GeologyOptions,
+    ) -> List[Dict[str, Any]]:
         """
-        Orchestrates the creation of a geological model by calling the core modeler.
+        编排地质模型创建，并转换为three.js兼容格式。
+        """
+        logger.info(f"GeologyService: 开始创建地质模型，选项: {options.model_dump()}")
 
-        This method receives primitive data types from the API layer, ensuring
-        that the service layer is not dependent on Pydantic models.
-        """
-        logger.info("GeologyService: Delegating model creation to GeologyModeler.")
+        # 使用Pydantic模型直接访问属性，不再需要.get()
+        processed_options = {
+            "resolution": [options.resolution_x, options.resolution_y],
+            "variogram_model": options.variogram_model
+        }
+        logger.info(f"处理后的选项: {processed_options}")
+
         try:
-            # The core modeler runs synchronously for now, but the service is async
-            # to accommodate future non-blocking operations.
-            # GeologyModeler expects the keyword argument "series_mapping" instead of
-            # "formations". Pass it explicitly to avoid a TypeError when invoking
-            # the core method.
-            model_data = self._modeler.create_model_in_memory(
-                surface_points=surface_points,
+            # 1. 使用PyVista生成地质层几何体
+            model_layers = create_geological_model_geometry(
                 borehole_data=borehole_data,
-                series_mapping=formations,
-                options=options,
+                formations=formations,
+                options=processed_options,
             )
+
+            # 2. 序列化每层几何体
+            serialized_layers = []
+            for layer in model_layers:
+                # 转换PyVista几何体为Three.js格式
+                serialized_geometry = pyvista_to_threejs_json(layer["geometry"])
+                
+                serialized_layers.append({
+                    "name": layer["name"],
+                    "color": layer["color"],
+                    "opacity": layer["opacity"],
+                    "geometry": serialized_geometry,
+                })
             
-            # The model_data is already serialized by the modeler.
-            # No need to convert it again.
-            
-            logger.info("GeologyService: Model created successfully by modeler.")
-            return model_data
+            logger.info(f"成功序列化了{len(serialized_layers)}个地质层")
+            return serialized_layers
+
         except Exception as e:
-            logger.error(f"An error occurred in GeologyService: {e}", exc_info=True)
-            # Re-raise the exception to be handled by the API layer (router)
-            raise
-
-    async def process_frontend_request(
-        self, request_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        Process the request coming from the frontend, which may have a different
-        structure.
-        
-        The frontend sends a feature-like structure with parameters nested inside.
-        This method extracts the actual parameters needed by the modeler.
-        """
-        logger.info(
-            f"Processing frontend request: {request_data.get('name', 'unnamed')}"
-        )
-        
-        # Extract parameters from the feature-like structure
-        parameters = request_data.get('parameters', {})
-
-        # Helper to fetch a value using multiple possible keys (camelCase / snake_case)
-        def _pick(keys, default):
-            """Return the first non-empty value found for the given keys list."""
-            for k in keys:
-                if k in parameters and parameters[k] not in (None, [], {}):
-                    return parameters[k]
-            return default
-
-        # Accept both camelCase 和 snake_case 命名，以及历史字段别名
-        surface_points = _pick(['surfacePoints', 'surface_points'], [])
-        borehole_data = _pick(['boreholeData', 'borehole_data'], [])
-        # formations 历史上也叫 seriesMapping / series_mapping
-        formations = _pick(['formations', 'seriesMapping', 'series_mapping'], {})
-        options = parameters.get('options', {})
-        
-        # Call the core method with extracted parameters
-        return await self.create_geological_model(
-            surface_points=surface_points,
-            borehole_data=borehole_data,
-            formations=formations,
-            options=options
-        )
+            logger.error(f"GeologyService发生错误: {e}")
+            # 重新抛出异常，由路由的错误处理器捕获
+            raise e
 
 
-# --- FastAPI Dependency Injection ---
+# --- FastAPI 依赖注入 ---
 
-# This singleton instance can be used for dependency injection in the router.
-# It ensures that the same GeologyService instance is used across the application,
-# which can be useful for caching or managing state if needed in the future.
+# 这个单例实例用于路由器中的依赖注入
 _geology_service_instance = None
 
 
 def get_geology_service() -> GeologyService:
     """
-    FastAPI dependency that provides a singleton instance of the GeologyService.
+    FastAPI依赖，提供GeologyService的单例实例。
     """
     global _geology_service_instance
     if _geology_service_instance is None:

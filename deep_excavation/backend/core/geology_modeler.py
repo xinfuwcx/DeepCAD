@@ -1,176 +1,150 @@
-import logging
+import numpy as np
 import pandas as pd
 import pyvista as pv
-import numpy as np
-import gempy as gp
+from pykrige.ok import OrdinaryKriging
+from loguru import logger
 from typing import List, Dict, Any
 
-from deep_excavation.backend.core.pyvista_web_bridge import pyvista_mesh_to_json
-from deep_excavation.backend.core.gmsh_occ_integration import GmshOCCIntegration
 
-logger = logging.getLogger(__name__)
+# Ensure PyVista runs in headless mode on servers
+pv.OFF_SCREEN = True
 
 
-class GeologyModeler:
+# Predefined colors to replace the gempy dependency
+# A simple list of hex codes for consistent layer coloring.
+PREDEFINED_COLORS = [
+    "#5F9EA0",  # CadetBlue
+    "#D2B48C",  # Tan
+    "#A0522D",  # Sienna
+    "#66CDAA",  # MediumAquamarine
+    "#DEB887",  # BurlyWood
+    "#4682B4",  # SteelBlue
+    "#BDB76B",  # DarkKhaki
+    "#BC8F8F",  # RosyBrown
+    "#8FBC8F",  # DarkSeaGreen
+    "#CD853F",  # Peru
+]
+
+def _prepare_geology_data(borehole_data: List[Dict[str, Any]]) -> pd.DataFrame:
+    """Converts borehole data from a list of dicts to a pandas DataFrame."""
+    df = pd.DataFrame(borehole_data)
+    logger.info(f"Prepared data with {len(df)} points and {df['formation'].nunique()} unique formations.")
+    return df
+
+
+def create_geological_model_geometry(
+    borehole_data: List[Dict[str, Any]],
+    formations: Dict[str, str],
+    options: Dict[str, Any]
+) -> List[Dict[str, Any]]:
     """
-    Handles the core logic of creating geological models using GemPy.
-    This class is designed to be framework-agnostic and operate in memory.
-    """
-    def _prepare_dataframes(
-        self,
-        surface_points: List[Dict[str, Any]],
-        borehole_data: List[Dict[str, Any]]
-    ) -> (pd.DataFrame, pd.DataFrame):
-        """Converts raw data into pandas DataFrames for GemPy."""
-        all_points = []
-        for p in (surface_points or []):
-            all_points.append({
-                'X': p['x'], 'Y': p['y'], 'Z': p['z'], 'formation': p['surface']
-            })
+    Creates geological model geometry from borehole data, using specified options.
 
-        for bh in (borehole_data or []):
-            # 支持嵌套结构 (一个钻孔对应多个地层)
-            if 'layers' in bh and bh.get('layers'):
-                for layer in bh.get('layers', []):
-                    all_points.append({
-                        'X': bh['x'],
-                        'Y': bh['y'],
-                        'Z': layer.get('z'),
-                        'formation': layer.get('formation')
-                    })
-            # 支持扁平结构 (每一项都是一个独立的点)
-            elif 'x' in bh and 'y' in bh and 'z' in bh and 'formation' in bh:
-                all_points.append({
-                    'X': bh['x'],
-                    'Y': bh['y'],
-                    'Z': bh['z'],
-                    'formation': bh['formation']
-                })
+    This function now returns a list of dictionaries, where each dictionary
+    represents a geological layer and contains its name, color, and PyVista geometry.
+    """
+    logger.info(f"Starting geological model computation with options: {options}")
+    df = _prepare_geology_data(borehole_data)
+
+    # Use the order of formations from the request, not from the file
+    series_order = [f.strip() for f in formations.get("DefaultSeries", "").split(',') if f.strip()]
+    if not series_order:
+        series_order = df['formation'].unique()
+    logger.info(f"Using formation series order: {series_order}")
+    
+    # Calculate unified bounds for the model
+    min_x, max_x = df['x'].min(), df['x'].max()
+    min_y, max_y = df['y'].min(), df['y'].max()
+    min_z, max_z = df['z'].min(), df['z'].max()
+
+    # Add a buffer to the bounds
+    x_buffer = (max_x - min_x) * 0.1
+    y_buffer = (max_y - min_y) * 0.1
+
+    # Get grid resolution from options, with a default value
+    resolution = options.get("resolution", [50, 50])
+    grid_x = np.linspace(min_x - x_buffer, max_x + x_buffer, resolution[0])
+    grid_y = np.linspace(min_y - y_buffer, max_y + y_buffer, resolution[1])
+
+    logger.info(f"Calculated model bounds (x, y): [{min_x}, {max_x}, {min_y}, {max_y}]")
+
+    layers_data = []
+    
+    # Use the specified series order
+    for i, formation in enumerate(series_order):
+        formation_data = df[df['formation'] == formation]
         
-        if not all_points:
-            raise ValueError("没有提供有效的地表点或钻孔数据。")
+        if len(formation_data) < 3:
+            logger.warning(f"Skipping '{formation}': needs at least 3 points for Kriging.")
+            continue
 
-        df_points = pd.DataFrame(all_points)
-        # GemPy expects 'surface' column, not 'formation'
-        df_points_renamed = df_points.rename(columns={'formation': 'surface'})
-        return df_points_renamed, pd.DataFrame()  # Returning empty orientations for now
-
-    def create_model_in_memory(
-        self,
-        surface_points: List[Dict[str, Any]],
-        borehole_data: List[Dict[str, Any]],
-        series_mapping: Dict[str, List[str]],
-        options: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        """
-        Creates a geological model in memory using GemPy and returns it in a
-        serializable format.
-        """
         try:
-            logger.info("Starting geological model creation.")
-            
-            # 1. Prepare data
-            df_points, df_orientations = self._prepare_dataframes(
-                surface_points, borehole_data
+            variogram_model = options.get('variogram_model', 'linear')
+            ok = OrdinaryKriging(
+                formation_data['x'],
+                formation_data['y'],
+                formation_data['z'],
+                variogram_model=variogram_model,
+                verbose=False,
+                enable_plotting=False
             )
-            if df_points.empty:
-                logger.warning("Dataframe is empty, cannot create model.")
-                raise ValueError("No data available to create model.")
-
-            # 2. Define model extent
-            min_coords = df_points[['X', 'Y', 'Z']].min()
-            max_coords = df_points[['X', 'Y', 'Z']].max()
-            padding = (max_coords - min_coords).abs().replace(0, 100) * 0.2
-            extent = [
-                min_coords['X'] - padding['X'], max_coords['X'] + padding['X'],
-                min_coords['Y'] - padding['Y'], max_coords['Y'] + padding['Y'],
-                min_coords['Z'] - padding['Z'], max_coords['Z'] + padding['Z'],
-            ]
             
-            # 3. Initialize GemPy model
-            geo_model = gp.create_geomodel(
-                project_name="in-memory-model",
-                extent=extent,
-                resolution=options.get('resolution', [50, 50, 50]),
-            )
+            z_pred, _ = ok.execute('grid', grid_x, grid_y)
+            
+            # Create a surface from the kriging results
+            surface = pv.StructuredGrid(grid_x, grid_y, z_pred.data)
+            clipped_surface = surface.delaunay_2d()
 
-            # 4. Set geological data
-            gp.set_surface_points(geo_model, df_points, update_surfaces=True)
-            if not df_orientations.empty:
-                gp.set_orientations(geo_model, df_orientations)
+            # The layer above will define the bottom of the current layer
+            if i > 0:
+                # Find the previous valid formation in the series
+                prev_formation = None
+                for j in range(i - 1, -1, -1):
+                    if len(df[df['formation'] == series_order[j]]) >= 3:
+                        prev_formation = series_order[j]
+                        break
 
-            if not series_mapping:
-                # Default series if none provided
-                all_surfaces = list(df_points['surface'].unique())
-                series_mapping = {"DefaultSeries": all_surfaces}
-
-            gp.map_stack_to_surfaces(geo_model, series_mapping)
-
-            # 5. Compute the model
-            logger.info("Setting interpolator and computing model...")
-            gp.set_interpolator(geo_model)
-            solutions = gp.compute_model(geo_model, compute_mesh=True)
-            logger.info("Successfully computed GemPy model.")
-
-            # 6. Extract explicit surfaces from GemPy model
-            explicit_surfaces = []
-            surfaces: gp.data.Surfaces = solutions.surfaces
-            for surface_name in surfaces.surface_names:
-                try:
-                    vertices, faces = surfaces.get_surface_mesh(surface_name)
-                    if vertices is not None and faces is not None:
-                        pv_faces = np.insert(faces, 0, 3, axis=1)
-                        pv_mesh = pv.PolyData(
-                            vertices,
-                            pv_faces,
-                            n_faces=len(faces),
-                        )
-                        pv_mesh.field_data['name'] = [surface_name]
-                        explicit_surfaces.append(pv_mesh)
-                except Exception as e:
-                    logger.warning(
-                        "Could not extract surface '%s': %s", surface_name, e
+                if prev_formation:
+                    prev_formation_data = df[df['formation'] == prev_formation]
+                    prev_ok = OrdinaryKriging(
+                        prev_formation_data['x'],
+                        prev_formation_data['y'],
+                        prev_formation_data['z'],
+                        variogram_model=variogram_model,
+                        verbose=False, enable_plotting=False
                     )
-            
-            if not explicit_surfaces:
-                raise ValueError("Failed to extract any explicit surfaces from the model.")
+                    prev_z, _ = prev_ok.execute('grid', grid_x, grid_y)
+                    bottom_surface = pv.StructuredGrid(grid_x, grid_y, prev_z.data).delaunay_2d()
+                    
+                    # Create a volume between the two surfaces and then extract the skin
+                    solid = clipped_surface.extrude_trim((0, 0, -100), bottom_surface)
+                    layer_mesh = solid.extract_surface().triangulate()
+                else:
+                    # If no valid layer above, just extrude downwards
+                    layer_mesh = clipped_surface.extrude((0, 0, -10), capping=True).triangulate()
+            else:
+                # For the top layer, extrude downwards
+                layer_mesh = clipped_surface.extrude((0, 0, -10), capping=True).triangulate()
 
-            # 7. Use Gmsh to create and mesh volumes from surfaces
-            logger.info("Handing off to Gmsh for meshing.")
-            gmsh_integrator = GmshOCCIntegration(surfaces=explicit_surfaces)
-            gmsh_result = (
-                gmsh_integrator.create_geological_volumes_and_mesh()
-            )
+            # Make the sides flat by clipping with a bounding box
+            bounds = [min_x, max_x, min_y, max_y, min_z - 50, max_z + 50]
+            bbox = pv.Box(bounds)
+            final_mesh = layer_mesh.clip_box(bbox, invert=False)
 
-            if gmsh_result["status"] != "success":
-                raise RuntimeError(
-                    f"Gmsh processing failed: {gmsh_result['message']}"
-                )
+            # Assign color from the predefined list based on the layer index
+            color = PREDEFINED_COLORS[i % len(PREDEFINED_COLORS)]
 
-            logger.info("Successfully created and meshed volumes with Gmsh.")
-
-            # 8. Serialize the visualization mesh and store the solver mesh path
-            viz_mesh = gmsh_result.get("visualization_mesh")
-            mdpa_path = gmsh_result.get("mesh_file_path")
-
-            if not viz_mesh:
-                # Even if Kratos mesh exists, we need something to show
-                raise ValueError("Gmsh did not return a final visualization mesh.")
-            
-            serialized_mesh = pyvista_mesh_to_json(viz_mesh, "FinalGeologicalModel")
-
-            return {
-                "meshes": [serialized_mesh],
-                "kratos_mesh_path": mdpa_path,  # Path for the solver
-                "model_info": {
-                    "extent": extent,
-                    "resolution": options.get('resolution', [50, 50, 50]),
-                    "gmsh_stats": gmsh_result.get("stats")
-                }
+            layer_info = {
+                "name": formation,
+                "color": color,
+                "opacity": 0.8,
+                "geometry": final_mesh
             }
+            layers_data.append(layer_info)
+            logger.info(f"Successfully computed geometry for: {formation}")
 
         except Exception as e:
-            logger.error(
-                "Geological model creation failed: %s", e, exc_info=True
-            )
-            raise  # 将异常向上抛出，由服务层和API层处理 
+            logger.error(f"Failed to process formation {formation}: {e}")
+
+    logger.info("Successfully computed all geological geometry layers.")
+    return layers_data 

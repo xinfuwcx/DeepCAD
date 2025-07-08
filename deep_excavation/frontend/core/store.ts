@@ -15,6 +15,7 @@ import {
     BoreholeData,
     CreateGeologicalModelParameters
 } from '../services/parametricAnalysisService';
+import { GeologicalLayer } from '../services/geologyService'; // 导入新的地质图层接口
 import { VisualizationData } from '../components/visualization/ScientificVisualizationPanel';
 import { OptimizableParameter, getOptimizableParameters } from '../services/projectService';
 
@@ -25,6 +26,7 @@ import { OptimizableParameter, getOptimizableParameters } from '../services/proj
 // Re-export some types for convenience in other components
 export type { GemPyParams, BoreholeData, CreateGeologicalModelParameters };
 export type { BaseFeature };
+export type { GeologicalLayer }; // 导出新的地质图层接口
 
 // --- Feature Interfaces ---
 // (此处放置所有Feature接口，如 CreateBoxFeature, etc.)
@@ -155,7 +157,7 @@ export interface AppState {
 
     // Viewport & Transient State
     transientObjects: THREE.Object3D[];
-    transientGeologicalMesh: import('../services/geologyService').GeologicalModelResponse | null;
+    geologicalModel: GeologicalLayer[] | null;
     viewportApi: ViewportHandles | null;
 
     // --- Actions ---
@@ -204,7 +206,7 @@ export interface AppState {
     exitEditMode: () => void;
     
     setTransientObjects: (objects: THREE.Object3D[]) => void;
-    setTransientGeologicalMesh: (meshData: import('../services/geologyService').GeologicalModelResponse | null) => void;
+    setGeologicalModel: (modelData: GeologicalLayer[] | null) => void;
     clearTransientObjects: () => void;
     setViewportApi: (api: ViewportHandles | null) => void;
     
@@ -296,7 +298,7 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     transientObjects: [],
-    transientGeologicalMesh: null,
+    geologicalModel: null, // <-- 初始化新状态
     viewportApi: null,
 
     // --- Action Implementations ---
@@ -477,8 +479,14 @@ export const useStore = create<AppState>((set, get) => ({
     },
     
     setTransientObjects: (objects) => set({ transientObjects: objects }),
-    setTransientGeologicalMesh: (meshData) => set({ transientGeologicalMesh: meshData }),
+    
+    setGeologicalModel: (modelData) => {
+        console.log("Store: Setting new geological model data.", modelData);
+        set({ geologicalModel: modelData });
+    },
+    
     clearTransientObjects: () => set({ transientObjects: [] }),
+    
     setViewportApi: (api) => set({ viewportApi: api }),
 
     // --- Selector Implementations ---

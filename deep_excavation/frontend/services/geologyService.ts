@@ -4,95 +4,54 @@
  */
 
 import axios from 'axios';
+import { API_BASE_URL } from './config';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+// --- Interfaces for the new data-driven approach ---
 
-const geologyApi = axios.create({
-  baseURL: `${API_BASE_URL}/geology`,
-});
+export interface ThreeJsGeometry {
+  vertices: number[];
+  normals: number[];
+  faces: number[];
+}
 
-// --- Data Structures ---
-
-/**
- * 代表一个三维网格对象的结构，与后端 `pyvista_mesh_to_json` 的输出匹配。
- */
-export interface PyVistaMesh {
+export interface GeologicalLayer {
   name: string;
-  type: 'surface' | 'volume'; // 'surface' for visualization, 'volume' for analysis meshes
-  vertices: number[][];
-  faces: number[][];
   color: string;
-  cell_data?: Record<string, number[]>; // For physical groups etc.
+  opacity: number;
+  geometry: ThreeJsGeometry;
 }
 
-/**
- * 定义从后端 `/create-geological-model` 端点返回的响应体结构。
- */
-export interface GeologicalModelResponse {
-  meshes: PyVistaMesh[];
-  model_info: {
-    extent: number[];
-    resolution: number[];
-    gmsh_stats: Record<string, any>;
-  };
-}
-
-/**
- * 定义创建地质模型时需要传递给后端的参数结构。
- * 这必须与后端 `GeologyModeler` 的 `create_model_in_memory` 方法签名匹配。
- */
-export interface GeologyModelParameters {
-  surface_points: {
-    x: number;
-    y: number;
-    z: number;
-    surface: string;
-  }[];
-  borehole_data: {
+export interface GeologyModelRequest {
+  boreholeData: {
     x: number;
     y: number;
     z: number;
     formation: string;
   }[];
-  series_mapping: Record<string, string[]>; // e.g., { "DefaultSeries": ["rock1", "rock2"] }
-  options: {
-    resolution?: number[];
-    mesh_size?: number;
-    grid_resolution?: number;
-    generate_contours?: boolean;
-  };
+  formations: { [key: string]: string };
+  options?: { [key: string]: any };
 }
 
 /**
- * 调用后端创建数据驱动的地质模型。
- * @param parameters - 地质模型创建所需的参数。
- * @returns 后端返回的包含最终三维网格的响应。
+ * Creates a geological model by sending borehole data to the backend.
+ * The backend returns geometry data optimized for three.js.
+ * @param {GeologyModelRequest} data - The data required for model generation.
+ * @returns {Promise<GeologicalLayer[]>} A promise that resolves to the geological model data.
  */
 export const createDataDrivenGeologicalModel = async (
-  parameters: GeologyModelParameters
-): Promise<GeologicalModelResponse> => {
+  data: GeologyModelRequest
+): Promise<GeologicalLayer[]> => {
   try {
-    // 这个负载结构必须与后端的 `FeatureRequest` Pydantic模型匹配。
-    const requestPayload = {
-        id: `geology-model-feature-${Date.now()}`,
-        name: 'DataDrivenGeologicalModel',
-        type: 'CreateGeologicalModel',
-        parameters: parameters,
-    };
-    const response = await geologyApi.post<GeologicalModelResponse>(
-      '/create-geological-model',
-      requestPayload
+    const response = await axios.post<GeologicalLayer[]>(
+      `${API_BASE_URL}/geology/create-geological-model`,
+      data
     );
     return response.data;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      const errorMessage =
-        error.response?.data?.detail ||
-        '创建地质模型时发生网络错误。';
-      console.error('Error creating geological model:', errorMessage);
-      throw new Error(errorMessage);
+    console.error("Error creating geological model:", error);
+    if (axios.isAxiosError(error) && error.response) {
+      throw new Error(`An internal server error occurred: ${error.response.data.detail || error.message}`);
     }
-    console.error('发生未知错误:', error);
-    throw new Error('处理请求时发生未知错误。');
+    throw new Error("An unknown error occurred while creating the geological model.");
   }
 }; 

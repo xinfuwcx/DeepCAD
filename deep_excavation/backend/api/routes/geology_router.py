@@ -1,73 +1,82 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from typing import List, Dict, Any
-import logging
+from typing import List, Dict
+from pydantic import BaseModel, Field, ConfigDict
+from loguru import logger
 
-from deep_excavation.backend.services.geology_service import (
-    GeologyService, get_geology_service
-)
+from deep_excavation.backend.services.geology_service import GeologyService
 
-router = APIRouter(prefix="/api/geology", tags=["Geology"])
-logger = logging.getLogger(__name__)
+router = APIRouter()
 
 
-# --- Pydantic Models ---
-# These models define the expected request and response structures for the API.
+# --- Pydantic Models for Data Validation ---
+
+class BoreholeData(BaseModel):
+    x: float
+    y: float
+    z: float
+    formation: str
+
+
+class ThreeJsGeometry(BaseModel):
+    vertices: List[float]
+    normals: List[float]
+    faces: List[int]
+
+
+class GeologicalLayer(BaseModel):
+    name: str
+    color: str
+    opacity: float
+    geometry: ThreeJsGeometry
+
+
+class GeologyOptions(BaseModel):
+    """Defines the structure for geological modeling options, handling camelCase from frontend."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    resolution_x: int = Field(50, alias='resolutionX')
+    resolution_y: int = Field(50, alias='resolutionY')
+    variogram_model: str = Field('linear', alias='variogramModel')
 
 
 class GeologyModelRequest(BaseModel):
-    """
-    Defines the data structure for a request to create a geological model.
-    This matches the payload sent from the frontend service.
-    """
-    project_id: str
-    surface_points: List[List[float]]
-    borehole_data: List[Dict[str, Any]]
-    formations: Dict[str, str]
-    options: Dict[str, Any] = {}
+    # Allow population by field name OR alias, enabling camelCase from frontend
+    model_config = ConfigDict(populate_by_name=True)
+
+    borehole_data: List[BoreholeData] = Field(..., alias="boreholeData", example=[
+        {"x": 0, "y": 0, "z": -10, "formation": "sand"},
+        {"x": 100, "y": 0, "z": -12, "formation": "sand"},
+    ])
+    formations: Dict[str, str] = Field(..., example={"DefaultSeries": "sand,clay,rock"})
+    options: GeologyOptions = Field(default_factory=GeologyOptions)
 
 
-class FeatureRequest(BaseModel):
-    """
-    Defines the feature-like structure that the frontend sends.
-    """
-    id: str
-    name: str
-    type: str
-    parameters: Dict[str, Any]
+# --- API Endpoint ---
 
-
-class GeologyModelResponse(BaseModel):
-    """
-    Defines the response structure after a model has been created.
-    """
-    message: str
-    previewData: Dict[str, Any]
-
-
-@router.post("/create-geological-model", response_model=GeologyModelResponse)
+@router.post(
+    "/create-geological-model",
+    response_model=List[GeologicalLayer],
+    summary="Create Geological Model Geometry",
+    description="Receives borehole data and returns a list of geological layers with three.js-compatible geometry."
+)
 async def create_geological_model_endpoint(
-    request: FeatureRequest,
-    geology_service: GeologyService = Depends(get_geology_service)
+    request_body: GeologyModelRequest,
+    geology_service: GeologyService = Depends(GeologyService)
 ):
     """
-    This endpoint receives data from the frontend to generate a 3D geological model.
-    It uses the GeologyService to orchestrate the model creation with GemPy.
+    Endpoint to generate geological model geometry from borehole data.
     """
-    logger.info(f"Received request to create geological model: {request.name}")
+    logger.info("Received request to generate geological model geometry.")
     try:
-        model_data = await geology_service.process_frontend_request(request.dict())
-        logger.info("Geological model created successfully.")
-        return GeologyModelResponse(
-            message="Geological model created successfully",
-            previewData=model_data
+        serialized_layers = await geology_service.create_geological_model(
+            borehole_data=[b.model_dump() for b in request_body.borehole_data],
+            formations=request_body.formations,
+            options=request_body.options
         )
+        return serialized_layers
     except Exception as e:
-        logger.error(f"Failed to create geological model: {e}", exc_info=True)
+        logger.error(f"Failed to create geological model geometry: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=(
-                "An internal error occurred while creating the geological "
-                f"model: {e}"
-            )
+            detail=f"An internal server error occurred: {str(e)}"
         ) 

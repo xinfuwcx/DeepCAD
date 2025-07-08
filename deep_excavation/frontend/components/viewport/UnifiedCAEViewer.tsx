@@ -6,8 +6,8 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min.js';
+import { OrbitControls } from 'three-stdlib';
+import { GUI } from 'lil-gui';
 import { 
   Card, 
   Tabs, 
@@ -30,6 +30,7 @@ import {
   EyeInvisibleOutlined,
   FullscreenOutlined
 } from '@ant-design/icons';
+import { useStore, GeologicalLayer } from '../../core/store'; // 导入 store 和 GeologicalLayer 类型
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -82,6 +83,7 @@ const UnifiedCAEViewer: React.FC<UnifiedCAEViewerProps> = ({
   const cameraRef = useRef<THREE.PerspectiveCamera>();
   const controlsRef = useRef<OrbitControls>();
   const guiRef = useRef<GUI>();
+  const geologicalGroupRef = useRef<THREE.Group>(new THREE.Group()); // 创建一个Group来管理地质模型
 
   // 状态管理
   const [currentWorkbench, setCurrentWorkbench] = useState<WorkbenchType>(
@@ -99,6 +101,9 @@ const UnifiedCAEViewer: React.FC<UnifiedCAEViewerProps> = ({
   const [meshObjects, setMeshObjects] = useState<Map<string, THREE.Mesh>>(new Map());
   const [currentColorMap, setCurrentColorMap] = useState<THREE.DataTexture>();
 
+  // 从Zustand Store获取状态和actions
+  const geologicalModel = useStore(state => state.geologicalModel);
+  
   // 初始化Three.js场景
   useEffect(() => {
     if (!mountRef.current) return;
@@ -107,6 +112,9 @@ const UnifiedCAEViewer: React.FC<UnifiedCAEViewerProps> = ({
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf0f0f0);
     sceneRef.current = scene;
+
+    // 将地质模型的分组添加到场景中
+    scene.add(geologicalGroupRef.current);
 
     // 创建相机
     const camera = new THREE.PerspectiveCamera(
@@ -160,6 +168,60 @@ const UnifiedCAEViewer: React.FC<UnifiedCAEViewerProps> = ({
     };
   }, [width, height]);
 
+  // --- 监听地质模型数据的变化并更新场景 ---
+  useEffect(() => {
+      const group = geologicalGroupRef.current;
+      if (!group) return;
+
+      // 1. 清空旧的地质模型
+      while (group.children.length > 0) {
+          group.remove(group.children[0]);
+      }
+      
+      if (!geologicalModel) {
+          console.log("No geological model to display.");
+          return;
+      }
+
+      console.log("Updating scene with new geological model:", geologicalModel);
+
+      // 2. 遍历新的模型数据并创建网格
+      geologicalModel.forEach(layer => {
+          try {
+              const geometry = new THREE.BufferGeometry();
+
+              // 设置顶点和法线
+              geometry.setAttribute('position', new THREE.Float32BufferAttribute(layer.geometry.vertices, 3));
+              geometry.setAttribute('normal', new THREE.Float32BufferAttribute(layer.geometry.normals, 3));
+
+              // 设置面索引
+              geometry.setIndex(layer.geometry.faces);
+              
+              geometry.computeBoundingSphere();
+
+              const material = new THREE.MeshStandardMaterial({
+                  color: new THREE.Color(layer.color),
+                  transparent: layer.opacity < 1.0,
+                  opacity: layer.opacity,
+                  side: THREE.DoubleSide, // 确保两面都可见
+                  wireframe: showWireframe,
+                  metalness: 0.2,
+                  roughness: 0.8,
+              });
+              
+              const mesh = new THREE.Mesh(geometry, material);
+              mesh.name = layer.name;
+              
+              // 将网格添加到专门的分组中
+              group.add(mesh);
+
+          } catch (e) {
+              console.error(`Error creating mesh for layer ${layer.name}:`, e);
+          }
+      });
+      
+  }, [geologicalModel, showWireframe]); // 当模型数据或线框模式变化时触发
+
   // 设置场景光照
   const setupLighting = (scene: THREE.Scene) => {
     // 环境光
@@ -208,7 +270,7 @@ const UnifiedCAEViewer: React.FC<UnifiedCAEViewerProps> = ({
 
     visualFolder.add(controls, 'wireframe').onChange((value: boolean) => {
       setShowWireframe(value);
-      updateWireframeMode(value);
+      // This will be handled by the useEffect that re-renders the model
     });
 
     visualFolder.add(controls, 'colorMapMin').onChange((value: number) => {
@@ -223,6 +285,20 @@ const UnifiedCAEViewer: React.FC<UnifiedCAEViewerProps> = ({
 
     visualFolder.open();
   };
+
+  const updateMeshOpacity = (opacity: number) => {
+    geologicalGroupRef.current.children.forEach(child => {
+      const mesh = child as THREE.Mesh;
+      if (mesh.material && 'opacity' in mesh.material) {
+        (mesh.material as THREE.Material & { opacity: number }).opacity = opacity;
+        (mesh.material as THREE.Material).transparent = opacity < 1.0;
+        mesh.material.needsUpdate = true;
+      }
+    });
+  };
+
+  // The main useEffect for geologicalModel now handles wireframe changes,
+  // so a separate updateWireframeMode function is no longer needed.
 
   // 创建颜色映射纹理
   const createColorMapTexture = useCallback((field: string): THREE.DataTexture => {
@@ -358,24 +434,6 @@ const UnifiedCAEViewer: React.FC<UnifiedCAEViewerProps> = ({
     }
   }, [visualizationData, meshObjects, createMeshFromVisualizationData]);
 
-  // 更新网格透明度
-  const updateMeshOpacity = useCallback((opacity: number) => {
-    meshObjects.forEach((mesh) => {
-      if (mesh.material instanceof THREE.ShaderMaterial) {
-        mesh.material.uniforms.opacity.value = opacity;
-      }
-    });
-  }, [meshObjects]);
-
-  // 更新线框模式
-  const updateWireframeMode = useCallback((wireframe: boolean) => {
-    meshObjects.forEach((mesh) => {
-      if (mesh.material instanceof THREE.Material) {
-        mesh.material.wireframe = wireframe;
-      }
-    });
-  }, [meshObjects]);
-
   // 更新颜色映射
   const updateColorMap = useCallback(() => {
     meshObjects.forEach((mesh, field) => {
@@ -486,7 +544,7 @@ const UnifiedCAEViewer: React.FC<UnifiedCAEViewerProps> = ({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Tabs 
             activeKey={currentWorkbench} 
-            onChange={(key) => handleWorkbenchChange(key as WorkbenchType)}
+            onChange={(key: string) => handleWorkbenchChange(key as WorkbenchType)}
             size="small"
           >
             {Object.entries(workbenchConfig).map(([key, config]) => (
@@ -596,7 +654,7 @@ const UnifiedCAEViewer: React.FC<UnifiedCAEViewerProps> = ({
                   max={colorMapRange[1]}
                   step={0.01}
                   value={colorMapRange[0]}
-                  onChange={(value) => setColorMapRange([value, colorMapRange[1]])}
+                  onChange={(value: number) => setColorMapRange([value, colorMapRange[1]])}
                 />
               </div>
               <div style={{ marginTop: 8 }}>
@@ -606,7 +664,7 @@ const UnifiedCAEViewer: React.FC<UnifiedCAEViewerProps> = ({
                   max={colorMapRange[1] + Math.abs(colorMapRange[1])}
                   step={0.01}
                   value={colorMapRange[1]}
-                  onChange={(value) => setColorMapRange([colorMapRange[0], value])}
+                  onChange={(value: number) => setColorMapRange([colorMapRange[0], value])}
                 />
               </div>
             </div>

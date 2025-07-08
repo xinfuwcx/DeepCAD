@@ -1,13 +1,14 @@
 """
 项目模型定义
 """
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, ForeignKey, JSON, Text
+from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, JSON, Text
 from sqlalchemy.orm import relationship
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 from .base import Base
+
 
 class Project(Base):
     """项目数据库模型"""
@@ -111,8 +112,7 @@ class ProjectResponse(ProjectBase):
     updated_at: datetime
     user_id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SeepageModelBase(BaseModel):
@@ -149,8 +149,7 @@ class SeepageModelResponse(SeepageModelBase):
     updated_at: datetime
     project_id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SeepageResultBase(BaseModel):
@@ -167,5 +166,4 @@ class SeepageResultResponse(SeepageResultBase):
     model_id: int
     timestamp: datetime
 
-    class Config:
-        orm_mode = True 
+    model_config = ConfigDict(from_attributes=True) 

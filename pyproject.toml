@@ -19,10 +19,6 @@ exclude = [".venv", "build", "dist", "node_modules", "frontend"]
 select = ["E", "F", "W", "I", "N", "UP"]
 ignore = ["E203", "W503"]
 
-[tool.pytest.ini_options]
-addopts = "-ra -q"
-python_files = ["test_*.py", "*_test.py"]
-
 [tool.flake8]
 max-line-length = 100
 extend-ignore = E203,W503 

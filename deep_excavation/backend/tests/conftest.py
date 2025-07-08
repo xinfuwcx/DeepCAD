@@ -4,6 +4,8 @@ pytest配置文件，包含测试用的fixtures
 import os
 import sys
 import pytest
+import asyncio
+from httpx import AsyncClient, ASGITransport
 from fastapi.testclient import TestClient
 
 # 添加项目根目录到Python路径
@@ -12,6 +14,21 @@ sys.path.insert(0, os.path.abspath(os.path.join(
 
 # 不能在顶部导入app，因为需要先设置sys.path
 from app import app  # noqa: E402
+
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create an instance of the default event loop for each test session."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest.fixture
+async def client() -> AsyncClient:
+    """Create an async test client that talks to the app."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
 
 
 @pytest.fixture

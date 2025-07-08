@@ -36,9 +36,9 @@ app.add_middleware(
 )
 
 # 注册路由
-app.include_router(auth_router.router)
-app.include_router(project_router.router)
-app.include_router(geology_router.router)
+app.include_router(auth_router.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(project_router.router, prefix="/api/projects", tags=["Projects"])
+app.include_router(geology_router.router, prefix="/api/geology", tags=["Geology"])
 
 # 全局异常处理
 @app.exception_handler(StarletteHTTPException)

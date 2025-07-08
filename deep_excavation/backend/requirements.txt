@@ -20,13 +20,12 @@ python-multipart
 numpy
 scipy
 pandas
+pykrige
 h5py
 matplotlib
 vtk
 
 # --- Geology & Meshing ---
-# GemPy for geological modeling
-gempy
 # PyVista for geometry processing and VTK I/O (VTK is a sub-dependency)
 pyvista
 # Gmsh for meshing
@@ -44,11 +43,7 @@ ezdxf
 # KratosMultiphysics
 # KratosMultiphysics.StructuralMechanicsApplication
 # Refer to project documentation for Kratos setup.
-kratos-python
-
-# New additions for geological modeling
-gempy
-pandas
+# kratos-python
 
 # --- Utilities ---
 python-dotenv
@@ -65,11 +60,6 @@ pytest
 pytest-asyncio
 pytest-cov
 httpx
-
-# --- Trame ---
-trame
-trame-vuetify
-trame-vtk
 
 # New additions from the code block
 openpyxl

@@ -3,7 +3,7 @@
  */
 
 // API基础URL，根据环境变量或默认值设置
-export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '/api';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // 服务URLs
 export const SERVICE_URLS = {

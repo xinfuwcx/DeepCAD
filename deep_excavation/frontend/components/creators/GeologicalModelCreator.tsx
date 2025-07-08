@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import {
     Box, Button, Typography, Stack, Paper, FormControl, InputLabel, Select, MenuItem, TextField, Grid, Divider, IconButton, Alert, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, LinearProgress, Tabs, Tab, Accordion, AccordionSummary, AccordionDetails,
-    Card, CardContent, Tooltip, Chip, ToggleButtonGroup, ToggleButton, InputAdornment, Checkbox, FormControlLabel, Switch
+    Card, CardContent, Tooltip, Chip, ToggleButtonGroup, ToggleButton, InputAdornment, Checkbox, FormControlLabel, Switch, SelectChangeEvent
 } from '@mui/material';
 import { 
     Add as AddIcon, 
@@ -29,9 +29,8 @@ import { SOIL_MATERIALS } from '../../core/bimColorSystem';
 import { LITHOLOGY_COLORS } from '../../core/geologicalColorSchemes';
 import DiagramRenderer from '../shared/DiagramRenderer';
 import { 
-    GeologyModelParameters, 
+    GeologyModelRequest,
     createDataDrivenGeologicalModel,
-    GeologicalModelResponse,
 } from '../../services/geologyService';
 import { CreateConceptualLayersFeature, ConceptualLayer } from '../../services/parametricAnalysisService';
 
@@ -221,7 +220,7 @@ const MultiViewGeologicalModel: React.FC<{
 // --- 主组件 ---
 const GeologicalModelCreator: React.FC = () => {
     const addFeature = useStore(state => state.addFeature);
-    const setTransientGeologicalMesh = useStore(state => state.setTransientGeologicalMesh);
+    const setGeologicalModel = useStore(state => state.setGeologicalModel); // <--- 使用新的 action
     const { enqueueSnackbar } = useSnackbar();
     const [activeTab, setActiveTab] = useState<number>(0);
 
@@ -242,8 +241,9 @@ const GeologicalModelCreator: React.FC = () => {
     
     // 基于500x500x30m体积的合理默认值
     const [modelParams, setModelParams] = useState({
-      // GemPy插值器设置
-      resolution: '50,50,50', // 对应10m x 10m的插值网格
+      // PyVista/Kriging插值器设置
+      resolution: '50,50', // 对应10m x 10m的插值网格
+      variogram_model: 'linear',
       // Gmsh设置
       meshSize: 10.0, // 初始背景网格尺寸
       gridResolution: 50, // B-Spline曲面近似的控制点网格 (50x50)
@@ -351,48 +351,62 @@ const GeologicalModelCreator: React.FC = () => {
     };
     
     const handleParamChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value, type, checked } = event.target;
+        const target = event.target as { name: string; value: unknown; type?: string; checked?: boolean };
+        const { name, value, type, checked } = target;
+
         setModelParams(produce(draft => {
             (draft as any)[name] = type === 'checkbox' ? checked : value;
         }));
     };
 
+    const handleSelectParamChange = (event: SelectChangeEvent<string>) => {
+        const { name, value } = event.target;
+        setModelParams(
+            produce(draft => {
+                (draft as any)[name] = value;
+            })
+        );
+    };
+
     const handleGenerateDataDrivenModel = async () => {
         if (boreholeData.length === 0) {
-            enqueueSnackbar("请先上传有效的钻孔数据", { variant: "warning" });
+            enqueueSnackbar('错误：必须先上传有效的钻孔数据CSV文件。', { variant: 'error' });
             return;
         }
+
         setIsLoading(true);
         setError(null);
-        try {
-            const uniqueFormations = [...new Set(boreholeData.map(p => p.formation))];
-            const seriesMapping: { [key: string]: string[] } = {
-                "DefaultSeries": uniqueFormations
-            };
+        setGeologicalModel(null); // 在生成前先清空旧模型
 
-            const params: GeologyModelParameters = {
+        try {
+            const params: GeologyModelRequest = {
                 borehole_data: boreholeData,
-                surface_points: [],
-                series_mapping: seriesMapping,
+                formations: {
+                    DefaultSeries: Object.keys(LITHOLOGY_COLORS).join(',')
+                },
                 options: {
                     resolution: modelParams.resolution.split(',').map(Number),
+                    variogram_model: modelParams.variogram_model,
                     mesh_size: modelParams.meshSize,
-                    grid_resolution: modelParams.gridResolution,
-                    generate_contours: modelParams.generateContours,
                 }
             };
 
-            const result: GeologicalModelResponse = await createDataDrivenGeologicalModel(params);
+            enqueueSnackbar('正在生成三维地质模型，请稍候...', { variant: 'info' });
             
-            if (result.meshes && result.meshes.length > 0) {
-                setTransientGeologicalMesh(result);
-                console.log("地质模型生成成功，已在视图中更新。");
+            const geologicalLayers = await createDataDrivenGeologicalModel(params);
+            
+            if (geologicalLayers && geologicalLayers.length > 0) {
+                setGeologicalModel(geologicalLayers); // <-- 将几何数据存入全局状态
+                enqueueSnackbar('三维地质模型生成成功！', { variant: 'success' });
             } else {
-                throw new Error("模型生成成功，但后端未返回有效的网格数据。");
+                throw new Error('模型生成成功，但未返回任何有效的几何图层。');
             }
-        } catch (e: any) {
-            console.error("生成数据驱动模型失败:", e);
-            setError(`生成失败: ${e.message}`);
+
+        } catch (err: any) {
+            const errorMessage = err.message || '发生未知错误，无法生成模型。';
+            setError(errorMessage);
+            enqueueSnackbar(`模型生成失败: ${errorMessage}`, { variant: 'error' });
+            console.error("Error generating data-driven model:", err);
         } finally {
             setIsLoading(false);
         }
@@ -486,20 +500,50 @@ const GeologicalModelCreator: React.FC = () => {
 
                                 <Accordion>
                                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                        <Typography variant="subtitle2">地质插值 (GemPy)</Typography>
+                                        <Typography variant="subtitle2">地质插值 (PyVista)</Typography>
                                     </AccordionSummary>
                                     <AccordionDetails>
-                                        <Tooltip title="定义GemPy插值器的三维网格分辨率(nx, ny, nz)。对于500x500m范围，'50,50,50'相当于10x10m的插值精度。">
-                                            <TextField
-                                                name="resolution"
-                                                label="插值器分辨率"
-                                                value={modelParams.resolution}
-                                                onChange={handleParamChange}
-                                                fullWidth
-                                                margin="dense"
-                                                size="small"
-                                            />
-                                        </Tooltip>
+                                        <Grid container spacing={2}>
+                                            <Grid item xs={6}>
+                                                <TextField
+                                                    name="resolutionX"
+                                                    label="X方向分辨率"
+                                                    type="number"
+                                                    value={modelParams.resolution.split(',')[0] || '50'}
+                                                    onChange={(e) => handleParamChange({ target: { name: 'resolution', value: `${e.target.value},${modelParams.resolution.split(',')[1] || '50'}` } } as any)}
+                                                    fullWidth
+                                                    margin="dense"
+                                                    helperText="X方向的插值点数"
+                                                />
+                                            </Grid>
+                                            <Grid item xs={6}>
+                                                <TextField
+                                                    name="resolutionY"
+                                                    label="Y方向分辨率"
+                                                    type="number"
+                                                    value={modelParams.resolution.split(',')[1] || '50'}
+                                                    onChange={(e) => handleParamChange({ target: { name: 'resolution', value: `${modelParams.resolution.split(',')[0] || '50'},${e.target.value}` } } as any)}
+                                                    fullWidth
+                                                    margin="dense"
+                                                    helperText="Y方向的插值点数"
+                                                />
+                                            </Grid>
+                                        </Grid>
+                                        <FormControl fullWidth margin="dense">
+                                            <InputLabel>变异函数模型</InputLabel>
+                                            <Select
+                                                name="variogram_model"
+                                                value={modelParams.variogram_model || 'linear'}
+                                                onChange={handleSelectParamChange}
+                                                label="变异函数模型"
+                                            >
+                                                <MenuItem value="linear">线性模型 (Linear)</MenuItem>
+                                                <MenuItem value="power">幂函数模型 (Power)</MenuItem>
+                                                <MenuItem value="gaussian">高斯模型 (Gaussian)</MenuItem>
+                                                <MenuItem value="spherical">球状模型 (Spherical)</MenuItem>
+                                                <MenuItem value="exponential">指数模型 (Exponential)</MenuItem>
+                                            </Select>
+                                        </FormControl>
                                     </AccordionDetails>
                                 </Accordion>
 
