@@ -1,7 +1,7 @@
 import logging
 from typing import List, Dict, Any
 
-from deep_excavation.backend.api.routes.geology_router import GeologyOptions
+from deep_excavation.backend.models.geology import GeologyOptions
 from deep_excavation.backend.core.geology_modeler import create_geological_model_geometry
 from deep_excavation.backend.core.geometry_converter import pyvista_to_threejs_json
 
@@ -27,7 +27,7 @@ class GeologyService:
         # 使用Pydantic模型直接访问属性，不再需要.get()
         processed_options = {
             "resolution": [options.resolution_x, options.resolution_y],
-            "variogram_model": options.variogram_model
+            "alpha": options.alpha
         }
         logger.info(f"处理后的选项: {processed_options}")
 

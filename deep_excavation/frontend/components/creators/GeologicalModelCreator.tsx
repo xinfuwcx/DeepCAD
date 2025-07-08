@@ -241,9 +241,9 @@ const GeologicalModelCreator: React.FC = () => {
     
     // 基于500x500x30m体积的合理默认值
     const [modelParams, setModelParams] = useState({
-      // PyVista/Kriging插值器设置
+      // PyVista/Delaunay 插值器设置
       resolution: '50,50', // 对应10m x 10m的插值网格
-      variogram_model: 'linear',
+      alpha: 2.0, // Delaunay alpha-shape 参数，用于控制三角剖分的紧密程度
       // Gmsh设置
       meshSize: 10.0, // 初始背景网格尺寸
       gridResolution: 50, // B-Spline曲面近似的控制点网格 (50x50)
@@ -262,20 +262,21 @@ const GeologicalModelCreator: React.FC = () => {
     const handleAddConceptualLayer = () => {
         const newLayer: LocalSoilLayer = {
             id: uuidv4(),
-            name: `土层 ${conceptualLayers.length + 1}`,
+            name: `新土层 ${conceptualLayers.length + 1}`,
             thickness: 10,
-            soilType: 'silt',
-            color: LITHOLOGY_COLORS.silt,
+            soilType: 'sand',
+            color: LITHOLOGY_COLORS.sand
         };
-        setConceptualLayers(produce(draft => { draft.push(newLayer); }));
+        setConceptualLayers(produce(draft => {
+            draft.push(newLayer);
+        }));
     };
 
     const handleUpdateConceptualLayer = (id: string, field: keyof LocalSoilLayer, value: any) => {
         setConceptualLayers(produce(draft => {
             const layer = draft.find(l => l.id === id);
             if (layer) {
-                (layer as any)[field] = value;
-                // Also update color based on soilType
+                (layer[field] as any) = value;
                 if (field === 'soilType') {
                     layer.color = LITHOLOGY_COLORS[value as keyof typeof LITHOLOGY_COLORS] || '#cccccc';
                 }
@@ -288,132 +289,115 @@ const GeologicalModelCreator: React.FC = () => {
     const handleConfirmDelete = () => {
         if (layerToDelete) {
             setConceptualLayers(layers => layers.filter(l => l.id !== layerToDelete));
+            handleCloseDeleteConfirm();
         }
-        handleCloseDeleteConfirm();
     };
 
     const handleGenerateConceptualModel = () => {
+        if (conceptualLayers.length === 0) {
+            enqueueSnackbar('请至少添加一个概念土层', { variant: 'warning' });
+            return;
+        }
         const feature: CreateConceptualLayersFeature = {
             id: uuidv4(),
-            type: 'CreateConceptualLayers',
+            type: 'create-conceptual-layers',
             name: '概念地质模型',
             parameters: {
-                layers: conceptualLayers.map(l => ({
-                    name: l.name,
-                    thickness: l.thickness,
-                    material: l.soilType,
-                })),
-                domain: {
-                    xSize: computationalDomain.xSize,
-                    zSize: computationalDomain.zSize
-                }
+                layers: conceptualLayers.map(l => ({ name: l.name, thickness: l.thickness, material: l.soilType })),
+                domainSize: { x: computationalDomain.xSize, y: computationalDomain.zSize }
             }
         };
         addFeature(feature);
+        enqueueSnackbar('概念地质模型已生成并添加至历史记录', { variant: 'success' });
+        setGeologicalModel(null); // 清空3D视图中的数据驱动模型
     };
 
-    // --- (重构后) 数据驱动建模逻辑 ---
-
+    // --- Data-Driven Modeling Handlers ---
     const handleDataFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
-        if (!file) return;
+        if (file) {
+            setUploadedFileName(file.name);
+            setIsLoading(true);
+            setError(null);
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                dynamicTyping: true,
+                complete: (results) => {
+                    const requiredFields = ['x', 'y', 'z', 'formation'];
+                    const missingFields = requiredFields.filter(f => !results.meta.fields?.includes(f));
 
-        setIsLoading(true);
-        setError(null);
-        setUploadedFileName(file.name);
-
-        Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            complete: (results) => {
-                const requiredFields = ['x', 'y', 'z', 'formation'];
-                const headers = results.meta.fields;
-                if (!headers || !requiredFields.every(field => headers.includes(field))) {
-                    setError(`CSV文件缺少必要的列. 需要: ${requiredFields.join(', ')}.`);
-                    setBoreholeData([]);
-                } else {
-                    const parsedData = (results.data as any[]).map((row: any) => ({
-                        x: parseFloat(row.x),
-                        y: parseFloat(row.y),
-                        z: parseFloat(row.z),
-                        formation: row.formation,
-                    })).filter(r => !isNaN(r.x) && !isNaN(r.y) && !isNaN(r.z) && r.formation);
-                    setBoreholeData(parsedData);
-                    setError(null);
+                    if (missingFields.length > 0) {
+                        setError(`CSV文件缺少必需的列: ${missingFields.join(', ')}`);
+                        setBoreholeData([]);
+                    } else {
+                        const parsedData = (results.data as any[]).filter(row => 
+                            row.x != null && row.y != null && row.z != null && row.formation != null
+                        );
+                        setBoreholeData(parsedData);
+                        enqueueSnackbar(`成功解析 ${parsedData.length} 条钻孔数据`, { variant: 'success' });
+                    }
+                    setIsLoading(false);
+                },
+                error: (err: any) => {
+                    setError(`解析CSV文件时出错: ${err.message}`);
+                    setIsLoading(false);
                 }
-                setIsLoading(false);
-            },
-            error: (err: any) => {
-                setError(`解析CSV文件失败: ${err.message}`);
-                setIsLoading(false);
-            }
-        });
+            });
+        }
     };
-    
+
     const handleParamChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const target = event.target as { name: string; value: unknown; type?: string; checked?: boolean };
-        const { name, value, type, checked } = target;
-
-        setModelParams(produce(draft => {
-            (draft as any)[name] = type === 'checkbox' ? checked : value;
-        }));
-    };
-
-    const handleSelectParamChange = (event: SelectChangeEvent<string>) => {
         const { name, value } = event.target;
-        setModelParams(
-            produce(draft => {
-                (draft as any)[name] = value;
-            })
-        );
+        setModelParams(prev => ({ ...prev, [name]: value }));
     };
 
     const handleGenerateDataDrivenModel = async () => {
-        if (boreholeData.length === 0) {
-            enqueueSnackbar('错误：必须先上传有效的钻孔数据CSV文件。', { variant: 'error' });
+        if (boreholeData.length < 3) {
+            setError('数据不足，至少需要3个钻孔点才能生成模型。');
+            enqueueSnackbar('数据不足，无法生成模型', { variant: 'error' });
             return;
         }
-
         setIsLoading(true);
         setError(null);
-        setGeologicalModel(null); // 在生成前先清空旧模型
 
         try {
-            const params: GeologyModelRequest = {
-                borehole_data: boreholeData,
+            const res = modelParams.resolution.split(',');
+            const request: GeologyModelRequest = {
+                boreholeData: boreholeData,
                 formations: {
-                    DefaultSeries: Object.keys(LITHOLOGY_COLORS).join(',')
+                    DefaultSeries: Array.from(new Set(boreholeData.map(p => p.formation))).join(',')
                 },
                 options: {
-                    resolution: modelParams.resolution.split(',').map(Number),
-                    variogram_model: modelParams.variogram_model,
-                    mesh_size: modelParams.meshSize,
+                    resolutionX: parseInt(res[0], 10),
+                    resolutionY: parseInt(res[1], 10),
+                    alpha: modelParams.alpha,
                 }
             };
 
             enqueueSnackbar('正在生成三维地质模型，请稍候...', { variant: 'info' });
             
-            const geologicalLayers = await createDataDrivenGeologicalModel(params);
+            const geologicalLayers = await createDataDrivenGeologicalModel(request);
             
             if (geologicalLayers && geologicalLayers.length > 0) {
-                setGeologicalModel(geologicalLayers); // <-- 将几何数据存入全局状态
-                enqueueSnackbar('三维地质模型生成成功！', { variant: 'success' });
+                setGeologicalModel(geologicalLayers);
+                enqueueSnackbar(`成功生成 ${geologicalLayers.length} 个地质图层!`, { variant: 'success' });
             } else {
                 throw new Error('模型生成成功，但未返回任何有效的几何图层。');
             }
 
         } catch (err: any) {
-            const errorMessage = err.message || '发生未知错误，无法生成模型。';
-            setError(errorMessage);
+            const errorMessage = err.response?.data?.detail || err.message || '发生未知错误';
+            setError(`生成数据驱动模型时出错: ${errorMessage}`);
             enqueueSnackbar(`模型生成失败: ${errorMessage}`, { variant: 'error' });
-            console.error("Error generating data-driven model:", err);
+            setGeologicalModel(null);
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <Paper elevation={2} sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>
+        <Paper elevation={3} sx={{ p: 2, height: '100%', overflowY: 'auto' }}>
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                 <Tabs value={activeTab} onChange={handleTabChange} variant="fullWidth">
                     <Tab label="概念建模" />
@@ -506,44 +490,26 @@ const GeologicalModelCreator: React.FC = () => {
                                         <Grid container spacing={2}>
                                             <Grid item xs={6}>
                                                 <TextField
-                                                    name="resolutionX"
-                                                    label="X方向分辨率"
-                                                    type="number"
-                                                    value={modelParams.resolution.split(',')[0] || '50'}
-                                                    onChange={(e) => handleParamChange({ target: { name: 'resolution', value: `${e.target.value},${modelParams.resolution.split(',')[1] || '50'}` } } as any)}
                                                     fullWidth
-                                                    margin="dense"
-                                                    helperText="X方向的插值点数"
+                                                    label="插值分辨率"
+                                                    name="resolution"
+                                                    value={modelParams.resolution}
+                                                    onChange={handleParamChange}
+                                                    helperText="格式: X向,Y向, 例如 50,50"
                                                 />
                                             </Grid>
                                             <Grid item xs={6}>
                                                 <TextField
-                                                    name="resolutionY"
-                                                    label="Y方向分辨率"
-                                                    type="number"
-                                                    value={modelParams.resolution.split(',')[1] || '50'}
-                                                    onChange={(e) => handleParamChange({ target: { name: 'resolution', value: `${modelParams.resolution.split(',')[0] || '50'},${e.target.value}` } } as any)}
                                                     fullWidth
-                                                    margin="dense"
-                                                    helperText="Y方向的插值点数"
+                                                    label="Delaunay Alpha"
+                                                    name="alpha"
+                                                    type="number"
+                                                    value={modelParams.alpha}
+                                                    onChange={handleParamChange}
+                                                    helperText="值越小，表面越贴合数据点"
                                                 />
                                             </Grid>
                                         </Grid>
-                                        <FormControl fullWidth margin="dense">
-                                            <InputLabel>变异函数模型</InputLabel>
-                                            <Select
-                                                name="variogram_model"
-                                                value={modelParams.variogram_model || 'linear'}
-                                                onChange={handleSelectParamChange}
-                                                label="变异函数模型"
-                                            >
-                                                <MenuItem value="linear">线性模型 (Linear)</MenuItem>
-                                                <MenuItem value="power">幂函数模型 (Power)</MenuItem>
-                                                <MenuItem value="gaussian">高斯模型 (Gaussian)</MenuItem>
-                                                <MenuItem value="spherical">球状模型 (Spherical)</MenuItem>
-                                                <MenuItem value="exponential">指数模型 (Exponential)</MenuItem>
-                                            </Select>
-                                        </FormControl>
                                     </AccordionDetails>
                                 </Accordion>
 

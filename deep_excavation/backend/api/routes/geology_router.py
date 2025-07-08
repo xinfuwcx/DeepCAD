@@ -1,54 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
-from typing import List, Dict
-from pydantic import BaseModel, Field, ConfigDict
+from typing import List
 from loguru import logger
 
 from deep_excavation.backend.services.geology_service import GeologyService
+from deep_excavation.backend.models.geology import (
+    GeologicalLayer,
+    GeologyModelRequest,
+)
 
 router = APIRouter()
 
 
-# --- Pydantic Models for Data Validation ---
-
-class BoreholeData(BaseModel):
-    x: float
-    y: float
-    z: float
-    formation: str
-
-
-class ThreeJsGeometry(BaseModel):
-    vertices: List[float]
-    normals: List[float]
-    faces: List[int]
-
-
-class GeologicalLayer(BaseModel):
-    name: str
-    color: str
-    opacity: float
-    geometry: ThreeJsGeometry
-
-
-class GeologyOptions(BaseModel):
-    """Defines the structure for geological modeling options, handling camelCase from frontend."""
-    model_config = ConfigDict(populate_by_name=True)
-
-    resolution_x: int = Field(50, alias='resolutionX')
-    resolution_y: int = Field(50, alias='resolutionY')
-    variogram_model: str = Field('linear', alias='variogramModel')
-
-
-class GeologyModelRequest(BaseModel):
-    # Allow population by field name OR alias, enabling camelCase from frontend
-    model_config = ConfigDict(populate_by_name=True)
-
-    borehole_data: List[BoreholeData] = Field(..., alias="boreholeData", example=[
-        {"x": 0, "y": 0, "z": -10, "formation": "sand"},
-        {"x": 100, "y": 0, "z": -12, "formation": "sand"},
-    ])
-    formations: Dict[str, str] = Field(..., example={"DefaultSeries": "sand,clay,rock"})
-    options: GeologyOptions = Field(default_factory=GeologyOptions)
+# --- Pydantic Models are now in models/geology.py ---
 
 
 # --- API Endpoint ---

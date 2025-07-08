@@ -17,10 +17,9 @@ passlib[bcrypt]
 python-multipart
 
 # --- Scientific Computing & Data ---
-numpy
-scipy
-pandas
-pykrige
+numpy>=1.26.0
+scipy>=1.13.0
+pandas>=2.2.0
 h5py
 matplotlib
 vtk
