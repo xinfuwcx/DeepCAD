@@ -133,16 +133,14 @@ class UnifiedErrorHandler:
         # 错误统计
         self.error_stats: Dict[str, int] = {}
     
-    def register_recovery_strategy(self, error_type: ErrorType, 
-                                 strategy: Callable):
+    def register_recovery_strategy(self, error_type: ErrorType, strategy: Callable):
         """注册错误恢复策略"""
         self.recovery_strategies[error_type] = strategy
-        logger.info(f"已注册恢复策略: {error_type.value}")
+        logger.info(f"已注册恢复策略: {error_type}")
     
     def classify_error(self, error: Exception) -> ErrorType:
         """错误分类"""
         error_message = str(error).lower()
-        error_type_name = type(error).__name__.lower()
         
         # 基于异常类型分类
         if isinstance(error, MemoryError):
@@ -153,30 +151,63 @@ class UnifiedErrorHandler:
             return ErrorType.FILE_NOT_FOUND
         elif isinstance(error, PermissionError):
             return ErrorType.PERMISSION_DENIED
-        elif isinstance(error, ValueError):
+        elif isinstance(error, (ValueError, TypeError)):
             return ErrorType.INVALID_PARAMETERS
         
         # 基于错误消息分类
-        if any(keyword in error_message for keyword in 
-               ['mesh', 'gmsh', 'geometry']):
+        if any(
+            keyword in error_message
+            for keyword in [
+                'mesh',
+                'gmsh',
+                'geometry',
+            ]
+        ):
             return ErrorType.MESH_GENERATION_FAILED
-        elif any(keyword in error_message for keyword in 
-                 ['convergence', 'solver', 'iteration']):
+        elif any(
+            keyword in error_message
+            for keyword in [
+                'convergence',
+                'solver',
+                'iteration',
+            ]
+        ):
             return ErrorType.ANALYSIS_CONVERGENCE_FAILED
-        elif any(keyword in error_message for keyword in 
-                 ['memory', 'ram', 'allocation']):
+        elif any(
+            keyword in error_message
+            for keyword in [
+                'memory',
+                'ram',
+                'allocation',
+            ]
+        ):
             return ErrorType.MEMORY_EXCEEDED
-        elif any(keyword in error_message for keyword in 
-                 ['timeout', 'time', 'deadline']):
+        elif any(
+            keyword in error_message
+            for keyword in [
+                'timeout',
+                'time',
+                'deadline',
+            ]
+        ):
             return ErrorType.TIMEOUT
-        elif any(keyword in error_message for keyword in 
-                 ['network', 'connection', 'socket']):
+        elif any(
+            keyword in error_message
+            for keyword in [
+                'network',
+                'connection',
+                'socket',
+            ]
+        ):
             return ErrorType.NETWORK_ERROR
         
         return ErrorType.UNKNOWN_ERROR
     
-    def handle_error(self, error: Exception, 
-                    context: Dict[str, Any] = None) -> ErrorResponse:
+    def handle_error(
+        self,
+        error: Exception,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> ErrorResponse:
         """处理错误并返回统一响应"""
         if context is None:
             context = {}
@@ -226,8 +257,11 @@ class UnifiedErrorHandler:
         
         return response
     
-    def _attempt_recovery(self, error_type: ErrorType, 
-                         context: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _attempt_recovery(
+        self,
+        error_type: ErrorType,
+        context: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
         """尝试错误恢复"""
         if error_type not in self.recovery_strategies:
             return None
@@ -247,8 +281,11 @@ class UnifiedErrorHandler:
             logger.error(f"恢复策略执行失败: {recovery_error}")
             return None
     
-    async def handle_error_async(self, error: Exception, 
-                               context: Dict[str, Any] = None) -> ErrorResponse:
+    async def handle_error_async(
+        self,
+        error: Exception,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> ErrorResponse:
         """异步错误处理"""
         if context is None:
             context = {}

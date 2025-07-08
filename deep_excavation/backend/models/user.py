@@ -2,12 +2,12 @@
 用户模型定义
 """
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, func
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
 
-Base = declarative_base()
+from .base import Base
 
 
 class User(Base):
@@ -23,6 +23,13 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # 关联到Project
+    projects = relationship("Project", back_populates="owner", cascade="all, delete-orphan")
+    
+    def set_password(self, password):
+        # Simple password hashing (in production, use a proper hash function)
+        self.hashed_password = password + "_hashed"
 
 
 class UserCreate(BaseModel):

@@ -5,13 +5,13 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from ...database import get_db
-from ...models.user import User
-from ...models.project import (
+from deep_excavation.backend.database import get_db
+from deep_excavation.backend.models.user import User
+from deep_excavation.backend.models.project import (
     Project, ProjectCreate, ProjectUpdate, ProjectResponse,
     SeepageModel, SeepageModelCreate, SeepageModelUpdate, SeepageModelResponse
 )
-from ...auth.auth import get_current_active_user
+from deep_excavation.backend.auth.auth import get_current_active_user
 
 router = APIRouter(prefix="/projects", tags=["项目管理"])
 

@@ -155,6 +155,7 @@ export interface AppState {
 
     // Viewport & Transient State
     transientObjects: THREE.Object3D[];
+    transientGeologicalMesh: import('../services/geologyService').GeologicalModelResponse | null;
     viewportApi: ViewportHandles | null;
 
     // --- Actions ---
@@ -203,6 +204,7 @@ export interface AppState {
     exitEditMode: () => void;
     
     setTransientObjects: (objects: THREE.Object3D[]) => void;
+    setTransientGeologicalMesh: (meshData: import('../services/geologyService').GeologicalModelResponse | null) => void;
     clearTransientObjects: () => void;
     setViewportApi: (api: ViewportHandles | null) => void;
     
@@ -265,19 +267,19 @@ export const useStore = create<AppState>((set, get) => ({
     
     analysisSettings: {
         analysis_type: 'static',
-        num_steps: 1,
+        num_steps: 10,
         solver: 'direct',
-        nonlinear: false,
+        nonlinear: true,
         gravity: true,
-        initialStress: true,
+        initialStress: false,
     },
     geologySettings: {
-        algorithm: 'GemPy',
-        domain: { width: 504, length: 612, height: 53 },
+        algorithm: 'gempy',
+        domain: { width: 500, length: 500, height: 200 },
     },
 
     visualizationData: null,
-    activeScalarName: 'Displacement',
+    activeScalarName: '',
     modelOpacity: 1.0,
     isResultLoading: false,
 
@@ -294,6 +296,7 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     transientObjects: [],
+    transientGeologicalMesh: null,
     viewportApi: null,
 
     // --- Action Implementations ---
@@ -474,9 +477,8 @@ export const useStore = create<AppState>((set, get) => ({
     },
     
     setTransientObjects: (objects) => set({ transientObjects: objects }),
-
+    setTransientGeologicalMesh: (meshData) => set({ transientGeologicalMesh: meshData }),
     clearTransientObjects: () => set({ transientObjects: [] }),
-
     setViewportApi: (api) => set({ viewportApi: api }),
 
     // --- Selector Implementations ---

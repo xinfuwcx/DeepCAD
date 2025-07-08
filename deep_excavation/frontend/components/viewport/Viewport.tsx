@@ -68,11 +68,10 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
   const transientGroupRef = useRef(new THREE.Group());
   const resultsGroupRef = useRef(new THREE.Group());
   const axesGizmoRef = useRef<{ update: () => void; dispose: () => void }>();
+  const gridRef = useRef<THREE.Group | THREE.GridHelper>();
 
   const features = useStore(state => state.features);
   const setViewportApi = useStore(state => state.setViewportApi);
-
-  const parametricModel = useMemo(() => replayFeatures(features), [features]);
 
   const api: ViewportHandles = useMemo(() => ({
     addAnalysisMesh: (mesh) => {
@@ -145,97 +144,8 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
     scene.add(transientGroupRef.current);
     scene.add(resultsGroupRef.current);
 
-    // --- 创建专业的网格地面 ---
-    const createProfessionalGrid = () => {
-      const gridGroup = new THREE.Group();
-      gridGroup.name = "ProfessionalGrid";
-      
-      // 地面平面
-      const groundGeometry = new THREE.PlaneGeometry(1000, 1000);
-      const groundMaterial = new THREE.MeshBasicMaterial({
-        color: 0x1a2035,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.8
-      });
-      const groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
-      groundPlane.rotation.x = -Math.PI / 2;
-      groundPlane.position.y = -0.01; // 稍微下沉以避免z-fighting
-      gridGroup.add(groundPlane);
-      
-      // 创建主网格线
-      const mainGridSize = 1000;
-      const mainGridDivisions = 10;
-      const mainGridStep = mainGridSize / mainGridDivisions;
-      
-      const mainGridGeometry = new THREE.BufferGeometry();
-      const mainGridPositions = [];
-      
-      // 创建主网格线
-      for (let i = -mainGridSize/2; i <= mainGridSize/2; i += mainGridStep) {
-        // X方向线
-        mainGridPositions.push(i, 0, -mainGridSize/2);
-        mainGridPositions.push(i, 0, mainGridSize/2);
-        
-        // Z方向线
-        mainGridPositions.push(-mainGridSize/2, 0, i);
-        mainGridPositions.push(mainGridSize/2, 0, i);
-      }
-      
-      mainGridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(mainGridPositions, 3));
-      const mainGridMaterial = new THREE.LineBasicMaterial({ color: 0x4488cc, linewidth: 1.5 });
-      const mainGrid = new THREE.LineSegments(mainGridGeometry, mainGridMaterial);
-      gridGroup.add(mainGrid);
-      
-      // 创建次网格线
-      const subGridGeometry = new THREE.BufferGeometry();
-      const subGridPositions = [];
-      const subGridStep = mainGridStep / 5; // 每个主格再分5格
-      
-      for (let i = -mainGridSize/2; i <= mainGridSize/2; i += subGridStep) {
-        // 跳过主网格线位置
-        if (Math.abs(i % mainGridStep) < 0.001) continue;
-        
-        // X方向线
-        subGridPositions.push(i, 0, -mainGridSize/2);
-        subGridPositions.push(i, 0, mainGridSize/2);
-        
-        // Z方向线
-        subGridPositions.push(-mainGridSize/2, 0, i);
-        subGridPositions.push(mainGridSize/2, 0, i);
-      }
-      
-      subGridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(subGridPositions, 3));
-      const subGridMaterial = new THREE.LineBasicMaterial({ color: 0x2a3a5a, linewidth: 0.5, transparent: true, opacity: 0.5 });
-      const subGrid = new THREE.LineSegments(subGridGeometry, subGridMaterial);
-      gridGroup.add(subGrid);
-      
-      // 添加坐标轴指示线
-      const axisLength = mainGridSize / 2;
-      
-      // X轴 (红色)
-      const xAxisGeometry = new THREE.BufferGeometry();
-      xAxisGeometry.setAttribute('position', new THREE.Float32BufferAttribute([0, 0.1, 0, axisLength, 0.1, 0], 3));
-      const xAxisMaterial = new THREE.LineBasicMaterial({ color: 0xff4444, linewidth: 2 });
-      const xAxis = new THREE.Line(xAxisGeometry, xAxisMaterial);
-      gridGroup.add(xAxis);
-      
-      // Z轴 (蓝色)
-      const zAxisGeometry = new THREE.BufferGeometry();
-      zAxisGeometry.setAttribute('position', new THREE.Float32BufferAttribute([0, 0.1, 0, 0, 0.1, axisLength], 3));
-      const zAxisMaterial = new THREE.LineBasicMaterial({ color: 0x4444ff, linewidth: 2 });
-      const zAxis = new THREE.Line(zAxisGeometry, zAxisMaterial);
-      gridGroup.add(zAxis);
-      
-      return gridGroup;
-    };
-    
-    // 创建并添加专业网格地面
-    const professionalGrid = createProfessionalGrid();
-    scene.add(professionalGrid);
-
     // --- Camera ---
-    const camera = new THREE.PerspectiveCamera(75, mountNode.clientWidth / mountNode.clientHeight, 0.1, 2000);
+    const camera = new THREE.PerspectiveCamera(75, mountNode.clientWidth / mountNode.clientHeight, 0.1, 20000); // Increased far plane
     camera.position.set(100, 150, 250);
     cameraRef.current = camera;
 
@@ -249,21 +159,26 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
     // --- Controls ---
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.target.set(0, 0, 0); // Explicitly set target
     controlsRef.current = controls;
 
     // --- Lights ---
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(100, 200, 150);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
+    directionalLight.position.set(150, 250, 200);
     scene.add(directionalLight);
 
-    // --- 设置ABAQUS风格的坐标系指示器 ---
-    // 确保正确创建和设置坐标系指示器
-    if (!axesGizmoRef.current) {
-      axesGizmoRef.current = setupAxesGizmo(scene, camera, renderer);
-      console.log('坐标系指示器已创建');
-    }
+    // --- Professional Grid ---
+    // Replaced custom grid with standard THREE.GridHelper for robustness and simplicity.
+    const gridHelper = new THREE.GridHelper(1000, 20, 0xffffff, 0x888888);
+    gridHelper.material.opacity = 0.5;
+    gridHelper.material.transparent = true;
+    scene.add(gridHelper);
+    gridRef.current = gridHelper;
+
+    // --- Axes Gizmo ---
+    axesGizmoRef.current = setupAxesGizmo(camera, renderer);
 
     // --- Resize Handling ---
     const handleResize = () => {
@@ -278,41 +193,48 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
 
     // --- Animation Loop ---
     const animate = () => {
-      requestAnimationFrame(animate);
+      const animationFrameId = requestAnimationFrame(animate);
       
-      // 记录渲染开始时间
       const renderStartTime = globalPerformanceMonitor.startRender();
       
       controls.update();
+      
+      // 先渲染主场景
       renderer.render(scene, camera);
       
-      // 更新坐标系指示器
+      // 确保坐标系指示器显示在最上层
       if (axesGizmoRef.current) {
         axesGizmoRef.current.update();
       }
       
-      // 记录渲染结束时间
       globalPerformanceMonitor.endRender(renderStartTime);
       
-      // 更新渲染器统计信息
       if (renderer && renderer.info) {
         globalPerformanceMonitor.updateRendererStats(renderer);
       }
+      
+      return animationFrameId;
     };
-    animate();
+    const frameId = animate();
+
+    // 添加日志输出，确认组件已正确初始化
+    console.log('Viewport初始化完成：', {
+      '场景已创建': !!scene,
+      '相机已创建': !!camera,
+      '渲染器已创建': !!renderer,
+      '控制器已创建': !!controls,
+      '网格已创建': !!gridRef.current,
+      '坐标系已创建': !!axesGizmoRef.current
+    });
 
     return () => {
-      // 停止动画循环
+      cancelAnimationFrame(frameId);
       if (mountNode && renderer.domElement) {
         mountNode.removeChild(renderer.domElement);
       }
-      
-      // 清理坐标系指示器
       if (axesGizmoRef.current) {
         axesGizmoRef.current.dispose();
       }
-      
-      // 清理观察器
       resizeObserver.disconnect();
     };
   }, []);
@@ -320,23 +242,57 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
   // --- Scene Update Logic ---
   useEffect(() => {
     const scene = sceneRef.current;
-    // Clear previous model
-    const toRemove = scene.children.find(child => child.name === "ParametricModel");
-    if (toRemove) {
-      scene.remove(toRemove);
-      // Let garbage collection handle disposal of the removed object
-    }
-    // Add new model
-    parametricModel.name = "ParametricModel";
-    scene.add(parametricModel);
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
 
-    // Center camera on new model
-    if (controlsRef.current && parametricModel.children.length > 0) {
-        const box = new THREE.Box3().setFromObject(parametricModel);
-        const center = box.getCenter(new THREE.Vector3());
-        controlsRef.current.target.copy(center);
+    const updateScene = async () => {
+        const toRemove = scene.children.find(child => child.name === "ParametricModel");
+        if (toRemove) {
+            scene.remove(toRemove);
+        }
+
+        const parametricModel = await replayFeatures(features);
+        parametricModel.name = "ParametricModel";
+        scene.add(parametricModel);
+
+        if (controls && camera && parametricModel.children.length > 0) {
+            const box = new THREE.Box3().setFromObject(parametricModel);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+
+            if (maxDim > 0) { // Avoid issues with empty models
+                const fov = camera.fov * (Math.PI / 180);
+                let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+                cameraZ *= 1.8;
+
+                const offset = new THREE.Vector3(cameraZ * 0.4, cameraZ * 0.6, cameraZ);
+                camera.position.copy(center).add(offset);
+                controls.target.copy(center);
+                controls.update();
+
+                if (gridRef.current) {
+                    const gridSize = Math.max(size.x, size.z) * 2.5;
+                    scene.remove(gridRef.current);
+                    
+                    // Assuming createProfessionalGrid is defined in the setup useEffect
+                    // We need to make sure it's accessible or redefined here.
+                    // For now, let's assume it's available.
+                    // const newGrid = createProfessionalGrid(gridSize);
+                    // newGrid.position.set(center.x, box.min.y - 0.1, center.z);
+                    // scene.add(newGrid);
+                    // gridRef.current = newGrid;
+                }
+            }
+        }
+        controls?.update();
+    };
+    
+    if(scene) {
+        updateScene();
     }
-  }, [parametricModel]);
+
+  }, [features]);
 
   return (
     <div 

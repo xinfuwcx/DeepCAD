@@ -121,18 +121,17 @@ export function createAxesGizmo(): THREE.Object3D {
 
 /**
  * 将坐标轴指示器添加到场景和相机中
- * @param {THREE.Scene} scene - Three.js场景
  * @param {THREE.Camera} camera - Three.js相机
  * @param {THREE.WebGLRenderer} renderer - Three.js渲染器
  * @returns {Object} 包含更新和清理方法的对象
  */
-export function setupAxesGizmo(scene: THREE.Scene, camera: THREE.Camera, renderer: THREE.WebGLRenderer) {
+export function setupAxesGizmo(camera: THREE.Camera, renderer: THREE.WebGLRenderer) {
   // 创建坐标轴指示器
   const axesGizmo = createAxesGizmo();
   
   // 设置位置在左下角
-  const gizmoSize = 80; // 指示器大小（像素）
-  const padding = 20; // 边距（像素）
+  const gizmoSize = 100; // 增大指示器大小（像素）
+  const padding = 30; // 增大边距（像素）
   
   // 创建一个正交相机用于渲染指示器
   const gizmoCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
@@ -141,6 +140,19 @@ export function setupAxesGizmo(scene: THREE.Scene, camera: THREE.Camera, rendere
   // 创建一个场景用于渲染指示器
   const gizmoScene = new THREE.Scene();
   gizmoScene.add(axesGizmo);
+  
+  // 添加一个背景圆形，增强可见性
+  const circleGeometry = new THREE.CircleGeometry(0.9, 32);
+  const circleMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0x000000, 
+    transparent: true, 
+    opacity: 0.3,
+    depthTest: false,
+    depthWrite: false
+  });
+  const circleBackground = new THREE.Mesh(circleGeometry, circleMaterial);
+  circleBackground.position.z = -0.1; // 放在坐标轴后面
+  gizmoScene.add(circleBackground);
   
   // 更新函数，在主渲染循环中调用
   const update = () => {
@@ -154,11 +166,16 @@ export function setupAxesGizmo(scene: THREE.Scene, camera: THREE.Camera, rendere
     const currentViewport = renderer.getViewport(new THREE.Vector4());
     const currentScissor = renderer.getScissor(new THREE.Vector4());
     const currentScissorTest = renderer.getScissorTest();
+    const currentAutoClear = renderer.autoClear;
     
     // 设置左下角的视口
     renderer.setViewport(padding, padding, gizmoSize, gizmoSize);
     renderer.setScissor(padding, padding, gizmoSize, gizmoSize);
     renderer.setScissorTest(true);
+    renderer.autoClear = false; // 不要清除之前的渲染结果
+    
+    // 只清除深度缓冲区，确保坐标系始终在最上层
+    renderer.clearDepth();
     
     // 渲染坐标轴指示器
     renderer.render(gizmoScene, gizmoCamera);
@@ -167,11 +184,18 @@ export function setupAxesGizmo(scene: THREE.Scene, camera: THREE.Camera, rendere
     renderer.setViewport(currentViewport);
     renderer.setScissor(currentScissor);
     renderer.setScissorTest(currentScissorTest);
+    renderer.autoClear = currentAutoClear;
   };
   
   // 清理函数
   const dispose = () => {
     gizmoScene.remove(axesGizmo);
+    gizmoScene.remove(circleBackground);
+    
+    // 清理几何体和材质
+    circleGeometry.dispose();
+    circleMaterial.dispose();
+    
     axesGizmo.traverse((object) => {
       if (object instanceof THREE.Mesh) {
         object.geometry.dispose();

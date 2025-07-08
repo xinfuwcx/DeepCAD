@@ -1,111 +1,73 @@
-from fastapi import APIRouter, HTTPException, File, UploadFile
-from pydantic import BaseModel, Field
-from typing import List, Optional
-import tempfile
-import os
-import ezdxf
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from typing import List, Dict, Any
+import logging
 
-# 使用绝对路径导入，更清晰、更健壮
-from deep_excavation.backend.services.geology_service import GeologyService
-
-router = APIRouter()
-# 实例化服务，在实际应用中可能会使用依赖注入系统
-geology_service = GeologyService()
-
-# Pydantic模型，用于验证请求体
-# 这些模型应该与前端的TypeScript类型匹配
-
-class BoreholePoint(BaseModel):
-    id: str
-    x: float = Field(..., description="钻孔的X坐标")
-    y: float = Field(..., description="钻孔的Y坐标")
-    z: float = Field(..., description="高程Z")
-    surface: str = Field(..., description="所属地层表面名称")
-    description: Optional[str] = None # 在前端已移除，设为可选以保持兼容
-
-class GemPyParams(BaseModel):
-    resolution: List[int]
-    c_o: float
-    algorithm: str
-    generateContours: bool
-
-class CreateGeologicalModelRequest(BaseModel):
-    boreholeData: List[BoreholePoint]
-    colorScheme: str
-    gempyParams: GemPyParams
-
-class DXFParseResult(BaseModel):
-    vertices: List[List[float]] = Field(
-        ..., 
-        description="DXF文件中多段线的顶点列表，例如 [[x1, y1, z1], [x2, y2, z2]]"
-    )
-
-@router.post(
-    "/upload-dxf", 
-    response_model=DXFParseResult, 
-    tags=["Geology", "File Upload"]
+from deep_excavation.backend.services.geology_service import (
+    GeologyService, get_geology_service
 )
-async def upload_dxf(file: UploadFile = File(...)):
+
+router = APIRouter(prefix="/api/geology", tags=["Geology"])
+logger = logging.getLogger(__name__)
+
+
+# --- Pydantic Models ---
+# These models define the expected request and response structures for the API.
+
+
+class GeologyModelRequest(BaseModel):
     """
-    上传DXF文件，解析其中的2D多段线 (LWPOLYLINE)，并返回其顶点。
+    Defines the data structure for a request to create a geological model.
+    This matches the payload sent from the frontend service.
     """
-    if not file.filename.lower().endswith('.dxf'):
-        raise HTTPException(
-            status_code=400, 
-            detail="Invalid file type. Please upload a .dxf file."
-        )
+    project_id: str
+    surface_points: List[List[float]]
+    borehole_data: List[Dict[str, Any]]
+    formations: Dict[str, str]
+    options: Dict[str, Any] = {}
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp:
-        tmp.write(await file.read())
-        tmp_path = tmp.name
 
-    try:
-        doc = ezdxf.readfile(tmp_path)
-        msp = doc.modelspace()
-        lwpolyline = msp.query('LWPOLYLINE').first
-        
-        if not lwpolyline:
-            raise HTTPException(
-                status_code=404, 
-                detail="No LWPOLYLINE found in the DXF file."
-            )
+class FeatureRequest(BaseModel):
+    """
+    Defines the feature-like structure that the frontend sends.
+    """
+    id: str
+    name: str
+    type: str
+    parameters: Dict[str, Any]
 
-        vertices = [
-            [point[0], point[1], 0.0] 
-            for point in lwpolyline.get_points(format='xy')
-        ]
-        return DXFParseResult(vertices=vertices)
 
-    except IOError:
-        raise HTTPException(status_code=500, detail="Could not read DXF file.")
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to parse DXF file: {e}"
-        )
-    finally:
-        os.unlink(tmp_path)
+class GeologyModelResponse(BaseModel):
+    """
+    Defines the response structure after a model has been created.
+    """
+    message: str
+    previewData: Dict[str, Any]
 
-@router.post("/model-from-boreholes", tags=["Geology"])
-async def create_model_from_boreholes_endpoint(
-    request: CreateGeologicalModelRequest
+
+@router.post("/create-geological-model", response_model=GeologyModelResponse)
+async def create_geological_model_endpoint(
+    request: FeatureRequest,
+    geology_service: GeologyService = Depends(get_geology_service)
 ):
     """
-    接收结构化的钻孔数据 (JSON)，使用GemPy处理，
-    并返回指向生成的3D模型文件的路径 (例如, VTK)。
+    This endpoint receives data from the frontend to generate a 3D geological model.
+    It uses the GeologyService to orchestrate the model creation with GemPy.
     """
+    logger.info(f"Received request to create geological model: {request.name}")
     try:
-        # 调用地质服务来处理数据并生成模型
-        model_info = await geology_service.create_model_from_borehole_data(request)
-
-        return {
-            "message": "Geological model created successfully from borehole data.",
-            "modelId": model_info.get("model_id"),
-            "previewData": model_info.get("preview_data"),
-        }
+        model_data = await geology_service.process_frontend_request(request.dict())
+        logger.info("Geological model created successfully.")
+        return GeologyModelResponse(
+            message="Geological model created successfully",
+            previewData=model_data
+        )
     except Exception as e:
-        # 在实际应用中，这里应该有更详细的错误日志
-        # 使用 logging 模块记录完整堆栈信息
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"An internal error occurred: {e}") 
+        logger.error(f"Failed to create geological model: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "An internal error occurred while creating the geological "
+                f"model: {e}"
+            )
+        ) 

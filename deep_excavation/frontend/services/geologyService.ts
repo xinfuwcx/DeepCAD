@@ -1,203 +1,98 @@
 /**
  * @file 地质建模服务接口
- * @description 整合GemPy和Gmsh(OCC)的地质建模服务
+ * @description 整合GemPy, Gmsh, Kratos的地质建模全流程服务
  */
 
-import { SoilParams } from '../components/creators/CreatorInterface';
 import axios from 'axios';
-import { CreateGeologicalModelParameters } from './parametricAnalysisService';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+
+const geologyApi = axios.create({
+  baseURL: `${API_BASE_URL}/geology`,
+});
+
+// --- Data Structures ---
 
 /**
- * GemPy模型参数
+ * 代表一个三维网格对象的结构，与后端 `pyvista_mesh_to_json` 的输出匹配。
  */
-interface GemPyModelParams {
-  extent: [number, number, number, number, number, number]; // [x_min, x_max, y_min, y_max, z_min, z_max]
-  resolution: [number, number, number]; // [nx, ny, nz]
-  interpolationMethod: 'kriging' | 'cokriging' | 'custom_interpolation';
+export interface PyVistaMesh {
+  name: string;
+  type: 'surface' | 'volume'; // 'surface' for visualization, 'volume' for analysis meshes
+  vertices: number[][];
+  faces: number[][];
+  color: string;
+  cell_data?: Record<string, number[]>; // For physical groups etc.
 }
 
 /**
- * Gmsh网格参数
+ * 定义从后端 `/create-geological-model` 端点返回的响应体结构。
  */
-interface GmshParams {
-  meshSizeMin: number;
-  meshSizeMax: number;
-  meshSizeFactor: number;
-  algorithm: 'delaunay' | 'frontal' | 'hxt';
-  dimension: 2 | 3;
-  useOCC: boolean;
+export interface GeologicalModelResponse {
+  meshes: PyVistaMesh[];
+  model_info: {
+    extent: number[];
+    resolution: number[];
+    gmsh_stats: Record<string, any>;
+  };
 }
 
 /**
- * 地质建模服务类
+ * 定义创建地质模型时需要传递给后端的参数结构。
+ * 这必须与后端 `GeologyModeler` 的 `create_model_in_memory` 方法签名匹配。
  */
-class GeologyService {
-  /**
-   * (新) 根据钻孔数据创建地质模型
-   * @param params 包含钻孔数据和建模选项的参数对象
-   * @returns 后端返回的包含模型ID和预览数据的对象
-   */
-  async createModelFromBoreholes(params: CreateGeologicalModelParameters): Promise<any> {
-    try {
-      const response = await axios.post('/api/geology/model-from-boreholes', params);
-      return response.data;
-    } catch (error) {
-      console.error("从钻孔数据创建地质模型失败:", error);
-      throw error;
+export interface GeologyModelParameters {
+  surface_points: {
+    x: number;
+    y: number;
+    z: number;
+    surface: string;
+  }[];
+  borehole_data: {
+    x: number;
+    y: number;
+    z: number;
+    formation: string;
+  }[];
+  series_mapping: Record<string, string[]>; // e.g., { "DefaultSeries": ["rock1", "rock2"] }
+  options: {
+    resolution?: number[];
+    mesh_size?: number;
+    grid_resolution?: number;
+    generate_contours?: boolean;
+  };
+}
+
+/**
+ * 调用后端创建数据驱动的地质模型。
+ * @param parameters - 地质模型创建所需的参数。
+ * @returns 后端返回的包含最终三维网格的响应。
+ */
+export const createDataDrivenGeologicalModel = async (
+  parameters: GeologyModelParameters
+): Promise<GeologicalModelResponse> => {
+  try {
+    // 这个负载结构必须与后端的 `FeatureRequest` Pydantic模型匹配。
+    const requestPayload = {
+        id: `geology-model-feature-${Date.now()}`,
+        name: 'DataDrivenGeologicalModel',
+        type: 'CreateGeologicalModel',
+        parameters: parameters,
+    };
+    const response = await geologyApi.post<GeologicalModelResponse>(
+      '/create-geological-model',
+      requestPayload
+    );
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const errorMessage =
+        error.response?.data?.detail ||
+        '创建地质模型时发生网络错误。';
+      console.error('Error creating geological model:', errorMessage);
+      throw new Error(errorMessage);
     }
+    console.error('发生未知错误:', error);
+    throw new Error('处理请求时发生未知错误。');
   }
-
-  /**
-   * (旧的，基于厚度，已废弃) 创建GemPy地质模型
-   * @param soilLayers 土层参数数组
-   * @param modelParams GemPy模型参数
-   * @returns 地质模型ID
-   */
-  /*
-  async createGeologicalModel(
-    soilLayers: any[], // 之前的类型是 SoilParams[]
-    modelParams: Partial<GemPyModelParams> = {}
-  ): Promise<string> {
-    console.log('创建GemPy地质模型', { soilLayers, modelParams });
-    
-    // 默认参数
-    const defaultParams: GemPyModelParams = {
-      extent: [-250, 250, -250, 250, -50, 0],
-      resolution: [50, 50, 50],
-      interpolationMethod: 'kriging'
-    };
-    
-    const params = { ...defaultParams, ...modelParams };
-    
-    // 模拟API调用
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(`geo-model-${Date.now()}`);
-      }, 500);
-    });
-  }
-  */
-  
-  /**
-   * 使用Gmsh(OCC)生成网格
-   * @param geologicalModelId 地质模型ID
-   * @param meshParams 网格参数
-   * @returns 网格ID
-   */
-  async generateMeshWithGmshOCC(
-    geologicalModelId: string,
-    meshParams: Partial<GmshParams> = {}
-  ): Promise<string> {
-    console.log('使用Gmsh(OCC)生成网格', { geologicalModelId, meshParams });
-    
-    // 默认参数
-    const defaultParams: GmshParams = {
-      meshSizeMin: 1.0,
-      meshSizeMax: 20.0,
-      meshSizeFactor: 1.0,
-      algorithm: 'delaunay',
-      dimension: 3,
-      useOCC: true
-    };
-    
-    const params = { ...defaultParams, ...meshParams };
-    
-    // 模拟API调用
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(`geo-mesh-${Date.now()}`);
-      }, 1000);
-    });
-  }
-  
-  /**
-   * 获取地质模型预览数据
-   * @param geologicalModelId 地质模型ID
-   * @returns 预览数据
-   */
-  async getModelPreview(geologicalModelId: string): Promise<any> {
-    console.log('获取地质模型预览', { geologicalModelId });
-    
-    // 模拟API调用
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          surfaces: [
-            {
-              name: '表层',
-              color: '#8B4513',
-              vertices: [/* 三维顶点数据 */],
-              faces: [/* 三角面片索引 */]
-            },
-            {
-              name: '粘土层',
-              color: '#A0522D',
-              vertices: [/* 三维顶点数据 */],
-              faces: [/* 三角面片索引 */]
-            }
-            // 其他土层...
-          ],
-          boundingBox: {
-            min: { x: -250, y: -250, z: -50 },
-            max: { x: 250, y: 250, z: 0 }
-          }
-        });
-      }, 800);
-    });
-  }
-  
-  /**
-   * 获取地质剖面数据
-   * @param geologicalModelId 地质模型ID
-   * @param plane 剖面平面参数 ('xy'|'xz'|'yz' 或自定义平面方程)
-   * @param position 剖面位置
-   * @returns 剖面数据
-   */
-  async getGeologicalSection(
-    geologicalModelId: string,
-    plane: 'xy' | 'xz' | 'yz' | { a: number; b: number; c: number; d: number },
-    position: number = 0
-  ): Promise<any> {
-    console.log('获取地质剖面', { geologicalModelId, plane, position });
-    
-    // 模拟API调用
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          sectionData: {
-            points: [/* 二维点数据 */],
-            lines: [/* 线段索引 */],
-            soilTypes: [/* 土层类型索引 */]
-          },
-          dimensions: {
-            width: 500,
-            height: 50
-          }
-        });
-      }, 500);
-    });
-  }
-  
-  /**
-   * 导出地质模型
-   * @param geologicalModelId 地质模型ID
-   * @param format 导出格式
-   * @returns 导出状态
-   */
-  async exportGeologicalModel(
-    geologicalModelId: string,
-    format: 'vtk' | 'gltf' | 'obj' | 'step'
-  ): Promise<boolean> {
-    console.log('导出地质模型', { geologicalModelId, format });
-    
-    // 模拟API调用
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(true);
-      }, 1000);
-    });
-  }
-}
-
-// 导出单例
-export const geologyService = new GeologyService(); 
+}; 

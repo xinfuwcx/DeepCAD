@@ -250,6 +250,7 @@ export interface GemPyParams {
     c_o: number;
     algorithm: string;
     generateContours?: boolean; // 确保这个是可选的
+    drift_equations: string[];
 }
 
 export interface GmshParams {
@@ -259,11 +260,17 @@ export interface GmshParams {
     useOCC: boolean;
 }
 
+// Re-defining these to match the new backend Pydantic models precisely
+export interface ModelOptions {
+    show_contours: boolean;
+}
+
 // --- 新增: 地质模型特征 ---
 export interface CreateGeologicalModelParameters {
-  boreholes?: BoreholeData[];
-  orientations?: OrientationData[];
+  boreholes: BoreholeData[];
+  orientations: OrientationData[];
   gempy_params: GemPyParams;
+  options: ModelOptions;
 }
 
 export interface CreateGeologicalModelFeature {
@@ -296,6 +303,10 @@ export interface ConceptualLayer {
 
 export interface CreateConceptualLayersParameters {
     layers: ConceptualLayer[];
+    domain?: {
+        xSize: number;
+        zSize: number;
+    };
 }
 
 export interface CreateConceptualLayersFeature extends BaseFeature {

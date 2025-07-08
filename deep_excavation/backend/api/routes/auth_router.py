@@ -6,9 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from ...database import get_db
-from ...models.user import User, UserCreate, UserResponse, Token
-from ...auth.auth import (
+from deep_excavation.backend.database import get_db
+from deep_excavation.backend.models.user import User, UserCreate, UserResponse, Token
+from deep_excavation.backend.auth.auth import (
     authenticate_user, 
     create_access_token, 
     get_password_hash,

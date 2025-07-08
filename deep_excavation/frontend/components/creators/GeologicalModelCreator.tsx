@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import {
     Box, Button, Typography, Stack, Paper, FormControl, InputLabel, Select, MenuItem, TextField, Grid, Divider, IconButton, Alert, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, LinearProgress, Tabs, Tab, Accordion, AccordionSummary, AccordionDetails,
-    Card, CardContent, Tooltip, Chip, ToggleButtonGroup, ToggleButton
+    Card, CardContent, Tooltip, Chip, ToggleButtonGroup, ToggleButton, InputAdornment, Checkbox, FormControlLabel, Switch
 } from '@mui/material';
 import { 
     Add as AddIcon, 
@@ -22,18 +22,29 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { produce } from 'immer';
 import Papa from 'papaparse';
+import { useSnackbar } from 'notistack';
 
 import { useStore } from '../../core/store';
 import { SOIL_MATERIALS } from '../../core/bimColorSystem';
 import { LITHOLOGY_COLORS } from '../../core/geologicalColorSchemes';
 import DiagramRenderer from '../shared/DiagramRenderer';
-import { CreateGeologicalModelFeature, CreateConceptualLayersFeature, ConceptualLayer, GemPyParams as StoreGemPyParams } from '../../services/parametricAnalysisService';
+import { 
+    GeologyModelParameters, 
+    createDataDrivenGeologicalModel,
+    GeologicalModelResponse,
+} from '../../services/geologyService';
+import { CreateConceptualLayersFeature, ConceptualLayer } from '../../services/parametricAnalysisService';
 
 // --- 类型定义 ---
 interface BoreholePoint { id: string; x: number; y: number; z: number; surface: string; }
 interface Orientation { id: string; x: number; y: number; z: number; azimuth: number; dip: number; polarity: number; surface: string; }
 interface LocalSoilLayer { id: string; name: string; thickness: number; soilType: string; color: string; }
-interface GemPyParams extends StoreGemPyParams {}
+
+interface ComputationalDomain {
+  xSize: number;
+  zSize: number;
+}
+
 interface TabPanelProps { children?: React.ReactNode; index: number; value: number; }
 
 // --- 辅助组件 ---
@@ -210,214 +221,378 @@ const MultiViewGeologicalModel: React.FC<{
 // --- 主组件 ---
 const GeologicalModelCreator: React.FC = () => {
     const addFeature = useStore(state => state.addFeature);
-    const [activeTab, setActiveTab] = useState(0);
+    const setTransientGeologicalMesh = useStore(state => state.setTransientGeologicalMesh);
+    const { enqueueSnackbar } = useSnackbar();
+    const [activeTab, setActiveTab] = useState<number>(0);
 
-    // 概念建模状态
+    // --- 概念建模状态 ---
     const [conceptualLayers, setConceptualLayers] = useState<LocalSoilLayer[]>([]);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [layerToDelete, setLayerToDelete] = useState<string | null>(null);
+    const [computationalDomain, setComputationalDomain] = useState<ComputationalDomain>({
+        xSize: 500,
+        zSize: 500
+    });
 
-    // 数据驱动建模状态
-    const [interfacePoints, setInterfacePoints] = useState<BoreholePoint[]>([]);
-    const [orientations, setOrientations] = useState<Orientation[]>([]);
-    const [uploadedInterfaceFileName, setUploadedInterfaceFileName] = useState<string | null>(null);
-    const [uploadedOrientationFileName, setUploadedOrientationFileName] = useState<string | null>(null);
-    const [gempyParams, setGempyParams] = useState<GemPyParams>({ resolution: [50, 50, 50], c_o: 50000, algorithm: 'kriging' });
+    // --- (重构后) 数据驱动建模状态 ---
+    const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [isGenerating, setIsGenerating] = useState(false);
-
+    const [boreholeData, setBoreholeData] = useState<{ x: number; y: number; z: number; formation: string; }[]>([]);
+    const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+    
+    // 基于500x500x30m体积的合理默认值
+    const [modelParams, setModelParams] = useState({
+      // GemPy插值器设置
+      resolution: '50,50,50', // 对应10m x 10m的插值网格
+      // Gmsh设置
+      meshSize: 10.0, // 初始背景网格尺寸
+      gridResolution: 50, // B-Spline曲面近似的控制点网格 (50x50)
+      // 可视化输出选项
+      generateContours: false,
+    });
+    
     // --- 事件处理 ---
     const handleTabChange = (event: React.SyntheticEvent, newValue: number) => setActiveTab(newValue);
 
-    // 概念建模处理
+    const handleDomainChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = event.target;
+        setComputationalDomain(prev => ({ ...prev, [name]: Number(value) }));
+    };
+
     const handleAddConceptualLayer = () => {
-        const defaultSoilType = 'clay_silty';
-        const newLayer: LocalSoilLayer = { 
-            id: uuidv4(), name: `土层 ${conceptualLayers.length + 1}`, thickness: 10, soilType: defaultSoilType, 
-            color: LITHOLOGY_COLORS[defaultSoilType as keyof typeof LITHOLOGY_COLORS] || '#cccccc' 
+        const newLayer: LocalSoilLayer = {
+            id: uuidv4(),
+            name: `土层 ${conceptualLayers.length + 1}`,
+            thickness: 10,
+            soilType: 'silt',
+            color: LITHOLOGY_COLORS.silt,
         };
         setConceptualLayers(produce(draft => { draft.push(newLayer); }));
     };
+
     const handleUpdateConceptualLayer = (id: string, field: keyof LocalSoilLayer, value: any) => {
         setConceptualLayers(produce(draft => {
             const layer = draft.find(l => l.id === id);
             if (layer) {
                 (layer as any)[field] = value;
-                if (field === 'soilType') layer.color = LITHOLOGY_COLORS[value as keyof typeof LITHOLOGY_COLORS] || '#cccccc';
+                // Also update color based on soilType
+                if (field === 'soilType') {
+                    layer.color = LITHOLOGY_COLORS[value as keyof typeof LITHOLOGY_COLORS] || '#cccccc';
+                }
             }
         }));
     };
+
     const handleOpenDeleteConfirm = (id: string) => { setLayerToDelete(id); setDeleteConfirmOpen(true); };
     const handleCloseDeleteConfirm = () => { setDeleteConfirmOpen(false); setLayerToDelete(null); };
     const handleConfirmDelete = () => {
-        if (layerToDelete) setConceptualLayers(conceptualLayers.filter(l => l.id !== layerToDelete));
+        if (layerToDelete) {
+            setConceptualLayers(layers => layers.filter(l => l.id !== layerToDelete));
+        }
         handleCloseDeleteConfirm();
     };
+
     const handleGenerateConceptualModel = () => {
-        const newFeature: CreateConceptualLayersFeature = {
-            id: uuidv4(), name: '概念地质模型', type: 'CreateConceptualLayers',
-            parameters: { layers: conceptualLayers.map(l => ({ name: l.name, thickness: l.thickness, material: l.soilType })) }
-        };
-        addFeature(newFeature);
-    };
-
-    // 数据驱动建模处理
-    const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>, type: 'interface' | 'orientation') => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
-        if (type === 'interface') setUploadedInterfaceFileName(file.name);
-        else setUploadedOrientationFileName(file.name);
-        
-        setError(null);
-        Papa.parse(file, {
-            header: true, skipEmptyLines: true,
-            complete: (results) => {
-                const data = results.data as any[];
-                if (type === 'interface') {
-                    const parsedData = data.map(row => ({ id: uuidv4(), x: parseFloat(row.X), y: parseFloat(row.Y), z: parseFloat(row.Z), surface: row.surface }))
-                        .filter(p => !isNaN(p.x) && !isNaN(p.y) && !isNaN(p.z) && p.surface);
-                    if (parsedData.length === 0) { setError(`No valid interface points found in "${file.name}".`); return; }
-                    setInterfacePoints(parsedData);
-                } else {
-                    const parsedData = data.map(row => ({ id: uuidv4(), x: parseFloat(row.X), y: parseFloat(row.Y), z: parseFloat(row.Z), azimuth: parseFloat(row.azimuth), dip: parseFloat(row.dip), polarity: 1, surface: row.surface }))
-                        .filter(p => !isNaN(p.x) && !isNaN(p.y) && !isNaN(p.z) && !isNaN(p.azimuth) && !isNaN(p.dip) && p.surface);
-                    if (parsedData.length === 0) { setError(`No valid orientations found in "${file.name}".`); return; }
-                    setOrientations(parsedData);
+        const feature: CreateConceptualLayersFeature = {
+            id: uuidv4(),
+            type: 'CreateConceptualLayers',
+            name: '概念地质模型',
+            parameters: {
+                layers: conceptualLayers.map(l => ({
+                    name: l.name,
+                    thickness: l.thickness,
+                    material: l.soilType,
+                })),
+                domain: {
+                    xSize: computationalDomain.xSize,
+                    zSize: computationalDomain.zSize
                 }
-            },
-            error: (err: any) => setError(`File parsing error: ${err.message}`)
-        });
-    };
-    const handleGempyParamChange = (event: any) => {
-        const { name, value } = event.target;
-        if(name === 'resX') setGempyParams(p => ({...p, resolution: [Number(value), p.resolution[1], p.resolution[2]]}));
-        else if(name === 'resY') setGempyParams(p => ({...p, resolution: [p.resolution[0], Number(value), p.resolution[2]]}));
-        else if(name === 'resZ') setGempyParams(p => ({...p, resolution: [p.resolution[0], p.resolution[1], Number(value)]}));
-        else if (name) setGempyParams(p => ({ ...p, [name]: value }));
-    };
-    const handleGenerateDataDrivenModel = () => {
-        const feature: CreateGeologicalModelFeature = {
-            id: uuidv4(), name: `数据驱动地质模型`, type: 'CreateGeologicalModel',
-            parameters: { boreholes: interfacePoints, orientations: orientations, gempy_params: gempyParams }
+            }
         };
         addFeature(feature);
     };
 
-    return (
-        <Box sx={{ p: 1, height: '100%' }}>
-            <Paper elevation={0} sx={{ p: 2, pb: 0, bgcolor: 'transparent' }}>
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><TerrainIcon />地质模型</Typography>
-                <Divider sx={{ my: 1 }} />
-                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                    <Tabs value={activeTab} onChange={handleTabChange} variant="fullWidth" centered>
-                        <Tab label="概念建模" />
-                        <Tab label="数据驱动建模" />
-                    </Tabs>
-                </Box>
-            </Paper>
+    // --- (重构后) 数据驱动建模逻辑 ---
 
-            <TabPanel value={activeTab} index={0}>
-                {/* --- 概念建模 UI - 上中下布局优化版 --- */}
-                <Stack spacing={2}>
-                    {/* 上部：土层定义 */}
-                    <Paper variant="outlined" sx={{ p: 2 }}>
-                        <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            定义水平土层
-                            <Button 
-                                size="small" 
-                                startIcon={<AddIcon />} 
-                                onClick={handleAddConceptualLayer}
-                                variant="outlined"
-                            >
-                                添加土层
+    const handleDataFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setIsLoading(true);
+        setError(null);
+        setUploadedFileName(file.name);
+
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => {
+                const requiredFields = ['x', 'y', 'z', 'formation'];
+                const headers = results.meta.fields;
+                if (!headers || !requiredFields.every(field => headers.includes(field))) {
+                    setError(`CSV文件缺少必要的列. 需要: ${requiredFields.join(', ')}.`);
+                    setBoreholeData([]);
+                } else {
+                    const parsedData = (results.data as any[]).map((row: any) => ({
+                        x: parseFloat(row.x),
+                        y: parseFloat(row.y),
+                        z: parseFloat(row.z),
+                        formation: row.formation,
+                    })).filter(r => !isNaN(r.x) && !isNaN(r.y) && !isNaN(r.z) && r.formation);
+                    setBoreholeData(parsedData);
+                    setError(null);
+                }
+                setIsLoading(false);
+            },
+            error: (err: any) => {
+                setError(`解析CSV文件失败: ${err.message}`);
+                setIsLoading(false);
+            }
+        });
+    };
+    
+    const handleParamChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value, type, checked } = event.target;
+        setModelParams(produce(draft => {
+            (draft as any)[name] = type === 'checkbox' ? checked : value;
+        }));
+    };
+
+    const handleGenerateDataDrivenModel = async () => {
+        if (boreholeData.length === 0) {
+            enqueueSnackbar("请先上传有效的钻孔数据", { variant: "warning" });
+            return;
+        }
+        setIsLoading(true);
+        setError(null);
+        try {
+            const uniqueFormations = [...new Set(boreholeData.map(p => p.formation))];
+            const seriesMapping: { [key: string]: string[] } = {
+                "DefaultSeries": uniqueFormations
+            };
+
+            const params: GeologyModelParameters = {
+                borehole_data: boreholeData,
+                surface_points: [],
+                series_mapping: seriesMapping,
+                options: {
+                    resolution: modelParams.resolution.split(',').map(Number),
+                    mesh_size: modelParams.meshSize,
+                    grid_resolution: modelParams.gridResolution,
+                    generate_contours: modelParams.generateContours,
+                }
+            };
+
+            const result: GeologicalModelResponse = await createDataDrivenGeologicalModel(params);
+            
+            if (result.meshes && result.meshes.length > 0) {
+                setTransientGeologicalMesh(result);
+                console.log("地质模型生成成功，已在视图中更新。");
+            } else {
+                throw new Error("模型生成成功，但后端未返回有效的网格数据。");
+            }
+        } catch (e: any) {
+            console.error("生成数据驱动模型失败:", e);
+            setError(`生成失败: ${e.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <Paper elevation={2} sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                <Tabs value={activeTab} onChange={handleTabChange} variant="fullWidth">
+                    <Tab label="概念建模" />
+                    <Tab label="数据驱动建模" />
+                </Tabs>
+            </Box>
+            <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 1 }}>
+
+                {/* --- 概念建模标签页 --- */}
+                <TabPanel value={activeTab} index={0}>
+                    <Stack spacing={2}>
+                        <MultiViewGeologicalModel layers={conceptualLayers} />
+                        <Paper variant="outlined" sx={{ p: 2 }}>
+                            <Typography variant="subtitle1" sx={{ mb: 2 }}>土层编辑器</Typography>
+                            <Box sx={{ maxHeight: '250px', overflowY: 'auto', pr: 1 }}>
+                                {conceptualLayers.map((layer) => (
+                                    <CompactLayerEditor
+                                        key={layer.id}
+                                        layer={layer}
+                                        onUpdate={handleUpdateConceptualLayer}
+                                        onDelete={handleOpenDeleteConfirm}
+                                    />
+                                ))}
+                            </Box>
+                            <Button startIcon={<AddIcon />} fullWidth sx={{ mt: 1 }} onClick={handleAddConceptualLayer}>添加土层</Button>
+                        </Paper>
+                        
+                        <Accordion>
+                            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                <Typography variant="subtitle2">计算域设置</Typography>
+                            </AccordionSummary>
+                            <AccordionDetails>
+                                <Grid container spacing={2}>
+                                    <Grid item xs={6}>
+                                        <TextField label="宽度 (X)" name="xSize" type="number" value={computationalDomain.xSize} onChange={handleDomainChange} fullWidth size="small" />
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <TextField label="长度 (Y)" name="zSize" type="number" value={computationalDomain.zSize} onChange={handleDomainChange} fullWidth size="small" />
+                                    </Grid>
+                                </Grid>
+                            </AccordionDetails>
+                        </Accordion>
+                        
+                        <Box sx={{ pt: 1 }}>
+                            <Button fullWidth variant="contained" color="primary" onClick={handleGenerateConceptualModel}>
+                                生成概念地质模型
                             </Button>
+                        </Box>
+                    </Stack>
+                </TabPanel>
+
+                {/* --- 数据驱动建模标签页 (重构) --- */}
+                <TabPanel value={activeTab} index={1}>
+                    <Stack spacing={2.5}>
+                        <Typography variant="h6" gutterBottom>数据驱动地质建模</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            通过上传标准的钻孔数据(CSV)，结合建模参数，自动生成三维地质体网格。
                         </Typography>
                         
-                        <Box sx={{ maxHeight: 200, overflowY: 'auto', pr: 1 }}>
-                            {conceptualLayers.length === 0 ? (
-                                <Box sx={{ p: 2, textAlign: 'center', bgcolor: 'rgba(0,0,0,0.03)', borderRadius: 1 }}>
-                                    <Typography variant="body2" color="text.secondary">
-                                        请添加至少一个土层
-                                    </Typography>
-                                </Box>
-                            ) : (
-                                conceptualLayers.map((layer) => (
-                                    <CompactLayerEditor 
-                                        key={layer.id} 
-                                        layer={layer} 
-                                        onUpdate={handleUpdateConceptualLayer} 
-                                        onDelete={handleOpenDeleteConfirm} 
-                                    />
-                                ))
-                            )}
+                        <Card variant="outlined">
+                            <CardContent>
+                                <Typography variant="subtitle1" gutterBottom>1. 上传钻孔数据</Typography>
+                                <Stack direction="row" spacing={2} alignItems="center">
+                                    <Button
+                                        variant="contained"
+                                        component="label"
+                                        startIcon={<UploadFileIcon />}
+                                        disabled={isLoading}
+                                    >
+                                        选择CSV文件
+                                        <input type="file" hidden accept=".csv" onChange={handleDataFileChange} />
+                                    </Button>
+                                    {uploadedFileName && <Chip label={uploadedFileName} onDelete={() => { setUploadedFileName(null); setBoreholeData([]); }} />}
+                                </Stack>
+                                <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 1.5 }}>
+                                    * CSV文件必须包含列: x, y, z, formation
+                                </Typography>
+                            </CardContent>
+                        </Card>
+
+                        <Card variant="outlined">
+                            <CardContent>
+                                <Typography variant="h6" gutterBottom>2. 配置参数</Typography>
+
+                                <Accordion>
+                                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                        <Typography variant="subtitle2">地质插值 (GemPy)</Typography>
+                                    </AccordionSummary>
+                                    <AccordionDetails>
+                                        <Tooltip title="定义GemPy插值器的三维网格分辨率(nx, ny, nz)。对于500x500m范围，'50,50,50'相当于10x10m的插值精度。">
+                                            <TextField
+                                                name="resolution"
+                                                label="插值器分辨率"
+                                                value={modelParams.resolution}
+                                                onChange={handleParamChange}
+                                                fullWidth
+                                                margin="dense"
+                                                size="small"
+                                            />
+                                        </Tooltip>
+                                    </AccordionDetails>
+                                </Accordion>
+
+                                <Accordion>
+                                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                        <Typography variant="subtitle2">几何与网格 (Gmsh)</Typography>
+                                    </AccordionSummary>
+                                    <AccordionDetails>
+                                        <Stack spacing={2}>
+                                            <Tooltip title="定义初始背景网格的基础单元尺寸(米)。此粗糙网格用于快速预览和后续的精细化。">
+                                                <TextField
+                                                    name="meshSize"
+                                                    label="基础单元尺寸 (m)"
+                                                    type="number"
+                                                    value={modelParams.meshSize}
+                                                    onChange={handleParamChange}
+                                                    fullWidth
+                                                    margin="dense"
+                                                    size="small"
+                                                />
+                                            </Tooltip>
+                                            <Tooltip title="定义将地质曲面近似为B-Spline曲面时所用的控制点网格密度(NxN)。50表示50x50的网格。">
+                                                <TextField
+                                                    name="gridResolution"
+                                                    label="曲面近似网格密度"
+                                                    type="number"
+                                                    value={modelParams.gridResolution}
+                                                    onChange={handleParamChange}
+                                                    fullWidth
+                                                    margin="dense"
+                                                    size="small"
+                                                />
+                                            </Tooltip>
+                                        </Stack>
+                                    </AccordionDetails>
+                                </Accordion>
+
+                                <Accordion>
+                                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                        <Typography variant="subtitle2">可视化输出</Typography>
+                                    </AccordionSummary>
+                                    <AccordionDetails>
+                                        <FormControlLabel
+                                            control={
+                                                <Switch
+                                                    checked={modelParams.generateContours}
+                                                    onChange={(e) => setModelParams(prev => ({ ...prev, generateContours: e.target.checked }))}
+                                                    name="generateContours"
+                                                />
+                                            }
+                                            label="生成地表等高线"
+                                        />
+                                    </AccordionDetails>
+                                </Accordion>
+                            </CardContent>
+                        </Card>
+
+                        <Box sx={{ pt: 1 }}>
+                            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+                            {isLoading && <LinearProgress sx={{ mb: 2 }} />}
+                            <Tooltip title={boreholeData.length === 0 ? "请先上传钻孔数据" : "根据钻孔数据生成三维地质模型"}>
+                                <span>
+                                    <Button
+                                        variant="contained"
+                                        color="primary"
+                                        size="large"
+                                        fullWidth
+                                        onClick={handleGenerateDataDrivenModel}
+                                        disabled={isLoading || boreholeData.length === 0}
+                                    >
+                                        {isLoading ? '正在生成...' : '生成三维地质模型'}
+                                    </Button>
+                                </span>
+                            </Tooltip>
                         </Box>
-                    </Paper>
-                    
-                    {/* 中部：多视图预览 */}
-                    <Paper variant="outlined" sx={{ p: 2 }}>
-                        <MultiViewGeologicalModel layers={conceptualLayers} />
-                    </Paper>
-                    
-                    {/* 底部：操作按钮 */}
-                    <Button 
-                        fullWidth 
-                        variant="contained" 
-                        onClick={handleGenerateConceptualModel} 
-                        disabled={conceptualLayers.length === 0}
-                    >
-                        生成概念模型
-                    </Button>
-                </Stack>
-            </TabPanel>
+                    </Stack>
+                </TabPanel>
 
-            <TabPanel value={activeTab} index={1}>
-                {/* --- 数据驱动建模 UI --- */}
-                <Stack spacing={3}>
-                    <Paper variant="outlined" sx={{ p: 2 }}>
-                         <Typography variant="subtitle1" gutterBottom>1. 上传地质数据 (可选)</Typography>
-                         <DataInputSection title="地表接触点 (Interface Points)" onFileUpload={(e) => handleFileUpload(e, 'interface')} fileName={uploadedInterfaceFileName}>
-                             <Typography variant="body2" color="text.secondary">必需。定义地层位置。CSV须包含 'X', 'Y', 'Z', 'surface' 列。</Typography>
-                         </DataInputSection>
-                         <DataInputSection title="地质构造产状 (Orientations)" onFileUpload={(e) => handleFileUpload(e, 'orientation')} fileName={uploadedOrientationFileName}>
-                              <Typography variant="body2" color="text.secondary">可选。定义地层方向。CSV须包含 'X', 'Y', 'Z', 'azimuth', 'dip', 'surface' 列。</Typography>
-                         </DataInputSection>
-                    </Paper>
-                     <Paper variant="outlined" sx={{ p: 2 }}>
-                          <Typography variant="subtitle1" gutterBottom>2. 定义地层层序</Typography>
-                          <Paper elevation={0} variant="outlined" sx={{p:2, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 80, bgcolor: 'rgba(0,0,0,0.05)'}}>
-                              <Typography variant="body2" color="text.secondary">(未来将在此实现可拖拽的地层顺序列表)</Typography>
-                          </Paper>
-                    </Paper>
-                    <Paper variant="outlined" sx={{ p: 2 }}>
-                        <Typography variant="subtitle1" gutterBottom>3. GemPy 算法参数</Typography>
-                        <Grid container spacing={2} sx={{pt: 1}}>
-                            <Grid item xs={4}><TextField fullWidth size="small" label="X分辨率" name="resX" value={gempyParams.resolution[0]} onChange={handleGempyParamChange} /></Grid>
-                            <Grid item xs={4}><TextField fullWidth size="small" label="Y分辨率" name="resY" value={gempyParams.resolution[1]} onChange={handleGempyParamChange} /></Grid>
-                            <Grid item xs={4}><TextField fullWidth size="small" label="Z分辨率" name="resZ" value={gempyParams.resolution[2]} onChange={handleGempyParamChange} /></Grid>
-                            <Grid item xs={6}><TextField fullWidth size="small" label="Co-Kriging Range (c_o)" name="c_o" value={gempyParams.c_o} onChange={handleGempyParamChange} /></Grid>
-                            <Grid item xs={6}>
-                                <FormControl fullWidth size="small">
-                                    <InputLabel>插值算法</InputLabel>
-                                    <Select name="algorithm" value={gempyParams.algorithm} onChange={handleGempyParamChange}><MenuItem value="kriging">Kriging</MenuItem><MenuItem value="cokriging">Co-Kriging</MenuItem></Select>
-                                </FormControl>
-                            </Grid>
-                        </Grid>
-                    </Paper>
-                     <Button fullWidth variant="contained" onClick={handleGenerateDataDrivenModel} disabled={isGenerating || interfacePoints.length === 0}>{isGenerating ? '正在生成...' : '生成数据驱动模型'}</Button>
-                     {isGenerating && <LinearProgress sx={{ mt: 1 }} />}
-                </Stack>
-            </TabPanel>
-
+            </Box>
+            
             <Dialog open={deleteConfirmOpen} onClose={handleCloseDeleteConfirm}>
                 <DialogTitle>确认删除</DialogTitle>
-                <DialogContent><DialogContentText>您确定要删除这个土层吗？</DialogContentText></DialogContent>
+                <DialogContent>
+                    <DialogContentText>
+                        确定要删除土层 "{conceptualLayers.find(l => l.id === layerToDelete)?.name}" 吗? 此操作无法撤销。
+                    </DialogContentText>
+                </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseDeleteConfirm}>取消</Button>
                     <Button onClick={handleConfirmDelete} color="error">删除</Button>
                 </DialogActions>
             </Dialog>
-        </Box>
+        </Paper>
     );
 };
 

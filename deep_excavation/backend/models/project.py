@@ -2,13 +2,12 @@
 项目模型定义
 """
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, ForeignKey, JSON, Text
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
-from .user import Base
+from .base import Base
 
 class Project(Base):
     """项目数据库模型"""
