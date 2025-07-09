@@ -14,6 +14,11 @@ def pyvista_to_threejs_json(mesh: pv.PolyData) -> dict:
     """
     logger.debug(f"Converting PyVista mesh '{mesh}' to three.js format.")
 
+    # If the mesh is an UnstructuredGrid, extract its surface first.
+    if isinstance(mesh, pv.UnstructuredGrid):
+        logger.debug("Input is an UnstructuredGrid, extracting surface to PolyData.")
+        mesh = mesh.extract_surface()
+
     # Ensure the mesh is triangulated for consistent rendering
     if not mesh.is_all_triangles:
         mesh = mesh.triangulate()

@@ -32,7 +32,7 @@ class GeologyOptions(BaseModel):
 
     resolution_x: int = Field(50, alias='resolutionX')
     resolution_y: int = Field(50, alias='resolutionY')
-    alpha: float = Field(2.0, alias='alpha')
+    alpha: float = Field(0.0, alias='alpha', description="Alpha value for Delaunay 3D triangulation. A value of 0 means no filtering.")
 
 
 class GeologyModelRequest(BaseModel):

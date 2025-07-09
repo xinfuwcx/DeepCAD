@@ -4,12 +4,12 @@
  * @date 2025-01-27
  * @description 使用高性能渲染器和抗抖动控制系统的三维视口组件。
  */
-import React, { useRef, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react';
+import React, { useRef, useEffect, forwardRef, useImperativeHandle, useMemo, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Raycaster, Vector2 } from 'three';
 import { replayFeatures } from '../../core/replayEngine';
-import { useStore, ViewportHandles } from '../../core/store';
+import { useStore, ViewportHandles, AppState, GeologicalLayer, ThreeJsGeometry } from '../../core/store';
 import { createAxesGizmo, setupAxesGizmo } from './AxesGizmo';
 import { globalResourceManager } from '../../core/resourceManager';
 import { OptimizedRenderer } from '../../core/optimizedRenderer';
@@ -18,7 +18,7 @@ import { EnhancedRenderer, createEnhancedRenderer } from '../../core/enhancedRen
 import { StabilizedControls, createStabilizedControls } from '../../core/stabilizedControls';
 import { globalMaterialOptimizer } from '../../core/materialOptimizer';
 import { globalRenderQualityManager } from '../../core/renderQualityManager';
-import { BufferGeometry, Float32BufferAttribute } from 'three';
+import { BufferGeometry, Float32BufferAttribute, Color, DoubleSide, Scene, WebGLRenderer, PerspectiveCamera, GridHelper, Group } from 'three';
 
 // 高性能渲染配置
 const HIGH_PERFORMANCE_CONFIG = {
@@ -61,17 +61,21 @@ const STABILIZATION_CONFIG = {
  */
 const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
   const mountRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef(new THREE.Scene());
+  const sceneRef = useRef<THREE.Scene>(new THREE.Scene());
   const cameraRef = useRef<THREE.PerspectiveCamera>();
   const rendererRef = useRef<THREE.WebGLRenderer>();
   const controlsRef = useRef<OrbitControls>();
   const transientGroupRef = useRef(new THREE.Group());
   const resultsGroupRef = useRef(new THREE.Group());
-  const axesGizmoRef = useRef<{ update: () => void; dispose: () => void }>();
+  const axesGizmoRef = useRef<THREE.Object3D>(); // <--- 类型变更为 Object3D
   const gridRef = useRef<THREE.Group | THREE.GridHelper>();
+  const modelGroupRef = useRef<THREE.Group>(new THREE.Group());
+  const [isProcessingModel, setIsProcessingModel] = useState(false);
 
   const features = useStore(state => state.features);
   const setViewportApi = useStore(state => state.setViewportApi);
+  const geologicalModel = useStore((state: AppState) => state.geologicalModel);
+  const setGeologicalModel = useStore((state: AppState) => state.setGeologicalModel);
 
   const api: ViewportHandles = useMemo(() => ({
     addAnalysisMesh: (mesh) => {
@@ -140,17 +144,18 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
 
     // --- Core Three.js Setup ---
     const scene = sceneRef.current;
-    scene.background = new THREE.Color(0x1a2035);
+    scene.background = new Color(0x1a2035);
     scene.add(transientGroupRef.current);
     scene.add(resultsGroupRef.current);
+    scene.add(modelGroupRef.current); // <--- 关键修正：将地质模型组添加到场景中
 
     // --- Camera ---
-    const camera = new THREE.PerspectiveCamera(75, mountNode.clientWidth / mountNode.clientHeight, 0.1, 20000); // Increased far plane
+    const camera = new PerspectiveCamera(75, mountNode.clientWidth / mountNode.clientHeight, 0.1, 20000); // Increased far plane
     camera.position.set(100, 150, 250);
     cameraRef.current = camera;
 
     // --- Renderer ---
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(mountNode.clientWidth, mountNode.clientHeight);
     rendererRef.current = renderer;
@@ -171,14 +176,16 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
 
     // --- Professional Grid ---
     // Replaced custom grid with standard THREE.GridHelper for robustness and simplicity.
-    const gridHelper = new THREE.GridHelper(1000, 20, 0xffffff, 0x888888);
+    const gridHelper = new GridHelper(1000, 20, 0xffffff, 0x888888);
     gridHelper.material.opacity = 0.5;
     gridHelper.material.transparent = true;
     scene.add(gridHelper);
     gridRef.current = gridHelper;
 
     // --- Axes Gizmo ---
-    axesGizmoRef.current = setupAxesGizmo(camera, renderer);
+    const axesGizmo = setupAxesGizmo();
+    scene.add(axesGizmo);
+    axesGizmoRef.current = axesGizmo;
 
     // --- Resize Handling ---
     const handleResize = () => {
@@ -199,13 +206,26 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
       
       controls.update();
       
-      // 先渲染主场景
-      renderer.render(scene, camera);
-      
-      // 确保坐标系指示器显示在最上层
+      // 更新坐标轴指示器的位置和旋转
       if (axesGizmoRef.current) {
-        axesGizmoRef.current.update();
+        const vec = new THREE.Vector3();
+        vec.set( -camera.position.x, -camera.position.y, -camera.position.z );
+        vec.normalize();
+        
+        // 计算一个固定的偏移量，让它看起来在左下角
+        const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
+        const distance = offset.length() * 0.1; // 距离因子，可调整
+        
+        const targetPosition = new THREE.Vector3()
+            .copy(camera.position)
+            .add(vec.multiplyScalar(distance));
+        
+        axesGizmoRef.current.position.copy(targetPosition);
+        axesGizmoRef.current.quaternion.copy(camera.quaternion);
       }
+      
+      // 渲染主场景
+      renderer.render(scene, camera);
       
       globalPerformanceMonitor.endRender(renderStartTime);
       
@@ -232,14 +252,12 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
       if (mountNode && renderer.domElement) {
         mountNode.removeChild(renderer.domElement);
       }
-      if (axesGizmoRef.current) {
-        axesGizmoRef.current.dispose();
-      }
+      // dispose 不再需要，因为gizmo是场景的一部分，会被自动处理
       resizeObserver.disconnect();
     };
   }, []);
 
-  // --- Scene Update Logic ---
+  // --- Scene Update Logic for Parametric Features ---
   useEffect(() => {
     const scene = sceneRef.current;
     const camera = cameraRef.current;
@@ -254,45 +272,180 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
         const parametricModel = await replayFeatures(features);
         parametricModel.name = "ParametricModel";
         scene.add(parametricModel);
-
-        if (controls && camera && parametricModel.children.length > 0) {
-            const box = new THREE.Box3().setFromObject(parametricModel);
-            const center = box.getCenter(new THREE.Vector3());
-            const size = box.getSize(new THREE.Vector3());
-            const maxDim = Math.max(size.x, size.y, size.z);
-
-            if (maxDim > 0) { // Avoid issues with empty models
-                const fov = camera.fov * (Math.PI / 180);
-                let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
-                cameraZ *= 1.8;
-
-                const offset = new THREE.Vector3(cameraZ * 0.4, cameraZ * 0.6, cameraZ);
-                camera.position.copy(center).add(offset);
-                controls.target.copy(center);
-                controls.update();
-
-                if (gridRef.current) {
-                    const gridSize = Math.max(size.x, size.z) * 2.5;
-                    scene.remove(gridRef.current);
-                    
-                    // Assuming createProfessionalGrid is defined in the setup useEffect
-                    // We need to make sure it's accessible or redefined here.
-                    // For now, let's assume it's available.
-                    // const newGrid = createProfessionalGrid(gridSize);
-                    // newGrid.position.set(center.x, box.min.y - 0.1, center.z);
-                    // scene.add(newGrid);
-                    // gridRef.current = newGrid;
-                }
-            }
-        }
-        controls?.update();
     };
     
-    if(scene) {
+    if(scene && features.length > 0) { // Only run if there are features
         updateScene();
     }
 
   }, [features]);
+
+  // Effect for handling heavy model processing (geometry creation)
+  useEffect(() => {
+      if (!geologicalModel || !geologicalModel.layers.length || isProcessingModel) {
+          return;
+      }
+
+      // Check if the model has geometry data. If not, it's a lightweight version, so we skip.
+      const hasGeometry = geologicalModel.layers.some(layer => layer.geometry && layer.geometry.vertices.length > 0);
+      if (!hasGeometry) {
+          return;
+      }
+      
+      setIsProcessingModel(true);
+      
+      console.log("Processing new geological model with geometry...", geologicalModel);
+
+      // Clear existing layers
+      while (modelGroupRef.current.children.length > 0) {
+          modelGroupRef.current.remove(modelGroupRef.current.children[0]);
+      }
+      
+      const newMeshes: THREE.Mesh[] = [];
+      geologicalModel.layers.forEach((layer: GeologicalLayer) => {
+          const { geometry, name, color, opacity } = layer;
+          if (!geometry || !geometry.vertices || !geometry.faces) return;
+          
+          const bufferGeom = new BufferGeometry();
+          bufferGeom.setAttribute('position', new Float32BufferAttribute(new Float32Array(geometry.vertices), 3));
+          if (geometry.normals && geometry.normals.length > 0) {
+              bufferGeom.setAttribute('normal', new Float32BufferAttribute(new Float32Array(geometry.normals), 3));
+          } else {
+              bufferGeom.computeVertexNormals();
+          }
+          bufferGeom.setIndex(new Float32BufferAttribute(new Uint32Array(geometry.faces), 1));
+          
+          const material = new THREE.MeshStandardMaterial({ // 关键修正: 使用对光照敏感的标准材质
+              color: color,
+              transparent: true,
+              opacity: opacity,
+              side: DoubleSide,
+              wireframe: geologicalModel.wireframe,
+          });
+          
+          const mesh = new THREE.Mesh(bufferGeom, material);
+          mesh.name = name;
+          mesh.visible = geologicalModel.visibility[name] ?? true;
+          newMeshes.push(mesh);
+          modelGroupRef.current.add(mesh);
+      });
+
+      console.log(`Added ${newMeshes.length} new meshes to the scene.`);
+
+      // --- 关键修正：自动聚焦相机 ---
+      const box = new THREE.Box3().setFromObject(modelGroupRef.current);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+      
+      const camera = cameraRef.current;
+      const controls = controlsRef.current;
+
+      if (camera && controls && maxDim > 0) {
+          const fov = camera.fov * (Math.PI / 180);
+          const cameraDistance = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+          
+          // 给一个舒适的距离，避免模型紧贴屏幕边缘
+          const cameraZ = cameraDistance * 1.5;
+          const newPosition = new THREE.Vector3(center.x, center.y, center.z + cameraZ);
+
+          camera.position.copy(newPosition);
+          controls.target.copy(center);
+          controls.update();
+      }
+      // --- 修正结束 ---
+
+      // Create a lightweight version of the model without geometry data for the store
+      // This prevents re-triggering this heavy effect on simple property changes
+      const lightweightModel = {
+          ...geologicalModel,
+          layers: geologicalModel.layers.map(l => ({ name: l.name, color: l.color, opacity: l.opacity, geometry: undefined })),
+      };
+      
+      // Use a timeout to ensure the state update happens after the current render cycle
+      setTimeout(() => {
+          setGeologicalModel(lightweightModel);
+          setIsProcessingModel(false);
+          console.log("Replaced full model in store with lightweight version.");
+      }, 0);
+
+  }, [geologicalModel, setGeologicalModel]); // Dependency on the full model from the store
+
+  // Effect for handling lightweight property updates (visibility, wireframe, etc.)
+  useEffect(() => {
+      if (!geologicalModel || isProcessingModel) return;
+      
+      const hasGeometry = geologicalModel.layers.some(layer => layer.geometry && layer.geometry.vertices.length > 0);
+      if (hasGeometry) {
+          // This effect should only run for lightweight models
+          return;
+      }
+
+      console.log("Updating geological model properties (visibility, wireframe)...", geologicalModel);
+
+      modelGroupRef.current.children.forEach(child => {
+          if (child instanceof THREE.Mesh) {
+              const layerName = child.name;
+              const layerVisible = geologicalModel.visibility[layerName] ?? true;
+              
+              if (child.visible !== layerVisible) {
+                  child.visible = layerVisible;
+              }
+
+              if (child.material instanceof THREE.MeshStandardMaterial) { // 关键修正: 同样检查标准材质
+                  if (child.material.wireframe !== geologicalModel.wireframe) {
+                      child.material.wireframe = geologicalModel.wireframe;
+                  }
+              }
+          }
+      });
+  }, [geologicalModel, isProcessingModel]); // Dependency on the lightweight model and lock state
+
+  useImperativeHandle(ref, () => ({
+    addAnalysisMesh: (mesh) => {
+        // ... (implementation not shown for brevity)
+    },
+    clearAnalysisMeshes: () => {
+        // ... (implementation not shown for brevity)
+    },
+    loadVtkResults: async (url: string, opacity: number) => {
+        // Clear previous results
+        while(resultsGroupRef.current.children.length > 0){ 
+            resultsGroupRef.current.remove(resultsGroupRef.current.children[0]); 
+        }
+
+        const response = await fetch(url);
+        const vtkJson = await response.json();
+        
+        const geometry = new BufferGeometry();
+        geometry.setAttribute('position', new Float32BufferAttribute(vtkJson.points, 3));
+        if (vtkJson.indices) {
+            geometry.setIndex(vtkJson.indices);
+        }
+        if (vtkJson.color) {
+            geometry.setAttribute('color', new Float32BufferAttribute(vtkJson.color, 3));
+        }
+        geometry.computeVertexNormals();
+
+        const material = new THREE.MeshStandardMaterial({ 
+            vertexColors: true,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: opacity
+        });
+
+        const mesh = new THREE.Mesh(geometry, material);
+        resultsGroupRef.current.add(mesh);
+    },
+    setModelOpacity: (opacity: number) => {
+        resultsGroupRef.current.children.forEach(child => {
+            if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+                child.material.opacity = opacity;
+                child.material.needsUpdate = true;
+            }
+        });
+    },
+  }), []);
 
   return (
     <div 
