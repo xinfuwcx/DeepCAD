@@ -10,14 +10,37 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "three": "^0.164.1"
+    "@ant-design/icons": "^6.0.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@headlessui/react": "^2.2.4",
+    "@heroicons/react": "^2.2.0",
+    "@mui/material": "^7.2.0",
+    "@react-three/drei": "^10.5.0",
+    "@react-three/fiber": "^9.2.0",
+    "@types/react-router-dom": "^5.3.3",
+    "antd": "^5.26.4",
+    "autoprefixer": "^10.4.21",
+    "axios": "^1.10.0",
+    "clsx": "^2.1.1",
+    "daisyui": "^5.0.46",
+    "framer-motion": "^12.23.0",
+    "postcss": "^8.5.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-error-boundary": "^6.0.0",
+    "react-hook-form": "^7.60.0",
+    "react-icons": "^5.5.0",
+    "react-router-dom": "^7.6.3",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss": "^4.1.11",
+    "three": "^0.164.1",
+    "zustand": "^5.0.6"
   },
   "devDependencies": {
-    "@types/react": "^18.2.66",
-    "@types/react-dom": "^18.2.22",
-    "@types/three": "^0.164.0",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@types/three": "^0.164.1",
     "@typescript-eslint/eslint-plugin": "^7.2.0",
     "@typescript-eslint/parser": "^7.2.0",
     "@vitejs/plugin-react": "^4.2.1",
@@ -27,4 +50,4 @@
     "typescript": "^5.2.2",
     "vite": "^5.2.0"
   }
-} 
+}

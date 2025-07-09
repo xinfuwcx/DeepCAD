@@ -1,0 +1,60 @@
+# This is a lightweight docker-compose file for local development.
+# It only includes the essential backend services: database, object storage, and cache.
+# To run these services, use the command:
+# docker-compose -f docker-compose.local.yml up -d
+
+version: '3.8'
+
+services:
+  # 数据库 (PostgreSQL)
+  postgres:
+    image: postgres:14
+    container_name: deepcad-postgres-local
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=deepcad
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - deepcad-local-network
+
+  # 对象存储 (MinIO)
+  minio:
+    image: minio/minio
+    container_name: deepcad-minio-local
+    ports:
+      - "9000:9000" # S3 API Port
+      - "9001:9001" # MinIO Console Port
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=admin123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - deepcad-local-network
+
+  # 缓存 (Redis)
+  redis:
+    image: redis:alpine
+    container_name: deepcad-redis-local
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - deepcad-local-network
+
+# Define persistent volumes for our services
+volumes:
+  postgres-data:
+  minio_data:
+  redis_data:
+
+# Define the local development network
+networks:
+  deepcad-local-network:
+    driver: bridge 

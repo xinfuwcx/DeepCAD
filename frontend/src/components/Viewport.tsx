@@ -1,73 +1,34 @@
-import React, { useRef, useEffect } from 'react';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import React from 'react';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls, Grid } from '@react-three/drei';
 
 const Viewport: React.FC = () => {
-  const mountRef = useRef<HTMLDivElement>(null);
+  return (
+    <div style={{ height: '100%', width: '100%', background: '#333' }}>
+      <Canvas
+        camera={{ position: [25, 25, 25], fov: 25 }}
+      >
+        <color attach="background" args={['#202020']} />
+        <ambientLight intensity={0.7} />
+        <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} />
+        <pointLight position={[-10, -10, -10]} />
+        
+        {/* Helpers */}
+        <Grid 
+          infiniteGrid 
+          sectionColor={'#505050'}
+          cellColor={'#303030'}
+          fadeDistance={50}
+        />
+        <axesHelper args={[5]} />
 
-  useEffect(() => {
-    if (!mountRef.current) return;
+        {/* Placeholder for future models */}
+        {/* You can load your models here, e.g., using useLoader */}
 
-    // Scene
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a1a);
-
-    // Camera
-    const camera = new THREE.PerspectiveCamera(75, mountRef.current.clientWidth / mountRef.current.clientHeight, 0.1, 1000);
-    camera.position.z = 5;
-
-    // Renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
-    mountRef.current.appendChild(renderer.domElement);
-
-    // Controls
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-
-    // Basic cube for testing
-    const geometry = new THREE.BoxGeometry();
-    const material = new THREE.MeshStandardMaterial({ color: 0x0077ff });
-    const cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
-
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    scene.add(ambientLight);
-    const pointLight = new THREE.PointLight(0xffffff, 0.8);
-    camera.add(pointLight);
-    scene.add(camera);
-
-    // Handle window resize
-    const handleResize = () => {
-      if (mountRef.current) {
-        const width = mountRef.current.clientWidth;
-        const height = mountRef.current.clientHeight;
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-        renderer.setSize(width, height);
-      }
-    };
-    window.addEventListener('resize', handleResize);
-
-    // Animation loop
-    const animate = () => {
-      requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
-    };
-    animate();
-
-    // Cleanup on unmount
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      if (mountRef.current) {
-        mountRef.current.removeChild(renderer.domElement);
-      }
-    };
-  }, []);
-
-  return <div ref={mountRef} style={{ width: '100%', height: '100vh' }} />;
+        <OrbitControls makeDefault />
+      </Canvas>
+    </div>
+  );
 };
 
 export default Viewport; 

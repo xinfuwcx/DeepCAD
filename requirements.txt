@@ -18,8 +18,8 @@ python-multipart
 
 # --- Scientific Computing & Data ---
 numpy>=2.3.1
-scipy>=1.16.0
-pandas>=2.3.1
+scipy==1.13.0
+pandas==2.2.1
 h5py>=3.14.0
 matplotlib>=3.10.3
 vtk>=9.5.0
@@ -41,7 +41,9 @@ gmsh>=4.14.0
 # KratosMultiphysics.StructuralMechanicsApplication>=10.2.1
 
 # --- Web Visualization ---
-trame>=3.10.2
+# trame>=3.10.2
+# trame-client>=2.7.4
+# trame-server>=2.13.0
 
 # --- Deep Learning (Optional) ---
 # tensorflow>=2.12.0
