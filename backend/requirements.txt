@@ -1,0 +1,65 @@
+# Deep Excavation CAE System - Unified Dependencies
+
+# --- Core Framework ---
+fastapi
+uvicorn[standard]
+pydantic
+requests
+
+# --- Database ---
+sqlalchemy
+alembic
+psycopg2-binary
+
+# --- Authentication & Security ---
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+
+# --- Scientific Computing & Data ---
+numpy>=1.26.0
+scipy>=1.13.0
+pandas>=2.2.0
+h5py
+matplotlib
+vtk
+
+# --- Geology & Meshing ---
+# PyVista for geometry processing and VTK I/O (VTK is a sub-dependency)
+pyvista
+# Gmsh for meshing
+pygmsh
+# 添加原生 Gmsh 支持
+gmsh>=4.11.0
+# Gmsh with OpenCASCADE support (如果可用)
+# gmsh[occ]>=4.11.0
+meshio
+# DXF support
+ezdxf
+
+# --- Kratos Multiphysics Solver ---
+# These are not installed via pip but expected in the environment.
+# KratosMultiphysics
+# KratosMultiphysics.StructuralMechanicsApplication
+# Refer to project documentation for Kratos setup.
+# kratos-python
+
+# --- Utilities ---
+python-dotenv
+loguru
+typer
+Jinja2
+xlsxwriter
+
+# --- Development & Testing ---
+black
+isort
+mypy
+pytest
+pytest-asyncio
+pytest-cov
+httpx
+
+# New additions from the code block
+openpyxl
+gunicorn
