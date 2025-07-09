@@ -1,0 +1,5 @@
+pyvista[all]
+pykrige
+ezdxf
+fastapi
+uvicorn[standard] 
