@@ -1,12 +1,12 @@
-import './App.css'
+import './App.css';
+import Viewport from './components/Viewport';
 
 function App() {
   return (
-    <>
-      <h1>DeepCAD</h1>
-      <p>The new frontend is under construction.</p>
-    </>
-  )
+    <div className="App">
+      <Viewport />
+    </div>
+  );
 }
 
-export default App 
+export default App; 
