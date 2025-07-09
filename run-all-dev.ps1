@@ -1,4 +1,4 @@
-# 深基坑工程分析平台开发环境启动脚本
+#深基坑工程分析平台开发环境启动脚本
 # 此脚本会启动前端和后端服务，并配置必要的环境变量
 
 Write-Host "正在启动深基坑工程分析平台开发环境..." -ForegroundColor Cyan
@@ -13,7 +13,9 @@ if (-not (Test-Path $KratosInstallDir)) {
     # 切换到Kratos目录并运行构建脚本
     Push-Location $KratosDir
     try {
-        & .\configure_and_build.bat
+        # Corrected script name from configure_and_build.bat to run build scripts
+        & .\\configure.ps1
+        & .\\build.ps1
     }
     finally {
         Pop-Location
@@ -51,11 +53,11 @@ $frontendJob = Start-Job -ScriptBlock {
 Write-Host "前端服务正在启动..." -ForegroundColor Green
 
 # 显示作业状态
-Write-Host "`n当前运行的服务:" -ForegroundColor Cyan
+Write-Host "\`n当前运行的服务:" -ForegroundColor Cyan
 Get-Job | Format-Table -Property Id, Name, State
 
 # 等待用户按下Ctrl+C
-Write-Host "`n服务已启动。按 Ctrl+C 停止所有服务。" -ForegroundColor Yellow
+Write-Host "\`n服务已启动。按 Ctrl+C 停止所有服务。" -ForegroundColor Yellow
 Write-Host "访问 http://localhost:3000 查看前端界面。" -ForegroundColor Yellow
 Write-Host "后端API地址为 http://localhost:8000/api" -ForegroundColor Yellow
 
@@ -70,5 +72,5 @@ finally {
     Get-Job | Stop-Job
     Get-Job | Remove-Job
     
-    Write-Host "`n已停止所有服务。" -ForegroundColor Cyan
+    Write-Host "\`n已停止所有服务。" -ForegroundColor Cyan
 } 

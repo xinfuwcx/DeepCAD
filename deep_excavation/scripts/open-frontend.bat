@@ -1,3 +1,0 @@
-@echo off
-echo 正在打开深基坑工程前端页面...
-start "" "%~dp0\frontend\index.html" 

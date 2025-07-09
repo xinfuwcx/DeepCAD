@@ -1,9 +1,13 @@
 import logging
 from typing import List, Dict, Any
 
-from backend.models.geology import GeologyOptions
-from backend.core.geology_modeler import create_geological_model_geometry
-from backend.core.geometry_converter import pyvista_to_threejs_json
+from fastapi import APIRouter, HTTPException, Depends, UploadFile
+import json
+from models.geology import GeologyOptions
+from core.geology_modeler import create_geological_model_geometry
+from core.geometry_converter import pyvista_to_threejs_json
+import pandas as pd
+import io
 
 logger = logging.getLogger(__name__)
 
