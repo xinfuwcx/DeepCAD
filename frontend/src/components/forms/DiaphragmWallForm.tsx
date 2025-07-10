@@ -3,6 +3,7 @@ import { Form, InputNumber, Select, Button, notification } from 'antd';
 import { DiaphragmWall } from '../../stores/components';
 import { Material } from '../../stores/models';
 import { useSceneStore } from '../../stores/useSceneStore';
+import { useShallow } from 'zustand/react/shallow';
 
 const { Option } = Select;
 
@@ -12,10 +13,12 @@ interface DiaphragmWallFormProps {
 
 const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
   const [form] = Form.useForm();
-  const { scene, updateComponent } = useSceneStore(state => ({
-    scene: state.scene,
-    updateComponent: state.updateComponent,
-  }));
+  const { scene, updateComponent } = useSceneStore(
+    useShallow(state => ({
+      scene: state.scene,
+      updateComponent: state.updateComponent,
+    }))
+  );
   
   const materials = scene?.materials || [];
 

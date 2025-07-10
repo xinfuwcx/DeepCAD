@@ -1,0 +1,153 @@
+/* 加载动画相关样式 */
+
+.page-loading {
+  color: var(--text-primary);
+}
+
+.page-loading .ant-spin-text {
+  margin-top: 16px;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.page-loading .anticon {
+  color: var(--primary-color);
+}
+
+/* 自定义加载动画 */
+.loading-animation {
+  display: flex;
+  margin-top: 32px;
+  gap: 8px;
+}
+
+.loading-bar {
+  width: 8px;
+  height: 32px;
+  background-color: var(--primary-color);
+  border-radius: 4px;
+  animation: loading-animation 1.2s ease-in-out infinite;
+}
+
+.loading-bar:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.loading-bar:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loading-bar:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.loading-bar:nth-child(4) {
+  animation-delay: 0.6s;
+}
+
+@keyframes loading-animation {
+  0% {
+    transform: scaleY(0.5);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scaleY(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(0.5);
+    opacity: 0.3;
+  }
+}
+
+/* 内联加载动画 */
+.inline-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-loading .ant-spin {
+  margin-right: 8px;
+}
+
+/* 加载覆盖层 */
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+}
+
+/* 加载卡片 */
+.loading-card {
+  background-color: var(--component-bg);
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  text-align: center;
+  min-width: 200px;
+}
+
+.loading-card .ant-spin {
+  margin-bottom: 16px;
+}
+
+.loading-card .loading-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.loading-card .loading-description {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* 进度加载 */
+.progress-loading {
+  width: 100%;
+  max-width: 400px;
+}
+
+.progress-loading .ant-progress {
+  margin-top: 16px;
+}
+
+.progress-loading .progress-info {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* 骨架屏加载 */
+.skeleton-loading .ant-skeleton-title,
+.skeleton-loading .ant-skeleton-paragraph > li {
+  background: linear-gradient(90deg, 
+    var(--component-bg-secondary) 25%, 
+    var(--component-bg) 37%, 
+    var(--component-bg-secondary) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-loading 1.4s ease infinite;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+} 

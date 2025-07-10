@@ -1,0 +1,175 @@
+/* 仪表板相关样式 */
+
+.dashboard-container {
+  padding: 24px;
+}
+
+/* 仪表板卡片基础样式 */
+.dashboard-card {
+  background: #2c2c2c;
+  border-color: #424242;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.dashboard-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* 卡片标题样式 */
+.dashboard-card .ant-card-head {
+  border-bottom-color: #424242;
+  min-height: 48px;
+}
+
+.dashboard-card .ant-card-head-title {
+  padding: 12px 0;
+}
+
+/* 列表项样式 */
+.dashboard-card .ant-list-item {
+  border-bottom-color: #424242;
+  padding: 12px 0;
+}
+
+.dashboard-card .ant-list-item:last-child {
+  border-bottom: none;
+}
+
+/* 统计数字样式 */
+.dashboard-card .ant-statistic-title {
+  margin-bottom: 4px;
+}
+
+.dashboard-card .ant-statistic-content {
+  font-family: 'Roboto Mono', monospace;
+}
+
+/* 进度条样式 */
+.dashboard-card .ant-progress {
+  margin-bottom: 0;
+}
+
+/* 按钮悬停效果 */
+.dashboard-card .ant-btn-text:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* 顶部卡片动画效果 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dashboard-container .ant-row:first-child .ant-col {
+  animation: fadeInUp 0.5s ease-out forwards;
+}
+
+.dashboard-container .ant-row:first-child .ant-col:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.dashboard-container .ant-row:first-child .ant-col:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.dashboard-container .ant-row:first-child .ant-col:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.dashboard-container .ant-row:first-child .ant-col:nth-child(4) {
+  animation-delay: 0.4s;
+}
+
+/* 系统状态卡片脉动效果 */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.1);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  }
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 16px;
+  }
+  
+  .dashboard-card {
+    margin-bottom: 16px;
+  }
+}
+
+/* 暗色主题适配 */
+.dark-theme .dashboard-card {
+  background: #1f1f1f;
+  border-color: #333;
+}
+
+/* 浅色主题适配 */
+.light-theme .dashboard-card {
+  background: #f5f5f5;
+  border-color: #e0e0e0;
+}
+
+.light-theme .dashboard-card .ant-card-head {
+  border-bottom-color: #e0e0e0;
+}
+
+.light-theme .dashboard-card .ant-list-item {
+  border-bottom-color: #e0e0e0;
+}
+
+/* 加载状态 */
+.dashboard-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+}
+
+/* 空状态 */
+.dashboard-empty {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* 渐变背景卡片 */
+.gradient-card-blue {
+  background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+  border-color: #3949ab;
+}
+
+.gradient-card-green {
+  background: linear-gradient(135deg, #00695c 0%, #00796b 100%);
+  border-color: #00897b;
+}
+
+.gradient-card-orange {
+  background: linear-gradient(135deg, #bf360c 0%, #d84315 100%);
+  border-color: #e64a19;
+}
+
+.gradient-card-purple {
+  background: linear-gradient(135deg, #4a148c 0%, #6a1b9a 100%);
+  border-color: #7b1fa2;
+} 

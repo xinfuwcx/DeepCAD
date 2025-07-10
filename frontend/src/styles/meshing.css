@@ -1,0 +1,257 @@
+/* 网格生成视图相关样式 */
+
+.meshing-view {
+  padding: 24px;
+}
+
+/* 网格生成视图头部样式 */
+.meshing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+/* 网格控制卡片样式 */
+.meshing-card {
+  background: #2c2c2c;
+  border-color: #424242;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.meshing-card:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* 网格视口容器样式 */
+.meshing-viewport {
+  height: 600px;
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+/* 网格控制栏样式 */
+.meshing-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 5px;
+  border-radius: 4px;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+/* 表单样式 */
+.meshing-form .ant-form-item-label > label {
+  color: white !important;
+}
+
+.meshing-form .ant-input-number,
+.meshing-form .ant-input {
+  background-color: #1f1f1f;
+  border-color: #424242;
+  color: white;
+}
+
+.meshing-form .ant-input-number:hover,
+.meshing-form .ant-input:hover {
+  border-color: #1890ff;
+}
+
+.meshing-form .ant-input-number-focused,
+.meshing-form .ant-input-focused {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+/* 网格参数卡片样式 */
+.parameter-card {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 16px;
+  height: 100%;
+  transition: all 0.3s ease;
+}
+
+.parameter-card:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.parameter-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #1890ff;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.parameter-label {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+}
+
+/* 网格质量指标卡片 */
+.quality-card {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.quality-indicator {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.quality-bar {
+  height: 8px;
+  flex-grow: 1;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0 12px;
+}
+
+.quality-bar-inner {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.quality-bar-inner.good {
+  background: #52c41a;
+}
+
+.quality-bar-inner.warning {
+  background: #faad14;
+}
+
+.quality-bar-inner.poor {
+  background: #ff4d4f;
+}
+
+/* 网格统计信息 */
+.mesh-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: bold;
+  color: #1890ff;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+}
+
+/* 加载状态 */
+.meshing-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 400px;
+  width: 100%;
+}
+
+/* 空状态 */
+.meshing-empty {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 400px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* 进度条动画 */
+@keyframes progress-animation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animated-progress .ant-progress-bg {
+  background: linear-gradient(90deg, #1890ff, #52c41a, #1890ff);
+  background-size: 200% 100%;
+  animation: progress-animation 2s infinite;
+}
+
+/* 响应式调整 */
+@media (max-width: 992px) {
+  .meshing-view {
+    padding: 16px;
+  }
+  
+  .meshing-viewport {
+    height: 400px;
+  }
+  
+  .meshing-controls-panel {
+    margin-top: 16px;
+  }
+  
+  .mesh-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* 动画效果 */
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.scale-in {
+  animation: scaleIn 0.3s ease-in-out;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+} 

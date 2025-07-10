@@ -23,6 +23,7 @@
     "@types/react-router-dom": "^5.3.3",
     "@types/react-timeago": "^4.1.7",
     "@types/uuid": "^9.0.8",
+    "ahooks": "^3.9.0",
     "antd": "^5.26.4",
     "autoprefixer": "^10.4.21",
     "axios": "^1.10.0",

@@ -34,6 +34,15 @@ export interface PostProcessingSettings {
   showWireframe: boolean;
 }
 
+export interface ViewSettings {
+  renderMode: 'solid' | 'wireframe' | 'points';
+  backgroundColor: 'dark' | 'light' | 'gradient' | 'transparent';
+  ambientIntensity: number;
+  shadows: boolean;
+  antialiasing: boolean;
+  showAxes: boolean;
+}
+
 export interface SceneState {
   scene: ProjectScene | null;
   isLoading: boolean;
@@ -42,6 +51,7 @@ export interface SceneState {
 
   layers: Layers;
   postProcessing: PostProcessingSettings;
+  viewSettings: ViewSettings;
   
   // Actions
   setSelectedComponentId: (id: string | null) => void;
@@ -53,6 +63,8 @@ export interface SceneState {
   updateLayer: (layerName: keyof Omit<Layers, 'loadsScale'>, props: Partial<Layer>) => void;
   setLoadsScale: (scale: number) => void;
   updatePostProcessing: (settings: Partial<PostProcessingSettings>) => void;
+  updateViewSettings: (settings: Partial<ViewSettings>) => void;
+  resetView: () => void;
   
   // Legacy actions to be removed by this refactoring
   // setGeneratedMeshUrl, setComputationResultUrl, setConstraintsUrl, setLoadsUrl
@@ -84,6 +96,15 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     customRange: [0, 100],
     showScalarBar: true,
     showWireframe: false,
+  },
+
+  viewSettings: {
+    renderMode: 'solid',
+    backgroundColor: 'dark',
+    ambientIntensity: 1.0,
+    shadows: true,
+    antialiasing: true,
+    showAxes: true,
   },
 
   setSelectedComponentId: (id: string | null) => set({ selectedComponentId: id }),
@@ -143,10 +164,15 @@ export const useSceneStore = create<SceneState>((set, get) => ({
 
   generateMesh: async () => {
     const { layers, updateLayer } = get();
-    const { clientId, resetTaskProgress } = useUIStore.getState();
+    // 获取UI状态但避免直接调用方法
+    const uiState = useUIStore.getState();
+    const { clientId } = uiState;
 
     // Reset previous mesh and start loading
     updateLayer('mesh', { url: null, isLoading: true, error: null });
+    
+    // 重置任务进度
+    uiState.resetTaskProgress();
     
     const scene = get().scene;
     if (!scene || !scene.domain.bounding_box_min || !scene.domain.bounding_box_max) {
@@ -157,8 +183,6 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       updateLayer('mesh', { isLoading: false, error: 'Scene or computational domain not defined.' });
       return;
     }
-    
-    resetTaskProgress();
 
     try {
       const response = await axios.post<{ message: string; clientId: string }>(
@@ -186,11 +210,13 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   },
   
   startComputation: async () => {
-    const { clientId, resetTaskProgress } = useUIStore.getState();
+    // 获取UI状态但避免直接调用方法
+    const uiState = useUIStore.getState();
+    const { clientId } = uiState;
     const { updateLayer } = get();
 
     // Reset previous results and progress
-    resetTaskProgress();
+    uiState.resetTaskProgress();
     updateLayer('result', { url: null, isLoading: true, error: null });
     updateLayer('constraints', { url: null, isLoading: false, error: null });
     updateLayer('loads', { url: null, isLoading: false, error: null });
@@ -227,5 +253,20 @@ export const useSceneStore = create<SceneState>((set, get) => ({
 
   updatePostProcessing: (settings) => set(state => ({
     postProcessing: { ...state.postProcessing, ...settings }
+  })),
+
+  updateViewSettings: (settings) => set(state => ({
+    viewSettings: { ...state.viewSettings, ...settings }
+  })),
+
+  resetView: () => set(state => ({
+    viewSettings: {
+      renderMode: 'solid',
+      backgroundColor: 'dark',
+      ambientIntensity: 1.0,
+      shadows: true,
+      antialiasing: true,
+      showAxes: true,
+    }
   })),
 })); 

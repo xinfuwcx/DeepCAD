@@ -5,10 +5,11 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
+    port: 3000, // 设置开发服务器端口为 3000
     proxy: {
       // Proxying API requests to the backend server
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:8080',
         changeOrigin: true,
         // rewrite: (path) => path.replace(/^\/api/, '') // if your backend doesn't have /api prefix
       },

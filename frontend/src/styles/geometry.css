@@ -1,0 +1,169 @@
+/* 几何建模视图相关样式 */
+
+.geometry-view {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 几何视图头部样式 */
+.geometry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+/* 几何视口容器样式 */
+.geometry-viewport {
+  height: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+/* 侧边栏样式 */
+.geometry-sider {
+  height: 100%;
+  background: var(--bg-tertiary);
+  border-right: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.geometry-sider .ant-tabs-tab {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.geometry-sider .ant-tabs-tab.ant-tabs-tab-active {
+  color: white !important;
+}
+
+.geometry-sider .ant-tabs-ink-bar {
+  background: #1890ff !important;
+}
+
+.geometry-sider .ant-tabs-nav::before {
+  border-bottom-color: #424242 !important;
+}
+
+/* 组件树样式 */
+.geometry-tree-container {
+  flex: 1;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--border-color);
+  padding: 8px;
+}
+
+/* 属性编辑器样式 */
+.geometry-property-editor {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+/* 创建表单容器样式 */
+.geometry-create-form {
+  height: calc(100vh - 140px);
+  overflow-y: auto;
+  padding: 8px;
+}
+
+/* 工具栏样式 */
+.geometry-toolbar {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 8px;
+  border-radius: 4px;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.geometry-toolbar-group {
+  display: flex;
+  gap: 4px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.geometry-toolbar-group:last-child {
+  border-bottom: none;
+}
+
+/* 组件卡片样式 */
+.component-card {
+  margin-bottom: 16px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.component-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+.component-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.component-card-content {
+  padding: 12px;
+}
+
+/* 表单样式 */
+.geometry-form .ant-form-item-label > label {
+  color: white !important;
+}
+
+.geometry-form .ant-input-number,
+.geometry-form .ant-input,
+.geometry-form .ant-select-selector {
+  background-color: rgba(0, 0, 0, 0.2) !important;
+  border-color: var(--border-color) !important;
+  color: white !important;
+}
+
+.geometry-form .ant-input-number:hover,
+.geometry-form .ant-input:hover,
+.geometry-form .ant-select-selector:hover {
+  border-color: #1890ff !important;
+}
+
+.geometry-form .ant-input-number-focused,
+.geometry-form .ant-input-focused,
+.geometry-form .ant-select-focused .ant-select-selector {
+  border-color: #1890ff !important;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+}
+
+/* 响应式调整 */
+@media (max-width: 992px) {
+  .geometry-toolbar {
+    top: auto;
+    bottom: 16px;
+    right: 16px;
+    flex-direction: row;
+  }
+  
+  .geometry-toolbar-group {
+    border-bottom: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0 4px;
+  }
+  
+  .geometry-toolbar-group:last-child {
+    border-right: none;
+  }
+} 

@@ -1,0 +1,248 @@
+/* 表单控件相关样式 */
+
+/* 输入框样式 */
+.animated-input-wrapper {
+  position: relative;
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
+}
+
+.animated-input {
+  background-color: var(--component-bg);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.animated-input:hover {
+  border-color: var(--primary-color);
+}
+
+.animated-input-wrapper.focused .animated-input {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-color-outline);
+}
+
+/* 选择器样式 */
+.animated-select-wrapper {
+  position: relative;
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
+}
+
+.animated-select {
+  background-color: var(--component-bg);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.animated-select:hover {
+  border-color: var(--primary-color);
+}
+
+.animated-select-wrapper.focused .animated-select {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-color-outline);
+}
+
+.select-tooltip {
+  position: absolute;
+  right: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* 数字输入框样式 */
+.animated-number-input-wrapper {
+  position: relative;
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
+}
+
+.animated-number-input {
+  background-color: var(--component-bg);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.animated-number-input:hover {
+  border-color: var(--primary-color);
+}
+
+.animated-number-input-wrapper.focused .animated-number-input {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-color-outline);
+}
+
+.animated-number-input .ant-input-number-group-addon {
+  background-color: var(--component-bg-secondary);
+  color: var(--text-secondary);
+  border-color: var(--border-color);
+}
+
+/* 开关样式 */
+.animated-switch-wrapper {
+  position: relative;
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
+}
+
+.animated-switch {
+  background-color: var(--component-bg-secondary);
+  transition: all 0.3s ease;
+}
+
+.animated-switch.ant-switch-checked {
+  background-color: var(--primary-color);
+}
+
+/* 按钮样式 */
+.animated-button {
+  transition: all 0.3s ease;
+  border-radius: 4px;
+}
+
+.animated-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.animated-button:active {
+  transform: translateY(0);
+}
+
+/* 表单项样式 */
+.animated-form-item {
+  margin-bottom: 24px;
+  transition: all 0.3s ease;
+}
+
+.animated-form-item .ant-form-item-label > label {
+  color: var(--text-primary);
+}
+
+.animated-form-item .ant-form-item-explain-error {
+  color: var(--error-color);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* 表单布局样式 */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 -8px;
+}
+
+.form-col {
+  padding: 0 8px;
+  margin-bottom: 16px;
+}
+
+.form-col-6 {
+  width: 50%;
+}
+
+.form-col-4 {
+  width: 33.33%;
+}
+
+.form-col-8 {
+  width: 66.66%;
+}
+
+.form-col-12 {
+  width: 100%;
+}
+
+/* 表单分组样式 */
+.form-group {
+  margin-bottom: 32px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.form-group-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+}
+
+.form-group-title .anticon {
+  margin-right: 8px;
+}
+
+/* 表单操作按钮样式 */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.form-actions .ant-btn + .ant-btn {
+  margin-left: 8px;
+}
+
+/* 动态表单项样式 */
+.dynamic-form-item {
+  position: relative;
+  padding: 16px;
+  border: 1px dashed var(--border-color);
+  border-radius: 4px;
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
+}
+
+.dynamic-form-item:hover {
+  border-color: var(--primary-color);
+}
+
+.dynamic-form-item-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .form-col-6,
+  .form-col-4,
+  .form-col-8 {
+    width: 100%;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .form-actions .ant-btn {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+  
+  .form-actions .ant-btn + .ant-btn {
+    margin-left: 0;
+  }
+} 

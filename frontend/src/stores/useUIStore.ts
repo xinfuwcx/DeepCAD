@@ -23,6 +23,7 @@ interface WebSocketMessage {
 interface UIState {
   theme: Theme;
   toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
   clientId: string;
   websocket: WebSocket | null;
   taskProgress: TaskProgress;
@@ -37,9 +38,16 @@ const initialTaskProgress: TaskProgress = {
   message: '',
 };
 
+// 从本地存储中获取主题偏好，如果没有则默认为深色主题
+const getInitialTheme = (): Theme => {
+  const savedTheme = localStorage.getItem('theme') as Theme;
+  return savedTheme || 'dark';
+};
+
 export const useUIStore = createWithEqualityFn<UIState>((set, get) => ({
-  theme: 'dark',
+  theme: getInitialTheme(),
   toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
+  setTheme: (theme: Theme) => set({ theme }),
   clientId: uuidv4(),
   websocket: null,
   taskProgress: initialTaskProgress,
@@ -62,7 +70,8 @@ export const useUIStore = createWithEqualityFn<UIState>((set, get) => ({
       const message: WebSocketMessage = JSON.parse(event.data);
       console.log('WebSocket message received:', message);
 
-      const { updateLayer } = useSceneStore.getState();
+      // 使用函数调用而不是直接获取状态
+      const sceneStore = useSceneStore.getState();
 
       switch (message.type) {
         case 'task_progress':
@@ -70,7 +79,7 @@ export const useUIStore = createWithEqualityFn<UIState>((set, get) => ({
           break;
 
         case 'mesh_generated':
-          updateLayer('mesh', { url: message.payload.url, isLoading: false, error: null });
+          sceneStore.updateLayer('mesh', { url: message.payload.url, isLoading: false, error: null });
           notification.success({
             message: 'Meshing Complete',
             description: 'The mesh has been successfully generated.',
@@ -80,9 +89,9 @@ export const useUIStore = createWithEqualityFn<UIState>((set, get) => ({
           break;
 
         case 'computation_completed':
-          updateLayer('result', { url: message.payload.result_url, isLoading: false, error: null });
-          updateLayer('constraints', { url: message.payload.constraints_url, isVisible: true });
-          updateLayer('loads', { url: message.payload.loads_url, isVisible: true });
+          sceneStore.updateLayer('result', { url: message.payload.result_url, isLoading: false, error: null });
+          sceneStore.updateLayer('constraints', { url: message.payload.constraints_url, isVisible: true });
+          sceneStore.updateLayer('loads', { url: message.payload.loads_url, isVisible: true });
           notification.success({
             message: 'Computation Complete',
             description: 'Analysis finished. Results are now available.',
@@ -97,9 +106,9 @@ export const useUIStore = createWithEqualityFn<UIState>((set, get) => ({
           
           // Update the specific layer in the scene store to reflect the error
           if (task_name === 'generate_mesh') {
-             updateLayer('mesh', { isLoading: false, error: error });
+             sceneStore.updateLayer('mesh', { isLoading: false, error: error });
           } else if (task_name === 'run_computation') {
-            updateLayer('result', { isLoading: false, error: error });
+            sceneStore.updateLayer('result', { isLoading: false, error: error });
           }
           notification.error({
               message: `Task Failed: ${task_name}`,

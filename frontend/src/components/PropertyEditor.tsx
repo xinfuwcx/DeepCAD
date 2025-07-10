@@ -4,6 +4,7 @@ import { useSceneStore, SceneState, AnyComponent } from '../stores/useSceneStore
 import DiaphragmWallForm from './forms/DiaphragmWallForm';
 import PileArrangementForm from './forms/PileArrangementForm';
 import AnchorRodForm from './forms/AnchorRodForm';
+import { useShallow } from 'zustand/react/shallow';
 
 const { Title } = Typography;
 
@@ -30,12 +31,14 @@ const renderEditor = (component: AnyComponent) => {
 };
 
 const PropertyEditor: React.FC = () => {
-  const { scene, selectedComponentId } = useSceneStore((state: SceneState) => ({
-    scene: state.scene,
-    selectedComponentId: state.selectedComponentId,
-  }));
+  const { scene, selectedComponentId } = useSceneStore(
+    useShallow((state: SceneState) => ({
+      scene: state.scene,
+      selectedComponentId: state.selectedComponentId,
+    }))
+  );
 
-  const selectedComponent = scene?.components.find((c: AnyComponent) => c.id === selectedComponentId);
+  const selectedComponent = scene?.components?.find((c: AnyComponent) => c.id === selectedComponentId);
 
   return (
     <div style={{ padding: '16px', color: 'white' }}>
