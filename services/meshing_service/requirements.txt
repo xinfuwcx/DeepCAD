@@ -1,3 +1,0 @@
-gmsh
-fastapi
-uvicorn[standard] 

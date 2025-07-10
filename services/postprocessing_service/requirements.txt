@@ -1,3 +1,0 @@
-pyvista[all]
-fastapi
-uvicorn[standard] 

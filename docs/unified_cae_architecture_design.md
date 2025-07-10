@@ -582,163 +582,59 @@ async def handle_geometry_changed(event_data: Dict):
     await collaboration_service.notify_geometry_change(geometry_id)
 ```
 
-## 6. 部署架构
+## 6. 部署与运维
 
-### 6.1 容器化部署
+### 6.1. 开发环境
 
-```yaml
-# docker-compose.yml
-version: '3.8'
-services:
-  api-gateway:
-    image: unified-cae/api-gateway:latest
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      - CONSUL_HOST=consul
-      - REDIS_HOST=redis
-    depends_on:
-      - consul
-      - redis
+本地开发环境将致力于简洁和高效，开发者应能快速启动和调试服务。
 
-  geometry-service:
-    image: unified-cae/geometry-service:latest
-    environment:
-      - CONSUL_HOST=consul
-      - DATABASE_URL=postgresql://user:pass@postgres:5432/geometry
-    depends_on:
-      - consul
-      - postgres
-    deploy:
-      replicas: 3
+- **服务启动**: 每个服务都可以通过 `uvicorn` 或类似的命令独立启动。
+- **依赖管理**: 依赖服务（数据库、缓存等）推荐在本地直接安装或通过系统包管理器（如Homebrew, WSL）安装。
+- **脚本支持**: 提供一键启动/停止所有服务的脚本。
 
-  mesh-service:
-    image: unified-cae/mesh-service:latest
-    environment:
-      - CONSUL_HOST=consul
-      - GMSH_PATH=/usr/local/bin/gmsh
-    depends_on:
-      - consul
-    deploy:
-      replicas: 2
+### 6.2. 生产环境
 
-  analysis-service:
-    image: unified-cae/analysis-service:latest
-    environment:
-      - CONSUL_HOST=consul
-      - COMPUTE_CLUSTER_ENDPOINT=http://compute-cluster:8080
-    depends_on:
-      - consul
-    deploy:
-      replicas: 2
+- **部署工具**: Ansible, Terraform
+- **CI/CD**: GitHub Actions
 
-  collaboration-service:
-    image: unified-cae/collaboration-service:latest
-    environment:
-      - CONSUL_HOST=consul
-      - WEBSOCKET_PORT=8080
-    depends_on:
-      - consul
-      - redis
-
-  frontend:
-    image: unified-cae/frontend:latest
-    ports:
-      - "3000:3000"
-    environment:
-      - API_GATEWAY_URL=http://api-gateway
-    depends_on:
-      - api-gateway
-
-  # 基础设施服务
-  consul:
-    image: consul:latest
-    ports:
-      - "8500:8500"
-
-  postgres:
-    image: postgres:13
-    environment:
-      - POSTGRES_DB=unified_cae
-      - POSTGRES_USER=cae_user
-      - POSTGRES_PASSWORD=cae_password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  redis:
-    image: redis:6-alpine
-    ports:
-      - "6379:6379"
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-
-volumes:
-  postgres_data:
-```
-
-### 6.2 Kubernetes部署
+### 6.3. CI/CD 流水线示例 (GitHub Actions)
 
 ```yaml
-# kubernetes/namespace.yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: unified-cae
+name: Backend CI/CD
 
----
-# kubernetes/geometry-service.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: geometry-service
-  namespace: unified-cae
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: geometry-service
-  template:
-    metadata:
-      labels:
-        app: geometry-service
-    spec:
-      containers:
-      - name: geometry-service
-        image: unified-cae/geometry-service:latest
-        ports:
-        - containerPort: 8080
-        env:
-        - name: CONSUL_HOST
-          valueFrom:
-            secretKeyRef:
-              name: database-secret
-              key: geometry-db-url
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
-            memory: "1Gi"
-            cpu: "500m"
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
 
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: geometry-service
-  namespace: unified-cae
-spec:
-  selector:
-    app: geometry-service
-  ports:
-  - port: 8080
-    targetPort: 8080
-  type: ClusterIP
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run tests
+        run: pytest
+
+  build_and_deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      # ... 此处为部署到生产服务器的步骤 ...
+      # 例如：使用 ssh, scp, rsync 等命令将代码同步到服务器
+      # 然后在服务器上执行启动/重启服务的脚本
+      - name: Deploy to production
+        run: |
+          echo "Deploying to production server..."
+          # ssh user@host "cd /path/to/app && ./scripts/restart_services.sh"
 ```
 
 ## 7. 性能优化策略

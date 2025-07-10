@@ -1,19 +1,24 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Layout, theme } from 'antd';
-import { Routes, Route, Navigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
-
+import { useWebSocket } from '../../api/websocket';
 import TaskProgressIndicator from './TaskProgressIndicator';
-
-import GeometryView from '../../views/GeometryView';
-import MeshingView from '../../views/MeshingView';
-import AnalysisView from '../../views/AnalysisView';
-import SettingsView from '../../views/SettingsView';
 
 const { Header, Content } = Layout;
 
-const AppShell: React.FC = () => {
+interface AppShellProps {
+  children: React.ReactNode;
+}
+
+const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const { token } = theme.useToken();
+  const { connect, isConnected } = useWebSocket();
+
+  useEffect(() => {
+    if (!isConnected) {
+      connect();
+    }
+  }, [connect, isConnected]);
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -33,13 +38,7 @@ const AppShell: React.FC = () => {
         </Header>
         <Content style={{ margin: '24px 16px 0' }}>
           <div style={{ padding: 24, minHeight: 360, background: token.colorBgContainer, height: 'calc(100vh - 88px)' }}>
-            <Routes>
-              <Route path="/" element={<Navigate to="/geometry" replace />} />
-              <Route path="/geometry" element={<GeometryView />} />
-              <Route path="/meshing" element={<MeshingView />} />
-              <Route path="/analysis" element={<AnalysisView />} />
-              <Route path="/settings" element={<SettingsView />} />
-            </Routes>
+            {children}
           </div>
         </Content>
       </Layout>

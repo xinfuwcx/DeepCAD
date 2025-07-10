@@ -248,9 +248,10 @@ python app.py  # http://localhost:8000
 ```
 
 ### 生产环境
-- **容器化**: Docker + Docker Compose
-- **负载均衡**: Nginx
-- **数据库**: PostgreSQL + Redis
+- **核心框架**: FastAPI
+- **部署方式**: 本地直接运行 / systemd
+- **数据库**: PostgreSQL + SQLAlchemy
+- **API网关**: Nginx (可选)
 - **监控**: Prometheus + Grafana
 
 ## 未来规划
