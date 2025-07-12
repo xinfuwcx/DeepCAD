@@ -1,68 +1,73 @@
 # Deep Excavation CAE System - Unified Dependencies
 
 # --- Core Framework ---
-fastapi
-uvicorn[standard]
-pydantic
-requests
+fastapi>=0.109.2
+uvicorn[standard]>=0.27.1
+pydantic>=2.6.1
+requests>=2.31.0
 
 # --- Database ---
-sqlalchemy>=2.0.41
-alembic>=1.16.3
-psycopg2-binary
+sqlalchemy>=2.0.25
+alembic>=1.13.1
+psycopg2-binary>=2.9.9
 
 # --- Authentication & Security ---
-python-jose[cryptography]
-passlib[bcrypt]
-python-multipart
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.9
 
 # --- Scientific Computing & Data ---
-numpy>=2.3.1
-scipy==1.13.0
-pandas==2.2.1
-h5py>=3.14.0
-matplotlib>=3.10.3
-vtk>=9.5.0
+numpy>=1.26.3
+scipy>=1.12.0
+pandas>=2.2.0
+h5py>=3.10.0
+matplotlib>=3.8.2
 
-# --- Geology, Geometry & Meshing ---
-# gmsh provides OpenCASCADE (OCC) functionality.
-# pythonocc-core is not needed.
-pyvista>=0.45.2
-ezdxf
-meshio>=5.3.5
-pygmsh
-gmsh>=4.14.0
-# netgen-mesher>=6.2.2504 # This seems to be for a different meshing engine, keeping it commented for now.
+# --- Geometry, Meshing & Visualization (Simplified Stack) ---
+# Core geometry and meshing: native gmsh with OCC support
+gmsh>=4.11.1
+# Visualization rendering: PyVista for glTF export to Three.js
+pyvista>=0.43.0
+# File I/O support
+ezdxf>=1.1.1
+meshio>=5.3.4
 
 # --- Kratos Multiphysics Solver ---
-# Kratos is not installed via pip but expected in the environment.
-# Refer to project documentation for Kratos setup.
-# KratosMultiphysics>=10.2.1
-# KratosMultiphysics.StructuralMechanicsApplication>=10.2.1
+# Kratos is not installed via pip but built from source
+# The build_kratos.ps1 script in the project root will handle this
+# Required Kratos Applications:
+# - GeoMechanicsApplication
+# - StructuralMechanicsApplication
+# - FluidDynamicsApplication
+# - FSIApplication
+# - OptimizationApplication
 
-# --- Web Visualization ---
-# trame>=3.10.2
-# trame-client>=2.7.4
-# trame-server>=2.13.0
+# --- Removed Dependencies (Per New Architecture) ---
+# vtk>=9.3.0                  # Replaced by PyVista's VTK backend
+# pygmsh>=7.1.17              # Replaced by native gmsh API  
+# pythonocc-core               # Replaced by gmsh OCC functionality
+# trame>=3.2.0                # Replaced by PyVista -> glTF -> Three.js pipeline
+# trame-client>=2.6.0         # ^
+# trame-server>=2.12.0        # ^
 
 # --- Deep Learning (Optional) ---
 # tensorflow>=2.12.0
 # torch>=2.0.0
 
 # --- Utilities ---
-python-dotenv>=1.1.1
-loguru>=0.7.3
-typer>=0.16.0
-Jinja2
-xlsxwriter
-openpyxl
+python-dotenv>=1.0.0
+loguru>=0.7.2
+typer>=0.9.0
+Jinja2>=3.1.3
+xlsxwriter>=3.1.2
+openpyxl>=3.1.2
 
 # --- Development & Testing ---
-black>=25.1.0
-isort>=6.0.1
-mypy>=1.16.1
-pytest>=8.4.1
-pytest-asyncio
-pytest-cov
-httpx
-gunicorn
+black>=24.1.1
+isort>=5.13.2
+mypy>=1.8.0
+pytest>=7.4.4
+pytest-asyncio>=0.23.5
+pytest-cov>=4.1.0
+httpx>=0.26.0
+gunicorn>=21.2.0

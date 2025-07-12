@@ -2,18 +2,12 @@ import React from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { Progress, Alert, Button } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, InfoCircleOutlined, RocketOutlined } from '@ant-design/icons';
-import { shallow } from 'zustand/shallow';
 
 const TaskProgressIndicator: React.FC = () => {
-  const { taskProgress, resetTaskProgress } = useUIStore(
-    (state) => ({
-      taskProgress: state.taskProgress,
-      resetTaskProgress: state.resetTaskProgress,
-    }),
-    shallow
-  );
+  const taskProgress = useUIStore((state) => state.taskProgress);
+  const resetTaskProgress = useUIStore((state) => state.resetTaskProgress);
 
-  if (taskProgress.status === 'idle' || taskProgress.status === 'completed') {
+  if (!taskProgress || taskProgress.status === 'idle' || taskProgress.status === 'completed') {
     return null;
   }
 

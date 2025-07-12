@@ -1,3 +1,5 @@
+@import './styles/themes.css';
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -5,6 +7,6 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #242424;
-  color: rgba(255, 255, 255, 0.87);
+  background-color: var(--dark-bg-primary);
+  color: var(--dark-text-primary);
 } 

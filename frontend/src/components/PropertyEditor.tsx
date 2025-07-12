@@ -4,6 +4,8 @@ import { useSceneStore, SceneState, AnyComponent } from '../stores/useSceneStore
 import DiaphragmWallForm from './forms/DiaphragmWallForm';
 import PileArrangementForm from './forms/PileArrangementForm';
 import AnchorRodForm from './forms/AnchorRodForm';
+import ExcavationForm from './forms/ExcavationForm';
+import TunnelForm from './forms/TunnelForm';
 import { useShallow } from 'zustand/react/shallow';
 
 const { Title } = Typography;
@@ -16,12 +18,16 @@ const renderEditor = (component: AnyComponent) => {
       return <PileArrangementForm component={component} />;
     case 'anchor_rod':
       return <AnchorRodForm component={component} />;
+    case 'excavation':
+      return <ExcavationForm component={component} />;
+    case 'tunnel':
+      return <TunnelForm component={component} />;
     default:
       return (
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
           description={
-            <span style={{ color: 'rgba(255,255,255,0.5)' }}>
+            <span className="theme-text-secondary">
               No editor available for '{component.type}'
             </span>
           }
@@ -41,16 +47,16 @@ const PropertyEditor: React.FC = () => {
   const selectedComponent = scene?.components?.find((c: AnyComponent) => c.id === selectedComponentId);
 
   return (
-    <div style={{ padding: '16px', color: 'white' }}>
-      <Title level={5} style={{ color: 'white', marginBottom: '16px' }}>Property Editor</Title>
+    <div className="theme-card" style={{ padding: '16px', height: '100%' }}>
+      <Title level={5} className="theme-text-primary" style={{ marginBottom: '16px' }}>属性编辑器</Title>
       {selectedComponent ? (
         renderEditor(selectedComponent)
       ) : (
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
           description={
-            <span style={{ color: 'rgba(255,255,255,0.5)' }}>
-              Select a component to see its properties
+            <span className="theme-text-secondary">
+              选择一个组件以查看其属性
             </span>
           }
         />

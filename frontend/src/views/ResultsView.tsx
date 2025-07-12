@@ -2,7 +2,41 @@ import React, { useState, useEffect } from 'react';
 import { Typography, Row, Col, Card, List, Tag, Button, Space, Tooltip, Divider, Breadcrumb, Spin, Statistic } from 'antd';
 import { FileTextOutlined, BarChartOutlined, ClockCircleOutlined, UserOutlined, HomeOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
 import { Link, useParams } from 'react-router-dom';
-import ResultsViewer from '../components/ResultsViewer';
+
+// 内联定义 ResultsViewer 组件
+const ResultsViewer: React.FC<{ resultId?: string }> = ({ resultId }) => {
+  return (
+    <Card 
+      title={<Title level={4} style={{ margin: 0, color: 'white' }}>结果可视化</Title>}
+      className="result-card"
+      style={{ background: 'var(--dark-bg-secondary)', borderColor: 'var(--dark-border-color)' }}
+    >
+      <div style={{
+        height: '400px',
+        background: 'var(--dark-bg-tertiary)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        color: 'var(--dark-text-primary)',
+        borderRadius: '4px'
+      }}>
+        {resultId ? (
+          <div style={{ textAlign: 'center' }}>
+            <Text style={{ color: 'var(--dark-text-primary)', fontSize: '16px' }}>结果 ID: {resultId}</Text>
+            <div style={{ marginTop: '16px' }}>
+              <Spin size="large" />
+              <Text style={{ display: 'block', marginTop: '16px', color: 'var(--dark-text-secondary)' }}>
+                正在加载结果可视化...
+              </Text>
+            </div>
+          </div>
+        ) : (
+          <Text style={{ color: 'var(--dark-text-secondary)', fontSize: '16px' }}>请选择一个结果进行查看</Text>
+        )}
+      </div>
+    </Card>
+  );
+};
 
 const { Title, Text } = Typography;
 

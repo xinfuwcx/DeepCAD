@@ -1,0 +1,1 @@
+# Visualization module for PyVista -> glTF -> Three.js pipeline

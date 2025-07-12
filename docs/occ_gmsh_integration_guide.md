@@ -320,45 +320,11 @@ except Exception as e:
         raise
 ```
 
-## 7. 容器化配置
+## 7. 部署考量
 
-在Docker容器中配置Gmsh和OCC的示例：
+- **依赖打包**: 在部署时，确保 Gmsh 的 Python API (`gmsh.py` 和 `libgmsh.so` 或 `gmsh.exe` 等) 与应用一同打包。
+- **环境一致性**: 保持开发、测试和生产环境中 Gmsh 版本的统一，以避免潜在的兼容性问题。
 
-```dockerfile
-FROM python:3.9-slim
-
-# 安装系统依赖
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    cmake \
-    libglu1-mesa-dev \
-    libxcursor-dev \
-    libxinerama-dev \
-    libxrandr-dev \
-    libxi-dev \
-    libgl1-mesa-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# 安装Python依赖
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# 复制服务代码
-COPY . /app
-WORKDIR /app
-
-# 启动服务
-CMD ["python", "main.py"]
-```
-
-requirements.txt中包含：
-
-```
-gmsh==4.11.1
-meshio==5.3.4
-numpy==1.24.3
-```
-
-## 8. 总结
+## 8. 结论
 
 本文档详细说明了DeepCAD项目中OpenCASCADE与Gmsh的集成方案，以及DXF文件的处理流程。通过使用Gmsh自带的OCC几何内核，我们简化了依赖管理，提高了系统的可移植性和稳定性。前端使用ezdxf解析DXF文件，后端使用OCC进行几何处理，这种前后端协作的方式既减轻了服务器负担，又保持了良好的用户体验。 

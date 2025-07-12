@@ -21,9 +21,10 @@
 ## 技术栈
 
 - **前端**: React, TypeScript, Vite, Three.js, Zustand
-- **后端**: Python, FastAPI, Gmsh, OpenCASCADE
-- **数据库**: MongoDB (计划中)
-- **DevOps**: Docker
+- **后端**: Python, FastAPI, Kratos, Gmsh
+- **数据库**: PostgreSQL, Redis
+- **DevOps**: GitHub Actions
+- **AI**: LangChain, PyTorch
 
 ## 启动项目
 

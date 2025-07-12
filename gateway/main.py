@@ -5,13 +5,17 @@ from fastapi.staticfiles import StaticFiles
 import os
 import uvicorn
 
-# Remove old geometry router, it's replaced by the new components router
-# from .modules import geometry 
+# Import all module routes
 from .modules.scene import routes as scene_routes
 from .modules.components import routes as components_routes
 from .modules.meshing import routes as meshing_routes
 from .modules.computation import routes as computation_routes
 from .modules.websockets import routes as websockets_routes
+from .modules.ai_assistant import routes as ai_assistant_routes
+from .modules.visualization import routes as visualization_routes
+from .modules.geology import routes as geology_routes
+from .modules.excavation import routes as excavation_routes
+from .modules.materials import routes as materials_routes
 
 # 1. FastAPI 应用初始化
 app = FastAPI(
@@ -39,6 +43,11 @@ app.include_router(scene_routes.router, prefix="/api", tags=["Scene Management"]
 app.include_router(components_routes.router, prefix="/api", tags=["Components"])
 app.include_router(meshing_routes.router, prefix="/api", tags=["Meshing"])
 app.include_router(computation_routes.router, prefix="/api", tags=["Computation"])
+app.include_router(ai_assistant_routes.router, prefix="/api", tags=["AI Assistant"])
+app.include_router(visualization_routes.router, prefix="/api", tags=["Visualization"])
+app.include_router(geology_routes.router, prefix="/api", tags=["Geology"])
+app.include_router(excavation_routes.router, prefix="/api", tags=["Excavation"])
+app.include_router(materials_routes.router, prefix="/api", tags=["Materials"])
 app.include_router(websockets_routes.router)  # No prefix for websockets
 
 

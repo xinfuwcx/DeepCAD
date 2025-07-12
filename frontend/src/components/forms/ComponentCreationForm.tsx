@@ -59,6 +59,20 @@ const ComponentCreationForm: React.FC = () => {
             pile_depth: values.pile_depth,
           });
           break;
+        case 'excavation':
+          Object.assign(componentData, {
+            depth: values.depth,
+            // Assuming profile_points will be set later via interactive drawing
+            profile_points: [], 
+          });
+          break;
+        case 'tunnel':
+          Object.assign(componentData, {
+            // Assuming path and profile will be set later
+            path: [], 
+            profile: { type: 'circular', radius: values.radius }
+          });
+          break;
       }
       
       // Send to backend API
@@ -128,6 +142,18 @@ const ComponentCreationForm: React.FC = () => {
             </Form.Item>
           </>
         );
+      case 'excavation':
+        return (
+          <Form.Item name="depth" label="开挖深度 (m)" rules={[{ required: true }]}>
+            <Input type="number" min={0} step={1} />
+          </Form.Item>
+        );
+      case 'tunnel':
+        return (
+          <Form.Item name="radius" label="隧道半径 (m)" rules={[{ required: true }]}>
+            <Input type="number" min={0} step={0.5} />
+          </Form.Item>
+        );
       default:
         return null;
     }
@@ -154,6 +180,8 @@ const ComponentCreationForm: React.FC = () => {
             <Option value="diaphragm_wall">Diaphragm Wall</Option>
             <Option value="anchor_rod">Anchor Rod</Option>
             <Option value="pile_arrangement">Pile Arrangement</Option>
+            <Option value="excavation">Excavation</Option>
+            <Option value="tunnel">Tunnel</Option>
           </Select>
         </Form.Item>
         

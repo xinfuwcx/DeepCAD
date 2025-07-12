@@ -1,0 +1,192 @@
+/* 3D坐标系样式 */
+
+.coordinate-system {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 4px;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.coordinate-system:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.05);
+}
+
+/* 深色主题 */
+[data-theme='dark'] .coordinate-system {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .coordinate-system:hover {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* Canvas样式 */
+.coordinate-system-canvas {
+  display: block;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.coordinate-system-canvas:hover {
+  filter: brightness(1.1);
+}
+
+/* 轴标签容器 */
+.coordinate-system-labels {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+/* 单个轴标签 */
+.axis-label {
+  position: absolute;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
+  transition: all 0.2s ease;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  min-width: 16px;
+  text-align: center;
+  line-height: 1;
+}
+
+/* X轴标签（红色） */
+.axis-label.x-label {
+  background: rgba(255, 68, 68, 0.9);
+  color: white;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+}
+
+/* Y轴标签（绿色） */
+.axis-label.y-label {
+  background: rgba(68, 255, 68, 0.9);
+  color: white;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Z轴标签（蓝色） */
+.axis-label.z-label {
+  background: rgba(68, 68, 255, 0.9);
+  color: white;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* 悬停状态 */
+.axis-label.hovered {
+  transform: translateY(-50%) scale(1.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+}
+
+.axis-label.x-label.hovered {
+  transform: translateY(-50%) scale(1.2);
+}
+
+.axis-label.y-label.hovered {
+  transform: translateX(-50%) scale(1.2);
+}
+
+.axis-label.z-label.hovered {
+  transform: translateX(-50%) scale(1.2);
+}
+
+/* 深色主题标签 */
+[data-theme='dark'] .axis-label {
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  text-shadow: none;
+}
+
+[data-theme='dark'] .axis-label.x-label {
+  background: rgba(255, 68, 68, 0.8);
+}
+
+[data-theme='dark'] .axis-label.y-label {
+  background: rgba(68, 255, 68, 0.8);
+}
+
+[data-theme='dark'] .axis-label.z-label {
+  background: rgba(68, 68, 255, 0.8);
+}
+
+/* 移动端适配 */
+@media (max-width: 600px) {
+  .coordinate-system {
+    padding: 2px;
+  }
+  
+  .axis-label {
+    font-size: 10px;
+    padding: 1px 3px;
+    min-width: 14px;
+  }
+}
+
+/* 动画效果 */
+.coordinate-system,
+.coordinate-system-canvas,
+.axis-label {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 脉冲动画（当轴被点击时） */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.axis-label.clicked {
+  animation: pulse 0.3s ease-in-out;
+}
+
+/* 无障碍支持 */
+.coordinate-system-canvas:focus {
+  outline: 2px solid var(--ant-color-primary);
+  outline-offset: 2px;
+}
+
+/* 工具提示样式增强 */
+.coordinate-system::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid rgba(0, 0, 0, 0.8);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.coordinate-system:hover::before {
+  opacity: 1;
+}
+
+/* 性能优化 */
+.coordinate-system * {
+  will-change: transform, opacity;
+}

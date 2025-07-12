@@ -1,0 +1,467 @@
+/* Quantum UI 基础样式 */
+
+/* ---------- CSS变量 ---------- */
+:root {
+  /* 颜色 */
+  --quantum-blue: #3a86ff;
+  --quantum-purple: #8a2be2;
+  --quantum-cyan: #00e5ff;
+  --quantum-pink: #ff00aa;
+  --quantum-green: #00e676;
+  --quantum-yellow: #ffea00;
+  --quantum-orange: #ff9100;
+  --quantum-red: #ff3d00;
+  
+  /* 渐变色 */
+  --gradient-blue: linear-gradient(135deg, var(--quantum-blue), var(--quantum-purple));
+  --gradient-blue-subtle: linear-gradient(135deg, rgba(58, 134, 255, 0.2), rgba(138, 43, 226, 0.2));
+  --gradient-cyan: linear-gradient(135deg, var(--quantum-cyan), var(--quantum-blue));
+  --gradient-pink: linear-gradient(135deg, var(--quantum-pink), var(--quantum-purple));
+  --gradient-green: linear-gradient(135deg, var(--quantum-green), var(--quantum-cyan));
+  
+  /* 基础颜色 */
+  --primary-color: var(--quantum-blue);
+  --success-color: var(--quantum-green);
+  --warning-color: var(--quantum-orange);
+  --error-color: var(--quantum-red);
+  --info-color: var(--quantum-cyan);
+  
+  /* 背景颜色 */
+  --bg-base: #121212;
+  --bg-base-rgb: 18, 18, 18;
+  --bg-elevated: #1e1e1e;
+  --bg-card: #252525;
+  --bg-dropdown: #2a2a2a;
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --bg-active: rgba(255, 255, 255, 0.1);
+  --bg-selected: rgba(58, 134, 255, 0.15);
+  --bg-white: #ffffff;
+  --bg-black: #000000;
+  --bg-toggle-off: #484848;
+  --bg-toggle-handle: #ffffff;
+  
+  /* 玻璃效果 */
+  --glass-bg: rgba(30, 30, 30, 0.7);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+  --glass-blur: 10px;
+  
+  /* 文本颜色 */
+  --text-primary: rgba(255, 255, 255, 0.87);
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --text-disabled: rgba(255, 255, 255, 0.38);
+  --text-hint: rgba(255, 255, 255, 0.38);
+  --text-placeholder: rgba(255, 255, 255, 0.38);
+  --text-selected: var(--quantum-blue);
+  
+  /* 边框颜色 */
+  --border-color: rgba(255, 255, 255, 0.12);
+  --divider-color: rgba(255, 255, 255, 0.08);
+  
+  /* 阴影 */
+  --shadow-color: rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.5);
+  
+  /* 过渡时间 */
+  --transition-fast: 0.15s ease;
+  --transition-medium: 0.25s ease;
+  --transition-slow: 0.4s ease;
+  
+  /* 圆角 */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-round: 9999px;
+  
+  /* 间距 */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-xxl: 48px;
+  
+  /* Z-index层级 */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal: 1040;
+  --z-popover: 1050;
+  --z-tooltip: 1060;
+}
+
+/* 浅色模式变量 */
+.light-theme {
+  --bg-base: #f5f5f5;
+  --bg-base-rgb: 245, 245, 245;
+  --bg-elevated: #ffffff;
+  --bg-card: #ffffff;
+  --bg-dropdown: #ffffff;
+  --bg-hover: rgba(0, 0, 0, 0.05);
+  --bg-active: rgba(0, 0, 0, 0.1);
+  --bg-selected: rgba(58, 134, 255, 0.1);
+  --bg-toggle-off: #bdbdbd;
+  
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: 1px solid rgba(0, 0, 0, 0.1);
+  
+  --text-primary: rgba(0, 0, 0, 0.87);
+  --text-secondary: rgba(0, 0, 0, 0.6);
+  --text-disabled: rgba(0, 0, 0, 0.38);
+  --text-hint: rgba(0, 0, 0, 0.38);
+  --text-placeholder: rgba(0, 0, 0, 0.38);
+  
+  --border-color: rgba(0, 0, 0, 0.12);
+  --divider-color: rgba(0, 0, 0, 0.08);
+  
+  --shadow-color: rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.25);
+}
+
+/* 高对比度模式 */
+.high-contrast {
+  --quantum-blue: #4a96ff;
+  --quantum-purple: #9a3bf2;
+  --quantum-cyan: #20f5ff;
+  --quantum-pink: #ff20ba;
+  --quantum-green: #20f686;
+  --quantum-yellow: #fffa20;
+  --quantum-orange: #ff9f20;
+  --quantum-red: #ff4d20;
+  
+  --primary-color: var(--quantum-blue);
+  --success-color: var(--quantum-green);
+  --warning-color: var(--quantum-orange);
+  --error-color: var(--quantum-red);
+  --info-color: var(--quantum-cyan);
+  
+  --bg-base: #000000;
+  --bg-elevated: #0a0a0a;
+  --bg-card: #121212;
+  --bg-dropdown: #1a1a1a;
+  
+  --text-primary: rgba(255, 255, 255, 1);
+  --text-secondary: rgba(255, 255, 255, 0.8);
+  --text-disabled: rgba(255, 255, 255, 0.5);
+  
+  --border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ---------- 动画 ---------- */
+
+/* 旋转动画 */
+@keyframes quantum-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* 脉冲动画 */
+@keyframes quantum-pulse {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+}
+
+/* 闪烁动画 */
+@keyframes quantum-blink {
+  0% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.4;
+  }
+}
+
+/* 浮动动画 */
+@keyframes quantum-float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+/* 波纹动画 */
+@keyframes quantum-ripple {
+  0% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+/* 量子闪烁动画 */
+@keyframes quantum-glow {
+  0% {
+    filter: drop-shadow(0 0 2px var(--quantum-blue)) 
+            drop-shadow(0 0 4px var(--quantum-blue));
+    opacity: 0.7;
+  }
+  50% {
+    filter: drop-shadow(0 0 6px var(--quantum-blue)) 
+            drop-shadow(0 0 10px var(--quantum-blue));
+    opacity: 1;
+  }
+  100% {
+    filter: drop-shadow(0 0 2px var(--quantum-blue)) 
+            drop-shadow(0 0 4px var(--quantum-blue));
+    opacity: 0.7;
+  }
+}
+
+/* 渐变移动动画 */
+@keyframes quantum-gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* ---------- 基础样式 ---------- */
+
+/* 全局样式 */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  margin: 0;
+  padding: 0;
+  transition: background-color var(--transition-medium), color var(--transition-medium);
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 选择文本样式 */
+::selection {
+  background-color: var(--quantum-blue);
+  color: white;
+}
+
+/* 量子按钮基础样式 */
+.quantum-button {
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-medium);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.quantum-button.fusion-mode {
+  position: relative;
+  overflow: hidden;
+}
+
+.quantum-button.fusion-mode::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 50%);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  pointer-events: none;
+}
+
+.quantum-button.fusion-mode:hover::before {
+  opacity: 1;
+}
+
+.quantum-button.disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 量子卡片基础样式 */
+.quantum-card {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: all var(--transition-medium);
+}
+
+.quantum-card.hoverable:hover {
+  transform: translateY(-4px);
+}
+
+.quantum-card.fusion-mode {
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+/* 量子输入框基础样式 */
+.quantum-input {
+  border-radius: var(--radius-md);
+  transition: all var(--transition-medium);
+}
+
+.quantum-input.fusion-mode {
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.quantum-input.focused {
+  box-shadow: 0 0 0 2px rgba(58, 134, 255, 0.2);
+}
+
+/* 量子选择器基础样式 */
+.quantum-select {
+  position: relative;
+  width: 100%;
+}
+
+.quantum-select-dropdown {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.quantum-select-option {
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.quantum-select-option:hover {
+  background-color: var(--bg-hover);
+}
+
+.quantum-select-option.selected {
+  background-color: var(--bg-selected);
+  color: var(--text-selected);
+}
+
+/* 量子开关基础样式 */
+.quantum-toggle {
+  position: relative;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 量子粒子效果 */
+.quantum-particles {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 响应式工具类 */
+.hidden-xs {
+  display: none;
+}
+
+@media (min-width: 576px) {
+  .hidden-xs {
+    display: initial;
+  }
+  
+  .hidden-sm {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .hidden-sm {
+    display: initial;
+  }
+  
+  .hidden-md {
+    display: none;
+  }
+}
+
+@media (min-width: 992px) {
+  .hidden-md {
+    display: initial;
+  }
+  
+  .hidden-lg {
+    display: none;
+  }
+}
+
+@media (min-width: 1200px) {
+  .hidden-lg {
+    display: initial;
+  }
+  
+  .hidden-xl {
+    display: none;
+  }
+}
+
+@media (min-width: 1400px) {
+  .hidden-xl {
+    display: initial;
+  }
+}
+
+/* 辅助功能样式 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+} 

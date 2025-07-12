@@ -9,9 +9,15 @@ from pathlib import Path
 from .schemas import ComputationJob, JobStatus, ComputationRequest
 from ..websockets.connection_manager import manager
 from .kratos_handler import get_kratos_handler
+from .terra_routes import router as terra_router
+from .terra_solver import get_terra_solver
 
 router = APIRouter(prefix="/computation", tags=["Computation"])
 kratos_handler = get_kratos_handler()
+terra_solver = get_terra_solver()
+
+# 包含Terra求解器路由
+router.include_router(terra_router)
 
 # In-memory storage for computation jobs
 jobs: Dict[UUID, ComputationJob] = {}
@@ -114,4 +120,86 @@ async def start_computation(
     
     background_tasks.add_task(run_solver_task, new_job.id, req.client_id)
     
-    return new_job 
+    return new_job
+
+@router.get("/solvers")
+async def get_available_solvers():
+    """获取所有可用的求解器信息"""
+    
+    # 检查Kratos原始处理器
+    kratos_status = "available" if kratos_handler.is_available() else "unavailable"
+    
+    # 检查Terra求解器 
+    terra_status = "available" if terra_solver.is_available() else "unavailable"
+    
+    # 检查PyVista后处理
+    pyvista_status = "available" if (hasattr(terra_solver, 'pyvista_processor') and 
+                                   terra_solver.pyvista_processor is not None) else "unavailable"
+    
+    return {
+        "timestamp": datetime.utcnow().isoformat(),
+        "solvers": {
+            "kratos_original": {
+                "name": "Kratos原始处理器",
+                "status": kratos_status,
+                "description": "基础结构分析处理器",
+                "capabilities": ["structural_analysis", "basic_fem"]
+            },
+            "terra": {
+                "name": "Terra深基坑求解器", 
+                "status": terra_status,
+                "description": "专业深基坑地质力学分析引擎",
+                "capabilities": [
+                    "excavation_analysis", 
+                    "seepage_analysis",
+                    "coupled_analysis",
+                    "support_design",
+                    "staged_construction"
+                ],
+                "supported_materials": ["clay", "sand", "rock", "concrete", "steel"],
+                "version": "Terra v1.0"
+            }
+        },
+        "post_processing": {
+            "pyvista": {
+                "name": "PyVista后处理引擎",
+                "status": pyvista_status,
+                "description": "专业可视化数据处理",
+                "capabilities": [
+                    "vtk_processing",
+                    "contour_generation", 
+                    "slice_computation",
+                    "web_format_export"
+                ]
+            }
+        },
+        "summary": {
+            "total_solvers": 2,
+            "available_solvers": sum([1 for status in [kratos_status, terra_status] if status == "available"]),
+            "post_processing_available": pyvista_status == "available"
+        }
+    }
+
+@router.get("/status")
+async def get_computation_status():
+    """获取计算模块总体状态"""
+    
+    active_jobs = len([job for job in jobs.values() if job.status == JobStatus.RUNNING])
+    completed_jobs = len([job for job in jobs.values() if job.status == JobStatus.COMPLETED])
+    failed_jobs = len([job for job in jobs.values() if job.status == JobStatus.FAILED])
+    
+    return {
+        "module": "计算引擎",
+        "status": "operational",
+        "timestamp": datetime.utcnow().isoformat(),
+        "job_statistics": {
+            "active": active_jobs,
+            "completed": completed_jobs, 
+            "failed": failed_jobs,
+            "total": len(jobs)
+        },
+        "solvers": {
+            "kratos_available": kratos_handler.is_available(),
+            "terra_available": terra_solver.is_available()
+        }
+    } 

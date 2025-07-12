@@ -5,11 +5,18 @@
  */
 import { AnyComponent } from './components';
 
+export interface MaterialParameters {
+  elasticModulus: number;
+  poissonRatio: number;
+  density: number;
+  [key: string]: any; // Allow other parameters
+}
+
 export interface Material {
   id: string;
   name: string;
-  type: string;
-  parameters: Record<string, any>;
+  type: 'concrete' | 'steel' | 'soil';
+  parameters: MaterialParameters;
 }
 
 export interface Point3D {

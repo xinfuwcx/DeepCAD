@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom';
+import { HashRouter } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Button, Result } from 'antd';
 import App from './App.tsx'
@@ -35,9 +35,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       FallbackComponent={ErrorFallback}
       onReset={() => window.location.reload()}
     >
-      <BrowserRouter>
+      <HashRouter>
         <App />
-      </BrowserRouter>
+      </HashRouter>
     </ErrorBoundary>
   </React.StrictMode>,
 ) 

@@ -133,8 +133,8 @@ frontend:
   websocket: Socket.io
 
 infrastructure:
-  deployment: direct execution, systemd
-  orchestration: None
+  containerization: Docker
+  orchestration: Docker Compose
   ci_cd: GitHub Actions
 ```
 
