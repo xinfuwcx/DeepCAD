@@ -1,16 +1,19 @@
 import asyncio
 import json
-from fastapi import APIRouter, Body, BackgroundTasks, status
+from fastapi import APIRouter, Body, BackgroundTasks, status, Depends
 from typing import Dict
 from uuid import UUID
 from datetime import datetime
 from pathlib import Path
+from sqlalchemy.orm import Session
 
-from .schemas import ComputationJob, JobStatus, ComputationRequest
+from .schemas import ComputationJob as ComputationJobSchema, JobStatus, ComputationRequest
 from ..websockets.connection_manager import manager
 from .kratos_handler import get_kratos_handler
 from .terra_routes import router as terra_router
 from .terra_solver import get_terra_solver
+from gateway.database import get_db
+from gateway.models.computation import ComputationJob
 
 router = APIRouter(prefix="/computation", tags=["Computation"])
 kratos_handler = get_kratos_handler()
@@ -19,21 +22,29 @@ terra_solver = get_terra_solver()
 # 包含Terra求解器路由
 router.include_router(terra_router)
 
-# In-memory storage for computation jobs
-jobs: Dict[UUID, ComputationJob] = {}
 
-
-async def run_solver_task(job_id: UUID, client_id: str):
+async def run_solver_task(job_id: str, client_id: str):
     """
     This is the background task that runs the structural analysis using Kratos.
     If Kratos is not available, it falls back to the simulation mode.
     """
-    # Update job status to running
-    jobs[job_id].status = JobStatus.RUNNING
-    jobs[job_id].started_at = datetime.utcnow()
+    # Get database session and update job status
+    from gateway.database import SessionLocal
+    db = SessionLocal()
+    try:
+        job = db.query(ComputationJob).filter(ComputationJob.id == job_id).first()
+        if not job:
+            return
+        
+        # Update job status to running
+        job.status = "running"
+        db.commit()
+    finally:
+        db.close()
 
-    # Check if Kratos is available
-    if kratos_handler.is_available():
+    # Simplified: Always use simulation for now since we don't have Kratos installed
+    # TODO: Enable real Kratos when dependencies are installed
+    # if kratos_handler.is_available():
         # Use Kratos for real computation
         try:
             # Set up paths
@@ -107,18 +118,31 @@ async def run_solver_task(job_id: UUID, client_id: str):
             }), client_id)
 
 
-@router.post("/start", response_model=ComputationJob, status_code=status.HTTP_202_ACCEPTED)
+@router.post("/start", response_model=ComputationJobSchema, status_code=status.HTTP_202_ACCEPTED)
 async def start_computation(
     req: ComputationRequest = Body(...),
-    background_tasks: BackgroundTasks = BackgroundTasks()
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    db: Session = Depends(get_db)
 ):
     """
     Starts a new computation job in the background.
     """
-    new_job = ComputationJob()
-    jobs[new_job.id] = new_job
+    # Create new job in database
+    db_job = ComputationJob(
+        name=f"Job {datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
+        job_type="structural_analysis",
+        status="pending",
+        input_parameters=json.dumps(req.model_dump())
+    )
+    db.add(db_job)
+    db.commit()
+    db.refresh(db_job)
     
-    background_tasks.add_task(run_solver_task, new_job.id, req.client_id)
+    # Create schema response
+    new_job = ComputationJobSchema()
+    new_job.id = UUID(db_job.id)
+    
+    background_tasks.add_task(run_solver_task, db_job.id, req.client_id)
     
     return new_job
 
@@ -181,12 +205,14 @@ async def get_available_solvers():
     }
 
 @router.get("/status")
-async def get_computation_status():
+async def get_computation_status(db: Session = Depends(get_db)):
     """获取计算模块总体状态"""
     
-    active_jobs = len([job for job in jobs.values() if job.status == JobStatus.RUNNING])
-    completed_jobs = len([job for job in jobs.values() if job.status == JobStatus.COMPLETED])
-    failed_jobs = len([job for job in jobs.values() if job.status == JobStatus.FAILED])
+    # Query job statistics from database
+    all_jobs = db.query(ComputationJob).filter(ComputationJob.is_deleted == False).all()
+    active_jobs = len([job for job in all_jobs if job.status == "running"])
+    completed_jobs = len([job for job in all_jobs if job.status == "completed"])
+    failed_jobs = len([job for job in all_jobs if job.status == "failed"])
     
     return {
         "module": "计算引擎",
@@ -196,7 +222,7 @@ async def get_computation_status():
             "active": active_jobs,
             "completed": completed_jobs, 
             "failed": failed_jobs,
-            "total": len(jobs)
+            "total": len(all_jobs)
         },
         "solvers": {
             "kratos_available": kratos_handler.is_available(),

@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { Card } from 'antd';
-import *dxf from 'dxf-parser';
+import * as dxf from 'dxf-parser';
 
 interface ExcavationCanvas2DProps {
   soilDomainExtents: { minX: number; maxX: number; minY: number; maxY: number };

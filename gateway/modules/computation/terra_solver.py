@@ -30,7 +30,20 @@ try:
     import KratosMultiphysics.StructuralMechanicsApplication
     import KratosMultiphysics.LinearSolversApplication
     KRATOS_AVAILABLE = True
-    print(f"Terra求解器初始化成功 - Kratos版本: {KratosMultiphysics.GetVersionString()}")
+    
+    # 安全地获取Kratos版本信息
+    version_info = "unknown"
+    try:
+        if hasattr(KratosMultiphysics, 'GetVersionString'):
+            version_info = KratosMultiphysics.GetVersionString()
+        elif hasattr(KratosMultiphysics, '__version__'):
+            version_info = KratosMultiphysics.__version__
+        elif hasattr(KratosMultiphysics, 'GetVersion'):
+            version_info = KratosMultiphysics.GetVersion()
+    except AttributeError:
+        version_info = "version unavailable"
+    
+    print(f"Terra求解器初始化成功 - Kratos版本: {version_info}")
 except ImportError as e:
     print(f"Terra求解器初始化失败 - Kratos导入错误: {e}")
     KRATOS_AVAILABLE = False

@@ -52,8 +52,11 @@ const AnalysisView: React.FC = () => {
     
     // FEM 分析状态
     const [femAnalysisType, setFemAnalysisType] = useState('geomechanics');
+    const [analysisSequence, setAnalysisSequence] = useState(['geostatic', 'construction', 'seepage']);
+    const [currentPhase, setCurrentPhase] = useState(0);
     const [isRunningFEM, setIsRunningFEM] = useState(false);
     const [femProgress, setFemProgress] = useState(0);
+    const [analysisResults, setAnalysisResults] = useState({});
     
     // 物理AI状态
     const [isRunningAI, setIsRunningAI] = useState(false);
@@ -80,21 +83,69 @@ const AnalysisView: React.FC = () => {
     const hasComponents = scene?.components && scene.components.length > 0;
 
     // FEM 分析相关函数
-    const startFEMAnalysis = () => {
+    const startFEMAnalysis = async () => {
         setIsRunningFEM(true);
         setFemProgress(0);
+        setCurrentPhase(0);
         
-        // 模拟计算进度
-        const interval = setInterval(() => {
-            setFemProgress(prev => {
-                if (prev >= 100) {
+        if (femAnalysisType === 'sequence') {
+            // 三步走序列分析
+            for (let phase = 0; phase < 3; phase++) {
+                setCurrentPhase(phase);
+                await simulatePhaseAnalysis(phase);
+            }
+        } else {
+            // 单阶段分析
+            await simulateSingleAnalysis();
+        }
+        
+        setIsRunningFEM(false);
+    };
+    
+    const simulatePhaseAnalysis = (phase: number) => {
+        return new Promise((resolve) => {
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress >= 100) {
                     clearInterval(interval);
-                    setIsRunningFEM(false);
-                    return 100;
+                    setAnalysisResults(prev => ({
+                        ...prev,
+                        [phase === 0 ? 'geostatic' : phase === 1 ? 'construction' : 'seepage']: {
+                            completed: true,
+                            maxDisplacement: Math.random() * 50 + 10,
+                            maxStress: Math.random() * 1000 + 500,
+                            convergence: true
+                        }
+                    }));
+                    resolve(true);
                 }
-                return prev + Math.random() * 10;
-            });
-        }, 1000);
+                setFemProgress(progress);
+            }, 800);
+        });
+    };
+    
+    const simulateSingleAnalysis = () => {
+        return new Promise((resolve) => {
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 10;
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    setAnalysisResults(prev => ({
+                        ...prev,
+                        [femAnalysisType]: {
+                            completed: true,
+                            maxDisplacement: Math.random() * 50 + 10,
+                            maxStress: Math.random() * 1000 + 500,
+                            convergence: true
+                        }
+                    }));
+                    resolve(true);
+                }
+                setFemProgress(progress);
+            }, 1000);
+        });
     };
 
     // 物理AI优化相关函数
@@ -141,38 +192,75 @@ const AnalysisView: React.FC = () => {
                         onChange={setFemAnalysisType}
                         style={{ width: '100%' }}
                     >
-                        <Option value="geomechanics">
+                        <Option value="geostatic">
                             <Space>
                                 <CalculatorOutlined />
-                                地质力学分析
+                                地应力平衡分析 (A0)
                             </Space>
                         </Option>
-                        <Option value="structural">
+                        <Option value="construction">
                             <Space>
                                 <ExperimentOutlined />
-                                固体力学分析
+                                分步施工分析 (A1)
                             </Space>
                         </Option>
                         <Option value="seepage">
                             <Space>
                                 <ThunderboltOutlined />
-                                渗流分析
+                                稳态渗流分析 (A2)
+                            </Space>
+                        </Option>
+                        <Option value="sequence">
+                            <Space>
+                                <RocketOutlined />
+                                三步走完整序列
                             </Space>
                         </Option>
                     </Select>
                 </Form.Item>
 
-                <Form.Item label={<Text style={{ color: 'white' }}>求解器设置</Text>}>
+                <Form.Item label={<Text style={{ color: 'white' }}>Kratos求解器设置</Text>}>
                     <Collapse ghost>
                         <Panel header="高级参数" key="1">
-                            <Form.Item label="最大迭代次数">
-                                <InputNumber min={100} max={5000} defaultValue={1000} />
-                            </Form.Item>
-                            <Form.Item label="收敛容差">
-                                <InputNumber min={1e-8} max={1e-3} step={1e-6} defaultValue={1e-6} />
-                            </Form.Item>
-                            <Form.Item label="启用非线性">
-                                <Switch defaultChecked />
+                            <Row gutter={16}>
+                                <Col span={12}>
+                                    <Form.Item label="最大迭代次数">
+                                        <InputNumber min={100} max={5000} defaultValue={1000} style={{width: '100%'}} />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={12}>
+                                    <Form.Item label="收敛容差">
+                                        <InputNumber min={1e-8} max={1e-3} step={1e-6} defaultValue={1e-6} style={{width: '100%'}} />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                            <Row gutter={16}>
+                                <Col span={12}>
+                                    <Form.Item label="启用非线性">
+                                        <Switch defaultChecked />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={12}>
+                                    <Form.Item label="本构模型">
+                                        <Select defaultValue="mohr_coulomb" style={{width: '100%'}}>
+                                            <Option value="linear_elastic">线弹性</Option>
+                                            <Option value="mohr_coulomb">Mohr-Coulomb</Option>
+                                            <Option value="drucker_prager">Drucker-Prager</Option>
+                                            <Option value="cam_clay">修正Cam-Clay</Option>
+                                            <Option value="hardening_soil">硬化土</Option>
+                                            <Option value="hypoplastic">亚塑性</Option>
+                                        </Select>
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                            <Form.Item label="单元类型配置">
+                                <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>
+                                    <Badge status="success" text="土体: Hex8-SRI" /><br/>
+                                    <Badge status="processing" text="围护结构: Shell" /><br/>
+                                    <Badge status="warning" text="支撑/桩: Beam" /><br/>
+                                    <Badge status="default" text="锚杆: Truss" /><br/>
+                                    <Badge status="error" text="接触: Interface" />
+                                </div>
                             </Form.Item>
                         </Panel>
                     </Collapse>
@@ -191,14 +279,32 @@ const AnalysisView: React.FC = () => {
 
                 {isRunningFEM && (
                     <div style={{ marginTop: 16 }}>
-                        <Text style={{ color: 'white' }}>计算进度</Text>
-                        <Progress percent={Math.round(femProgress)} status="active" />
+                        <Text style={{ color: 'white' }}>计算进度 - {femAnalysisType === 'sequence' ? `第${currentPhase + 1}阶段` : '单阶段分析'}</Text>
+                        <Progress percent={Math.round(femProgress)} status="active" strokeColor={{
+                            '0%': '#1890ff',
+                            '50%': '#52c41a',
+                            '100%': '#722ed1',
+                        }} />
                         <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>
-                            {femProgress < 30 ? '正在组装刚度矩阵...' : 
-                             femProgress < 60 ? '正在求解线性方程组...' : 
-                             femProgress < 90 ? '正在计算应力应变...' : 
-                             '正在后处理结果...'}
+                            {femAnalysisType === 'sequence' ? 
+                                (currentPhase === 0 ? '地应力平衡计算中...' :
+                                 currentPhase === 1 ? '分步施工模拟中...' :
+                                 currentPhase === 2 ? '渗流分析中...' : '序列分析完成') :
+                                (femProgress < 30 ? '正在组装刚度矩阵...' : 
+                                 femProgress < 60 ? '正在求解线性方程组...' : 
+                                 femProgress < 90 ? '正在计算应力应变...' : 
+                                 '正在后处理结果...')
+                            }
                         </Text>
+                        {femAnalysisType === 'sequence' && (
+                            <div style={{ marginTop: 8 }}>
+                                <Steps size="small" current={currentPhase}>
+                                    <Step title="A0" description="地应力" />
+                                    <Step title="A1" description="施工" />
+                                    <Step title="A2" description="渗流" />
+                                </Steps>
+                            </div>
+                        )}
                     </div>
                 )}
             </Form>
@@ -404,13 +510,35 @@ const AnalysisView: React.FC = () => {
                                 </TabPane>
                                 <TabPane tab="监控" key="monitor">
                                     <Card className="analysis-card" bordered={false}>
-                                        <Text style={{ color: 'white' }}>计算监控</Text>
+                                        <Text style={{ color: 'white' }}>Kratos计算监控</Text>
                                         <Divider />
-                                        <div style={{ color: 'rgba(255,255,255,0.7)' }}>
-                                            <div>CPU使用率: 45%</div>
-                                            <div>内存使用: 2.3 GB</div>
-                                            <div>已用时间: 00:05:23</div>
-                                        </div>
+                                        <Row gutter={16}>
+                                            <Col span={12}>
+                                                <div style={{ color: 'rgba(255,255,255,0.7)' }}>
+                                                    <div>CPU使用率: 45%</div>
+                                                    <div>内存使用: 2.3 GB</div>
+                                                    <div>已用时间: 00:05:23</div>
+                                                </div>
+                                            </Col>
+                                            <Col span={12}>
+                                                <div style={{ color: 'rgba(255,255,255,0.7)' }}>
+                                                    <div>节点数: {hasMesh ? '23,456' : 'N/A'}</div>
+                                                    <div>单元数: {hasMesh ? '45,123' : 'N/A'}</div>
+                                                    <div>自由度: {hasMesh ? '70,368' : 'N/A'}</div>
+                                                </div>
+                                            </Col>
+                                        </Row>
+                                        {Object.keys(analysisResults).length > 0 && (
+                                            <>
+                                                <Divider />
+                                                <Text style={{ color: 'white', fontSize: 12 }}>分析结果摘要</Text>
+                                                {Object.entries(analysisResults).map(([key, result]: [string, any]) => (
+                                                    <div key={key} style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, marginTop: 4 }}>
+                                                        {key}: 最大位移 {result.maxDisplacement?.toFixed(2)}mm, 最大应力 {result.maxStress?.toFixed(0)}kPa
+                                                    </div>
+                                                ))}
+                                            </>
+                                        )}
                                     </Card>
                                 </TabPane>
                             </Tabs>

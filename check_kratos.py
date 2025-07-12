@@ -72,7 +72,15 @@ try:
         print("  可能需要单独安装或编译地质模块")
     
     # 检查Kratos路径
-    print(f"\nKratos安装路径: {KratosMultiphysics.__path__}")
+    try:
+        if hasattr(KratosMultiphysics, '__path__') and KratosMultiphysics.__path__:
+            print(f"\nKratos安装路径: {KratosMultiphysics.__path__}")
+        elif hasattr(KratosMultiphysics, '__file__') and KratosMultiphysics.__file__:
+            print(f"\nKratos模块文件: {KratosMultiphysics.__file__}")
+        else:
+            print("\nKratos路径信息不可用")
+    except AttributeError:
+        print("\nKratos路径信息无法获取")
     
 except ImportError as e:
     print(f"Kratos未安装或无法导入: {e}")

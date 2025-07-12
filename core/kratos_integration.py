@@ -9,6 +9,7 @@ import os
 import sys
 import logging
 from pathlib import Path
+from .kratos_utils import safe_get_kratos_version, safe_get_kratos_path, safe_check_kratos_application
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -43,9 +44,15 @@ class KratosIntegration:
         # If not found in project directory, check if it's in the Python path
         try:
             import KratosMultiphysics
-            kratos_path = Path(KratosMultiphysics.__file__).parent.parent
-            logger.info(f"Found Kratos in Python path: {kratos_path}")
-            return kratos_path
+            # 使用安全工具获取Kratos路径
+            kratos_path_str = safe_get_kratos_path(KratosMultiphysics)
+            if kratos_path_str:
+                kratos_path = Path(kratos_path_str).parent if Path(kratos_path_str).is_file() else Path(kratos_path_str)
+                logger.info(f"Found Kratos in Python path: {kratos_path}")
+                return kratos_path
+            else:
+                logger.warning("Kratos found but path could not be determined")
+                return None
         except ImportError:
             logger.warning("KratosMultiphysics not found in Python path")
             return None
@@ -63,7 +70,10 @@ class KratosIntegration:
             try:
                 import KratosMultiphysics
                 self.initialized = True
-                logger.info(f"Successfully initialized Kratos Multiphysics v{KratosMultiphysics.__version__}")
+                
+                # 使用安全工具获取Kratos版本信息
+                version_info = safe_get_kratos_version(KratosMultiphysics)
+                logger.info(f"Successfully initialized Kratos Multiphysics v{version_info}")
             except ImportError as e:
                 logger.error(f"Failed to import KratosMultiphysics: {e}")
                 self.initialized = False
@@ -82,27 +92,24 @@ class KratosIntegration:
             import KratosMultiphysics
             applications = []
             
-            # Try to import common applications
-            try:
-                import KratosMultiphysics.StructuralMechanicsApplication
-                applications.append("StructuralMechanicsApplication")
-            except ImportError:
-                pass
-                
-            try:
-                import KratosMultiphysics.FluidDynamicsApplication
-                applications.append("FluidDynamicsApplication")
-            except ImportError:
-                pass
+            # 使用安全工具检查常见应用
+            common_apps = [
+                "StructuralMechanicsApplication",
+                "FluidDynamicsApplication", 
+                "GeoMechanicsApplication",
+                "LinearSolversApplication",
+                "FSIApplication",
+                "OptimizationApplication"
+            ]
             
-            # Try to import GeoMechanicsApplication
-            try:
-                import KratosMultiphysics.GeoMechanicsApplication
-                applications.append("GeoMechanicsApplication")
-                logger.info("GeoMechanicsApplication is available")
-            except ImportError:
+            for app in common_apps:
+                if safe_check_kratos_application(KratosMultiphysics, app):
+                    applications.append(app)
+                    if app == "GeoMechanicsApplication":
+                        logger.info("GeoMechanicsApplication is available")
+            
+            if "GeoMechanicsApplication" not in applications:
                 logger.warning("GeoMechanicsApplication not found or not properly installed")
-                pass
             
             return applications
         except ImportError:

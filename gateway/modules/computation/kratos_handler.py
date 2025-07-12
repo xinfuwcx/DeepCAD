@@ -33,7 +33,20 @@ try:
     import KratosMultiphysics.GeoMechanicsApplication
     import KratosMultiphysics.LinearSolversApplication
     KRATOS_AVAILABLE = True
-    print(f"Kratos Multiphysics 可用，版本: {KratosMultiphysics.GetVersionString()}")
+    
+    # 安全地获取Kratos版本信息
+    version_info = "unknown"
+    try:
+        if hasattr(KratosMultiphysics, 'GetVersionString'):
+            version_info = KratosMultiphysics.GetVersionString()
+        elif hasattr(KratosMultiphysics, '__version__'):
+            version_info = KratosMultiphysics.__version__
+        elif hasattr(KratosMultiphysics, 'GetVersion'):
+            version_info = KratosMultiphysics.GetVersion()
+    except AttributeError:
+        version_info = "version unavailable"
+    
+    print(f"Kratos Multiphysics 可用，版本: {version_info}")
 except ImportError as e:
     print(f"Failed to import Kratos integration: {e}")
     KRATOS_AVAILABLE = False

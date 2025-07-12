@@ -1,44 +1,194 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Row, Col, Card, List, Tag, Button, Space, Tooltip, Divider, Breadcrumb, Spin, Statistic } from 'antd';
-import { FileTextOutlined, BarChartOutlined, ClockCircleOutlined, UserOutlined, HomeOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
+import { Typography, Row, Col, Card, List, Tag, Button, Space, Tooltip, Divider, Breadcrumb, Spin, Statistic, Tabs, Progress, Alert, Badge } from 'antd';
+import { FileTextOutlined, BarChartOutlined, ClockCircleOutlined, UserOutlined, HomeOutlined, ArrowUpOutlined, ArrowDownOutlined, DashboardOutlined, ExperimentOutlined, ThunderboltOutlined, DownloadOutlined, EyeOutlined } from '@ant-design/icons';
 import { Link, useParams } from 'react-router-dom';
+import PostProcessingControls from '../components/PostProcessingControls';
+import Viewport3D from '../components/Viewport3D';
 
-// 内联定义 ResultsViewer 组件
-const ResultsViewer: React.FC<{ resultId?: string }> = ({ resultId }) => {
+// 增强的 ResultsViewer 组件
+const ResultsViewer: React.FC<{ resultId?: string; result?: ResultData }> = ({ resultId, result }) => {
+  const [activeTab, setActiveTab] = useState('visualization');
+  const [visualization, setVisualization] = useState({
+    resultType: 'displacement',
+    deformationScale: 1.0,
+    showMesh: true,
+    showUndeformed: false,
+    colorScheme: 'rainbow',
+    showColorbar: true
+  });
+
+  const handleVisualizationChange = (config: any) => {
+    setVisualization(prev => ({ ...prev, ...config }));
+  };
+
+  const renderPhaseResults = () => {
+    if (!result?.phases) return null;
+    
+    return (
+      <Card title="各阶段分析结果" size="small" style={{ marginBottom: 16 }}>
+        <Row gutter={16}>
+          {result.analysisSequence?.map((phase, index) => {
+            const phaseData = result.phases![phase as keyof typeof result.phases];
+            const phaseNames = {
+              geostatic: 'A0 地应力平衡',
+              construction: 'A1 分步施工',
+              seepage: 'A2 稳态渗流'
+            };
+            
+            return (
+              <Col span={8} key={phase}>
+                <Card size="small" className="phase-result-card">
+                  <Badge 
+                    status={phaseData?.completed ? 'success' : 'error'} 
+                    text={
+                      <Text style={{ color: 'white', fontWeight: 'bold' }}>
+                        {phaseNames[phase as keyof typeof phaseNames]}
+                      </Text>
+                    } 
+                  />
+                  {phaseData && (
+                    <div style={{ marginTop: 8, color: 'rgba(255,255,255,0.8)' }}>
+                      {phase === 'seepage' ? (
+                        <>
+                          <div>水压力: {phaseData.pressure?.toFixed(1)} kPa</div>
+                          <div>流量: {phaseData.flow?.toFixed(3)} m³/s</div>
+                        </>
+                      ) : (
+                        <>
+                          <div>位移: {phaseData.displacement?.toFixed(1)} mm</div>
+                          <div>应力: {phaseData.stress?.toFixed(1)} kPa</div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </Card>
+              </Col>
+            );
+          })}
+        </Row>
+      </Card>
+    );
+  };
+
   return (
-    <Card 
-      title={<Title level={4} style={{ margin: 0, color: 'white' }}>结果可视化</Title>}
-      className="result-card"
-      style={{ background: 'var(--dark-bg-secondary)', borderColor: 'var(--dark-border-color)' }}
-    >
-      <div style={{
-        height: '400px',
-        background: 'var(--dark-bg-tertiary)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        color: 'var(--dark-text-primary)',
-        borderRadius: '4px'
-      }}>
-        {resultId ? (
-          <div style={{ textAlign: 'center' }}>
-            <Text style={{ color: 'var(--dark-text-primary)', fontSize: '16px' }}>结果 ID: {resultId}</Text>
-            <div style={{ marginTop: '16px' }}>
-              <Spin size="large" />
-              <Text style={{ display: 'block', marginTop: '16px', color: 'var(--dark-text-secondary)' }}>
-                正在加载结果可视化...
-              </Text>
+    <Row gutter={16}>
+      <Col span={16}>
+        <Card 
+          title={
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ color: 'white' }}>Kratos结果可视化</Text>
+              <Space>
+                <Button size="small" icon={<EyeOutlined />}>视图设置</Button>
+                <Button size="small" icon={<DownloadOutlined />}>导出</Button>
+              </Space>
             </div>
-          </div>
-        ) : (
-          <Text style={{ color: 'var(--dark-text-secondary)', fontSize: '16px' }}>请选择一个结果进行查看</Text>
-        )}
-      </div>
-    </Card>
+          }
+          className="result-card"
+          style={{ height: 'calc(100vh - 300px)' }}
+        >
+          <Tabs activeKey={activeTab} onChange={setActiveTab} type="card" size="small">
+            <TabPane tab={<Space><DashboardOutlined />三维视图</Space>} key="visualization">
+              <div style={{ height: '500px', position: 'relative' }}>
+                {resultId ? (
+                  <>
+                    <Viewport3D />
+                    <div style={{
+                      position: 'absolute',
+                      top: 10,
+                      left: 10,
+                      background: 'rgba(0,0,0,0.7)',
+                      padding: '8px 12px',
+                      borderRadius: 4,
+                      border: '1px solid rgba(59, 130, 246, 0.3)'
+                    }}>
+                      <Text style={{ color: 'white', fontSize: 12 }}>
+                        当前显示: {visualization.resultType} | 放大: {visualization.deformationScale}x
+                      </Text>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{
+                    height: '100%',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    background: 'var(--dark-bg-tertiary)',
+                    borderRadius: '4px'
+                  }}>
+                    <Text style={{ color: 'var(--dark-text-secondary)' }}>请选择一个结果进行查看</Text>
+                  </div>
+                )}
+              </div>
+            </TabPane>
+            
+            <TabPane tab={<Space><BarChartOutlined />数据分析</Space>} key="analysis">
+              <div style={{ padding: 16 }}>
+                {renderPhaseResults()}
+                
+                {result?.metrics && (
+                  <Card title="计算统计" size="small">
+                    <Row gutter={16}>
+                      <Col span={6}>
+                        <Statistic 
+                          title="节点数" 
+                          value={result.metrics.totalNodes} 
+                          valueStyle={{ color: '#1890ff' }}
+                        />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic 
+                          title="单元数" 
+                          value={result.metrics.totalElements} 
+                          valueStyle={{ color: '#52c41a' }}
+                        />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic 
+                          title="计算时间" 
+                          value={result.metrics.computationTime} 
+                          suffix="分钟"
+                          precision={1}
+                          valueStyle={{ color: '#faad14' }}
+                        />
+                      </Col>
+                      <Col span={6}>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: 24, fontWeight: 'bold', color: result.metrics.convergence ? '#52c41a' : '#ff4d4f' }}>
+                            {result.metrics.convergence ? '✓' : '✗'}
+                          </div>
+                          <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>收敛状态</div>
+                        </div>
+                      </Col>
+                    </Row>
+                  </Card>
+                )}
+              </div>
+            </TabPane>
+            
+            <TabPane tab={<Space><ExperimentOutlined />对比分析</Space>} key="comparison">
+              <div style={{ padding: 16, textAlign: 'center', color: 'rgba(255,255,255,0.7)' }}>
+                <Text>对比分析功能开发中...</Text>
+              </div>
+            </TabPane>
+          </Tabs>
+        </Card>
+      </Col>
+      
+      <Col span={8}>
+        <PostProcessingControls 
+          resultData={result}
+          onVisualizationChange={handleVisualizationChange}
+          onSettingChange={(setting, value) => {
+            setVisualization(prev => ({ ...prev, [setting]: value }));
+          }}
+        />
+      </Col>
+    </Row>
   );
 };
 
 const { Title, Text } = Typography;
+const { TabPane } = Tabs;
 
 interface ResultData {
   id: string;
@@ -48,6 +198,18 @@ interface ResultData {
   status: 'completed' | 'failed' | 'processing';
   type: string;
   description: string;
+  analysisSequence?: string[];
+  phases?: {
+    geostatic?: { completed: boolean; displacement: number; stress: number };
+    construction?: { completed: boolean; displacement: number; stress: number };
+    seepage?: { completed: boolean; pressure: number; flow: number };
+  };
+  metrics?: {
+    totalNodes: number;
+    totalElements: number;
+    computationTime: number;
+    convergence: boolean;
+  };
 }
 
 const ResultsView: React.FC = () => {
@@ -65,12 +227,24 @@ const ResultsView: React.FC = () => {
       if (resultId) {
         setResult({
           id: resultId,
-          name: `Analysis Result ${resultId}`,
+          name: `Kratos 三步走分析结果 ${resultId}`,
           date: new Date().toLocaleString(),
-          author: 'System User',
+          author: 'Kratos Solver',
           status: 'completed',
-          type: 'Structural Analysis',
-          description: 'This analysis was performed using Kratos Multiphysics solver with the following parameters...'
+          type: '地质力学序列分析',
+          description: '该分析使用Kratos Multiphysics求解器按照v0.8规范执行，包含地应力平衡(A0)、分步施工(A1)和稳态渗流(A2)三个阶段...',
+          analysisSequence: ['geostatic', 'construction', 'seepage'],
+          phases: {
+            geostatic: { completed: true, displacement: 12.5, stress: 180.3 },
+            construction: { completed: true, displacement: 45.8, stress: 245.7 },
+            seepage: { completed: true, pressure: 25.4, flow: 0.15 }
+          },
+          metrics: {
+            totalNodes: 23456,
+            totalElements: 45123,
+            computationTime: 3.2,
+            convergence: true
+          }
         });
         
         setRelatedResults([
@@ -215,7 +389,7 @@ const ResultsView: React.FC = () => {
         </Col>
 
         <Col span={24}>
-          <ResultsViewer resultId={resultId} />
+          <ResultsViewer resultId={resultId} result={result} />
         </Col>
 
         <Col span={24}>
