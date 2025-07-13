@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { 
   Card, 
   Typography, 
@@ -11,11 +11,11 @@ import {
   Col, 
   Divider, 
   Space,
-  ColorPicker,
   InputNumber,
   Collapse,
   Badge,
-  Form
+  Form,
+  Tooltip
 } from 'antd';
 import { 
   BarChartOutlined, 
@@ -24,697 +24,151 @@ import {
   StepForwardOutlined,
   ReloadOutlined,
   ScissorOutlined,
-  EyeOutlined,
-  EyeInvisibleOutlined,
   SettingOutlined,
   SaveOutlined,
   CameraOutlined,
   VideoCameraOutlined,
   ThunderboltOutlined,
-  CompressOutlined,
-  ExpandOutlined,
-  DashboardOutlined
+  DashboardOutlined,
+  FilePdfOutlined // 引入新图标
 } from '@ant-design/icons';
+import { useResultsStore } from '../stores/useResultsStore';
+import { useShallow } from 'zustand/react/shallow';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { TabPane } = Tabs;
 const { Option } = Select;
-const { Panel } = Collapse;
 
 interface PostProcessingControlsProps {
-  resultData?: any;
-  onVisualizationChange?: (config: any) => void;
-  onSettingChange?: (setting: string, value: any) => void;
+  onGenerateReport: () => void;
 }
 
-const PostProcessingControls: React.FC<PostProcessingControlsProps> = ({
-  resultData,
-  onVisualizationChange,
-  onSettingChange
-}) => {
-  // 可视化状态
-  const [activeTab, setActiveTab] = useState('contour');
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [animationSpeed, setAnimationSpeed] = useState(1);
-  const [currentTimeStep, setCurrentTimeStep] = useState(0);
-  const [maxTimeSteps] = useState(100);
+const PostProcessingControls: React.FC<PostProcessingControlsProps> = ({ onGenerateReport }) => {
+  const {
+    currentResult, // 获取当前结果
+    contour,
+    animation,
+    updateContourSettings,
+    updateAnimationSettings,
+    fetchVisualizationData, // 获取action
+    resetVisualization
+  } = useResultsStore(useShallow(state => ({
+    currentResult: state.currentResult,
+    contour: state.contour,
+    animation: state.animation,
+    updateContourSettings: state.updateContourSettings,
+    updateAnimationSettings: state.updateAnimationSettings,
+    fetchVisualizationData: state.fetchVisualizationData,
+    resetVisualization: state.resetVisualization,
+  })));
 
-  // 云图设置
-  const [contourSettings, setContourSettings] = useState({
-    variable: 'displacement',
-    component: 'magnitude',
-    colormap: 'rainbow',
-    numLevels: 10,
-    showContourLines: true,
-    fillContours: true,
-    opacity: 0.8,
-    range: { min: 0, max: 100 }
-  });
-
-  // 矢量设置
-  const [vectorSettings, setVectorSettings] = useState({
-    variable: 'displacement',
-    scale: 1.0,
-    density: 1.0,
-    showArrows: true,
-    color: '#1890ff',
-    opacity: 0.7,
-    fixedLength: false
-  });
-
-  // 切片设置
-  const [sliceSettings, setSliceSettings] = useState({
-    direction: 'z',
-    position: 0,
-    showSlice: true,
-    sliceOpacity: 0.9,
-    numSlices: 1,
-    autoSlicing: false
-  });
-
-  // 变形设置
-  const [deformationSettings, setDeformationSettings] = useState({
-    enabled: true,
-    scale: 1.0,
-    showUndeformed: false,
-    undeformedOpacity: 0.3
-  });
-
-  // 兼容旧版本的props
-  const [showMesh, setShowMesh] = useState(true);
-  const [showColorbar, setShowColorbar] = useState(true);
-
-  // 动画控制
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isAnimating) {
-      interval = setInterval(() => {
-        setCurrentTimeStep(prev => {
-          const next = prev + 1;
-          return next >= maxTimeSteps ? 0 : next;
-        });
-      }, 1000 / animationSpeed);
-    }
-    return () => clearInterval(interval);
-  }, [isAnimating, animationSpeed, maxTimeSteps]);
-
-  // 处理设置变化的通用函数
-  const handleSettingChange = (setting: string, value: any) => {
-    if (onSettingChange) {
-      onSettingChange(setting, value);
-    }
-    if (onVisualizationChange) {
-      onVisualizationChange({ [setting]: value });
-    }
-  };
-
-  // 可用的结果变量
+  const [activeTab, setActiveTab] = React.useState('contour');
+  
+    // Available result variables and colormaps
   const availableVariables = [
-    { label: '位移', value: 'displacement', components: ['X', 'Y', 'Z', '合位移'] },
-    { label: '应力', value: 'stress', components: ['XX', 'YY', 'ZZ', 'XY', 'YZ', 'XZ', 'Von Mises'] },
-    { label: '应变', value: 'strain', components: ['XX', 'YY', 'ZZ', 'XY', 'YZ', 'XZ', '体积应变'] },
-    { label: '反力', value: 'reaction', components: ['X', 'Y', 'Z', '合反力'] },
-    { label: '孔隙水压力', value: 'pore_pressure', components: ['压力'] }
+    { label: '位移', value: 'displacement', components: ['X', 'Y', 'Z', 'Magnitude'] },
+    { label: '应力', value: 'stress', components: ['XX', 'YY', 'ZZ', 'XY', 'Von Mises'] },
+    { label: '应变', value: 'strain', components: ['XX', 'YY', 'ZZ', 'XY', 'Volumetric'] },
   ];
 
-  // 颜色映射选项
   const colormapOptions = [
     { label: '彩虹', value: 'rainbow' },
     { label: '热图', value: 'hot' },
     { label: '冷图', value: 'cool' },
-    { label: '蓝白红', value: 'bwr' },
-    { label: '灰度', value: 'gray' },
-    { label: '地形', value: 'terrain' }
   ];
 
-  // 云图可视化面板
   const renderContourPanel = () => (
-    <div>
-      <Form layout="vertical" size="small">
-        <Row gutter={[8, 8]}>
-          <Col span={12}>
-            <Form.Item label={<Text style={{ color: 'white' }}>变量</Text>}>
-              <Select
-                value={contourSettings.variable}
-                onChange={(value) => {
-                  setContourSettings(prev => ({ ...prev, variable: value }));
-                  handleSettingChange('resultType', value);
-                }}
-                style={{ width: '100%' }}
-              >
-                {availableVariables.map(variable => (
-                  <Option key={variable.value} value={variable.value}>
-                    {variable.label}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item label={<Text style={{ color: 'white' }}>分量</Text>}>
-              <Select
-                value={contourSettings.component}
-                onChange={(value) => setContourSettings(prev => ({ ...prev, component: value }))}
-                style={{ width: '100%' }}
-              >
-                {availableVariables
-                  .find(v => v.value === contourSettings.variable)
-                  ?.components.map(comp => (
-                    <Option key={comp} value={comp.toLowerCase()}>
-                      {comp}
-                    </Option>
-                  ))}
-              </Select>
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Row gutter={[8, 8]}>
-          <Col span={12}>
-            <Form.Item label={<Text style={{ color: 'white' }}>颜色映射</Text>}>
-              <Select
-                value={contourSettings.colormap}
-                onChange={(value) => {
-                  setContourSettings(prev => ({ ...prev, colormap: value }));
-                  handleSettingChange('colorScheme', value);
-                }}
-                style={{ width: '100%' }}
-              >
-                {colormapOptions.map(option => (
-                  <Option key={option.value} value={option.value}>
-                    {option.label}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item label={<Text style={{ color: 'white' }}>等值线数</Text>}>
-              <InputNumber
-                value={contourSettings.numLevels}
-                onChange={(value) => setContourSettings(prev => ({ ...prev, numLevels: value || 10 }))}
-                min={5}
-                max={50}
-                style={{ width: '100%' }}
-              />
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Form.Item label={<Text style={{ color: 'white' }}>透明度</Text>}>
-          <Slider
-            value={contourSettings.opacity}
-            onChange={(value) => setContourSettings(prev => ({ ...prev, opacity: value }))}
-            min={0}
-            max={1}
-            step={0.1}
-            marks={{ 0: '0', 0.5: '0.5', 1: '1' }}
-          />
-        </Form.Item>
-
-        <Row gutter={[8, 8]}>
-          <Col span={12}>
-            <Form.Item>
-              <Switch
-                checked={contourSettings.showContourLines}
-                onChange={(checked) => setContourSettings(prev => ({ ...prev, showContourLines: checked }))}
-              />
-              <Text style={{ color: 'white', marginLeft: 8 }}>显示等值线</Text>
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item>
-              <Switch
-                checked={contourSettings.fillContours}
-                onChange={(checked) => setContourSettings(prev => ({ ...prev, fillContours: checked }))}
-              />
-              <Text style={{ color: 'white', marginLeft: 8 }}>填充云图</Text>
-            </Form.Item>
-          </Col>
-        </Row>
-      </Form>
-    </div>
-  );
-
-  // 矢量可视化面板
-  const renderVectorPanel = () => (
-    <div>
-      <Form layout="vertical" size="small">
-        <Form.Item label={<Text style={{ color: 'white' }}>矢量变量</Text>}>
-          <Select
-            value={vectorSettings.variable}
-            onChange={(value) => setVectorSettings(prev => ({ ...prev, variable: value }))}
-            style={{ width: '100%' }}
-          >
-            {availableVariables.filter(v => v.components.length > 1).map(variable => (
-              <Option key={variable.value} value={variable.value}>
-                {variable.label}
-              </Option>
-            ))}
-          </Select>
-        </Form.Item>
-
-        <Row gutter={[8, 8]}>
-          <Col span={12}>
-            <Form.Item label={<Text style={{ color: 'white' }}>缩放比例</Text>}>
-              <Slider
-                value={vectorSettings.scale}
-                onChange={(value) => setVectorSettings(prev => ({ ...prev, scale: value }))}
-                min={0.1}
-                max={5}
-                step={0.1}
-                marks={{ 0.1: '0.1', 1: '1', 5: '5' }}
-              />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item label={<Text style={{ color: 'white' }}>密度</Text>}>
-              <Slider
-                value={vectorSettings.density}
-                onChange={(value) => setVectorSettings(prev => ({ ...prev, density: value }))}
-                min={0.1}
-                max={2}
-                step={0.1}
-                marks={{ 0.1: '稀疏', 1: '正常', 2: '密集' }}
-              />
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Row gutter={[8, 8]}>
-          <Col span={12}>
-            <Form.Item label={<Text style={{ color: 'white' }}>透明度</Text>}>
-              <Slider
-                value={vectorSettings.opacity}
-                onChange={(value) => setVectorSettings(prev => ({ ...prev, opacity: value }))}
-                min={0}
-                max={1}
-                step={0.1}
-              />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item>
-              <Switch
-                checked={vectorSettings.showArrows}
-                onChange={(checked) => setVectorSettings(prev => ({ ...prev, showArrows: checked }))}
-              />
-              <Text style={{ color: 'white', marginLeft: 8 }}>显示箭头</Text>
-            </Form.Item>
-          </Col>
-        </Row>
-      </Form>
-    </div>
-  );
-
-  // 切片可视化面板
-  const renderSlicePanel = () => (
-    <div>
-      <Form layout="vertical" size="small">
-        <Row gutter={[8, 8]}>
-          <Col span={12}>
-            <Form.Item label={<Text style={{ color: 'white' }}>切片方向</Text>}>
-              <Select
-                value={sliceSettings.direction}
-                onChange={(value) => setSliceSettings(prev => ({ ...prev, direction: value }))}
-                style={{ width: '100%' }}
-              >
-                <Option value="x">X 方向 (YZ 平面)</Option>
-                <Option value="y">Y 方向 (XZ 平面)</Option>
-                <Option value="z">Z 方向 (XY 平面)</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item label={<Text style={{ color: 'white' }}>切片数量</Text>}>
-              <InputNumber
-                value={sliceSettings.numSlices}
-                onChange={(value) => setSliceSettings(prev => ({ ...prev, numSlices: value || 1 }))}
-                min={1}
-                max={20}
-                style={{ width: '100%' }}
-              />
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Form.Item label={<Text style={{ color: 'white' }}>切片位置</Text>}>
-          <Slider
-            value={sliceSettings.position}
-            onChange={(value) => setSliceSettings(prev => ({ ...prev, position: value }))}
-            min={-50}
-            max={50}
-            marks={{ '-50': '-50', 0: '0', 50: '50' }}
-          />
-        </Form.Item>
-
-        <Form.Item label={<Text style={{ color: 'white' }}>切片透明度</Text>}>
-          <Slider
-            value={sliceSettings.sliceOpacity}
-            onChange={(value) => setSliceSettings(prev => ({ ...prev, sliceOpacity: value }))}
-            min={0}
-            max={1}
-            step={0.1}
-            marks={{ 0: '0', 0.5: '0.5', 1: '1' }}
-          />
-        </Form.Item>
-
-        <Row gutter={[8, 8]}>
-          <Col span={12}>
-            <Form.Item>
-              <Switch
-                checked={sliceSettings.showSlice}
-                onChange={(checked) => setSliceSettings(prev => ({ ...prev, showSlice: checked }))}
-              />
-              <Text style={{ color: 'white', marginLeft: 8 }}>显示切片</Text>
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item>
-              <Switch
-                checked={sliceSettings.autoSlicing}
-                onChange={(checked) => setSliceSettings(prev => ({ ...prev, autoSlicing: checked }))}
-              />
-              <Text style={{ color: 'white', marginLeft: 8 }}>自动切片</Text>
-            </Form.Item>
-          </Col>
-        </Row>
-      </Form>
-    </div>
-  );
-
-  // 动画控制面板
-  const renderAnimationPanel = () => (
-    <div>
-      <Form layout="vertical" size="small">
-        <Form.Item label={<Text style={{ color: 'white' }}>时间步</Text>}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Slider
-              value={currentTimeStep}
-              onChange={setCurrentTimeStep}
-              min={0}
-              max={maxTimeSteps - 1}
-              style={{ flex: 1 }}
-              disabled={isAnimating}
-            />
-            <Text style={{ color: 'white', minWidth: 60 }}>
-              {currentTimeStep + 1}/{maxTimeSteps}
-            </Text>
-          </div>
-        </Form.Item>
-
-        <Form.Item label={<Text style={{ color: 'white' }}>播放速度</Text>}>
-          <Slider
-            value={animationSpeed}
-            onChange={setAnimationSpeed}
-            min={0.1}
-            max={5}
-            step={0.1}
-            marks={{ 0.1: '0.1x', 1: '1x', 5: '5x' }}
-          />
-        </Form.Item>
-
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
-          <Button
-            type="primary"
-            icon={isAnimating ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
-            onClick={() => setIsAnimating(!isAnimating)}
-          >
-            {isAnimating ? '暂停' : '播放'}
-          </Button>
-          <Button
-            icon={<StepForwardOutlined />}
-            onClick={() => setCurrentTimeStep(prev => (prev + 1) % maxTimeSteps)}
-            disabled={isAnimating}
-          >
-            下一步
-          </Button>
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={() => setCurrentTimeStep(0)}
-            disabled={isAnimating}
-          >
-            重置
-          </Button>
-        </div>
-      </Form>
-
-      <Divider style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
-
-      <Text strong style={{ color: 'white', display: 'block', marginBottom: 8 }}>
-        变形设置
-      </Text>
-      
-      <Form.Item label={<Text style={{ color: 'white' }}>变形缩放</Text>}>
-        <Slider
-          value={deformationSettings.scale}
-          onChange={(value) => {
-            setDeformationSettings(prev => ({ ...prev, scale: value }));
-            handleSettingChange('deformationScale', value);
-          }}
-          min={0}
-          max={10}
-          step={0.1}
-          marks={{ 0: '0', 1: '1x', 10: '10x' }}
-        />
-      </Form.Item>
-
+    <Form layout="vertical" size="small">
       <Row gutter={[8, 8]}>
         <Col span={12}>
-          <Form.Item>
-            <Switch
-              checked={deformationSettings.enabled}
-              onChange={(checked) => setDeformationSettings(prev => ({ ...prev, enabled: checked }))}
-            />
-            <Text style={{ color: 'white', marginLeft: 8 }}>显示变形</Text>
+          <Form.Item label={<Text style={{ color: 'white' }}>变量</Text>}>
+            <Select
+              value={contour.variable}
+              onChange={(value) => {
+                if (currentResult) {
+                  // 当变量改变时，调用action获取新的可视化数据
+                  fetchVisualizationData(currentResult.id, value);
+                }
+                // 同时更新设置
+                updateContourSettings({ variable: value });
+              }}
+              style={{ width: '100%' }}
+            >
+              {availableVariables.map(v => <Option key={v.value} value={v.value}>{v.label}</Option>)}
+            </Select>
           </Form.Item>
         </Col>
         <Col span={12}>
-          <Form.Item>
-            <Switch
-              checked={deformationSettings.showUndeformed}
-              onChange={(checked) => {
-                setDeformationSettings(prev => ({ ...prev, showUndeformed: checked }));
-                handleSettingChange('showUndeformed', checked);
-              }}
-            />
-            <Text style={{ color: 'white', marginLeft: 8 }}>显示原始形状</Text>
+          <Form.Item label={<Text style={{ color: 'white' }}>分量</Text>}>
+            <Select
+              value={contour.component}
+              onChange={(value) => updateContourSettings({ component: value })}
+              style={{ width: '100%' }}
+            >
+              {availableVariables.find(v => v.value === contour.variable)?.components.map(c => <Option key={c} value={c.toLowerCase()}>{c}</Option>)}
+            </Select>
           </Form.Item>
         </Col>
       </Row>
-    </div>
+      <Form.Item label={<Text style={{ color: 'white' }}>透明度</Text>}>
+        <Slider
+          value={contour.opacity}
+          onChange={(value) => updateContourSettings({ opacity: value })}
+          min={0} max={1} step={0.1}
+        />
+      </Form.Item>
+    </Form>
   );
 
-  // 兼容性的简化面板（旧版本）
-  const renderLegacyPanel = () => (
-    <div>
-      <Space direction="vertical" style={{ width: '100%' }}>
-        <div>
-          <Text strong style={{ color: 'white' }}>结果类型</Text>
-          <Select
-            style={{ width: '100%', marginTop: 8 }}
-            value={contourSettings.variable}
-            onChange={(value) => {
-              setContourSettings(prev => ({ ...prev, variable: value }));
-              handleSettingChange('resultType', value);
-            }}
-          >
-            <Option value="displacement">位移</Option>
-            <Option value="stress">应力</Option>
-            <Option value="strain">应变</Option>
-            <Option value="pore_pressure">孔隙水压力</Option>
-          </Select>
-        </div>
-
-        <Divider style={{ margin: '12px 0', borderColor: 'rgba(255,255,255,0.2)' }} />
-
-        <div>
-          <Text strong style={{ color: 'white' }}>变形放大系数</Text>
-          <Slider
-            min={0}
-            max={10}
-            step={0.1}
-            value={deformationSettings.scale}
-            onChange={(value) => {
-              setDeformationSettings(prev => ({ ...prev, scale: value }));
-              handleSettingChange('deformationScale', value);
-            }}
-            marks={{ 0: '0', 5: '5', 10: '10' }}
-          />
-        </div>
-
-        <Divider style={{ margin: '12px 0', borderColor: 'rgba(255,255,255,0.2)' }} />
-
-        <div>
-          <Text strong style={{ color: 'white' }}>显示选项</Text>
-          <Row gutter={[16, 16]} style={{ marginTop: 8 }}>
-            <Col span={12}>
-              <Space>
-                <Switch 
-                  checked={showMesh} 
-                  onChange={(checked) => {
-                    setShowMesh(checked);
-                    handleSettingChange('showMesh', checked);
-                  }} 
-                />
-                <Text style={{ color: 'white' }}>显示网格</Text>
-              </Space>
-            </Col>
-            <Col span={12}>
-              <Space>
-                <Switch 
-                  checked={deformationSettings.showUndeformed} 
-                  onChange={(checked) => {
-                    setDeformationSettings(prev => ({ ...prev, showUndeformed: checked }));
-                    handleSettingChange('showUndeformed', checked);
-                  }} 
-                />
-                <Text style={{ color: 'white' }}>显示未变形形状</Text>
-              </Space>
-            </Col>
-            <Col span={12}>
-              <Space>
-                <Switch 
-                  checked={showColorbar} 
-                  onChange={(checked) => {
-                    setShowColorbar(checked);
-                    handleSettingChange('showColorbar', checked);
-                  }} 
-                />
-                <Text style={{ color: 'white' }}>显示颜色图例</Text>
-              </Space>
-            </Col>
-          </Row>
-        </div>
-
-        <Divider style={{ margin: '12px 0', borderColor: 'rgba(255,255,255,0.2)' }} />
-
-        <div>
-          <Text strong style={{ color: 'white' }}>颜色方案</Text>
-          <Select
-            style={{ width: '100%', marginTop: 8 }}
-            value={contourSettings.colormap}
-            onChange={(value) => {
-              setContourSettings(prev => ({ ...prev, colormap: value }));
-              handleSettingChange('colorScheme', value);
-            }}
-          >
-            <Option value="rainbow">彩虹色</Option>
-            <Option value="hot">热图</Option>
-            <Option value="cool">冷图</Option>
-            <Option value="bwr">蓝白红</Option>
-            <Option value="gray">灰度</Option>
-          </Select>
-        </div>
-      </Space>
-    </div>
+  const renderAnimationPanel = () => (
+    <Form layout="vertical" size="small">
+      <Form.Item label={<Text style={{ color: 'white' }}>时间步</Text>}>
+        <Slider
+          value={animation.currentTimeStep}
+          onChange={(value) => updateAnimationSettings({ currentTimeStep: value })}
+          max={animation.maxTimeSteps - 1}
+        />
+      </Form.Item>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+        <Button
+          type="primary"
+          icon={animation.isPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+          onClick={() => updateAnimationSettings({ isPlaying: !animation.isPlaying })}
+        >
+          {animation.isPlaying ? '暂停' : '播放'}
+        </Button>
+      </div>
+    </Form>
   );
-
-  // 如果是高级模式，显示完整的后处理控制
-  const isAdvancedMode = onVisualizationChange !== undefined;
 
   return (
     <Card 
       className="postprocessing-card theme-card result-card" 
-      title={
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={{ color: 'white' }}>
-            {isAdvancedMode ? '高级后处理' : '后处理控制'}
-          </Text>
-          {isAdvancedMode && (
-            <Space>
-              <Badge status="processing" text={
-                <Text style={{ color: 'white', fontSize: 12 }}>
-                  时间步: {currentTimeStep + 1}/{maxTimeSteps}
-                </Text>
-              } />
-              <Button size="small" icon={<CameraOutlined />}>
-                截图
-              </Button>
-              <Button size="small" icon={<VideoCameraOutlined />}>
-                录制
-              </Button>
-            </Space>
-          )}
-        </div>
-      }
+      title={<Text style={{ color: 'white' }}>高级后处理</Text>}
       style={{ height: '100%' }}
+      extra={
+        <Tooltip title="生成PDF分析报告">
+          <Button 
+            icon={<FilePdfOutlined />} 
+            onClick={onGenerateReport}
+            type="primary"
+            ghost
+          />
+        </Tooltip>
+      }
     >
-      {isAdvancedMode ? (
-        <>
-          <Tabs activeKey={activeTab} onChange={setActiveTab} type="card" size="small">
-            <TabPane 
-              tab={
-                <span>
-                  <DashboardOutlined />
-                  云图
-                </span>
-              } 
-              key="contour"
-            >
-              {renderContourPanel()}
-            </TabPane>
-
-            <TabPane 
-              tab={
-                <span>
-                  <ThunderboltOutlined />
-                  矢量
-                </span>
-              } 
-              key="vector"
-            >
-              {renderVectorPanel()}
-            </TabPane>
-
-            <TabPane 
-              tab={
-                <span>
-                  <ScissorOutlined />
-                  切片
-                </span>
-              } 
-              key="slice"
-            >
-              {renderSlicePanel()}
-            </TabPane>
-
-            <TabPane 
-              tab={
-                <span>
-                  <PlayCircleOutlined />
-                  动画
-                </span>
-              } 
-              key="animation"
-            >
-              {renderAnimationPanel()}
-            </TabPane>
-          </Tabs>
-
-          <Divider style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Space>
-              <Button size="small" icon={<SaveOutlined />}>
-                保存设置
-              </Button>
-              <Button size="small" icon={<ReloadOutlined />}>
-                重置设置
-              </Button>
-            </Space>
-            
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>
-                实时更新
-              </Text>
-              <Switch defaultChecked size="small" />
-            </div>
-          </div>
-        </>
-      ) : (
-        renderLegacyPanel()
-      )}
+      <Tabs activeKey={activeTab} onChange={setActiveTab} type="card" size="small">
+        <TabPane tab={<span><DashboardOutlined />云图</span>} key="contour">
+          {renderContourPanel()}
+        </TabPane>
+        <TabPane tab={<span><PlayCircleOutlined />动画</span>} key="animation">
+          {renderAnimationPanel()}
+        </TabPane>
+      </Tabs>
+      <Divider style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
+      <Button size="small" icon={<ReloadOutlined />} onClick={resetVisualization}>
+        重置设置
+      </Button>
     </Card>
   );
 };

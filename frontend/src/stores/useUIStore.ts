@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import axios from 'axios';
 
 export type TaskStatus = 'idle' | 'starting' | 'processing' | 'completed' | 'error';
 
@@ -7,6 +8,7 @@ export interface TaskProgress {
   status: TaskStatus;
   progress: number; // 0-100
   message: string;
+  results?: Record<string, any>; // Add this property
 }
 
 interface UIState {
@@ -14,6 +16,7 @@ interface UIState {
   taskProgress: TaskProgress | null;
   setTaskProgress: (progress: TaskProgress) => void;
   resetTaskProgress: () => void;
+  startComputation: (analysisType: string) => Promise<void>;
   
   // 主题和UI模式
   theme: 'light' | 'dark';
@@ -106,5 +109,55 @@ export const useUIStore = create<UIState>((set, get) => ({
       websocket.close();
       set({ websocket: null });
     }
-  }
+  },
+
+  startComputation: async (analysisType: string) => {
+    const { clientId } = get();
+    if (!clientId) {
+      console.error("Cannot start computation without a client ID.");
+      set({ 
+        taskProgress: { 
+          status: 'error', 
+          progress: 0, 
+          message: '连接错误：无法获取客户端ID。' 
+        } 
+      });
+      return;
+    }
+
+    set({ 
+      taskProgress: { 
+        status: 'starting', 
+        progress: 0, 
+        message: '正在启动计算任务...' 
+      } 
+    });
+
+    try {
+      const response = await axios.post('/api/computation/start', {
+        client_id: clientId,
+        analysis_type: analysisType,
+      });
+      
+      if (response.status === 202) {
+        set({ 
+          taskProgress: {
+            taskId: response.data.id,
+            status: 'processing',
+            progress: 0,
+            message: '任务已成功提交，等待求解器响应...'
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Failed to start computation job:", error);
+      set({
+        taskProgress: {
+          status: 'error',
+          progress: 0,
+          message: '提交计算任务失败。'
+        }
+      });
+    }
+  },
 })); 

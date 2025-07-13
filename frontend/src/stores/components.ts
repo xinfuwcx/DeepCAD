@@ -15,6 +15,10 @@ export interface DiaphragmWall extends ComponentBase {
   path: Point2D[];
   thickness: number;
   depth: number;
+  construction_method?: string;
+  panel_length?: number;
+  joint_type?: string;
+  system_type?: string;
 }
 
 export interface PileArrangement extends ComponentBase {

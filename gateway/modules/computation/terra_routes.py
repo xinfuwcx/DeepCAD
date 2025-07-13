@@ -255,6 +255,32 @@ async def get_analysis_status(analysis_id: str):
         "results_url": task_info.get("results_url")
     }
 
+@router.get("/analysis/{analysis_id}/visualize/{field_name}")
+async def get_analysis_visualization(analysis_id: str, field_name: str):
+    """获取分析结果的可视化数据"""
+    if analysis_id not in analysis_tasks:
+        raise HTTPException(status_code=404, detail="分析任务不存在")
+    
+    task_info = analysis_tasks[analysis_id]
+    if task_info["status"] != "completed" or not task_info.get("result_file"):
+        raise HTTPException(status_code=400, detail="分析未完成或结果文件不存在")
+
+    solver = get_terra_solver()
+    if not solver.pyvista_processor:
+        raise HTTPException(status_code=503, detail="PyVista处理器不可用")
+
+    try:
+        # 使用PyVista处理器处理结果文件
+        visualization_data = await solver.pyvista_processor.process_terra_results(
+            task_info["result_file"],
+            field_to_process=field_name
+        )
+        return visualization_data
+    except Exception as e:
+        logger.error(f"可视化数据生成失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"可视化数据生成失败: {str(e)}")
+
+
 @router.get("/analysis/{analysis_id}/results")
 async def get_analysis_results(analysis_id: str):
     """获取分析结果"""

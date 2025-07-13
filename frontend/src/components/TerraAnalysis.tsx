@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Card, Form, Input, Select, InputNumber, Button, Steps, 
   Table, Space, message, Progress, Alert, Tabs, Row, Col,
@@ -13,6 +13,9 @@ import { apiClient } from '../api/client';
 import { useRealTimeFeedback, useTaskProgress, TaskStatus, FeedbackType } from '../hooks/useRealTimeFeedback';
 import { useValidatedForm } from '../hooks/useValidatedForm';
 import { ValidationSchemas } from '../validation/schemas';
+import Viewport3D from './Viewport3D';
+import PostProcessingControls from './PostProcessingControls';
+import { generatePdfReport } from '../services/reportGenerator';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -60,6 +63,8 @@ const TerraAnalysis: React.FC<TerraAnalysisProps> = ({ onAnalysisComplete }) => 
   const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [terraStatus, setTerraStatus] = useState<any>(null);
   const [availableSoilTypes, setAvailableSoilTypes] = useState<any[]>([]);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const reportContentRef = useRef<HTMLDivElement>(null);
 
   // WebSocket实时反馈
   const feedback = useRealTimeFeedback('terra_analysis', {
@@ -250,14 +255,31 @@ const TerraAnalysis: React.FC<TerraAnalysisProps> = ({ onAnalysisComplete }) => 
           if (onAnalysisComplete) {
             onAnalysisComplete(response.data);
           }
+          setAnalysisResult(response.data); // 保存结果到状态
         })
         .catch(error => {
-          console.error('获取分析结果失败:', error);
+          message.error('获取分析结果失败');
         });
     } else if (taskProgress.status === TaskStatus.FAILED) {
       message.error('Terra分析失败');
     }
   }, [taskProgress.status, analysisId, onAnalysisComplete]);
+
+  const handleGenerateReport = async () => {
+    if (!reportContentRef.current) {
+      message.error('无法生成报告：报告内容尚未渲染。');
+      return;
+    }
+    
+    message.loading({ content: '正在生成PDF报告...', key: 'report' });
+    try {
+      await generatePdfReport({ reportContentRef });
+      message.success({ content: '报告已成功生成！', key: 'report', duration: 2 });
+    } catch (error) {
+      console.error('生成报告失败:', error);
+      message.error({ content: '生成报告失败，请查看控制台获取详情。', key: 'report', duration: 2 });
+    }
+  };
 
   const soilLayerColumns = [
     {
@@ -427,6 +449,17 @@ const TerraAnalysis: React.FC<TerraAnalysisProps> = ({ onAnalysisComplete }) => 
       )
     }
   ];
+
+  const renderResultsView = () => (
+    <div style={{ display: 'flex', height: 'calc(100vh - 250px)', gap: '16px' }}>
+      <div ref={reportContentRef} style={{ flex: 3, position: 'relative' }}>
+        <Viewport3D mode="results" />
+      </div>
+      <div style={{ flex: 1 }}>
+        <PostProcessingControls onGenerateReport={handleGenerateReport} />
+      </div>
+    </div>
+  );
 
   return (
     <div className="terra-analysis fade-in">
@@ -685,13 +718,15 @@ const TerraAnalysis: React.FC<TerraAnalysisProps> = ({ onAnalysisComplete }) => 
                   icon={<RocketOutlined />}
                   onClick={startAnalysis}
                   loading={validatedForm.loading || loading}
-                  disabled={!terraStatus?.status === 'available' || loading}
+                  disabled={terraStatus?.status !== 'available' || loading}
                 >
                   {loading ? '分析中...' : '开始Terra分析'}
                 </Button>
               </Space>
             </div>
           </TabPane>
+
+          {currentStep === 2 && renderResultsView()}
         </Tabs>
       </Card>
     </div>

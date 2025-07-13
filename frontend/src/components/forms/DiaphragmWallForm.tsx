@@ -13,11 +13,10 @@ import {
   InfoCircleOutlined
 } from '@ant-design/icons';
 import { 
-  AnimatedNumberInput, 
-  AnimatedSelect, 
   AnimatedButton, 
   FormItemWithTooltip 
 } from './FormControls';
+import AdvancedViewport from '../viewport/AdvancedViewport'; // 引入新的视口组件
 
 const { Option } = Select;
 const { TabPane } = Tabs;
@@ -30,15 +29,8 @@ interface DiaphragmWallFormProps {
 const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
   const [form] = Form.useForm();
   const [activeTab, setActiveTab] = useState('wall');
-  const [wallConfig, setWallConfig] = useState({
-    thickness: component.thickness || 0.8,
-    depth: component.depth || 20.0,
-    material_id: component.material_id || null,
-    construction_method: component.construction_method || 'slurry_wall',
-    panel_length: component.panel_length || 6.0,
-    joint_type: component.joint_type || 'interlocking'
-  });
-  
+  const wallConfig = Form.useWatch([], form);
+
   const { scene, updateComponent } = useSceneStore(
     useShallow(state => ({
       scene: state.scene,
@@ -48,24 +40,24 @@ const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
   
   const materials = scene?.materials || [];
 
+  const initialValues = {
+    thickness: component.thickness || 0.8,
+    depth: component.depth || 20.0,
+    material_id: component.material_id || null,
+    construction_method: component.construction_method || 'slurry_wall',
+    panel_length: component.panel_length || 6.0,
+    joint_type: component.joint_type || 'interlocking'
+  };
+
   useEffect(() => {
-    form.setFieldsValue(wallConfig);
-    setWallConfig({
-      thickness: component.thickness || 0.8,
-      depth: component.depth || 20.0,
-      material_id: component.material_id || null,
-      construction_method: component.construction_method || 'slurry_wall',
-      panel_length: component.panel_length || 6.0,
-      joint_type: component.joint_type || 'interlocking'
-    });
+    form.setFieldsValue(initialValues);
   }, [component, form]);
 
   const handleSave = () => {
     const values = form.getFieldsValue();
     updateComponent(component.id, {
       ...component,
-      ...wallConfig,
-      system_type: 'diaphragm_wall'
+      ...values,
     });
   };
 
@@ -102,10 +94,10 @@ const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
         
         {/* 地连墙主体 */}
         <rect 
-          x={160 - (wallConfig.thickness * 25)} 
+          x={160 - (wallConfig?.thickness * 25)} 
           y={80} 
-          width={wallConfig.thickness * 50} 
-          height={wallConfig.depth * 8} 
+          width={wallConfig?.thickness * 50} 
+          height={wallConfig?.depth * 8} 
           fill="#D3D3D3" 
           stroke="#696969" 
           strokeWidth="2"
@@ -113,20 +105,20 @@ const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
         
         {/* 分幅接头 */}
         {[1, 2, 3].map(i => {
-          const y = 80 + (i * wallConfig.panel_length * 8);
-          if (y < 80 + wallConfig.depth * 8) {
+          const y = 80 + (i * wallConfig?.panel_length * 8);
+          if (y < 80 + wallConfig?.depth * 8) {
             return (
               <g key={i}>
                 <line 
-                  x1={160 - (wallConfig.thickness * 25)} 
+                  x1={160 - (wallConfig?.thickness * 25)} 
                   y1={y} 
-                  x2={160 + (wallConfig.thickness * 25)} 
+                  x2={160 + (wallConfig?.thickness * 25)} 
                   y2={y} 
                   stroke="#FF6B6B" 
                   strokeWidth="1" 
                   strokeDasharray="3,3"
                 />
-                <text x={170 + (wallConfig.thickness * 25)} y={y + 4} fontSize="8" fill="#FF6B6B">
+                <text x={170 + (wallConfig?.thickness * 25)} y={y + 4} fontSize="8" fill="#FF6B6B">
                   第{i}幅
                 </text>
               </g>
@@ -139,44 +131,44 @@ const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
         <g stroke="#333" strokeWidth="1" fill="#333">
           {/* 厚度标注 */}
           <line 
-            x1={160 - (wallConfig.thickness * 25)} 
+            x1={160 - (wallConfig?.thickness * 25)} 
             y1={60} 
-            x2={160 + (wallConfig.thickness * 25)} 
+            x2={160 + (wallConfig?.thickness * 25)} 
             y2={60} 
             markerEnd="url(#arrowhead)" 
             markerStart="url(#arrowhead)"
           />
-          <text x="160" y="55" fontSize="10" textAnchor="middle">{wallConfig.thickness}m</text>
+          <text x="160" y="55" fontSize="10" textAnchor="middle">{wallConfig?.thickness}m</text>
           
           {/* 深度标注 */}
           <line 
-            x1={140 - (wallConfig.thickness * 25)} 
+            x1={140 - (wallConfig?.thickness * 25)} 
             y1={80} 
-            x2={140 - (wallConfig.thickness * 25)} 
-            y2={80 + wallConfig.depth * 8} 
+            x2={140 - (wallConfig?.thickness * 25)} 
+            y2={80 + wallConfig?.depth * 8} 
             markerEnd="url(#arrowhead)" 
             markerStart="url(#arrowhead)"
           />
           <text 
-            x={135 - (wallConfig.thickness * 25)} 
-            y={80 + (wallConfig.depth * 4)} 
+            x={135 - (wallConfig?.thickness * 25)} 
+            y={80 + (wallConfig?.depth * 4)} 
             fontSize="10" 
             textAnchor="middle"
-            transform={`rotate(-90, ${135 - (wallConfig.thickness * 25)}, ${80 + (wallConfig.depth * 4)})`}
+            transform={`rotate(-90, ${135 - (wallConfig?.thickness * 25)}, ${80 + (wallConfig?.depth * 4)})`}
           >
-            {wallConfig.depth}m
+            {wallConfig?.depth}m
           </text>
         </g>
         
         {/* 工法说明 */}
         <text x="200" y="120" fontSize="11" fill="#333">
-          {getConstructionMethodOptions().find(opt => opt.value === wallConfig.construction_method)?.label}
+          {getConstructionMethodOptions().find(opt => opt.value === wallConfig?.construction_method)?.label}
         </text>
         <text x="200" y="135" fontSize="10" fill="#666">
-          分幅长度: {wallConfig.panel_length}m
+          分幅长度: {wallConfig?.panel_length}m
         </text>
         <text x="200" y="150" fontSize="10" fill="#666">
-          接头类型: {getJointTypeOptions().find(opt => opt.value === wallConfig.joint_type)?.label}
+          接头类型: {getJointTypeOptions().find(opt => opt.value === wallConfig?.joint_type)?.label}
         </text>
         
         {/* 箭头标记 */}
@@ -195,6 +187,7 @@ const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
       form={form}
       layout="vertical"
       className="settings-form"
+      initialValues={initialValues}
     >
       <Tabs activeKey={activeTab} onChange={setActiveTab}>
         {/* 地连墙配置 */}
@@ -206,12 +199,11 @@ const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
             <Row gutter={16}>
               <Col span={12}>
                 <FormItemWithTooltip
+                  name="thickness"
                   label="墙体厚度"
                   tooltip="地连墙的厚度，一般为0.6-1.2m"
                 >
                   <InputNumber
-                    value={wallConfig.thickness}
-                    onChange={(value) => setWallConfig({...wallConfig, thickness: value || 0.8})}
                     min={0.3}
                     max={2.0}
                     step={0.1}
@@ -222,12 +214,11 @@ const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
               </Col>
               <Col span={12}>
                 <FormItemWithTooltip
+                  name="depth"
                   label="入土深度"
                   tooltip="地连墙的入土深度"
                 >
                   <InputNumber
-                    value={wallConfig.depth}
-                    onChange={(value) => setWallConfig({...wallConfig, depth: value || 20.0})}
                     min={5.0}
                     max={50.0}
                     step={1.0}
@@ -241,12 +232,11 @@ const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
             <Row gutter={16} style={{ marginTop: '16px' }}>
               <Col span={12}>
                 <FormItemWithTooltip
+                  name="construction_method"
                   label="施工工法"
                   tooltip="地连墙的施工方法"
                 >
                   <Select
-                    value={wallConfig.construction_method}
-                    onChange={(value) => setWallConfig({...wallConfig, construction_method: value})}
                     options={getConstructionMethodOptions()}
                     style={{ width: '100%' }}
                   />
@@ -254,12 +244,11 @@ const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
               </Col>
               <Col span={12}>
                 <FormItemWithTooltip
+                  name="panel_length"
                   label="分幅长度"
                   tooltip="每个施工分幅的长度"
                 >
                   <InputNumber
-                    value={wallConfig.panel_length}
-                    onChange={(value) => setWallConfig({...wallConfig, panel_length: value || 6.0})}
                     min={3.0}
                     max={12.0}
                     step={0.5}
@@ -273,12 +262,11 @@ const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
             <Row gutter={16} style={{ marginTop: '16px' }}>
               <Col span={12}>
                 <FormItemWithTooltip
+                  name="joint_type"
                   label="接头类型"
                   tooltip="分幅间的连接方式"
                 >
                   <Select
-                    value={wallConfig.joint_type}
-                    onChange={(value) => setWallConfig({...wallConfig, joint_type: value})}
                     options={getJointTypeOptions()}
                     style={{ width: '100%' }}
                   />
@@ -286,12 +274,11 @@ const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
               </Col>
               <Col span={12}>
                 <FormItemWithTooltip
+                  name="material_id"
                   label="材料"
                   tooltip="地连墙的混凝土材料"
                 >
                   <Select
-                    value={wallConfig.material_id}
-                    onChange={(value) => setWallConfig({...wallConfig, material_id: value})}
                     allowClear
                     style={{ width: '100%' }}
                   >
@@ -306,7 +293,7 @@ const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
             </Row>
           </Card>
 
-          <Alert
+          {wallConfig && <Alert
             message="地连墙信息"
             description={
               <Space direction="vertical" size={4}>
@@ -317,7 +304,7 @@ const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
             }
             type="info"
             style={{ marginTop: '16px' }}
-          />
+          />}
         </TabPane>
 
         {/* 截面图 */}
@@ -326,7 +313,17 @@ const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
           key="section"
         >
           <Card title="地连墙截面图" size="small">
-            {renderWallSection()}
+            {wallConfig && renderWallSection()}
+          </Card>
+        </TabPane>
+
+        {/* 新增：高级渲染测试 */}
+        <TabPane 
+          tab={<Space><ToolOutlined />高级渲染测试</Space>} 
+          key="advanced-render"
+        >
+          <Card title="高级渲染视口" size="small">
+            <AdvancedViewport />
           </Card>
         </TabPane>
       </Tabs>

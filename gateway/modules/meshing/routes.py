@@ -1301,60 +1301,57 @@ async def estimate_performance(
     algorithm_3d: MeshAlgorithmType = MeshAlgorithmType.DELAUNAY,
     quality_mode: MeshQualityMode = MeshQualityMode.BALANCED
 ):
-    """估算网格生成性能"""
-    try:
-        # 基于经验公式的性能估算
-        complexity_factors = {"low": 1.0, "medium": 2.0, "high": 4.0}
-        algorithm_factors = {
-            MeshAlgorithmType.DELAUNAY: 1.0,
-            MeshAlgorithmType.FRONTAL: 0.8,
-            MeshAlgorithmType.MMG: 2.5,
-            MeshAlgorithmType.NETGEN: 1.2
+    """
+    Estimates meshing performance based on input parameters.
+    This is a simplified heuristic model.
+    """
+    # 1. Complexity Factor
+    complexity_factors = {"low": 1.0, "medium": 2.5, "high": 7.0}
+    complexity_factor = complexity_factors.get(geometry_complexity, 2.5)
+
+    # 2. Element Size Factor (smaller elements = more elements)
+    # Using a baseline size of 1.0m. The relationship is roughly cubic for 3D.
+    size_factor = (1.0 / max(element_size, 0.01)) ** 2.8 
+
+    # 3. Algorithm Factor
+    algo_factors = {
+        MeshAlgorithmType.DELAUNAY: 1.0,
+        MeshAlgorithmType.FRONTAL: 1.5,
+        MeshAlgorithmType.NETGEN: 1.8,
+        MeshAlgorithmType.MMG: 2.2,
+        MeshAlgorithmType.TETGEN: 2.5,
+    }
+    algo_factor = algo_factors.get(algorithm_3d, 1.0)
+
+    # 4. Quality Factor
+    quality_factors = {
+        MeshQualityMode.FAST: 0.6,
+        MeshQualityMode.BALANCED: 1.0,
+        MeshQualityMode.HIGH_QUALITY: 2.0,
+    }
+    quality_factor = quality_factors.get(quality_mode, 1.0)
+    
+    # --- Calculations ---
+    
+    # Base estimated number of elements for a 100x100x30m domain
+    base_elements = 50_000 
+    
+    estimated_elements = int(base_elements * complexity_factor * size_factor * algo_factor * quality_factor)
+    
+    # Estimated memory: ~1 KB per tetrahedral element
+    estimated_memory_mb = (estimated_elements * 1.0) / 1024
+    
+    # Estimated time: ~0.5 ms per element
+    estimated_time_s = (estimated_elements * 0.0005)
+
+    return {
+        "estimated_elements": max(100, estimated_elements),
+        "estimated_memory_mb": round(max(50, estimated_memory_mb), 2),
+        "estimated_time_seconds": round(max(5, estimated_time_s), 2),
+        "factors": {
+            "complexity_factor": complexity_factor,
+            "size_factor": round(size_factor, 2),
+            "algorithm_factor": algo_factor,
+            "quality_factor": quality_factor
         }
-        quality_factors = {
-            MeshQualityMode.FAST: 0.5,
-            MeshQualityMode.BALANCED: 1.0,
-            MeshQualityMode.HIGH_QUALITY: 2.0,
-            MeshQualityMode.ADAPTIVE: 1.5
-        }
-        
-        # 估算单元数量
-        estimated_volume = 50 * 50 * 15  # 基准体积
-        estimated_elements = int(estimated_volume / (element_size ** 3) * 0.1)
-        estimated_nodes = int(estimated_elements * 0.6)
-        
-        # 估算时间
-        base_time = estimated_elements / 50000  # 基准：50k单元/秒
-        complexity_factor = complexity_factors.get(geometry_complexity, 2.0)
-        algorithm_factor = algorithm_factors.get(algorithm_3d, 1.0)
-        quality_factor = quality_factors.get(quality_mode, 1.0)
-        
-        estimated_time = base_time * complexity_factor * algorithm_factor * quality_factor
-        
-        # 估算内存使用
-        estimated_memory = estimated_elements * 200 / 1024 / 1024  # 200字节/单元，转换为MB
-        
-        performance_estimate = {
-            "estimated_elements": estimated_elements,
-            "estimated_nodes": estimated_nodes,
-            "estimated_time_seconds": round(estimated_time, 1),
-            "estimated_memory_mb": round(estimated_memory, 1),
-            "complexity_level": geometry_complexity,
-            "performance_class": "fast" if estimated_time < 10 else "medium" if estimated_time < 60 else "slow",
-            "recommendations": []
-        }
-        
-        # 性能建议
-        if estimated_time > 300:  # 5分钟
-            performance_estimate["recommendations"].append("考虑增大单元尺寸或使用快速算法以减少计算时间")
-            
-        if estimated_memory > 8000:  # 8GB
-            performance_estimate["recommendations"].append("预计内存使用较高，建议在高配置机器上运行")
-            
-        if estimated_elements > 1000000:  # 100万单元
-            performance_estimate["recommendations"].append("大规模网格建议启用并行计算")
-        
-        return performance_estimate
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"性能估算失败: {str(e)}") 
+    } 

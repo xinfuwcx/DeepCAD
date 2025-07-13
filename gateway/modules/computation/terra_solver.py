@@ -560,7 +560,7 @@ class TerraVisualizationProcessor:
     def __init__(self):
         self.cache = {}
         
-    async def process_terra_results(self, vtk_file: str) -> Dict[str, Any]:
+    async def process_terra_results(self, vtk_file: str, field_to_process: Optional[str] = None) -> Dict[str, Any]:
         """处理Terra结果为Web可视化格式"""
         if not PYVISTA_AVAILABLE:
             logger.warning("PyVista不可用，无法进行后处理")
@@ -576,9 +576,10 @@ class TerraVisualizationProcessor:
             logger.info(f"可用物理场: {available_fields}")
             
             visualization_data = {}
+            fields_to_process = [field_to_process] if field_to_process else available_fields
             
-            for field in available_fields:
-                if field in ['DISPLACEMENT', 'WATER_PRESSURE', 'REACTION']:
+            for field in fields_to_process:
+                if field in mesh.array_names:
                     # 处理标量场
                     field_data = self._process_scalar_field(mesh, field)
                     visualization_data[field] = field_data

@@ -1,20 +1,22 @@
 """
 Simplified material models for SQLite
 """
-from sqlalchemy import Column, String, Text, Float, Boolean
+from sqlalchemy import Column, String, Text, Boolean
 from .base import BaseModel
 
 
 class Material(BaseModel):
-    """Simplified material model"""
+    """
+    Represents a material in the database.
+    The detailed properties are stored as a JSON string in 'parameters_data'.
+    """
     __tablename__ = 'materials'
     
-    # Basic properties
-    material_type = Column(String(20), nullable=False)
-    density = Column(Float, nullable=False)  # kg/m³
+    name = Column(String(100), nullable=False, unique=True)
+    material_type = Column(String(50), nullable=False, index=True)
     
-    # Properties as JSON text
-    properties = Column(Text, nullable=False)  # All properties as JSON
+    # Store all other parameters as a JSON string
+    parameters_data = Column(Text, nullable=False)
     
-    # Library vs project-specific
+    # To distinguish between default library materials and user-defined ones
     is_library_material = Column(Boolean, default=False)

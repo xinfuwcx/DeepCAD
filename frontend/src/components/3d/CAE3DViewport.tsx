@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Button, Space, Dropdown, Menu, Slider, Card, Switch, Select, Divider } from 'antd';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Button, Space, Dropdown, Menu, Slider, Card, Switch, Select, Divider, message } from 'antd';
 import {
   FullscreenOutlined,
   SettingOutlined,
@@ -13,11 +13,28 @@ import {
   BulbOutlined,
   ThunderboltOutlined,
   AppstoreOutlined,
-  BlockOutlined
+  BlockOutlined,
+  LoadingOutlined
 } from '@ant-design/icons';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GlassCard, GlassButton } from '../ui/GlassComponents';
 import { useUIStore } from '../../stores/useUIStore';
 import { useShallow } from 'zustand/react/shallow';
+import { SceneManager } from './core/SceneManager';
+import { RendererManager } from './core/RendererManager';
+import { GLTFLoader, LoadedModel } from './core/GLTFLoader';
+import { ModelManager, ModelInstance } from './core/ModelManager';
+import { InteractionTools, InteractionTool, MeasurementResult, Annotation } from './tools/InteractionTools';
+import { InteractionToolbar } from './tools/InteractionToolbar';
+import { PerformanceMonitor } from './performance/PerformanceMonitor';
+import { PerformancePanel } from './performance/PerformancePanel';
+import { PostProcessingManager } from './postprocessing/PostProcessingManager';
+import { PostProcessingPanel } from './postprocessing/PostProcessingPanel';
+import { EnvironmentManager } from './postprocessing/EnvironmentManager';
+import { AnimationManager } from './animation/AnimationManager';
+import { TransitionManager } from './animation/TransitionManager';
+import { AnimationPanel } from './animation/AnimationPanel';
 
 const { Option } = Select;
 
@@ -25,6 +42,9 @@ interface CAE3DViewportProps {
   className?: string;
   showToolbar?: boolean;
   onViewChange?: (viewConfig: ViewConfig) => void;
+  onModelLoad?: (model: LoadedModel) => void;
+  onModelSelect?: (instances: ModelInstance[]) => void;
+  initialModels?: string[];
 }
 
 interface ViewConfig {
@@ -48,10 +68,28 @@ interface ViewportControls {
 const CAE3DViewport: React.FC<CAE3DViewportProps> = ({
   className,
   showToolbar = true,
-  onViewChange
+  onViewChange,
+  onModelLoad,
+  onModelSelect,
+  initialModels = []
 }) => {
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  
+  // Three.js核心对象
+  const sceneRef = useRef<THREE.Scene>();
+  const cameraRef = useRef<THREE.Camera>();
+  const rendererManagerRef = useRef<RendererManager>();
+  const sceneManagerRef = useRef<SceneManager>();
+  const modelManagerRef = useRef<ModelManager>();
+  const controlsRef = useRef<OrbitControls>();
+  const frameIdRef = useRef<number>();
+  const interactionToolsRef = useRef<InteractionTools>();
+  const performanceMonitorRef = useRef<PerformanceMonitor>();
+  const postProcessingManagerRef = useRef<PostProcessingManager>();
+  const environmentManagerRef = useRef<EnvironmentManager>();
+  const animationManagerRef = useRef<AnimationManager>();
+  const transitionManagerRef = useRef<TransitionManager>();
   
   // 视口配置状态
   const [viewConfig, setViewConfig] = useState<ViewConfig>({
@@ -78,6 +116,20 @@ const CAE3DViewport: React.FC<CAE3DViewportProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [performanceMode, setPerformanceMode] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [selectedModels, setSelectedModels] = useState<ModelInstance[]>([]);
+  
+  // 交互工具状态
+  const [currentTool, setCurrentTool] = useState<InteractionTool>('select');
+  const [measurements, setMeasurements] = useState<MeasurementResult[]>([]);
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [explodeFactor, setExplodeFactor] = useState(0);
+  
+  // 性能和后期处理面板状态
+  const [showPerformancePanel, setShowPerformancePanel] = useState(false);
+  const [showPostProcessingPanel, setShowPostProcessingPanel] = useState(false);
+  const [showAnimationPanel, setShowAnimationPanel] = useState(false);
 
   const { theme } = useUIStore(
     useShallow(state => ({
@@ -142,14 +194,136 @@ const CAE3DViewport: React.FC<CAE3DViewportProps> = ({
   };
 
   // 截图功能
-  const takeScreenshot = () => {
-    if (canvasRef.current) {
+  const takeScreenshot = useCallback(() => {
+    if (rendererManagerRef.current) {
+      const dataURL = rendererManagerRef.current.takeScreenshot();
       const link = document.createElement('a');
       link.download = `cae-screenshot-${Date.now()}.png`;
-      link.href = canvasRef.current.toDataURL();
+      link.href = dataURL;
       link.click();
+      message.success('截图已保存');
     }
-  };
+  }, []);
+
+  // 加载glTF模型
+  const loadModel = useCallback(async (url: string, options?: {
+    name?: string;
+    position?: THREE.Vector3;
+    rotation?: THREE.Euler;
+    scale?: THREE.Vector3;
+  }) => {
+    if (!modelManagerRef.current) return;
+
+    setIsLoading(true);
+    setLoadingProgress(0);
+
+    try {
+      const instance = await modelManagerRef.current.createInstance(url, {
+        ...options,
+        onProgress: (progress: ProgressEvent) => {
+          setLoadingProgress((progress.loaded / progress.total) * 100);
+        }
+      });
+
+      onModelLoad?.(instance.model);
+      message.success(`模型加载成功: ${instance.name}`);
+      
+      // 自动适配视口
+      fitToScreen();
+      
+    } catch (error) {
+      console.error('模型加载失败:', error);
+      message.error('模型加载失败');
+    } finally {
+      setIsLoading(false);
+      setLoadingProgress(0);
+    }
+  }, [onModelLoad]);
+
+  // 处理模型选择
+  const handleModelSelection = useCallback((event: MouseEvent) => {
+    if (!modelManagerRef.current || !cameraRef.current || !canvasRef.current) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mouse = new THREE.Vector2(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1
+    );
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, cameraRef.current);
+
+    const selectedInstance = modelManagerRef.current.selectByRaycast(
+      raycaster, 
+      event.ctrlKey || event.metaKey
+    );
+
+    if (selectedInstance) {
+      const selectedInstances = modelManagerRef.current.getSelectedInstances();
+      setSelectedModels(selectedInstances);
+      onModelSelect?.(selectedInstances);
+    }
+  }, [onModelSelect]);
+
+  // 交互工具事件处理
+  const handleToolChange = useCallback((tool: InteractionTool) => {
+    setCurrentTool(tool);
+    if (interactionToolsRef.current) {
+      interactionToolsRef.current.setTool(tool);
+    }
+  }, []);
+
+  const handleMeasurementAdd = useCallback((measurement: MeasurementResult) => {
+    setMeasurements(prev => [...prev, measurement]);
+    message.success(`添加测量: ${measurement.value.toFixed(3)} ${measurement.unit}`);
+  }, []);
+
+  const handleAnnotationAdd = useCallback((annotation: Annotation) => {
+    setAnnotations(prev => [...prev, annotation]);
+    message.success('添加标注成功');
+  }, []);
+
+  const handleMeasurementDelete = useCallback((id: string) => {
+    if (interactionToolsRef.current) {
+      interactionToolsRef.current.deleteMeasurement(id);
+    }
+    setMeasurements(prev => prev.filter(m => m.id !== id));
+    message.success('测量已删除');
+  }, []);
+
+  const handleAnnotationDelete = useCallback((id: string) => {
+    if (interactionToolsRef.current) {
+      interactionToolsRef.current.deleteAnnotation(id);
+    }
+    setAnnotations(prev => prev.filter(a => a.id !== id));
+    message.success('标注已删除');
+  }, []);
+
+  const handleMeasurementToggle = useCallback((id: string, visible: boolean) => {
+    setMeasurements(prev => 
+      prev.map(m => m.id === id ? { ...m, visible } : m)
+    );
+  }, []);
+
+  const handleAnnotationToggle = useCallback((id: string, visible: boolean) => {
+    setAnnotations(prev => 
+      prev.map(a => a.id === id ? { ...a, visible } : a)
+    );
+  }, []);
+
+  const handleExplodeChange = useCallback((factor: number) => {
+    setExplodeFactor(factor);
+    if (interactionToolsRef.current) {
+      interactionToolsRef.current.setExplodeFactor(factor);
+    }
+  }, []);
+
+  const handleClearSelection = useCallback(() => {
+    if (interactionToolsRef.current) {
+      interactionToolsRef.current.clearSelection();
+    }
+    setSelectedModels([]);
+  }, []);
 
   // 设置面板菜单
   const settingsMenu = (
@@ -281,49 +455,250 @@ const CAE3DViewport: React.FC<CAE3DViewportProps> = ({
     />
   );
 
-  // 初始化WebGL上下文和渲染器
+  // 初始化Three.js系统
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = viewportRef.current;
+    if (!canvas || !container) return;
 
-    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-    if (!gl) {
-      console.error('WebGL not supported');
-      return;
+    // 创建Three.js场景
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a1a);
+    sceneRef.current = scene;
+
+    // 创建相机
+    const camera = new THREE.PerspectiveCamera(
+      45,
+      container.clientWidth / container.clientHeight,
+      0.1,
+      1000
+    );
+    camera.position.set(10, 10, 10);
+    camera.lookAt(0, 0, 0);
+    cameraRef.current = camera;
+
+    // 创建渲染器管理器
+    const rendererManager = new RendererManager(canvas, scene, camera, {
+      antialias: !performanceMode,
+      quality: performanceMode ? 'medium' : 'high'
+    });
+    rendererManagerRef.current = rendererManager;
+
+    // 创建场景管理器
+    const sceneManager = new SceneManager(scene);
+    sceneManagerRef.current = sceneManager;
+
+    // 创建模型管理器
+    const modelManager = new ModelManager(scene, rendererManager.getRenderer());
+    modelManagerRef.current = modelManager;
+
+    // 创建性能监控器
+    const performanceMonitor = new PerformanceMonitor(
+      scene,
+      camera,
+      rendererManager.getRenderer(),
+      {
+        profile: performanceMode ? 'low' : 'medium',
+        adaptiveEnabled: true
+      }
+    );
+    performanceMonitorRef.current = performanceMonitor;
+
+    // 创建后期处理管理器
+    const postProcessingManager = new PostProcessingManager(
+      rendererManager.getRenderer(),
+      scene,
+      camera,
+      {
+        profile: performanceMode ? 'low' : 'medium'
+      }
+    );
+    postProcessingManagerRef.current = postProcessingManager;
+
+    // 创建环境管理器
+    const environmentManager = new EnvironmentManager(scene, rendererManager.getRenderer());
+    environmentManagerRef.current = environmentManager;
+
+    // 创建动画管理器
+    const animationManager = new AnimationManager(scene, camera);
+    animationManagerRef.current = animationManager;
+
+    // 创建过渡管理器
+    const transitionManager = new TransitionManager(animationManager, scene, camera, controls);
+    transitionManagerRef.current = transitionManager;
+
+    // 设置模型管理器事件监听
+    modelManager.addEventListener('selectionChanged', (selectedIds) => {
+      const instances = selectedIds.map(id => modelManager.getInstance(id)).filter(Boolean);
+      setSelectedModels(instances as ModelInstance[]);
+      onModelSelect?.(instances as ModelInstance[]);
+    });
+
+    // 创建交互工具
+    const interactionTools = new InteractionTools(scene, camera, canvas);
+    interactionToolsRef.current = interactionTools;
+
+    // 设置交互工具事件监听
+    interactionTools.addEventListener('onMeasure', handleMeasurementAdd);
+    interactionTools.addEventListener('onAnnotate', handleAnnotationAdd);
+    interactionTools.addEventListener('onSelect', (objects) => {
+      // 将Three.js对象选择转换为模型实例选择
+      const modelInstances = objects.map(obj => {
+        // 查找对应的模型实例
+        return modelManager.getAllInstances().find(instance => 
+          instance.object3D === obj || instance.object3D.children.includes(obj)
+        );
+      }).filter(Boolean) as ModelInstance[];
+      
+      setSelectedModels(modelInstances);
+      onModelSelect?.(modelInstances);
+    });
+
+    // 激活交互工具
+    interactionTools.setActive(true);
+
+    // 创建轨道控制器
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.screenSpacePanning = false;
+    controls.maxPolarAngle = Math.PI;
+    controlsRef.current = controls;
+
+    // 添加基础光照
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(10, 10, 5);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.setScalar(2048);
+    scene.add(directionalLight);
+
+    // 添加网格
+    if (viewConfig.showGrid) {
+      const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
+      sceneManager.addObject(gridHelper, 'grid');
     }
 
-    // 设置画布尺寸
-    const resizeCanvas = () => {
-      const container = viewportRef.current;
-      if (!container) return;
+    // 添加坐标轴
+    if (viewConfig.showAxes) {
+      const axesHelper = new THREE.AxesHelper(5);
+      sceneManager.addObject(axesHelper, 'axes');
+    }
+
+    // 处理窗口大小调整
+    const handleResize = () => {
+      const { clientWidth, clientHeight } = container;
       
-      const { width, height } = container.getBoundingClientRect();
-      canvas.width = width * window.devicePixelRatio;
-      canvas.height = height * window.devicePixelRatio;
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
+      if (camera instanceof THREE.PerspectiveCamera) {
+        camera.aspect = clientWidth / clientHeight;
+        camera.updateProjectionMatrix();
+      }
       
-      gl.viewport(0, 0, canvas.width, canvas.height);
+      rendererManager.resize(clientWidth, clientHeight);
     };
 
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-
-    // 基础渲染循环
-    const render = () => {
-      gl.clearColor(0.1, 0.1, 0.1, 1.0);
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      
-      // 这里会集成实际的3D渲染逻辑
-      requestAnimationFrame(render);
+    // 处理鼠标事件
+    const handleMouseClick = (event: MouseEvent) => {
+      handleModelSelection(event);
     };
 
-    render();
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!sceneManager || !camera) return;
+      sceneManager.handleMouseMove(event.clientX, event.clientY, camera, canvas);
+    };
+
+    // 添加事件监听器
+    window.addEventListener('resize', handleResize);
+    canvas.addEventListener('click', handleMouseClick);
+    canvas.addEventListener('mousemove', handleMouseMove);
+
+    // 更新渲染循环以支持性能监控和后期处理
+    rendererManager.setCustomRenderLoop((deltaTime: number) => {
+      // 更新控制器
+      controls.update();
+
+      // 更新性能监控器
+      performanceMonitor.update(deltaTime);
+
+      // 更新交互工具
+      interactionTools.update();
+
+      // 渲染场景
+      if (postProcessingManager.getSettings().enabled) {
+        postProcessingManager.render();
+      } else {
+        rendererManager.getRenderer().render(scene, camera);
+      }
+    });
+
+    // 开始渲染循环
+    rendererManager.startRenderLoop();
+
+    // 加载初始模型
+    if (initialModels.length > 0) {
+      Promise.all(
+        initialModels.map(url => loadModel(url))
+      ).then(() => {
+        console.log('初始模型加载完成');
+      });
+    }
 
     return () => {
-      window.removeEventListener('resize', resizeCanvas);
+      // 清理资源
+      window.removeEventListener('resize', handleResize);
+      canvas.removeEventListener('click', handleMouseClick);
+      canvas.removeEventListener('mousemove', handleMouseMove);
+      
+      rendererManager.dispose();
+      sceneManager.dispose();
+      modelManager.dispose();
+      interactionTools.dispose();
+      controls.dispose();
+      
+      // 清理新增的管理器
+      performanceMonitor.dispose();
+      postProcessingManager.dispose();
+      environmentManager.dispose();
+      animationManager.dispose();
+      transitionManager.dispose();
     };
   }, []);
+
+  // 监听配置变化
+  useEffect(() => {
+    if (!sceneManagerRef.current || !rendererManagerRef.current) return;
+
+    // 更新网格显示
+    if (viewConfig.showGrid) {
+      const existingGrid = sceneManagerRef.current.findObjectsInLayer('grid');
+      if (existingGrid.length === 0) {
+        const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
+        sceneManagerRef.current.addObject(gridHelper, 'grid');
+      }
+    } else {
+      sceneManagerRef.current.setLayerVisibility('grid', false);
+    }
+
+    // 更新坐标轴显示
+    if (viewConfig.showAxes) {
+      const existingAxes = sceneManagerRef.current.findObjectsInLayer('axes');
+      if (existingAxes.length === 0) {
+        const axesHelper = new THREE.AxesHelper(5);
+        sceneManagerRef.current.addObject(axesHelper, 'axes');
+      }
+    } else {
+      sceneManagerRef.current.setLayerVisibility('axes', false);
+    }
+
+    // 更新渲染设置
+    rendererManagerRef.current.setRenderSettings({
+      quality: performanceMode ? 'medium' : 'high',
+      antialias: !performanceMode
+    });
+
+  }, [viewConfig, performanceMode]);
 
   return (
     <div
@@ -337,7 +712,27 @@ const CAE3DViewport: React.FC<CAE3DViewportProps> = ({
         onContextMenu={(e) => e.preventDefault()}
       />
 
-      {/* 工具栏 */}
+      {/* 交互工具栏 */}
+      {showToolbar && (
+        <div className="absolute top-4 left-4">
+          <InteractionToolbar
+            currentTool={currentTool}
+            onToolChange={handleToolChange}
+            measurements={measurements}
+            annotations={annotations}
+            selectedCount={selectedModels.length}
+            explodeFactor={explodeFactor}
+            onExplodeChange={handleExplodeChange}
+            onMeasurementDelete={handleMeasurementDelete}
+            onAnnotationDelete={handleAnnotationDelete}
+            onMeasurementToggle={handleMeasurementToggle}
+            onAnnotationToggle={handleAnnotationToggle}
+            onClearSelection={handleClearSelection}
+          />
+        </div>
+      )}
+
+      {/* 主工具栏 */}
       {showToolbar && (
         <div className="absolute top-4 right-4 flex flex-col gap-2">
           {/* 主要控制按钮 */}
@@ -425,6 +820,49 @@ const CAE3DViewport: React.FC<CAE3DViewportProps> = ({
               ))}
             </Space>
           </GlassCard>
+
+          {/* 性能和效果控制 */}
+          <GlassCard variant="subtle" className="p-2">
+            <Space direction="vertical" size="small">
+              <GlassButton
+                variant="ghost"
+                size="sm"
+                icon={<ThunderboltOutlined />}
+                title="性能监控"
+                onClick={() => setShowPerformancePanel(true)}
+              >
+                性能
+              </GlassButton>
+              
+              <GlassButton
+                variant="ghost"
+                size="sm"
+                icon={<EyeOutlined />}
+                title="后期处理"
+                onClick={() => setShowPostProcessingPanel(true)}
+              >
+                效果
+              </GlassButton>
+              
+              <GlassButton
+                variant="ghost"
+                size="sm"
+                icon={<RotateLeftOutlined />}
+                title="动画控制"
+                onClick={() => setShowAnimationPanel(true)}
+              >
+                动画
+              </GlassButton>
+              
+              <Switch
+                size="small"
+                checked={performanceMode}
+                onChange={setPerformanceMode}
+                checkedChildren="性能"
+                unCheckedChildren="质量"
+              />
+            </Space>
+          </GlassCard>
         </div>
       )}
 
@@ -434,7 +872,22 @@ const CAE3DViewport: React.FC<CAE3DViewportProps> = ({
           <div className="text-xs text-secondary space-y-1">
             <div>相机: {viewConfig.cameraType === 'perspective' ? '透视' : '正交'}</div>
             <div>渲染: {renderModes.find(m => m.value === viewConfig.renderMode)?.label}</div>
+            <div>工具: {
+              currentTool === 'select' ? '选择' :
+              currentTool === 'measure' ? '测量' :
+              currentTool === 'annotate' ? '标注' :
+              currentTool === 'section' ? '剖切' : '爆炸'
+            }</div>
             <div>缩放: {(controls.zoom * 100).toFixed(0)}%</div>
+            {measurements.length > 0 && (
+              <div className="text-blue-400">测量: {measurements.length} 项</div>
+            )}
+            {annotations.length > 0 && (
+              <div className="text-yellow-400">标注: {annotations.length} 项</div>
+            )}
+            {explodeFactor > 0 && (
+              <div className="text-orange-400">爆炸: {(explodeFactor * 100).toFixed(0)}%</div>
+            )}
             {performanceMode && (
               <div className="text-yellow-500 flex items-center gap-1">
                 <ThunderboltOutlined />
@@ -457,6 +910,27 @@ const CAE3DViewport: React.FC<CAE3DViewportProps> = ({
       </div>
 
       {/* 加载状态 */}
+      {isLoading && (
+        <div className="absolute inset-0 pointer-events-none bg-black bg-opacity-50 flex items-center justify-center">
+          <GlassCard variant="elevated" className="p-6 text-center">
+            <div className="flex items-center gap-3 mb-4">
+              <LoadingOutlined className="text-2xl text-primary" spin />
+              <div className="text-lg font-medium text-primary">加载模型中...</div>
+            </div>
+            <div className="w-64 h-2 bg-gray-700 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300"
+                style={{ width: `${loadingProgress}%` }}
+              />
+            </div>
+            <div className="text-sm text-secondary mt-2">
+              {loadingProgress.toFixed(1)}%
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
+      {/* 拖拽状态 */}
       {isDragging && (
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
@@ -465,6 +939,57 @@ const CAE3DViewport: React.FC<CAE3DViewportProps> = ({
             </GlassCard>
           </div>
         </div>
+      )}
+
+      {/* 选中模型信息 */}
+      {selectedModels.length > 0 && (
+        <div className="absolute top-4 left-4">
+          <GlassCard variant="subtle" className="p-3">
+            <div className="text-sm text-secondary space-y-1">
+              <div className="font-medium text-primary">
+                已选择 {selectedModels.length} 个模型
+              </div>
+              {selectedModels.slice(0, 3).map(model => (
+                <div key={model.id} className="text-xs">
+                  {model.name}
+                </div>
+              ))}
+              {selectedModels.length > 3 && (
+                <div className="text-xs text-secondary">
+                  ...还有 {selectedModels.length - 3} 个
+                </div>
+              )}
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
+      {/* 性能监控面板 */}
+      {performanceMonitorRef.current && (
+        <PerformancePanel
+          performanceMonitor={performanceMonitorRef.current}
+          visible={showPerformancePanel}
+          onClose={() => setShowPerformancePanel(false)}
+        />
+      )}
+
+      {/* 后期处理面板 */}
+      {postProcessingManagerRef.current && (
+        <PostProcessingPanel
+          postProcessingManager={postProcessingManagerRef.current}
+          visible={showPostProcessingPanel}
+          onClose={() => setShowPostProcessingPanel(false)}
+        />
+      )}
+
+      {/* 动画控制面板 */}
+      {animationManagerRef.current && transitionManagerRef.current && (
+        <AnimationPanel
+          animationManager={animationManagerRef.current}
+          transitionManager={transitionManagerRef.current}
+          visible={showAnimationPanel}
+          onClose={() => setShowAnimationPanel(false)}
+        />
       )}
     </div>
   );

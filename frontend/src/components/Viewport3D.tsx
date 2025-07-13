@@ -18,7 +18,10 @@ import Toolbar from './Viewport3D/Toolbar';
 import Grid3D from './Viewport3D/Grid3D';
 import CoordinateSystem from './Viewport3D/CoordinateSystem';
 import { useViewportStore } from '../stores/useViewportStore';
-import { ToolbarAction } from '../types/viewport';
+import { useResultsStore } from '../stores/useResultsStore'; // 引入新的store
+import ColorMapLegend from './visualization/ColorMapLegend'; // 引入图例组件
+import './visualization/ColorMapLegend.css'; // 引入图例样式
+import { ToolbarAction, RenderMode } from '../types/viewport';
 
 class ErrorBoundary extends Component<{ children: ReactNode, onReset: () => void }> {
   state = { hasError: false, error: null };
@@ -111,7 +114,7 @@ const ViewportContent: React.FC = () => {
         toggleGrid();
         break;
       case ToolbarAction.WIREFRAME:
-        setRenderMode(viewport.renderMode === 'wireframe' ? 'solid' : 'wireframe');
+        setRenderMode(viewport.renderMode === 'solid' ? RenderMode.WIREFRAME : RenderMode.SOLID);
         break;
       case ToolbarAction.MEASURE:
         setActiveTool(ToolbarAction.MEASURE);
@@ -215,7 +218,7 @@ const Viewport3D: React.FC<Viewport3DProps> = ({
   showToolbar = true 
 }) => {
   const viewportRef = useRef<HTMLDivElement>(null);
-  const [is3dEnabled, setIs3dEnabled] = useState(false);
+  const [is3dEnabled, setIs3dEnabled] = useState(true); // 默认开启
   const { uiMode, particleEffectsEnabled } = useUIStore(
     useShallow(state => ({
       uiMode: state.uiMode,
@@ -223,10 +226,50 @@ const Viewport3D: React.FC<Viewport3DProps> = ({
     }))
   );
   
+  // 从新的store获取结果数据和配置
+  const { rendererData, contour, deformation, animation } = useResultsStore(
+    useShallow(state => ({
+      rendererData: state.rendererData,
+      contour: state.contour,
+      deformation: state.deformation,
+      animation: state.animation
+    }))
+  );
+
   const isFusionMode = uiMode === 'fusion';
 
   const handleEnable3D = () => setIs3dEnabled(true);
   const handleReset = () => setIs3dEnabled(false);
+
+  // 如果是结果模式，直接渲染ResultsRenderer
+  if (mode === 'results') {
+    return (
+      <div 
+        ref={viewportRef} 
+        className={`viewport-3d-container theme-card ${className || ''}`}
+        style={{ position: 'relative' }} // 添加相对定位
+      >
+        <ResultsRenderer 
+          resultsData={rendererData}
+          config={{
+            activeField: contour.variable,
+            colorScheme: contour.colormap as any,
+            showDeformation: deformation.enabled,
+            deformationScale: deformation.scale,
+            showUndeformed: deformation.showUndeformed,
+            showColorbar: true, // or from a store
+            vectorScale: 1.0, // or from a store
+            showVectors: true, // or from a store
+            contourLines: contour.showContourLines,
+            animationSpeed: animation.speed,
+            isAnimating: animation.isPlaying
+          }}
+          onConfigChange={() => {}} // onConfigChange现在由store处理
+        />
+        <ColorMapLegend />
+      </div>
+    );
+  }
 
   // 如果是简化模式（非advanced），使用新的CAE3D组件
   if (mode !== 'advanced' && is3dEnabled) {
@@ -250,7 +293,6 @@ const Viewport3D: React.FC<Viewport3DProps> = ({
           <div className="bg-black/50 text-white px-3 py-1 rounded text-sm">
             {mode === 'geometry' && '几何建模模式'}
             {mode === 'mesh' && '网格生成模式'}
-            {mode === 'results' && '结果后处理模式'}
           </div>
         </div>
       </div>

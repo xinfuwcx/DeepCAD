@@ -53,135 +53,48 @@ const AnalysisView: React.FC = () => {
     
     // FEM 分析状态
     const [femAnalysisType, setFemAnalysisType] = useState('geomechanics');
-    const [analysisSequence, setAnalysisSequence] = useState(['geostatic', 'construction', 'seepage']);
-    const [currentPhase, setCurrentPhase] = useState(0);
-    const [isRunningFEM, setIsRunningFEM] = useState(false);
-    const [femProgress, setFemProgress] = useState(0);
-    const [analysisResults, setAnalysisResults] = useState({});
-    
-    // 物理AI状态
-    const [isRunningAI, setIsRunningAI] = useState(false);
-    const [aiProgress, setAiProgress] = useState(0);
-    const [optimizationTarget, setOptimizationTarget] = useState('displacement');
-    
-    const { startComputation, layers, scene } = useSceneStore(
+
+    const { scene } = useSceneStore(
         useShallow(state => ({
-            startComputation: state.startComputation,
-            layers: state.layers,
             scene: state.scene
         }))
     );
-
-    const { taskProgress } = useUIStore(
+    
+    const { taskProgress, startComputation } = useUIStore(
         useShallow(state => ({
-            taskProgress: state.taskProgress
+            taskProgress: state.taskProgress,
+            startComputation: state.startComputation
         }))
     );
     
-    const computationResultUrl = layers.result.url;
-    const isComputing = layers.result.isLoading;
+    const isComputing = taskProgress?.status === 'processing' || taskProgress?.status === 'starting';
+    const computationResultUrl = taskProgress?.status === 'completed' ? (taskProgress as any).url : null;
+
     const hasMesh = scene?.meshing?.global_size !== undefined;
     const hasComponents = scene?.components && scene.components.length > 0;
 
     // FEM 分析相关函数
-    const startFEMAnalysis = async () => {
-        setIsRunningFEM(true);
-        setFemProgress(0);
-        setCurrentPhase(0);
-        
-        if (femAnalysisType === 'sequence') {
-            // 三步走序列分析
-            for (let phase = 0; phase < 3; phase++) {
-                setCurrentPhase(phase);
-                await simulatePhaseAnalysis(phase);
-            }
-        } else {
-            // 单阶段分析
-            await simulateSingleAnalysis();
-        }
-        
-        setIsRunningFEM(false);
+    const handleStartAnalysis = async () => {
+        if (!canStartAnalysis) return;
+        await startComputation(femAnalysisType);
     };
     
-    const simulatePhaseAnalysis = (phase: number) => {
-        return new Promise((resolve) => {
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += Math.random() * 15;
-                if (progress >= 100) {
-                    clearInterval(interval);
-                    setAnalysisResults(prev => ({
-                        ...prev,
-                        [phase === 0 ? 'geostatic' : phase === 1 ? 'construction' : 'seepage']: {
-                            completed: true,
-                            maxDisplacement: Math.random() * 50 + 10,
-                            maxStress: Math.random() * 1000 + 500,
-                            convergence: true
-                        }
-                    }));
-                    resolve(true);
-                }
-                setFemProgress(progress);
-            }, 800);
-        });
-    };
-    
-    const simulateSingleAnalysis = () => {
-        return new Promise((resolve) => {
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += Math.random() * 10;
-                if (progress >= 100) {
-                    clearInterval(interval);
-                    setAnalysisResults(prev => ({
-                        ...prev,
-                        [femAnalysisType]: {
-                            completed: true,
-                            maxDisplacement: Math.random() * 50 + 10,
-                            maxStress: Math.random() * 1000 + 500,
-                            convergence: true
-                        }
-                    }));
-                    resolve(true);
-                }
-                setFemProgress(progress);
-            }, 1000);
-        });
-    };
-
-    // 物理AI优化相关函数
-    const startAIOptimization = () => {
-        setIsRunningAI(true);
-        setAiProgress(0);
-        
-        // 模拟AI优化进度
-        const interval = setInterval(() => {
-            setAiProgress(prev => {
-                if (prev >= 100) {
-                    clearInterval(interval);
-                    setIsRunningAI(false);
-                    return 100;
-                }
-                return prev + Math.random() * 8;
-            });
-        }, 1200);
-    };
-
     const getCurrentStep = () => {
         if (computationResultUrl) return 3;
-        if (isComputing || isRunningFEM || isRunningAI) return 2;
+        if (isComputing) return 2;
         if (hasMesh) return 1;
         return 0;
     };
 
     const getStatusTag = () => {
-        if (isRunningFEM) return <Tag color="processing" icon={<LoadingOutlined />}>FEM计算中</Tag>;
-        if (isRunningAI) return <Tag color="cyan" icon={<BrainOutlined />}>AI优化中</Tag>;
-        if (computationResultUrl) return <Tag color="success" icon={<CheckCircleOutlined />}>计算完成</Tag>;
+        if (taskProgress?.status === 'starting') return <Tag color="processing" icon={<LoadingOutlined />}>任务启动中...</Tag>;
+        if (taskProgress?.status === 'processing') return <Tag color="processing" icon={<LoadingOutlined />}>计算中</Tag>;
+        if (taskProgress?.status === 'completed') return <Tag color="success" icon={<CheckCircleOutlined />}>计算完成</Tag>;
+        if (taskProgress?.status === 'error') return <Tag color="error" icon={<ExclamationCircleOutlined />}>计算失败</Tag>;
         return <Tag icon={<InfoCircleOutlined />}>未开始</Tag>;
     };
 
-    const canStartAnalysis = hasMesh && hasComponents && !isComputing && !isRunningFEM && !isRunningAI;
+    const canStartAnalysis = hasMesh && hasComponents && !isComputing;
 
     // FEM分析设置面板
     const renderFEMSettings = () => (
@@ -361,41 +274,24 @@ const AnalysisView: React.FC = () => {
                     type="primary" 
                     block
                     icon={<RocketOutlined />}
-                    loading={isRunningFEM}
+                    loading={isComputing}
                     disabled={!canStartAnalysis}
-                    onClick={startFEMAnalysis}
+                    onClick={handleStartAnalysis}
                 >
-                    {isRunningFEM ? '计算中...' : '开始FEM分析'}
+                    {isComputing ? '计算中...' : '开始FEM分析'}
                 </Button>
 
-                {isRunningFEM && (
+                {isComputing && (
                     <div style={{ marginTop: 16 }}>
-                        <Text style={{ color: 'white' }}>计算进度 - {femAnalysisType === 'sequence' ? `第${currentPhase + 1}阶段` : '单阶段分析'}</Text>
-                        <Progress percent={Math.round(femProgress)} status="active" strokeColor={{
+                        <Text style={{ color: 'white' }}>计算进度</Text>
+                        <Progress percent={taskProgress?.progress || 0} status="active" strokeColor={{
                             '0%': '#1890ff',
                             '50%': '#52c41a',
                             '100%': '#722ed1',
                         }} />
                         <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>
-                            {femAnalysisType === 'sequence' ? 
-                                (currentPhase === 0 ? '地应力平衡计算中...' :
-                                 currentPhase === 1 ? '分步施工模拟中...' :
-                                 currentPhase === 2 ? '渗流分析中...' : '序列分析完成') :
-                                (femProgress < 30 ? '正在组装刚度矩阵...' : 
-                                 femProgress < 60 ? '正在求解线性方程组...' : 
-                                 femProgress < 90 ? '正在计算应力应变...' : 
-                                 '正在后处理结果...')
-                            }
+                            {taskProgress?.message || '正在准备计算...' }
                         </Text>
-                        {femAnalysisType === 'sequence' && (
-                            <div style={{ marginTop: 8 }}>
-                                <Steps size="small" current={currentPhase}>
-                                    <Step title="A0" description="地应力" />
-                                    <Step title="A1" description="施工" />
-                                    <Step title="A2" description="渗流" />
-                                </Steps>
-                            </div>
-                        )}
                     </div>
                 )}
             </Form>
@@ -408,8 +304,8 @@ const AnalysisView: React.FC = () => {
             <Form layout="vertical">
                 <Form.Item label={<Text style={{ color: 'white' }}>优化目标</Text>}>
                     <Select 
-                        value={optimizationTarget} 
-                        onChange={setOptimizationTarget}
+                        value={femAnalysisType} 
+                        onChange={setFemAnalysisType}
                         style={{ width: '100%' }}
                     >
                         <Option value="displacement">
@@ -469,22 +365,22 @@ const AnalysisView: React.FC = () => {
                     type="primary" 
                     block
                     icon={<BrainOutlined />}
-                    loading={isRunningAI}
+                    loading={isComputing}
                     disabled={!canStartAnalysis}
-                    onClick={startAIOptimization}
+                    onClick={handleStartAnalysis}
                     style={{ 
                         background: 'linear-gradient(45deg, #722ed1, #1890ff)',
                         borderColor: '#722ed1'
                     }}
                 >
-                    {isRunningAI ? 'AI优化中...' : '开始物理AI优化'}
+                    {isComputing ? '优化中...' : '开始物理AI优化'}
                 </Button>
 
-                {isRunningAI && (
+                {isComputing && (
                     <div style={{ marginTop: 16 }}>
                         <Text style={{ color: 'white' }}>AI优化进度</Text>
                         <Progress 
-                            percent={Math.round(aiProgress)} 
+                            percent={Math.round(taskProgress?.progress || 0)} 
                             status="active"
                             strokeColor={{
                                 '0%': '#722ed1',
@@ -492,10 +388,7 @@ const AnalysisView: React.FC = () => {
                             }}
                         />
                         <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>
-                            {aiProgress < 25 ? '正在加载IoT数据...' : 
-                             aiProgress < 50 ? '正在训练物理约束模型...' : 
-                             aiProgress < 75 ? '正在执行反演优化...' : 
-                             '正在收敛到最优解...'}
+                            {taskProgress?.message || '正在准备计算...'}
                         </Text>
                     </div>
                 )}
@@ -513,13 +406,12 @@ const AnalysisView: React.FC = () => {
                         </Title>
                         <Space>
                             {getStatusTag()}
-                            {(isRunningFEM || isRunningAI) && (
+                            {(isComputing) && (
                                 <Button 
                                     danger 
                                     icon={<StopOutlined />}
                                     onClick={() => {
-                                        setIsRunningFEM(false);
-                                        setIsRunningAI(false);
+                                        // No direct stop for computation, rely on backend
                                     }}
                                 >
                                     终止计算
@@ -549,23 +441,23 @@ const AnalysisView: React.FC = () => {
                 <Col span={24} lg={8}>
                     <Card className="analysis-card" style={{ marginBottom: 16 }}>
                         <Steps 
+                            className="analysis-steps"
                             direction="vertical" 
                             current={getCurrentStep()}
-                            status={taskProgress.status === 'error' ? 'error' : 'process'}
+                            status={taskProgress?.status === 'error' ? 'error' : 'process'}
                         >
                             <Step 
-                                title="准备模型" 
+                                title="准备分析模型" 
                                 description="创建几何模型和生成网格" 
                                 icon={hasComponents && hasMesh ? <CheckCircleOutlined /> : <LoadingOutlined />}
                             />
                             <Step 
                                 title="智能计算" 
                                 description={
-                                    isRunningFEM ? `FEM分析: ${Math.round(femProgress)}%` :
-                                    isRunningAI ? `AI优化: ${Math.round(aiProgress)}%` :
+                                    isComputing ? `计算中: ${taskProgress?.message || '未知任务'}` :
                                     "选择FEM分析或物理AI优化"
                                 } 
-                                icon={isRunningFEM || isRunningAI ? <LoadingOutlined /> : 
+                                icon={isComputing ? <LoadingOutlined /> : 
                                       computationResultUrl ? <CheckCircleOutlined /> : <BarChartOutlined />}
                             />
                             <Step 
@@ -619,13 +511,13 @@ const AnalysisView: React.FC = () => {
                                                 </div>
                                             </Col>
                                         </Row>
-                                        {Object.keys(analysisResults).length > 0 && (
+                                        {taskProgress?.results && Object.keys((taskProgress as any).results).length > 0 && (
                                             <>
                                                 <Divider />
                                                 <Text style={{ color: 'white', fontSize: 12 }}>分析结果摘要</Text>
-                                                {Object.entries(analysisResults).map(([key, result]: [string, any]) => (
+                                                {Object.entries((taskProgress as any).results).map(([key, result]: [string, any]) => (
                                                     <div key={key} style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, marginTop: 4 }}>
-                                                        {key}: 最大位移 {result.maxDisplacement?.toFixed(2)}mm, 最大应力 {result.maxStress?.toFixed(0)}kPa
+                                                        {key}: {result.message || JSON.stringify(result)}
                                                     </div>
                                                 ))}
                                             </>
@@ -704,7 +596,7 @@ const AnalysisView: React.FC = () => {
                     <div className="viewport-container" style={{ height: 'calc(100vh - 200px)', position: 'relative' }}>
                         <Viewport3D className="analysis-viewport" />
                         
-                        {(isRunningFEM || isRunningAI) && (
+                        {isComputing && (
                             <div className="computation-overlay" style={{
                                 position: 'absolute',
                                 bottom: 16,
@@ -719,32 +611,23 @@ const AnalysisView: React.FC = () => {
                             }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                                     <Text style={{ color: 'white' }}>
-                                        {isRunningFEM ? 'FEM计算进度' : 'AI优化进度'}
+                                        {isComputing ? '计算进度' : 'AI优化进度'}
                                     </Text>
                                     <Text style={{ color: 'white' }}>
-                                        {Math.round(isRunningFEM ? femProgress : aiProgress)}%
+                                        {taskProgress?.progress || 0}%
                                     </Text>
                                 </div>
                                 <Progress 
-                                    percent={Math.round(isRunningFEM ? femProgress : aiProgress)}
+                                    percent={taskProgress?.progress || 0}
                                     status="active"
-                                    strokeColor={isRunningFEM ? '#1890ff' : {
+                                    strokeColor={isComputing ? '#1890ff' : {
                                         '0%': '#722ed1',
                                         '100%': '#1890ff',
                                     }}
                                     showInfo={false}
                                 />
                                 <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>
-                                    {isRunningFEM ? 
-                                        (femProgress < 30 ? '正在组装刚度矩阵...' : 
-                                         femProgress < 60 ? '正在求解线性方程组...' : 
-                                         femProgress < 90 ? '正在计算应力应变...' : 
-                                         '正在后处理结果...') :
-                                        (aiProgress < 25 ? '正在加载IoT数据...' : 
-                                         aiProgress < 50 ? '正在训练物理约束模型...' : 
-                                         aiProgress < 75 ? '正在执行反演优化...' : 
-                                         '正在收敛到最优解...')
-                                    }
+                                    {taskProgress?.message || '正在准备计算...'}
                                 </Text>
                             </div>
                         )}
