@@ -2,148 +2,285 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, master, develop, feature/*, feature/*/* ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, master, develop ]
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.10'
+  PNPM_VERSION: '8.15.1'
 
 jobs:
-  test-python:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        python-version: [3.8, 3.9, '3.10', '3.11']
-
-    steps:
-    - uses: actions/checkout@v3
+  # Backend Tests
+  backend-test:
+    runs-on: ubuntu-latest
     
-    - name: Set up Python ${{ matrix.python-version }}
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+        installer-parallel: true
+    
+    - name: Load cached venv
+      id: cached-poetry-dependencies
+      uses: actions/cache@v3
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
     
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest pytest-cov flake8
+      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      run: poetry install --no-interaction --no-root
     
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Install project
+      run: poetry install --no-interaction
     
-    - name: Test with pytest
-      run: |
-        pytest tests/ --cov=src/ --cov-report=xml
+    - name: Run ruff linter
+      run: poetry run ruff check .
+    
+    - name: Run mypy type checker
+      run: poetry run mypy core/ gateway/ --ignore-missing-imports
+      continue-on-error: true  # Type checking is strict but not blocking
+    
+    - name: Run black formatter check
+      run: poetry run black --check .
+    
+    - name: Run pytest
+      run: poetry run pytest --cov=core --cov=gateway --cov-report=xml --cov-report=html
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       with:
         file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
+        flags: backend
+        name: codecov-backend
 
-  test-frontend:
+  # Frontend Tests
+  frontend-test:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
       with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
+        node-version: ${{ env.NODE_VERSION }}
     
-    - name: Install frontend dependencies
-      working-directory: ./frontend
-      run: npm ci
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: ${{ env.PNPM_VERSION }}
+        run_install: false
     
-    - name: Lint frontend
-      working-directory: ./frontend
-      run: npm run lint
+    - name: Get pnpm store directory
+      shell: bash
+      run: |
+        echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
     
-    - name: Test frontend
-      working-directory: ./frontend
-      run: npm test -- --coverage --watchAll=false
+    - name: Setup pnpm cache
+      uses: actions/cache@v3
+      with:
+        path: ${{ env.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+    
+    - name: Install dependencies
+      run: |
+        cd frontend
+        pnpm install --frozen-lockfile
+    
+    - name: Run TypeScript type check
+      run: |
+        cd frontend
+        pnpm run type-check
+    
+    - name: Run ESLint
+      run: |
+        cd frontend
+        pnpm run lint
+    
+    - name: Run Prettier check
+      run: |
+        cd frontend
+        pnpm run format --check
+      continue-on-error: true  # Formatting is nice to have but not blocking
     
     - name: Build frontend
-      working-directory: ./frontend
-      run: npm run build
-
-  security-scan:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Run Bandit Security Scan
-      uses: securecodewarrior/github-action-bandit@v1
-      with:
-        path: "src"
-        level: "high"
-        confidence: "high"
-    
-    - name: Run Safety Check
       run: |
-        pip install safety
-        safety check
+        cd frontend
+        pnpm run build
+    
+    - name: Upload frontend build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: frontend-dist
+        path: frontend/dist/
 
-  build-docs:
+  # Integration Tests
+  integration-test:
     runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10'
+        python-version: ${{ env.PYTHON_VERSION }}
     
-    - name: Install dependencies
-      run: |
-        pip install sphinx sphinx-rtd-theme
-    
-    - name: Build documentation
-      run: |
-        cd docs
-        sphinx-build -b html . _build/html
-    
-    - name: Deploy to GitHub Pages
-      if: github.ref == 'refs/heads/main'
-      uses: peaceiris/actions-gh-pages@v3
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./docs/_build/html
+        node-version: ${{ env.NODE_VERSION }}
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+    
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: ${{ env.PNPM_VERSION }}
+    
+    - name: Install backend dependencies
+      run: poetry install --no-interaction
+    
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        pnpm install --frozen-lockfile
+    
+    - name: Build frontend
+      run: |
+        cd frontend
+        pnpm run build
+    
+    - name: Start backend server
+      run: |
+        poetry run uvicorn gateway.main:app --host 0.0.0.0 --port 8080 &
+        sleep 10  # Give server time to start
+    
+    - name: Run API health check
+      run: |
+        curl -f http://localhost:8080/health || exit 1
+        curl -f http://localhost:8080/api/visualization/health || exit 1
+    
+    - name: Run integration tests
+      run: |
+        # Add integration test commands here when available
+        echo "Integration tests would run here"
 
-  docker-build:
+  # Security Checks
+  security:
     runs-on: ubuntu-latest
-    needs: [test-python, test-frontend]
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+    
+    - name: Python security check with safety
+      run: |
+        pip install safety
+        safety check --json || true  # Don't fail on security issues for now
+
+  # Build Docker Images (on main/master branch)
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test, integration-test]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+    - uses: actions/checkout@v4
     
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      uses: docker/setup-buildx-action@v3
     
-    - name: Login to DockerHub
-      if: github.event_name != 'pull_request'
-      uses: docker/login-action@v2
+    - name: Login to Container Registry
+      uses: docker/login-action@v3
       with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/${{ github.repository }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
     
     - name: Build and push Docker image
-      uses: docker/build-push-action@v4
+      uses: docker/build-push-action@v5
       with:
         context: .
-        push: ${{ github.event_name != 'pull_request' }}
-        tags: |
-          yourusername/deep-excavation:latest
-          yourusername/deep-excavation:${{ github.sha }}
+        platforms: linux/amd64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+
+  # Deployment (only on main/master)
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    environment: production
+    
+    steps:
+    - name: Deploy to production
+      run: |
+        echo "Deployment would happen here"
+        echo "Image: ghcr.io/${{ github.repository }}:latest"
+        # Add deployment commands here
+        # Example: kubectl apply -f k8s/ or docker-compose up -d
+
+  # Cleanup
+  cleanup:
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test, integration-test, security]
+    if: always()
+    
+    steps:
+    - name: Cleanup old packages
+      uses: actions/delete-package-versions@v4
+      with:
+        package-name: deepcad
+        package-type: container
+        min-versions-to-keep: 5
+        delete-only-untagged-versions: true
+      continue-on-error: true

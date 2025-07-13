@@ -5,7 +5,7 @@ import {
   RobotOutlined, 
   SendOutlined, 
   CloseOutlined,
-  BrainOutlined,
+  BulbOutlined as BrainOutlined,
   ExperimentOutlined,
   CalculatorOutlined,
   ThunderboltOutlined,

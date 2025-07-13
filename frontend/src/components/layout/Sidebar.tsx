@@ -12,7 +12,7 @@ import {
   RocketOutlined,
   DashboardOutlined,
   GatewayOutlined,
-  BrainOutlined
+  BulbOutlined as BrainOutlined // 使用 BulbOutlined 替代 BulbOutlined as BrainOutlined
 } from '@ant-design/icons';
 import { Link, useLocation } from 'react-router-dom';
 import { useUIStore } from '../../stores/useUIStore';

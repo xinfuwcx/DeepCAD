@@ -1,35 +1,72 @@
 {
   "name": "deepcad-frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.1.0",
   "type": "module",
+  "packageManager": "pnpm@8.15.1",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "lint:fix": "eslint . --ext ts,tsx --fix",
+    "type-check": "tsc --noEmit",
+    "preview": "vite preview",
+    "clean": "rm -rf dist node_modules/.vite",
+    "deps:update": "pnpm update --interactive",
+    "deps:audit": "pnpm audit",
+    "test": "echo 'Tests not configured yet'",
+    "format": "prettier --write src/**/*.{ts,tsx,css}",
+    "check": "pnpm type-check && pnpm lint",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build",
+    "storybook:test": "test-storybook"
   },
   "dependencies": {
     "@ant-design/icons": "^6.0.0",
-    "@hookform/resolvers": "^5.1.1",
+    "@hookform/resolvers": "5.1.1",
     "@types/react-router-dom": "^5.3.3",
     "@types/uuid": "^9.0.8",
     "ahooks": "^3.9.0",
     "antd": "^5.12.8",
     "axios": "^1.6.7",
     "clsx": "^2.1.0",
+    "dxf-parser": "1.1.2",
     "framer-motion": "^11.0.3",
+    "i18next": "25.3.2",
+    "i18next-browser-languagedetector": "8.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-error-boundary": "^4.0.12",
-    "react-hook-form": "^7.49.3",
+    "react-hook-form": "7.60.0",
+    "react-i18next": "15.6.0",
     "react-router-dom": "^6.21.3",
     "three": "^0.160.1",
     "uuid": "^9.0.1",
-    "zod": "^3.25.76",
+    "zod": "3.25.76",
     "zustand": "^4.4.7"
   },
   "devDependencies": {
+    "@storybook/addon-actions": "^9.0.16",
+    "@storybook/addon-backgrounds": "^9.0.16",
+    "@storybook/addon-controls": "^9.0.16",
+    "@storybook/addon-docs": "^9.0.16",
+    "@storybook/addon-essentials": "^9.0.16",
+    "@storybook/addon-interactions": "^9.0.16",
+    "@storybook/addon-measure": "^9.0.16",
+    "@storybook/addon-outline": "^9.0.16",
+    "@storybook/addon-toolbars": "^9.0.16",
+    "@storybook/addon-viewport": "^9.0.16",
+    "@storybook/blocks": "^9.0.16",
+    "@storybook/manager-api": "^9.0.16",
+    "@storybook/react": "^9.0.16",
+    "@storybook/react-vite": "^9.0.16",
+    "@storybook/test": "^9.0.16",
+    "@storybook/test-runner": "^0.19.1",
+    "@storybook/theming": "^9.0.16",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "@types/three": "^0.160.0",
@@ -39,7 +76,15 @@
     "eslint": "^8.56.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "eslint-plugin-storybook": "^0.9.0",
+    "prettier": "^3.2.5",
+    "storybook": "^9.0.16",
     "typescript": "^5.3.3",
     "vite": "^5.0.12"
+  },
+  "eslintConfig": {
+    "extends": [
+      "plugin:storybook/recommended"
+    ]
   }
 }

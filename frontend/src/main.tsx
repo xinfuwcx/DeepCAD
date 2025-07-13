@@ -4,7 +4,9 @@ import { HashRouter } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Button, Result } from 'antd';
 import App from './App.tsx'
+import './styles/globals.css'
 import './index.css'
+import './i18n';
 
 const ErrorFallback: React.FC<{ error: Error, resetErrorBoundary: () => void }> = ({ error, resetErrorBoundary }) => {
   return (
@@ -17,13 +19,7 @@ const ErrorFallback: React.FC<{ error: Error, resetErrorBoundary: () => void }> 
           Try again
         </Button>
       }
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-      }}
+      className="flex flex-col justify-center items-center h-screen"
     />
   );
 };

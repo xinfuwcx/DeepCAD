@@ -8,7 +8,7 @@ import {
   AnimatedButton, 
   FormItemWithTooltip 
 } from './FormControls';
-import { SaveOutlined, ToolOutlined, PlusOutlined, DeleteOutlined, ExperimentOutlined, ProfileOutlined, BorderHorizontalOutlined } from '@ant-design/icons';
+import { SaveOutlined, ToolOutlined, PlusOutlined, DeleteOutlined, ExperimentOutlined, ProfileOutlined, BorderOutlined as BorderHorizontalOutlined } from '@ant-design/icons';
 
 const { TabPane } = Tabs;
 const { Text } = Typography;

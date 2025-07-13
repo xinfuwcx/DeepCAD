@@ -7,6 +7,10 @@ import { useGridSettings } from '../hooks/useGridSettings';
 import ViewportControls from './ViewportControls';
 import { Button, Result } from 'antd';
 import { RocketOutlined } from '@ant-design/icons';
+import CAE3DViewport from './3d/CAE3DViewport';
+import { MaterialRenderer, type Material } from './3d/MaterialRenderer';
+import { MeshRenderer, type MeshData, type MeshRenderConfig } from './3d/MeshRenderer';
+import { ResultsRenderer, type ResultsData, type ResultsRenderConfig } from './3d/ResultsRenderer';
 import { useUIStore } from '../stores/useUIStore';
 import { useShallow } from 'zustand/react/shallow';
 import QuantumParticles from './effects/QuantumParticles';
@@ -199,7 +203,17 @@ const ViewportContent: React.FC = () => {
   );
 };
 
-const Viewport3D: React.FC<{ className?: string }> = ({ className }) => {
+interface Viewport3DProps {
+  className?: string;
+  mode?: 'advanced' | 'geometry' | 'mesh' | 'results';
+  showToolbar?: boolean;
+}
+
+const Viewport3D: React.FC<Viewport3DProps> = ({ 
+  className, 
+  mode = 'advanced',
+  showToolbar = true 
+}) => {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [is3dEnabled, setIs3dEnabled] = useState(false);
   const { uiMode, particleEffectsEnabled } = useUIStore(
@@ -213,6 +227,35 @@ const Viewport3D: React.FC<{ className?: string }> = ({ className }) => {
 
   const handleEnable3D = () => setIs3dEnabled(true);
   const handleReset = () => setIs3dEnabled(false);
+
+  // 如果是简化模式（非advanced），使用新的CAE3D组件
+  if (mode !== 'advanced' && is3dEnabled) {
+    return (
+      <div 
+        ref={viewportRef} 
+        className={`viewport-3d-container theme-card ${className || ''}`} 
+        style={{ width: '100%', height: '100%', position: 'relative' }}
+      >
+        {isFusionMode && particleEffectsEnabled && <QuantumParticles />}
+        <CAE3DViewport
+          className="w-full h-full"
+          showToolbar={showToolbar}
+          onViewChange={(viewConfig) => {
+            console.log('CAE Viewport config changed:', viewConfig);
+          }}
+        />
+        
+        {/* 模式指示器 */}
+        <div className="absolute top-4 left-4 z-10">
+          <div className="bg-black/50 text-white px-3 py-1 rounded text-sm">
+            {mode === 'geometry' && '几何建模模式'}
+            {mode === 'mesh' && '网格生成模式'}
+            {mode === 'results' && '结果后处理模式'}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!is3dEnabled) {
     return (

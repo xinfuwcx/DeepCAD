@@ -1,0 +1,309 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Introduction/Design System" />
+
+# 设计系统
+
+DeepCAD设计系统是一套完整的视觉语言和组件规范，旨在为专业CAE分析平台
+提供统一、现代、高效的用户体验。
+
+## 🎨 设计理念
+
+### 专业性 (Professional)
+- 面向工程师和专业用户
+- 清晰的信息层次结构
+- 精确的数据展示
+- 专业的工具集成
+
+### 现代性 (Modern)
+- 毛玻璃视觉效果
+- 流畅的动画过渡
+- 响应式设计
+- 暗色模式支持
+
+### 高效性 (Efficient)
+- 快速的操作流程
+- 直观的用户界面
+- 智能的默认设置
+- 强大的快捷键支持
+
+## 🌈 色彩系统
+
+### 主色调
+
+<div style={{display: 'flex', gap: '16px', marginBottom: '24px'}}>
+  <div style={{textAlign: 'center'}}>
+    <div style={{width: '80px', height: '80px', backgroundColor: '#3b82f6', borderRadius: '8px', marginBottom: '8px'}}></div>
+    <div style={{fontSize: '12px', fontWeight: 'bold'}}>Primary</div>
+    <div style={{fontSize: '10px', color: '#666'}}>#3b82f6</div>
+  </div>
+  <div style={{textAlign: 'center'}}>
+    <div style={{width: '80px', height: '80px', backgroundColor: '#6366f1', borderRadius: '8px', marginBottom: '8px'}}></div>
+    <div style={{fontSize: '12px', fontWeight: 'bold'}}>Secondary</div>
+    <div style={{fontSize: '10px', color: '#666'}}>#6366f1</div>
+  </div>
+  <div style={{textAlign: 'center'}}>
+    <div style={{width: '80px', height: '80px', backgroundColor: '#10b981', borderRadius: '8px', marginBottom: '8px'}}></div>
+    <div style={{fontSize: '12px', fontWeight: 'bold'}}>Success</div>
+    <div style={{fontSize: '10px', color: '#666'}}>#10b981</div>
+  </div>
+  <div style={{textAlign: 'center'}}>
+    <div style={{width: '80px', height: '80px', backgroundColor: '#f59e0b', borderRadius: '8px', marginBottom: '8px'}}></div>
+    <div style={{fontSize: '12px', fontWeight: 'bold'}}>Warning</div>
+    <div style={{fontSize: '10px', color: '#666'}}>#f59e0b</div>
+  </div>
+  <div style={{textAlign: 'center'}}>
+    <div style={{width: '80px', height: '80px', backgroundColor: '#ef4444', borderRadius: '8px', marginBottom: '8px'}}></div>
+    <div style={{fontSize: '12px', fontWeight: 'bold'}}>Error</div>
+    <div style={{fontSize: '10px', color: '#666'}}>#ef4444</div>
+  </div>
+</div>
+
+### 中性色
+
+<div style={{display: 'flex', gap: '8px', marginBottom: '24px'}}>
+  {[
+    { name: 'Gray 50', color: '#f9fafb' },
+    { name: 'Gray 100', color: '#f3f4f6' },
+    { name: 'Gray 200', color: '#e5e7eb' },
+    { name: 'Gray 300', color: '#d1d5db' },
+    { name: 'Gray 400', color: '#9ca3af' },
+    { name: 'Gray 500', color: '#6b7280' },
+    { name: 'Gray 600', color: '#4b5563' },
+    { name: 'Gray 700', color: '#374151' },
+    { name: 'Gray 800', color: '#1f2937' },
+    { name: 'Gray 900', color: '#111827' },
+  ].map((item) => (
+    <div key={item.name} style={{textAlign: 'center'}}>
+      <div style={{width: '40px', height: '40px', backgroundColor: item.color, borderRadius: '4px', marginBottom: '4px', border: item.color === '#f9fafb' ? '1px solid #e5e7eb' : 'none'}}></div>
+      <div style={{fontSize: '8px', color: '#666'}}>{item.name}</div>
+    </div>
+  ))}
+</div>
+
+### 毛玻璃效果色彩
+
+<div style={{display: 'flex', gap: '16px', marginBottom: '24px'}}>
+  <div style={{textAlign: 'center'}}>
+    <div style={{width: '80px', height: '80px', background: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '8px', marginBottom: '8px'}}></div>
+    <div style={{fontSize: '12px', fontWeight: 'bold'}}>Glass Light</div>
+    <div style={{fontSize: '10px', color: '#666'}}>rgba(255,255,255,0.1)</div>
+  </div>
+  <div style={{textAlign: 'center'}}>
+    <div style={{width: '80px', height: '80px', background: 'rgba(0, 0, 0, 0.1)', backdropFilter: 'blur(10px)', border: '1px solid rgba(0, 0, 0, 0.1)', borderRadius: '8px', marginBottom: '8px'}}></div>
+    <div style={{fontSize: '12px', fontWeight: 'bold'}}>Glass Dark</div>
+    <div style={{fontSize: '10px', color: '#666'}}>rgba(0,0,0,0.1)</div>
+  </div>
+</div>
+
+## 📝 字体系统
+
+### 字体族
+
+```css
+/* 主要字体 */
+font-family: "Inter", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+
+/* 等宽字体 */
+font-family: "Fira Code", "SF Mono", Monaco, Inconsolata, "Roboto Mono", monospace;
+
+/* 中文字体 */
+font-family: "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", sans-serif;
+```
+
+### 字体大小层级
+
+<div style={{marginBottom: '24px'}}>
+  <div style={{fontSize: '32px', fontWeight: 'bold', marginBottom: '8px'}}>H1 标题 (32px/2rem)</div>
+  <div style={{fontSize: '24px', fontWeight: 'bold', marginBottom: '8px'}}>H2 标题 (24px/1.5rem)</div>
+  <div style={{fontSize: '20px', fontWeight: 'bold', marginBottom: '8px'}}>H3 标题 (20px/1.25rem)</div>
+  <div style={{fontSize: '18px', fontWeight: 'bold', marginBottom: '8px'}}>H4 标题 (18px/1.125rem)</div>
+  <div style={{fontSize: '16px', fontWeight: 'bold', marginBottom: '8px'}}>H5 标题 (16px/1rem)</div>
+  <div style={{fontSize: '14px', fontWeight: 'bold', marginBottom: '8px'}}>H6 标题 (14px/0.875rem)</div>
+  <div style={{fontSize: '16px', marginBottom: '8px'}}>正文文本 (16px/1rem)</div>
+  <div style={{fontSize: '14px', marginBottom: '8px'}}>小号文本 (14px/0.875rem)</div>
+  <div style={{fontSize: '12px', color: '#6b7280'}}>说明文本 (12px/0.75rem)</div>
+</div>
+
+### 字重
+
+<div style={{marginBottom: '24px'}}>
+  <div style={{fontWeight: '300', marginBottom: '4px'}}>Light (300) - 用于次要信息</div>
+  <div style={{fontWeight: '400', marginBottom: '4px'}}>Regular (400) - 用于正文内容</div>
+  <div style={{fontWeight: '500', marginBottom: '4px'}}>Medium (500) - 用于强调内容</div>
+  <div style={{fontWeight: '600', marginBottom: '4px'}}>SemiBold (600) - 用于小标题</div>
+  <div style={{fontWeight: '700', marginBottom: '4px'}}>Bold (700) - 用于主标题</div>
+</div>
+
+## 📏 间距系统
+
+基于8px网格系统，确保元素间距的一致性和协调性。
+
+<div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '16px', marginBottom: '24px'}}>
+  {[
+    { name: 'xs', size: '4px', value: '0.25rem' },
+    { name: 'sm', size: '8px', value: '0.5rem' },
+    { name: 'md', size: '16px', value: '1rem' },
+    { name: 'lg', size: '24px', value: '1.5rem' },
+    { name: 'xl', size: '32px', value: '2rem' },
+    { name: '2xl', size: '48px', value: '3rem' },
+    { name: '3xl', size: '64px', value: '4rem' },
+  ].map((item) => (
+    <div key={item.name} style={{textAlign: 'center'}}>
+      <div style={{width: item.size, height: item.size, backgroundColor: '#3b82f6', marginBottom: '8px', margin: '0 auto 8px'}}></div>
+      <div style={{fontSize: '12px', fontWeight: 'bold'}}>{item.name}</div>
+      <div style={{fontSize: '10px', color: '#666'}}>{item.size}</div>
+      <div style={{fontSize: '10px', color: '#666'}}>{item.value}</div>
+    </div>
+  ))}
+</div>
+
+## 🔘 组件规范
+
+### 按钮系统
+
+按钮是用户交互的主要元素，遵循以下层次结构：
+
+1. **Primary Button** - 主要操作按钮
+2. **Secondary Button** - 次要操作按钮
+3. **Ghost Button** - 辅助操作按钮
+4. **Outline Button** - 边框按钮
+
+### 表单控件
+
+表单控件保持一致的视觉样式和交互行为：
+
+- 统一的焦点状态
+- 一致的错误提示样式
+- 清晰的标签和说明文本
+- 合适的触摸目标大小
+
+### 卡片组件
+
+卡片是内容组织的基本单元：
+
+- **Default** - 标准卡片样式
+- **Elevated** - 带阴影的悬浮效果
+- **Outline** - 带边框的轮廓样式
+
+## 🌊 动画系统
+
+### 过渡时间
+
+```css
+/* 快速过渡 - 用于简单状态变化 */
+transition-duration: 150ms;
+
+/* 标准过渡 - 用于大多数交互 */
+transition-duration: 200ms;
+
+/* 慢速过渡 - 用于复杂动画 */
+transition-duration: 300ms;
+```
+
+### 缓动函数
+
+```css
+/* 标准缓动 */
+transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+
+/* 进入缓动 */
+transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+
+/* 退出缓动 */
+transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
+```
+
+## 📱 响应式设计
+
+### 断点系统
+
+```css
+/* 移动端 */
+@media (max-width: 640px) { /* sm */ }
+
+/* 平板端 */
+@media (min-width: 641px) and (max-width: 1024px) { /* md-lg */ }
+
+/* 桌面端 */
+@media (min-width: 1025px) { /* xl+ */ }
+```
+
+### 布局原则
+
+- **移动优先** - 从小屏幕开始设计
+- **内容适配** - 内容驱动布局变化
+- **性能考虑** - 减少不必要的布局重排
+
+## ♿ 无障碍设计
+
+### 色彩对比度
+
+所有文本和背景色组合都满足WCAG 2.1 AA级标准：
+
+- 正常文本：对比度 ≥ 4.5:1
+- 大文本：对比度 ≥ 3:1
+
+### 键盘导航
+
+- 所有交互元素都支持键盘访问
+- 清晰的焦点指示器
+- 合理的Tab键顺序
+
+### 屏幕阅读器
+
+- 语义化的HTML结构
+- 适当的ARIA标签
+- 有意义的替代文本
+
+## 🎯 最佳实践
+
+### 组件设计
+
+1. **单一职责** - 每个组件只负责一个功能
+2. **可复用性** - 组件应该易于在不同场景下使用
+3. **可访问性** - 遵循无障碍设计原则
+4. **性能优化** - 避免不必要的重渲染
+
+### 代码规范
+
+```tsx
+// 组件定义
+interface ComponentProps {
+  variant?: 'primary' | 'secondary';
+  size?: 'sm' | 'md' | 'lg';
+  disabled?: boolean;
+  children: React.ReactNode;
+}
+
+// 使用默认参数
+const Component: React.FC<ComponentProps> = ({
+  variant = 'primary',
+  size = 'md',
+  disabled = false,
+  children,
+}) => {
+  // 组件实现
+};
+```
+
+### 样式规范
+
+```css
+/* 使用CSS变量 */
+.component {
+  background-color: var(--color-primary);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+}
+
+/* 使用Tailwind类名 */
+.component {
+  @apply bg-primary rounded-md p-4;
+}
+```
+
+---
+
+这套设计系统确保了DeepCAD平台的视觉一致性和用户体验质量，
+为开发团队提供了清晰的设计指导原则。

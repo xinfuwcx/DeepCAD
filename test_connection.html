@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepCAD 连接测试</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section { 
+            background: white; 
+            padding: 20px; 
+            margin: 20px 0; 
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .status { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 4px; 
+        }
+        .success { background: #d4edda; border-left: 4px solid #28a745; }
+        .error { background: #f8d7da; border-left: 4px solid #dc3545; }
+        .info { background: #d1ecf1; border-left: 4px solid #17a2b8; }
+        button { 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 4px; 
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🚀 DeepCAD 系统连接测试</h1>
+    
+    <div class="test-section">
+        <h2>📡 后端服务器状态</h2>
+        <button onclick="testBackend()">测试后端连接</button>
+        <div id="backend-status"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎨 前端服务器状态</h2>
+        <div class="status info">
+            <strong>前端状态:</strong> 
+            <span id="frontend-status">✅ 前端正在运行 (当前页面)</span>
+        </div>
+        <div class="status info">
+            <strong>前端地址:</strong> 
+            <a href="http://localhost:5174" target="_blank">http://localhost:5174</a>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔗 API 端点测试</h2>
+        <button onclick="testHealthCheck()">健康检查</button>
+        <button onclick="testVisualizationHealth()">可视化健康检查</button>
+        <button onclick="testAPIHealth()">API健康检查</button>
+        <div id="api-status"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎯 功能测试</h2>
+        <div class="status info">
+            <strong>当前测试项目:</strong>
+            <ul>
+                <li>✅ 前端服务器启动</li>
+                <li>✅ 后端服务器启动</li>
+                <li>🔄 图标导入问题修复</li>
+                <li>⏳ API连接测试</li>
+                <li>⏳ 3D渲染测试</li>
+                <li>⏳ 动网格功能测试</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        async function testBackend() {
+            const statusDiv = document.getElementById('backend-status');
+            statusDiv.innerHTML = '<div class="status info">🔄 正在测试后端连接...</div>';
+            
+            try {
+                const response = await fetch('http://localhost:8081/health');
+                const data = await response.json();
+                
+                statusDiv.innerHTML = `
+                    <div class="status success">
+                        <strong>✅ 后端连接成功!</strong><br>
+                        状态: ${data.status}<br>
+                        消息: ${data.message}
+                    </div>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="status error">
+                        <strong>❌ 后端连接失败!</strong><br>
+                        错误: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function testHealthCheck() {
+            await testEndpoint('/health', 'health-check');
+        }
+
+        async function testVisualizationHealth() {
+            await testEndpoint('/api/visualization/health', 'visualization-health');
+        }
+
+        async function testAPIHealth() {
+            await testEndpoint('/api/health', 'api-health');
+        }
+
+        async function testEndpoint(endpoint, type) {
+            const statusDiv = document.getElementById('api-status');
+            const testResult = document.createElement('div');
+            
+            try {
+                const response = await fetch(`http://localhost:8081${endpoint}`);
+                const data = await response.json();
+                
+                testResult.innerHTML = `
+                    <div class="status success">
+                        <strong>✅ ${endpoint} 测试成功!</strong>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                testResult.innerHTML = `
+                    <div class="status error">
+                        <strong>❌ ${endpoint} 测试失败!</strong><br>
+                        错误: ${error.message}
+                    </div>
+                `;
+            }
+            
+            statusDiv.appendChild(testResult);
+        }
+
+        // 页面加载时自动测试
+        window.onload = function() {
+            document.getElementById('frontend-status').innerHTML = 
+                `✅ 前端正在运行 (端口: ${window.location.port || '默认'})`;
+        };
+    </script>
+</body>
+</html>

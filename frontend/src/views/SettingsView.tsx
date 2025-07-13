@@ -78,7 +78,7 @@ const SettingsView: React.FC = () => {
   return (
     <div className="settings-view fade-in">
       <div className="settings-header">
-        <Title level={2} style={{ color: 'white', margin: 0 }}>系统设置</Title>
+        <Title level={2} className="text-primary m-0">系统设置</Title>
         <Button 
           type="primary" 
           icon={<SaveOutlined />} 
@@ -113,7 +113,7 @@ const SettingsView: React.FC = () => {
                   <Controller
                     name="authorName"
                     control={control}
-                    render={({ field }) => <Input {...field} style={{ maxWidth: '300px' }} />}
+                    render={({ field }) => <Input {...field} className="max-w-xs" />}
                   />
                 </Form.Item>
                 
@@ -127,7 +127,7 @@ const SettingsView: React.FC = () => {
                       name="language"
                       control={control}
                       render={({ field }) => (
-                        <Select {...field} style={{ width: '200px' }}>
+                        <Select {...field} className="w-48">
                           <Option value="zh_CN">简体中文</Option>
                           <Option value="en_US">English</Option>
                         </Select>
@@ -183,7 +183,7 @@ const SettingsView: React.FC = () => {
                       name="defaultUnits"
                       control={control}
                       render={({ field }) => (
-                        <Select {...field} style={{ width: '200px' }}>
+                        <Select {...field} className="w-48">
                           <Option value="metric">公制 (米, 千克)</Option>
                           <Option value="imperial">英制 (英尺, 磅)</Option>
                         </Select>
@@ -202,7 +202,7 @@ const SettingsView: React.FC = () => {
                       name="gridSize"
                       control={control}
                       render={({ field }) => (
-                        <InputNumber {...field} min={0.1} max={10} step={0.1} style={{ width: '200px' }} />
+                        <InputNumber {...field} min={0.1} max={10} step={0.1} className="w-48" />
                       )}
                     />
                   </div>
@@ -224,7 +224,7 @@ const SettingsView: React.FC = () => {
                       name="performance"
                       control={control}
                       render={({ field }) => (
-                        <Select {...field} style={{ width: '200px' }}>
+                        <Select {...field} className="w-48">
                           <Option value="low">低 (更快)</Option>
                           <Option value="medium">中等</Option>
                           <Option value="high">高 (更精细)</Option>
@@ -273,7 +273,7 @@ const SettingsView: React.FC = () => {
                   >
                     <Space className="transition-all hover-lift">
                       <Controller
-                        render={({ field }) => <Input {...field} placeholder="兴趣点名称" style={{width: '240px'}} />}
+                        render={({ field }) => <Input {...field} placeholder="兴趣点名称" className="w-60" />}
                         name={`pointsOfInterest.${index}.name`}
                         control={control}
                       />
@@ -285,7 +285,7 @@ const SettingsView: React.FC = () => {
                       />
                     </Space>
                      {errors.pointsOfInterest?.[index]?.name &&
-                      <p style={{color: 'red'}}>{errors.pointsOfInterest?.[index]?.name?.message}</p>
+                      <p className="text-red-500">{errors.pointsOfInterest?.[index]?.name?.message}</p>
                     }
                   </Form.Item>
                 ))}
@@ -293,7 +293,7 @@ const SettingsView: React.FC = () => {
                   <Button
                     type="dashed"
                     onClick={() => append({ name: '' })}
-                    style={{ width: '300px' }}
+                    className="w-72"
                     icon={<PlusOutlined />}
                     className="transition-all hover-scale"
                   >
@@ -341,7 +341,7 @@ const SettingsView: React.FC = () => {
                   <div className="settings-item-description">设置3D视图的默认背景颜色</div>
                 </div>
                 <div className="settings-item-control">
-                  <Select defaultValue="dark" style={{ width: '200px' }}>
+                  <Select defaultValue="dark" className="w-48">
                     <Option value="dark">深色</Option>
                     <Option value="light">浅色</Option>
                     <Option value="gradient">渐变</Option>

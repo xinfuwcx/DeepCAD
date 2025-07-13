@@ -24,6 +24,7 @@ from .modules.visualization import routes as visualization_routes
 from .modules.geology import routes as geology_routes
 from .modules.excavation import routes as excavation_routes
 from .modules.materials import routes as materials_routes
+from .modules.dxf_import import routes as dxf_import_routes
 
 # 1. FastAPI 应用初始化
 app = FastAPI(
@@ -71,6 +72,7 @@ app.include_router(visualization_routes.router, prefix="/api", tags=["Visualizat
 app.include_router(geology_routes.router, prefix="/api", tags=["Geology"])
 app.include_router(excavation_routes.router, prefix="/api", tags=["Excavation"])
 app.include_router(materials_routes.router, prefix="/api", tags=["Materials"])
+app.include_router(dxf_import_routes.router, prefix="/api", tags=["DXF Import"])
 app.include_router(websockets_routes.router)  # No prefix for websockets
 
 

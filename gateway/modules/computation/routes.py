@@ -44,7 +44,7 @@ async def run_solver_task(job_id: str, client_id: str):
 
     # Simplified: Always use simulation for now since we don't have Kratos installed
     # TODO: Enable real Kratos when dependencies are installed
-    # if kratos_handler.is_available():
+    if kratos_handler.is_available():
         # Use Kratos for real computation
         try:
             # Set up paths

@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepCAD 系统状态</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px; 
+            margin: 0 auto; 
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+        }
+        .service-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .service-card {
+            background: rgba(255,255,255,0.2);
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        .service-card h3 {
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-running { background: #28a745; }
+        .status-stopped { background: #dc3545; }
+        .status-warning { background: #ffc107; color: #212529; }
+        
+        .test-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        
+        button {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+        
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background: rgba(0,0,0,0.2);
+            border-left: 4px solid #17a2b8;
+        }
+        
+        .success { border-left-color: #28a745; }
+        .error { border-left-color: #dc3545; }
+        
+        pre {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .feature-item {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #17a2b8;
+        }
+        
+        .feature-item.completed { border-left-color: #28a745; }
+        .feature-item.in-progress { border-left-color: #ffc107; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 DeepCAD 系统状态监控</h1>
+        <p>实时监控深基坑CAE平台的运行状态</p>
+        
+        <div class="service-grid">
+            <!-- 前端服务 -->
+            <div class="service-card">
+                <h3>
+                    🎨 前端服务 
+                    <span class="status-badge status-running">运行中</span>
+                </h3>
+                <p><strong>地址:</strong> <a href="http://localhost:5173" target="_blank" style="color: #87CEEB;">http://localhost:5173</a></p>
+                <p><strong>技术栈:</strong> React + Vite + TypeScript</p>
+                <p><strong>状态:</strong> 图标导入问题已修复</p>
+                
+                <div class="test-buttons">
+                    <button onclick="openFrontend()">打开前端</button>
+                    <button onclick="testFrontendHealth()">健康检查</button>
+                </div>
+                <div id="frontend-result"></div>
+            </div>
+            
+            <!-- 后端服务 -->
+            <div class="service-card">
+                <h3>
+                    📡 后端服务 
+                    <span class="status-badge status-running">运行中</span>
+                </h3>
+                <p><strong>地址:</strong> http://localhost:8081</p>
+                <p><strong>技术栈:</strong> FastAPI + Python</p>
+                <p><strong>模式:</strong> 简化测试服务器</p>
+                
+                <div class="test-buttons">
+                    <button onclick="testBackendHealth()">健康检查</button>
+                    <button onclick="testAPIEndpoints()">API测试</button>
+                    <button onclick="openAPIDoc()">API文档</button>
+                </div>
+                <div id="backend-result"></div>
+            </div>
+        </div>
+        
+        <h2>🎯 已实现功能</h2>
+        <div class="feature-list">
+            <div class="feature-item completed">
+                <h4>✅ 基础架构</h4>
+                <p>前后端服务器启动成功</p>
+            </div>
+            <div class="feature-item completed">
+                <h4>✅ 依赖管理</h4>
+                <p>Poetry + pnpm 配置完成</p>
+            </div>
+            <div class="feature-item completed">
+                <h4>✅ 代码质量</h4>
+                <p>Linting, Formatting, CI/CD</p>
+            </div>
+            <div class="feature-item completed">
+                <h4>✅ PyVista桥接</h4>
+                <p>可视化组件安全导入</p>
+            </div>
+            <div class="feature-item completed">
+                <h4>✅ Moving-Mesh</h4>
+                <p>动网格技术实现</p>
+            </div>
+            <div class="feature-item in-progress">
+                <h4>🔄 图标修复</h4>
+                <p>Ant Design Icons 兼容性</p>
+            </div>
+        </div>
+        
+        <h2>🧪 快速测试</h2>
+        <div class="test-buttons">
+            <button onclick="runFullTest()">完整系统测试</button>
+            <button onclick="testMovingMesh()">动网格测试</button>
+            <button onclick="test3DViewer()">3D视窗测试</button>
+        </div>
+        <div id="test-results"></div>
+        
+        <h2>📊 系统信息</h2>
+        <div class="service-card">
+            <pre id="system-info">加载中...</pre>
+        </div>
+    </div>
+
+    <script>
+        // 打开前端应用
+        function openFrontend() {
+            window.open('http://localhost:5173', '_blank');
+        }
+        
+        // 打开API文档
+        function openAPIDoc() {
+            window.open('http://localhost:8081/docs', '_blank');
+        }
+        
+        // 测试前端健康状况
+        async function testFrontendHealth() {
+            const resultDiv = document.getElementById('frontend-result');
+            resultDiv.innerHTML = '<div class="test-result">🔄 检查前端状态...</div>';
+            
+            try {
+                const response = await fetch('http://localhost:5173');
+                if (response.ok) {
+                    resultDiv.innerHTML = '<div class="test-result success">✅ 前端服务正常运行</div>';
+                } else {
+                    resultDiv.innerHTML = '<div class="test-result error">❌ 前端服务响应异常</div>';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="test-result error">❌ 无法连接前端服务<br>${error.message}</div>`;
+            }
+        }
+        
+        // 测试后端健康状况
+        async function testBackendHealth() {
+            const resultDiv = document.getElementById('backend-result');
+            resultDiv.innerHTML = '<div class="test-result">🔄 检查后端状态...</div>';
+            
+            try {
+                const response = await fetch('http://localhost:8081/health');
+                const data = await response.json();
+                resultDiv.innerHTML = `
+                    <div class="test-result success">
+                        ✅ 后端服务正常<br>
+                        状态: ${data.status}<br>
+                        消息: ${data.message}
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="test-result error">❌ 后端连接失败<br>${error.message}</div>`;
+            }
+        }
+        
+        // 测试API端点
+        async function testAPIEndpoints() {
+            const resultDiv = document.getElementById('backend-result');
+            resultDiv.innerHTML = '<div class="test-result">🔄 测试API端点...</div>';
+            
+            const endpoints = [
+                '/health',
+                '/api/health', 
+                '/api/visualization/health'
+            ];
+            
+            let results = [];
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(`http://localhost:8081${endpoint}`);
+                    const data = await response.json();
+                    results.push(`✅ ${endpoint}: OK`);
+                } catch (error) {
+                    results.push(`❌ ${endpoint}: ${error.message}`);
+                }
+            }
+            
+            resultDiv.innerHTML = `
+                <div class="test-result">
+                    <strong>API端点测试结果:</strong><br>
+                    ${results.join('<br>')}
+                </div>
+            `;
+        }
+        
+        // 运行完整测试
+        async function runFullTest() {
+            const resultDiv = document.getElementById('test-results');
+            resultDiv.innerHTML = '<div class="test-result">🔄 运行完整系统测试...</div>';
+            
+            await testBackendHealth();
+            await testFrontendHealth();
+            await testAPIEndpoints();
+            
+            resultDiv.innerHTML = '<div class="test-result success">✅ 完整测试已运行，请查看各服务状态</div>';
+        }
+        
+        // 测试动网格功能
+        function testMovingMesh() {
+            const resultDiv = document.getElementById('test-results');
+            resultDiv.innerHTML = `
+                <div class="test-result">
+                    <strong>🔄 动网格功能测试:</strong><br>
+                    1. 打开前端应用<br>
+                    2. 导航到"智能分析"页面<br>
+                    3. 点击"动网格"标签页<br>
+                    4. 测试Moving-Mesh演示功能
+                </div>
+            `;
+            window.open('http://localhost:5173', '_blank');
+        }
+        
+        // 测试3D视窗
+        function test3DViewer() {
+            const resultDiv = document.getElementById('test-results');
+            resultDiv.innerHTML = `
+                <div class="test-result">
+                    <strong>🔄 3D视窗测试:</strong><br>
+                    1. 打开前端应用<br>
+                    2. 导航到"几何建模"或"网格生成"页面<br>
+                    3. 检查3D渲染视窗是否正常显示<br>
+                    4. 测试Three.js交互功能
+                </div>
+            `;
+            window.open('http://localhost:5173', '_blank');
+        }
+        
+        // 加载系统信息
+        function loadSystemInfo() {
+            const systemInfo = document.getElementById('system-info');
+            const info = {
+                '前端服务': 'http://localhost:5173 (Vite + React)',
+                '后端服务': 'http://localhost:8081 (FastAPI)',
+                '技术栈': 'Python 3.10 + Node.js 22 + TypeScript',
+                '已修复问题': 'BrainOutlined → BulbOutlined, CubeOutlined → BoxPlotOutlined',
+                '状态': '系统正常运行，可以开始测试',
+                '下一步': '测试核心功能：3D渲染、动网格、API连接'
+            };
+            
+            systemInfo.textContent = Object.entries(info)
+                .map(([key, value]) => `${key}: ${value}`)
+                .join('\n');
+        }
+        
+        // 页面加载时执行
+        window.onload = function() {
+            loadSystemInfo();
+            // 自动运行一次健康检查
+            setTimeout(() => {
+                testBackendHealth();
+                testFrontendHealth();
+            }, 1000);
+        };
+    </script>
+</body>
+</html>

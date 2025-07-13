@@ -1,3 +1,35 @@
 [flake8]
-max-line-length = 120
-exclude = .git,__pycache__,build,dist,.venv 
+max-line-length = 100
+exclude = 
+    .git,
+    __pycache__,
+    build,
+    dist,
+    .venv,
+    venv,
+    kratos_source,
+    frontend,
+    node_modules,
+    .pytest_cache,
+    .coverage
+
+# Error codes to ignore
+ignore = 
+    E203,  # whitespace before ':'
+    W503,  # line break before binary operator (conflicts with black)
+    E501,  # line too long (handled by black)
+
+# Select specific error codes
+select = 
+    E,     # pycodestyle errors
+    W,     # pycodestyle warnings  
+    F,     # pyflakes
+    C,     # complexity
+
+# Maximum complexity
+max-complexity = 12
+
+# Per-file ignores
+per-file-ignores =
+    __init__.py:F401  # Allow unused imports in __init__.py files
+    tests/*:F401,F811  # Allow test-specific patterns 

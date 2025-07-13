@@ -27,7 +27,7 @@ import {
   LoadingOutlined,
   ExclamationCircleOutlined,
   InfoCircleOutlined,
-  BrainOutlined,
+  BulbOutlined as BrainOutlined,
   ExperimentOutlined,
   CalculatorOutlined,
   StopOutlined,
@@ -38,6 +38,7 @@ import { useSceneStore } from '../stores/useSceneStore';
 import { useUIStore } from '../stores/useUIStore';
 import PostProcessingControls from '../components/PostProcessingControls';
 import Viewport3D from '../components/Viewport3D';
+import MovingMeshDemo from '../components/MovingMeshDemo';
 import { useShallow } from 'zustand/react/shallow';
 
 const { Title, Paragraph, Text } = Typography;
@@ -253,6 +254,96 @@ const AnalysisView: React.FC = () => {
                                     </Form.Item>
                                 </Col>
                             </Row>
+                            <Divider style={{ borderColor: 'rgba(255,255,255,0.3)' }} />
+                            
+                            <Row gutter={16}>
+                                <Col span={12}>
+                                    <Form.Item label={
+                                        <Space>
+                                            <Text style={{ color: 'white' }}>动网格技术</Text>
+                                            <Tag color="processing">Moving-Mesh</Tag>
+                                        </Space>
+                                    }>
+                                        <Switch 
+                                            defaultChecked={false}
+                                            checkedChildren="启用"
+                                            unCheckedChildren="关闭"
+                                        />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={12}>
+                                    <Form.Item label="网格移动策略">
+                                        <Select defaultValue="laplacian" style={{width: '100%'}}>
+                                            <Option value="laplacian">拉普拉斯平滑</Option>
+                                            <Option value="ale_formulation">ALE公式</Option>
+                                            <Option value="remesh_adaptive">自适应重网格</Option>
+                                        </Select>
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                            
+                            <Row gutter={16}>
+                                <Col span={12}>
+                                    <Form.Item label="变形驱动源">
+                                        <Select defaultValue="excavation" style={{width: '100%'}}>
+                                            <Option value="excavation">开挖边界</Option>
+                                            <Option value="support_displacement">支护位移</Option>
+                                            <Option value="soil_settlement">土体沉降</Option>
+                                            <Option value="combined">组合驱动</Option>
+                                        </Select>
+                                    </Form.Item>
+                                </Col>
+                                <Col span={12}>
+                                    <Form.Item label="网格质量阈值">
+                                        <InputNumber 
+                                            min={0.1} 
+                                            max={1.0} 
+                                            step={0.1} 
+                                            defaultValue={0.3} 
+                                            style={{width: '100%'}}
+                                            formatter={value => `${value}`}
+                                            parser={value => value!.replace('%', '')}
+                                        />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                            
+                            <Row gutter={16}>
+                                <Col span={12}>
+                                    <Form.Item label="实时渲染">
+                                        <Switch 
+                                            defaultChecked={true}
+                                            checkedChildren="开启"
+                                            unCheckedChildren="关闭"
+                                        />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={12}>
+                                    <Form.Item label="更新频率">
+                                        <Select defaultValue="every_step" style={{width: '100%'}}>
+                                            <Option value="every_step">每时间步</Option>
+                                            <Option value="every_5_steps">每5步</Option>
+                                            <Option value="every_10_steps">每10步</Option>
+                                            <Option value="on_demand">按需更新</Option>
+                                        </Select>
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                            
+                            <Alert 
+                                message="动网格技术说明" 
+                                description={
+                                    <div style={{ fontSize: 12 }}>
+                                        • <strong>Moving-Mesh</strong>: 网格随变形动态更新，保持计算精度<br/>
+                                        • <strong>ALE公式</strong>: 适用于大变形分析，避免网格扭曲<br/>
+                                        • <strong>实时渲染</strong>: WebSocket推送网格更新，Three.js动态显示
+                                    </div>
+                                }
+                                type="info" 
+                                showIcon
+                                style={{ marginBottom: 16 }}
+                            />
+
                             <Form.Item label="单元类型配置">
                                 <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>
                                     <Badge status="success" text="土体: Hex8-SRI" /><br/>
@@ -573,6 +664,23 @@ const AnalysisView: React.FC = () => {
                                     </Card>
                                 </TabPane>
                             </Tabs>
+                        </TabPane>
+                        
+                        <TabPane 
+                            tab={
+                                <span>
+                                    <ThunderboltOutlined /> 
+                                    动网格
+                                </span>
+                            } 
+                            key="moving-mesh"
+                        >
+                            <div className="analysis-tab-content">
+                                <MovingMeshDemo 
+                                    meshId="demo_mesh_001"
+                                    visible={true}
+                                />
+                            </div>
                         </TabPane>
                         
                         <TabPane 

@@ -74,46 +74,46 @@ const HelpView: React.FC = () => {
       case 'getting-started':
         return (
           <>
-            <Title level={2} style={{ color: 'white' }}>Getting Started with DeepCAD</Title>
-            <Paragraph style={{ color: 'white' }}>
+            <Title level={2} className="text-primary">Getting Started with DeepCAD</Title>
+            <Paragraph className="text-primary">
               Welcome to DeepCAD. This guide will help you get started.
             </Paragraph>
             
-            <Title level={3} style={{ color: 'white' }}>System Requirements</Title>
+            <Title level={3} className="text-primary">System Requirements</Title>
             <ul>
               {['Windows 10 / macOS 10.15 / Linux (Ubuntu 20.04)', 
                 '16GB RAM', 
                 '4-core CPU', 
                 'OpenGL 4.0 compatible GPU',
                 '5GB disk space'].map((item, index) => (
-                <li key={index}><Text style={{ color: 'white' }}>{item}</Text></li>
+                <li key={index}><Text className="text-primary">{item}</Text></li>
               ))}
             </ul>
             
-            <Title level={3} style={{ color: 'white' }}>Quick Start Guide</Title>
+            <Title level={3} className="text-primary">Quick Start Guide</Title>
             <Collapse ghost>
-              <Panel header={<Text style={{ color: 'white' }}>1. New Project</Text>} key="1">
-                <Paragraph style={{ color: 'white', paddingLeft: '20px' }}>
+              <Panel header={<Text className="text-primary">1. New Project</Text>} key="1">
+                <Paragraph className="text-primary pl-5">
                   Go to File {'>'} New Project.
                 </Paragraph>
               </Panel>
-              <Panel header={<Text style={{ color: 'white' }}>2. Geometry</Text>} key="2">
-                <Paragraph style={{ color: 'white', paddingLeft: '20px' }}>
+              <Panel header={<Text className="text-primary">2. Geometry</Text>} key="2">
+                <Paragraph className="text-primary pl-5">
                   Navigate to the Geometry tab to create your model.
                 </Paragraph>
               </Panel>
-              <Panel header={<Text style={{ color: 'white' }}>3. Meshing</Text>} key="3">
-                <Paragraph style={{ color: 'white', paddingLeft: '20px' }}>
+              <Panel header={<Text className="text-primary">3. Meshing</Text>} key="3">
+                <Paragraph className="text-primary pl-5">
                   Go to the Meshing tab to generate a mesh.
                 </Paragraph>
               </Panel>
-              <Panel header={<Text style={{ color: 'white' }}>4. Analysis</Text>} key="4">
-                <Paragraph style={{ color: 'white', paddingLeft: '20px' }}>
+              <Panel header={<Text className="text-primary">4. Analysis</Text>} key="4">
+                <Paragraph className="text-primary pl-5">
                   In the Analysis tab, set up conditions and run the simulation.
                 </Paragraph>
               </Panel>
-              <Panel header={<Text style={{ color: 'white' }}>5. Results</Text>} key="5">
-                <Paragraph style={{ color: 'white', paddingLeft: '20px' }}>
+              <Panel header={<Text className="text-primary">5. Results</Text>} key="5">
+                <Paragraph className="text-primary pl-5">
                   View results in the Results tab.
                 </Paragraph>
               </Panel>
@@ -124,8 +124,8 @@ const HelpView: React.FC = () => {
       case 'creating-components':
         return (
           <>
-            <Title level={2} style={{ color: 'white' }}>Creating Components</Title>
-            <Paragraph style={{ color: 'white' }}>
+            <Title level={2} className="text-primary">Creating Components</Title>
+            <Paragraph className="text-primary">
               DeepCAD provides tools for creating various structural components.
             </Paragraph>
           </>
@@ -133,26 +133,26 @@ const HelpView: React.FC = () => {
       
       default:
         return (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px', flexDirection: 'column' }}>
-            <QuestionCircleOutlined style={{ fontSize: '64px', color: '#aaa' }} />
-            <Text style={{ color: 'white', marginTop: '16px' }}>Select a topic to view help content.</Text>
+          <div className="flex justify-center items-center h-96 flex-col">
+            <QuestionCircleOutlined className="text-6xl text-gray-400" />
+            <Text className="text-primary mt-4">Select a topic to view help content.</Text>
           </div>
         );
     }
   };
 
   return (
-    <div style={{ padding: '24px' }}>
-      <Title level={2} style={{ color: 'white', marginBottom: '24px' }}>Help & Documentation</Title>
+    <div className="p-6">
+      <Title level={2} className="text-primary mb-6">Help & Documentation</Title>
       
       <Row gutter={24}>
         <Col span={6}>
-          <Card style={{ background: '#2c2c2c', borderColor: '#424242', marginBottom: '16px' }}>
+          <Card className="bg-card border-glass-border mb-4">
             <Search
               placeholder="Search help topics"
               allowClear
               enterButton={<SearchOutlined />}
-              style={{ marginBottom: '16px' }}
+              className="mb-4"
             />
             
             <Tree
@@ -161,12 +161,12 @@ const HelpView: React.FC = () => {
               defaultSelectedKeys={['getting-started']}
               treeData={treeData}
               onSelect={handleSelect}
-              style={{ background: 'transparent', color: 'white' }}
+              className="bg-transparent text-primary"
             />
           </Card>
           
-          <Card style={{ background: '#2c2c2c', borderColor: '#424242' }}>
-            <Title level={4} style={{ color: 'white' }}>Quick Links</Title>
+          <Card className="bg-card border-glass-border">
+            <Title level={4} className="text-primary">Quick Links</Title>
             <List
               size="small"
               dataSource={[
@@ -176,7 +176,7 @@ const HelpView: React.FC = () => {
                 { icon: <LinkOutlined />, title: 'Community Forum', link: '#' },
               ]}
               renderItem={item => (
-                <List.Item style={{ borderBottom: 'none' }}>
+                <List.Item className="border-b-0">
                   <Button 
                     type="text" 
                     icon={item.icon} 

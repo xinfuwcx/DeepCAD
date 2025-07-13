@@ -5,7 +5,7 @@ import {
   Modal, Progress, Space, Tabs, Switch, Tag, Collapse
 } from 'antd';
 import { 
-  UploadOutlined, BuildOutlined, DatabaseOutlined, LayersOutlined,
+  UploadOutlined, BuildOutlined, DatabaseOutlined, AppstoreOutlined,
   FileTextOutlined, SettingOutlined, EyeOutlined, DeleteOutlined,
   EditOutlined, PlusOutlined, ExclamationCircleOutlined
 } from '@ant-design/icons';
@@ -410,7 +410,7 @@ const GeologyView: React.FC = () => {
                             </TabPane>
 
                             <TabPane 
-                                tab={<span><LayersOutlined /> 地层分析</span>} 
+                                tab={<span><AppstoreOutlined /> 地层分析</span>} 
                                 key="layers"
                                 style={{ height: 'calc(100vh - 200px)', overflow: 'auto' }}
                             >

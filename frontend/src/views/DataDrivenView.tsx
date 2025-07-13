@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Upload, Button, Card, Row, Col, Typography, Steps, message, Spin } from 'antd';
-import { InboxOutlined, RocketOutlined, CloudUploadOutlined } from '@ant-design/icons';
+import { InboxOutlined, RocketOutlined, CloudOutlined as CloudUploadOutlined } from '@ant-design/icons';
 import { useDropzone } from 'react-dropzone';
 import Papa from 'papaparse';
 

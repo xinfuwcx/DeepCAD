@@ -7,7 +7,8 @@ import { useShallow } from 'zustand/react/shallow';
 import { 
   SaveOutlined, 
   ToolOutlined, 
-  BorderVerticalOutlined, 
+  // BorderVerticalOutlined, // 移除不存在的图标
+  ColumnWidthOutlined, // 替换为ColumnWidthOutlined
   ProfileOutlined,
   InfoCircleOutlined
 } from '@ant-design/icons';
@@ -198,7 +199,7 @@ const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
       <Tabs activeKey={activeTab} onChange={setActiveTab}>
         {/* 地连墙配置 */}
         <TabPane 
-          tab={<Space><BorderVerticalOutlined />地连墙配置</Space>} 
+          tab={<Space><ColumnWidthOutlined />地连墙配置</Space>} 
           key="wall"
         >
           <Card title="地连墙参数" size="small">

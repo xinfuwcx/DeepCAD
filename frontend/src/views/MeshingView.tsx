@@ -39,11 +39,14 @@ import {
   ThunderboltOutlined,
   ExperimentOutlined,
   RocketOutlined,
-  CubeOutlined,
+  BoxPlotOutlined as CubeOutlined,
   NodeIndexOutlined,
-  BugOutlined
+  BugOutlined,
+  GroupOutlined
 } from '@ant-design/icons';
 import Viewport3D from '../components/Viewport3D';
+import PhysicalGroupManager from '../components/meshing/PhysicalGroupManager';
+import AdvancedMeshConfig from '../components/meshing/AdvancedMeshConfig';
 import { useShallow } from 'zustand/react/shallow';
 import { apiClient } from '../api/client';
 
@@ -523,6 +526,20 @@ const MeshingView: React.FC = () => {
                 key="geometry"
               >
                 {renderGeometryTools()}
+              </TabPane>
+
+              <TabPane 
+                tab={<span><GroupOutlined /> 物理组管理</span>} 
+                key="physical-groups"
+              >
+                <PhysicalGroupManager />
+              </TabPane>
+
+              <TabPane 
+                tab={<span><SettingOutlined /> 高级配置</span>} 
+                key="advanced-config"
+              >
+                <AdvancedMeshConfig />
               </TabPane>
             </Tabs>
           </Card>

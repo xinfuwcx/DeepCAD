@@ -6,10 +6,10 @@ import tempfile
 from typing import Optional, List
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
-import pyvista as pv
 import numpy as np
 
 from ..websockets.connection_manager import manager
+from .pyvista_web_bridge import get_pyvista_bridge
 
 router = APIRouter(prefix="/visualization")
 
@@ -47,6 +47,7 @@ async def render_mesh_to_gltf(request: VisualizationRequest):
     Background task to render mesh data to glTF format for Three.js
     """
     client_id = request.client_id
+    bridge = get_pyvista_bridge()
     
     start_payload = {
         "status": "starting", 
@@ -56,6 +57,10 @@ async def render_mesh_to_gltf(request: VisualizationRequest):
     await manager.send_personal_message(json.dumps(start_payload), client_id)
     
     try:
+        # Check PyVista availability
+        if not bridge.is_available:
+            raise RuntimeError("PyVista not available for mesh processing")
+        
         # Load mesh data
         load_payload = {
             "status": "processing", 
@@ -64,10 +69,9 @@ async def render_mesh_to_gltf(request: VisualizationRequest):
         }
         await manager.send_personal_message(json.dumps(load_payload), client_id)
         
-        if not os.path.exists(request.mesh_file_path):
-            raise FileNotFoundError(f"Mesh file not found: {request.mesh_file_path}")
-        
-        mesh = pv.read(request.mesh_file_path)
+        mesh = bridge.load_mesh(request.mesh_file_path)
+        if mesh is None:
+            raise FileNotFoundError(f"Failed to load mesh file: {request.mesh_file_path}")
         
         # Process mesh based on render type
         process_payload = {
@@ -77,8 +81,10 @@ async def render_mesh_to_gltf(request: VisualizationRequest):
         }
         await manager.send_personal_message(json.dumps(process_payload), client_id)
         
-        # Apply rendering settings
-        processed_mesh = _process_mesh_for_rendering(mesh, request)
+        # Apply rendering settings using bridge
+        processed_mesh = bridge.process_mesh_for_web(mesh, request.render_type, request.color_by)
+        if processed_mesh is None:
+            raise RuntimeError("Failed to process mesh for rendering")
         
         # Export to glTF
         export_payload = {
@@ -88,15 +94,10 @@ async def render_mesh_to_gltf(request: VisualizationRequest):
         }
         await manager.send_personal_message(json.dumps(export_payload), client_id)
         
-        output_dir = "./static_content/visualizations"
-        os.makedirs(output_dir, exist_ok=True)
-        
-        timestamp = int(time.time())
-        gltf_filename = f"render_{timestamp}.gltf"
-        gltf_path = os.path.join(output_dir, gltf_filename)
-        
-        # Export mesh to glTF
-        processed_mesh.save(gltf_path, binary=False)
+        # Export mesh to glTF using bridge
+        gltf_path = bridge.mesh_to_web_format(processed_mesh, "gltf")
+        if gltf_path is None:
+            raise RuntimeError("Failed to export mesh to glTF format")
         
         # Generate preview image
         preview_payload = {
@@ -106,35 +107,29 @@ async def render_mesh_to_gltf(request: VisualizationRequest):
         }
         await manager.send_personal_message(json.dumps(preview_payload), client_id)
         
-        preview_filename = f"preview_{timestamp}.png"
-        preview_path = os.path.join(output_dir, preview_filename)
+        # Generate preview using bridge
+        preview_path = bridge.generate_preview_image(
+            processed_mesh,
+            camera_position='iso',
+            window_size=(800, 600),
+            background_color=request.background_color,
+            show_edges=request.show_edges,
+            opacity=request.opacity
+        )
         
-        # Create a quick preview render
-        plotter = pv.Plotter(off_screen=True, window_size=(800, 600))
-        plotter.add_mesh(processed_mesh, 
-                        opacity=request.opacity,
-                        show_edges=request.show_edges)
-        plotter.background_color = request.background_color
-        plotter.camera_position = 'iso'
-        plotter.screenshot(preview_path, transparent_background=True)
-        plotter.close()
+        # Collect rendering statistics using bridge
+        stats = bridge.get_mesh_info(mesh)
         
-        # Collect rendering statistics
-        stats = {
-            "points": mesh.n_points,
-            "cells": mesh.n_cells,
-            "bounds": mesh.bounds.tolist(),
-            "center": mesh.center.tolist(),
-            "volume": float(mesh.volume) if hasattr(mesh, 'volume') else None,
-            "surface_area": float(mesh.area) if hasattr(mesh, 'area') else None
-        }
+        # Extract filename from full path for URL construction
+        gltf_filename = os.path.basename(gltf_path)
+        preview_filename = os.path.basename(preview_path) if preview_path else None
         
         complete_payload = {
             "status": "completed",
             "progress": 100,
             "message": "Visualization rendering complete.",
-            "gltf_url": f"/static/visualizations/{gltf_filename}",
-            "preview_url": f"/static/visualizations/{preview_filename}",
+            "gltf_url": f"/static/web_exports/{gltf_filename}",
+            "preview_url": f"/static/previews/{preview_filename}" if preview_filename else None,
             "stats": stats
         }
         await manager.send_personal_message(json.dumps(complete_payload), client_id)
@@ -146,29 +141,6 @@ async def render_mesh_to_gltf(request: VisualizationRequest):
         print(f"Visualization error: {error_message}")
 
 
-def _process_mesh_for_rendering(mesh: pv.DataSet, request: VisualizationRequest) -> pv.DataSet:
-    """Process mesh based on rendering requirements"""
-    
-    processed_mesh = mesh.copy()
-    
-    # Apply color mapping if requested
-    if request.color_by and request.color_by in processed_mesh.array_names:
-        # Ensure the array is active for rendering
-        processed_mesh.set_active_scalars(request.color_by)
-    
-    # Apply rendering type specific processing
-    if request.render_type == "wireframe":
-        # Extract edges for wireframe rendering
-        processed_mesh = processed_mesh.extract_all_edges()
-    elif request.render_type == "points":
-        # Convert to point cloud
-        processed_mesh = processed_mesh.extract_points()
-    elif request.render_type == "surface":
-        # Ensure we have surface representation
-        if processed_mesh.n_faces == 0:
-            processed_mesh = processed_mesh.extract_surface()
-    
-    return processed_mesh
 
 
 async def render_volume_to_gltf(request: VolumeRenderRequest):
@@ -176,6 +148,7 @@ async def render_volume_to_gltf(request: VolumeRenderRequest):
     Background task for volume rendering with isosurfaces
     """
     client_id = request.client_id
+    bridge = get_pyvista_bridge()
     
     start_payload = {
         "status": "starting",
@@ -185,6 +158,10 @@ async def render_volume_to_gltf(request: VolumeRenderRequest):
     await manager.send_personal_message(json.dumps(start_payload), client_id)
     
     try:
+        # Check PyVista availability
+        if not bridge.is_available:
+            raise RuntimeError("PyVista not available for volume processing")
+        
         # Load volume data
         load_payload = {
             "status": "processing",
@@ -193,7 +170,9 @@ async def render_volume_to_gltf(request: VolumeRenderRequest):
         }
         await manager.send_personal_message(json.dumps(load_payload), client_id)
         
-        volume = pv.read(request.volume_file_path)
+        volume = bridge.load_mesh(request.volume_file_path)
+        if volume is None:
+            raise FileNotFoundError(f"Failed to load volume file: {request.volume_file_path}")
         
         # Generate isosurfaces
         isosurface_payload = {
@@ -203,14 +182,10 @@ async def render_volume_to_gltf(request: VolumeRenderRequest):
         }
         await manager.send_personal_message(json.dumps(isosurface_payload), client_id)
         
-        # Create multiple isosurfaces if values provided
-        if request.iso_values:
-            contours = volume.contour(request.iso_values)
-        else:
-            # Auto-generate some contours
-            data_range = volume.get_data_range()
-            iso_values = np.linspace(data_range[0], data_range[1], 5)[1:-1]  # Skip min/max
-            contours = volume.contour(iso_values.tolist())
+        # Create isosurfaces using bridge
+        contours = bridge.create_volume_isosurfaces(volume, request.iso_values)
+        if contours is None:
+            raise RuntimeError("Failed to generate isosurfaces")
         
         # Export contours to glTF
         export_payload = {
@@ -220,38 +195,34 @@ async def render_volume_to_gltf(request: VolumeRenderRequest):
         }
         await manager.send_personal_message(json.dumps(export_payload), client_id)
         
-        output_dir = "./static_content/visualizations"
-        os.makedirs(output_dir, exist_ok=True)
+        # Export using bridge
+        gltf_path = bridge.mesh_to_web_format(contours, "gltf")
+        if gltf_path is None:
+            raise RuntimeError("Failed to export volume contours to glTF format")
         
-        timestamp = int(time.time())
-        gltf_filename = f"volume_{timestamp}.gltf"
-        gltf_path = os.path.join(output_dir, gltf_filename)
+        # Generate preview using bridge
+        preview_path = bridge.generate_preview_image(
+            contours,
+            camera_position='iso',
+            window_size=(800, 600),
+            opacity=request.opacity[0] if request.opacity else 0.5
+        )
         
-        contours.save(gltf_path, binary=False)
+        # Extract filenames for URLs
+        gltf_filename = os.path.basename(gltf_path)
+        preview_filename = os.path.basename(preview_path) if preview_path else None
         
-        # Generate preview
-        preview_filename = f"volume_preview_{timestamp}.png"
-        preview_path = os.path.join(output_dir, preview_filename)
-        
-        plotter = pv.Plotter(off_screen=True, window_size=(800, 600))
-        plotter.add_mesh(contours, 
-                        opacity=request.opacity[0] if request.opacity else 0.5,
-                        cmap=request.color_map)
-        plotter.camera_position = 'iso'
-        plotter.screenshot(preview_path, transparent_background=True)
-        plotter.close()
+        # Get contour stats using bridge
+        stats = bridge.get_mesh_info(contours)
+        stats["iso_values"] = request.iso_values or []
         
         complete_payload = {
             "status": "completed",
             "progress": 100,
             "message": "Volume rendering complete.",
-            "gltf_url": f"/static/visualizations/{gltf_filename}",
-            "preview_url": f"/static/visualizations/{preview_filename}",
-            "stats": {
-                "points": contours.n_points,
-                "cells": contours.n_cells,
-                "iso_values": request.iso_values or iso_values.tolist()
-            }
+            "gltf_url": f"/static/web_exports/{gltf_filename}",
+            "preview_url": f"/static/previews/{preview_filename}" if preview_filename else None,
+            "stats": stats
         }
         await manager.send_personal_message(json.dumps(complete_payload), client_id)
         
@@ -291,19 +262,8 @@ async def get_supported_formats():
     """
     Get list of supported input/output formats
     """
-    return {
-        "input_formats": [
-            ".vtk", ".vtu", ".vti", ".vtr", ".vts",  # VTK formats
-            ".msh",  # Gmsh format
-            ".ply", ".stl", ".obj",  # Mesh formats
-            ".gltf", ".glb"  # 3D web formats
-        ],
-        "output_formats": [
-            ".gltf",  # Primary output for Three.js
-            ".glb",   # Binary glTF
-            ".png"    # Preview images
-        ]
-    }
+    bridge = get_pyvista_bridge()
+    return bridge.get_supported_formats()
 
 
 @router.get("/presets")
@@ -337,3 +297,12 @@ async def get_render_presets():
             "background_color": [0.0, 0.0, 0.0]
         }
     }
+
+
+@router.get("/health")
+async def visualization_health_check():
+    """
+    PyVista Web Bridge健康检查
+    """
+    bridge = get_pyvista_bridge()
+    return bridge.health_check()

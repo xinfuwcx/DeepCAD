@@ -5,7 +5,7 @@ import {
   Divider, Tag, Tooltip, Modal, Typography
 } from 'antd';
 import {
-  RocketOutlined, LayersOutlined, BuildOutlined, 
+  RocketOutlined, AppstoreOutlined as LayersOutlined, BuildOutlined, 
   ToolOutlined, EyeOutlined, DeleteOutlined, EditOutlined,
   PlusOutlined, SafetyOutlined, ExperimentOutlined
 } from '@ant-design/icons';

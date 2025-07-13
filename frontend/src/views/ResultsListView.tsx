@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Typography, Row, Col, Card, Table, Tag, Button, Space, Input, Select, DatePicker, Tooltip } from 'antd';
-import { SearchOutlined, FilterOutlined, SortAscendingOutlined, EyeOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons';
+import { SearchOutlined, FilterOutlined, CaretUpOutlined as SortAscendingOutlined, EyeOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 
 const { Title, Text } = Typography;

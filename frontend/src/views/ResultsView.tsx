@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Typography, Row, Col, Card, List, Tag, Button, Space, Tooltip, Divider, Breadcrumb, Spin, Statistic, Tabs, Progress, Alert, Badge } from 'antd';
-import { FileTextOutlined, BarChartOutlined, ClockCircleOutlined, UserOutlined, HomeOutlined, ArrowUpOutlined, ArrowDownOutlined, DashboardOutlined, ExperimentOutlined, ThunderboltOutlined, DownloadOutlined, EyeOutlined } from '@ant-design/icons';
+import { FileTextOutlined, BarChartOutlined, ClockCircleOutlined, UserOutlined, HomeOutlined, UpOutlined as ArrowUpOutlined, DownOutlined as ArrowDownOutlined, DashboardOutlined, ExperimentOutlined, ThunderboltOutlined, DownloadOutlined, EyeOutlined } from '@ant-design/icons';
 import { Link, useParams } from 'react-router-dom';
 import PostProcessingControls from '../components/PostProcessingControls';
 import Viewport3D from '../components/Viewport3D';
@@ -25,7 +25,7 @@ const ResultsViewer: React.FC<{ resultId?: string; result?: ResultData }> = ({ r
     if (!result?.phases) return null;
     
     return (
-      <Card title="各阶段分析结果" size="small" style={{ marginBottom: 16 }}>
+      <Card title="各阶段分析结果" size="small" className="mb-4">
         <Row gutter={16}>
           {result.analysisSequence?.map((phase, index) => {
             const phaseData = result.phases![phase as keyof typeof result.phases];
@@ -41,13 +41,13 @@ const ResultsViewer: React.FC<{ resultId?: string; result?: ResultData }> = ({ r
                   <Badge 
                     status={phaseData?.completed ? 'success' : 'error'} 
                     text={
-                      <Text style={{ color: 'white', fontWeight: 'bold' }}>
+                      <Text className="text-primary font-bold">
                         {phaseNames[phase as keyof typeof phaseNames]}
                       </Text>
                     } 
                   />
                   {phaseData && (
-                    <div style={{ marginTop: 8, color: 'rgba(255,255,255,0.8)' }}>
+                    <div className="mt-2 text-secondary">
                       {phase === 'seepage' ? (
                         <>
                           <div>水压力: {phaseData.pressure?.toFixed(1)} kPa</div>

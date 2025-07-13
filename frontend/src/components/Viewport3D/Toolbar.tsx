@@ -26,7 +26,6 @@ import {
   EyeOutlined,
   CompressOutlined,
   UndoOutlined,
-  RulerOutlined,
   BlockOutlined,
   BuildOutlined,
   GoldOutlined,
@@ -96,7 +95,7 @@ const TOOLBAR_BUTTONS: ToolbarButton[] = [
   },
   {
     action: ToolbarAction.MEASURE,
-    icon: 'RulerOutlined',
+    icon: 'BorderOutlined', // 使用BorderOutlined代替
     label: '测量',
     tooltip: '精密测量工具 - 距离/角度/面积',
     hotkey: 'M',
@@ -151,7 +150,6 @@ const ICON_MAP: Record<string, React.ComponentType> = {
   ThunderboltOutlined,
   CompressOutlined,
   UndoOutlined,
-  RulerOutlined,
   BlockOutlined,
   BuildOutlined,
   GoldOutlined,

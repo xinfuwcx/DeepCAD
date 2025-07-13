@@ -22,6 +22,14 @@ KRATOS_BUILD_PATH = "/mnt/e/DeepCAD/core/kratos_source/kratos/build/Release"
 sys.path.append(KRATOS_BUILD_PATH)
 sys.path.append(os.path.join(KRATOS_BUILD_PATH, "kratos"))
 
+# Import PyVista Web Bridge
+try:
+    from ..visualization.pyvista_web_bridge import PyVistaWebBridge
+    PYVISTA_BRIDGE_AVAILABLE = True
+except ImportError:
+    PyVistaWebBridge = None
+    PYVISTA_BRIDGE_AVAILABLE = False
+
 try:
     # We import get_kratos_integration for side effects (initialization)
     from kratos_integration import get_kratos_integration  # noqa
@@ -89,7 +97,7 @@ class KratosHandler:
         self.model = None
         self.analysis = None
         self.work_dir = None
-        self.pyvista_bridge = PyVistaWebBridge() if PYVISTA_AVAILABLE else None
+        self.pyvista_bridge = PyVistaWebBridge() if PYVISTA_BRIDGE_AVAILABLE else None
         
     def is_available(self):
         """检查Kratos和PyVista是否可用"""

@@ -7,7 +7,7 @@ import {
 import { 
   UploadOutlined, BuildOutlined, FileOutlined, SettingOutlined,
   EyeOutlined, EditOutlined, DeleteOutlined, PlusOutlined,
-  ToolOutlined, ExclamationCircleOutlined, LayersOutlined,
+  ToolOutlined, ExclamationCircleOutlined, AppstoreOutlined,
   SafetyOutlined, BuildFilled
 } from '@ant-design/icons';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -396,7 +396,7 @@ const ExcavationView: React.FC = () => {
                             </TabPane>
 
                             <TabPane 
-                                tab={<span><LayersOutlined /> 开挖阶段</span>} 
+                                tab={<span><AppstoreOutlined /> 开挖阶段</span>} 
                                 key="stages"
                                 style={{ height: 'calc(100vh - 200px)', overflow: 'auto' }}
                             >

@@ -17,6 +17,7 @@ import HelpView from './views/HelpView';
 import DataDrivenView from './views/DataDrivenView';
 import GeologyView from './views/GeologyView';
 import ExcavationView from './views/ExcavationView';
+import DXFImportView from './views/DXFImportView';
 
 const App: React.FC = () => {
   return (
@@ -31,6 +32,7 @@ const App: React.FC = () => {
         <Route path="/results/:id" element={<ResultsView />} />
         <Route path="/results" element={<ResultsListView />} />
         <Route path="/materials" element={<MaterialsView />} />
+        <Route path="/dxf-import" element={<DXFImportView />} />
         <Route path="/settings" element={<SettingsView />} />
         <Route path="/user-settings" element={<UserSettingsView />} />
         <Route path="/help" element={<HelpView />} />

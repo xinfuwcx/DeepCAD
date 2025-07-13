@@ -4,6 +4,7 @@ import { UserOutlined, UploadOutlined, SaveOutlined, LockOutlined, BellOutlined,
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { GlassCard } from '../components/ui/GlassComponents';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -83,10 +84,10 @@ const UserSettingsView: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '24px' }}>
-      <Title level={2} style={{ color: 'white', marginBottom: '24px' }}>User Settings</Title>
+    <div className="p-6">
+      <Title level={2} className="text-primary mb-6">User Settings</Title>
       
-      <Card style={{ background: '#2c2c2c', borderColor: '#424242' }}>
+      <GlassCard variant="elevated" className="p-6">
         <Tabs activeKey={activeTab} onChange={setActiveTab}>
           <TabPane 
             tab={<span><UserOutlined /> Profile</span>} 
@@ -94,12 +95,12 @@ const UserSettingsView: React.FC = () => {
           >
             <Form layout="vertical" onFinish={handleSubmit(data => onSubmit({ ...data, activeTab: 'profile' }))}>
               <Row gutter={24}>
-                <Col span={6} style={{ textAlign: 'center' }}>
+                <Col span={6} className="text-center">
                   <Avatar 
                     size={120} 
                     icon={<UserOutlined />} 
                     src={avatarUrl}
-                    style={{ marginBottom: '16px' }}
+                    className="mb-4"
                   />
                   <Upload 
                     onChange={handleAvatarChange}
@@ -113,7 +114,7 @@ const UserSettingsView: React.FC = () => {
                   <Row gutter={16}>
                     <Col span={12}>
                       <Form.Item
-                        label={<span style={{ color: 'white' }}>Full Name</span>}
+                        label={<span className="text-primary font-medium">Full Name</span>}
                         validateStatus={errors.profile?.fullName ? 'error' : ''}
                         help={errors.profile?.fullName?.message}
                       >
@@ -126,7 +127,7 @@ const UserSettingsView: React.FC = () => {
                     </Col>
                     <Col span={12}>
                       <Form.Item
-                        label={<span style={{ color: 'white' }}>Email</span>}
+                        label={<span className="text-primary font-medium">Email</span>}
                         validateStatus={errors.profile?.email ? 'error' : ''}
                         help={errors.profile?.email?.message}
                       >
@@ -141,7 +142,7 @@ const UserSettingsView: React.FC = () => {
                   <Row gutter={16}>
                     <Col span={12}>
                       <Form.Item
-                        label={<span style={{ color: 'white' }}>Job Title</span>}
+                        label={<span className="text-primary font-medium">Job Title</span>}
                       >
                         <Controller
                           name="profile.jobTitle"
@@ -152,7 +153,7 @@ const UserSettingsView: React.FC = () => {
                     </Col>
                     <Col span={12}>
                       <Form.Item
-                        label={<span style={{ color: 'white' }}>Organization</span>}
+                        label={<span className="text-primary font-medium">Organization</span>}
                       >
                         <Controller
                           name="profile.organization"
@@ -181,7 +182,7 @@ const UserSettingsView: React.FC = () => {
               <Row gutter={24}>
                 <Col span={12}>
                   <Form.Item
-                    label={<span style={{ color: 'white' }}>Language</span>}
+                    label={<span className="text-primary font-medium">Language</span>}
                   >
                     <Controller
                       name="preferences.language"
@@ -200,7 +201,7 @@ const UserSettingsView: React.FC = () => {
                 </Col>
                 <Col span={12}>
                   <Form.Item
-                    label={<span style={{ color: 'white' }}>Unit System</span>}
+                    label={<span className="text-primary font-medium">Unit System</span>}
                   >
                     <Controller
                       name="preferences.unitSystem"
@@ -217,7 +218,7 @@ const UserSettingsView: React.FC = () => {
               </Row>
               
               <Form.Item
-                label={<span style={{ color: 'white' }}>Auto-Save Interval (minutes)</span>}
+                label={<span className="text-primary font-medium">Auto-Save Interval (minutes)</span>}
                 validateStatus={errors.preferences?.autoSaveInterval ? 'error' : ''}
                 help={errors.preferences?.autoSaveInterval?.message}
               >
@@ -234,9 +235,9 @@ const UserSettingsView: React.FC = () => {
                     name="preferences.enableNotifications"
                     control={control}
                     render={({ field: { value, onChange } }) => (
-                      <div>
+                      <div className="flex items-center gap-2">
                         <Switch checked={value} onChange={onChange} />
-                        <Text style={{ color: 'white', marginLeft: '8px' }}>Enable Notifications</Text>
+                        <Text className="text-primary">Enable Notifications</Text>
                       </div>
                     )}
                   />
@@ -245,9 +246,9 @@ const UserSettingsView: React.FC = () => {
                     name="preferences.darkMode"
                     control={control}
                     render={({ field: { value, onChange } }) => (
-                      <div>
+                      <div className="flex items-center gap-2">
                         <Switch checked={value} onChange={onChange} />
-                        <Text style={{ color: 'white', marginLeft: '8px' }}>Dark Mode</Text>
+                        <Text className="text-primary">Dark Mode</Text>
                       </div>
                     )}
                   />
@@ -268,7 +269,7 @@ const UserSettingsView: React.FC = () => {
           >
             <Form layout="vertical" onFinish={handleSubmit(data => onSubmit({ ...data, activeTab: 'security' }))}>
               <Form.Item
-                label={<span style={{ color: 'white' }}>Current Password</span>}
+                label={<span className="text-primary font-medium">Current Password</span>}
               >
                 <Controller
                   name="security.currentPassword"
@@ -278,7 +279,7 @@ const UserSettingsView: React.FC = () => {
               </Form.Item>
               
               <Form.Item
-                label={<span style={{ color: 'white' }}>New Password</span>}
+                label={<span className="text-primary font-medium">New Password</span>}
                 validateStatus={errors.security?.newPassword ? 'error' : ''}
                 help={errors.security?.newPassword?.message}
               >
@@ -290,7 +291,7 @@ const UserSettingsView: React.FC = () => {
               </Form.Item>
               
               <Form.Item
-                label={<span style={{ color: 'white' }}>Confirm New Password</span>}
+                label={<span className="text-primary font-medium">Confirm New Password</span>}
                 validateStatus={errors.security?.confirmPassword ? 'error' : ''}
                 help={errors.security?.confirmPassword?.message}
               >
@@ -314,29 +315,29 @@ const UserSettingsView: React.FC = () => {
             key="notifications"
           >
             <Form layout="vertical" onFinish={handleSubmit(onSubmit)}>
-              <div style={{ marginBottom: '24px' }}>
-                <Title level={4} style={{ color: 'white' }}>Notification Settings</Title>
-                <Text style={{ color: 'white' }}>Configure what notifications you want to receive.</Text>
+              <div className="mb-6">
+                <Title level={4} className="text-primary">Notification Settings</Title>
+                <Text className="text-secondary">Configure what notifications you want to receive.</Text>
               </div>
               
               <Row gutter={[0, 16]}>
                 {['Analysis Complete', 'System Updates', 'Project Changes', 'Comments'].map((item) => (
                   <Col span={24} key={item}>
-                    <Card size="small" style={{ background: '#3a3a3a', borderColor: '#424242' }}>
+                    <GlassCard variant="subtle" className="p-3">
                       <Row justify="space-between" align="middle">
                         <Col>
-                          <Text style={{ color: 'white' }}>{item}</Text>
+                          <Text className="text-primary">{item}</Text>
                         </Col>
                         <Col>
                           <Switch defaultChecked />
                         </Col>
                       </Row>
-                    </Card>
+                    </GlassCard>
                   </Col>
                 ))}
               </Row>
               
-              <Form.Item style={{ marginTop: '24px' }}>
+              <Form.Item className="mt-6">
                 <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
                   Save Notification Settings
                 </Button>
@@ -344,7 +345,7 @@ const UserSettingsView: React.FC = () => {
             </Form>
           </TabPane>
         </Tabs>
-      </Card>
+      </GlassCard>
     </div>
   );
 };
