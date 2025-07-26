@@ -21,6 +21,7 @@
         "antd": "^5.19.1",
         "axios": "^1.4.0",
         "formik": "^2.4.2",
+        "immer": "^10.1.1",
         "jwt-decode": "^3.1.2",
         "lil-gui": "^0.20.0",
         "notistack": "^3.0.2",
@@ -40,7 +41,7 @@
         "@types/three": "^0.161.2",
         "@typescript-eslint/eslint-plugin": "^6.14.0",
         "@typescript-eslint/parser": "^6.14.0",
-        "@vitejs/plugin-react": "^4.2.1",
+        "@vitejs/plugin-react": "^4.7.0",
         "autoprefixer": "^10.4.17",
         "eslint": "^8.55.0",
         "eslint-plugin-react-hooks": "^4.6.0",
@@ -48,6 +49,7 @@
         "postcss": "^8.4.33",
         "tailwindcss": "^3.4.1",
         "typescript": "^5.2.2",
-        "vite": "^5.0.8"
+        "vite": "^5.4.19",
+        "vite-plugin-svgr": "^4.3.0"
     }
 }

@@ -1,74 +1,193 @@
-# 深基坑CAE系统 - 统一依赖需求
-# 深基坑工程分析与设计系统的核心依赖
+# DeepCAD深基坑CAE平台 - 统一依赖需求
+# 基于WebGPU + Three.js的世界级深基坑工程分析平台
 
-# FastAPI and Server
-fastapi
-uvicorn[standard]
+# ====================
+# 核心Web服务框架
+# ====================
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
 
-# Pydantic for data validation
-pydantic
-
-# --- Notes on Heavy Dependencies ---
-# The following core libraries are expected to be installed in the execution environment
-# and are not available on PyPI. Refer to project documentation for setup.
-# - KratosMultiphysics
-# - Netgen/NGSolve
-
-# 数据库
+# ====================
+# 数据库和ORM
+# ====================
 sqlalchemy>=2.0.27
 alembic>=1.13.1
+psycopg2-binary>=2.9.9
 
-# 科学计算
+# ====================
+# 科学计算核心库
+# ====================
 numpy>=1.26.4
 scipy>=1.12.0
 matplotlib>=3.8.3
 pandas>=2.2.1
 h5py>=3.11.0
+sympy>=1.12
 
-# 几何建模
-pythonocc-core>=7.8.1
-OCP>=7.8.1
+# ====================
+# 几何建模和CAD
+# ====================
+# 使用Gmsh内置的OCC内核，不需要独立的OpenCASCADE
+gmsh>=4.11.1
+ezdxf>=1.1.4
+shapely>=2.0.2
 
-# 可视化
-vtk>=9.3.0
-pyvista>=0.43.4
-trame>=3.5.4
-meshio>=5.3.5
-
-# 网格生成
+# ====================
+# 网格生成和处理
+# ====================
 netgen-mesher>=6.2.2504
+meshio>=5.3.5
+pymeshfix>=0.16.2
+pyvista>=0.43.4
 
-# Kratos多物理场 - 结构力学分析
-KratosMultiphysics>=10.2.1
-KratosMultiphysics.StructuralMechanicsApplication>=10.2.1
+# ====================
+# 可视化和图形处理
+# ====================
+vtk>=9.3.0
+trame>=3.5.4
+plotly>=5.17.0
+pillow>=10.1.0
 
-# 深度学习（可选）
-tensorflow>=2.12.0
-torch>=2.0.0
+# ====================
+# 深度学习和GPU计算
+# ====================
+# PyTorch 2.7 with CUDA 12.6 support
+torch==2.7.0+cu121 --index-url https://download.pytorch.org/whl/cu121
+torchvision==0.18.0+cu121 --index-url https://download.pytorch.org/whl/cu121
+torchaudio==2.7.0+cu121 --index-url https://download.pytorch.org/whl/cu121
 
-# 工具
+# 其他深度学习工具
+tensorflow>=2.15.0
+scikit-learn>=1.3.2
+transformers>=4.36.0
+
+# ====================
+# Kratos多物理场求解器
+# ====================
+# Kratos 10.3已安装，直接导入使用
+KratosMultiphysics>=10.3.0
+KratosMultiphysics.StructuralMechanicsApplication>=10.3.0
+KratosMultiphysics.FluidDynamicsApplication>=10.3.0
+KratosMultiphysics.LinearSolversApplication>=10.3.0
+KratosMultiphysics.MeshingApplication>=10.3.0
+
+# ====================
+# 地质和岩土工程专用库
+# ====================
+# GSTools for geostatistical modeling
+gstools>=1.4.1
+# Geotechnical analysis
+geopy>=2.4.1
+rasterio>=1.3.9
+
+# ====================
+# 数据处理和分析
+# ====================
+openpyxl>=3.1.2
+xlsxwriter>=3.1.9
+requests>=2.31.0
+httpx>=0.25.2
+aiofiles>=23.2.1
+
+# ====================
+# 系统工具和日志
+# ====================
 python-dotenv>=1.0.0
-loguru>=0.7.0
+loguru>=0.7.2
 typer>=0.9.0
+rich>=13.7.0
+psutil>=5.9.6
 
-# 开发工具（可选）
-black>=24.3.0
+# ====================
+# 开发和测试工具
+# ====================
+black>=23.12.0
 isort>=5.13.2
-mypy>=1.9.0
-pytest>=8.0.2
+mypy>=1.8.0
+pytest>=7.4.3
+pytest-asyncio>=0.21.1
+pytest-cov>=4.1.0
+pre-commit>=3.6.0
 
-# Used by services for HTTP requests (if backend calls other services)
-axios 
-# Note: axios is a JS library, for python 'requests' or 'httpx' is common.
-# Assuming no server-to-server http calls for now to keep it minimal.
+# ====================
+# 性能监控和调试
+# ====================
+prometheus-client>=0.19.0
+py-spy>=0.3.14
+memory-profiler>=0.61.0
 
-# For Kratos integration (assuming it's installed in the environment)
-# No pip package, this is a placeholder for documentation
-# KratosMultiphysics
+# ====================
+# WebGPU和浏览器集成
+# ====================
+# 注意：WebGPU主要在前端，这里为后端数据处理支持
+selenium>=4.15.2
+webdriver-manager>=4.0.1
 
-# For Netgen/ngsolve integration (assuming it's installed in the environment)
-# No pip package, this is a placeholder for documentation
-# ngsolve
+# ====================
+# 安全和认证
+# ====================
+cryptography>=41.0.8
+pyjwt>=2.8.0
+passlib[bcrypt]>=1.7.4
 
-# Added by the colleague
-ezdxf
+# ====================
+# 消息队列和异步处理
+# ====================
+celery>=5.3.4
+redis>=5.0.1
+pika>=1.3.2
+
+# ====================
+# 文件处理和存储
+# ====================
+minio>=7.2.0
+boto3>=1.34.0
+
+# ====================
+# 3号WebGPU优化模块依赖
+# ====================
+# WebGPU计算优化相关
+wgpu>=0.15.0
+pywgpu>=0.15.0
+moderngl>=5.8.2
+
+# 高性能数值计算
+numba>=0.59.0
+cupy-cuda12x>=12.3.0
+cython>=3.0.6
+
+# 多物理场耦合专用
+fenics>=2019.1.0
+dolfinx>=0.7.0
+firedrake>=0.13.0
+
+# 大数据处理和流式计算
+dask[complete]>=2023.12.0
+xarray>=2023.12.0
+zarr>=2.16.0
+
+# GPU加速可视化
+mayavi>=4.8.1
+vispy>=0.14.1
+datashader>=0.16.0
+
+# ====================
+# 重要说明
+# ====================
+# 1. Kratos Multiphysics 10.3已预安装，可直接使用
+#
+# 2. PyTorch 2.7 GPU版本需要CUDA工具链：
+#    - CUDA Toolkit 12.1+ (兼容12.6)
+#    - cuDNN 8.x
+#    - 对应的NVIDIA驱动
+#
+# 3. 3号WebGPU优化模块包含：
+#    - GPU并行多物理场求解器
+#    - 百万级网格实时处理
+#    - Biot渗流-应力耦合分析
+#    - 高级可视化系统（等值线、流线、剖切）
+#
+# 4. Three.js和WebGPU在前端package.json中定义
+#
+# 5. Gmsh内置OCC内核，无需额外依赖
