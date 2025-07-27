@@ -1,0 +1,163 @@
+/* 视口相关样式 */
+
+/* 视口容器 */
+.viewport3d {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.viewport3d.fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1000;
+  border-radius: 0;
+}
+
+/* 玻璃效果按钮 */
+.glass-effect {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  color: white !important;
+}
+
+.glass-effect:hover {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+.glass-effect:active {
+  background-color: rgba(255, 255, 255, 0.35) !important;
+  transform: translateY(1px);
+}
+
+/* 视口控制面板 */
+.viewport-controls {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 视口状态指示器 */
+.viewport-status {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  padding: 4px 8px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+  pointer-events: none;
+  max-width: 300px;
+}
+
+.viewport-status .error {
+  color: #ff4d4f;
+}
+
+/* 测量工具样式 */
+.measure-result {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 101;
+}
+
+/* 截面工具样式 */
+.section-plane-controls {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px;
+  border-radius: 4px;
+  z-index: 101;
+}
+
+/* 加载动画 */
+.viewport-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 102;
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.pulse {
+  animation: pulse 2s infinite;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .viewport-controls {
+    top: 8px;
+    right: 8px;
+  }
+  
+  .viewport-status {
+    bottom: 8px;
+    left: 8px;
+  }
+}
+
+/* 暗色主题适配 */
+.dark-theme .glass-effect {
+  background-color: rgba(0, 0, 0, 0.4) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark-theme .glass-effect:hover {
+  background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+/* 浅色主题适配 */
+.light-theme .glass-effect {
+  background-color: rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  color: rgba(0, 0, 0, 0.85) !important;
+}
+
+.light-theme .glass-effect:hover {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+} 

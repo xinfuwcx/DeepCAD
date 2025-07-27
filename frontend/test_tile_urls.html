@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>瓦片URL测试</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: #00ffff;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #00ffff;
+            border-radius: 8px;
+            background: rgba(0, 255, 255, 0.05);
+        }
+        
+        .test-title {
+            color: #ffffff;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .tile-test {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+        
+        .tile-url {
+            color: #ffff00;
+            word-break: break-all;
+            margin: 5px 0;
+        }
+        
+        .tile-image {
+            margin: 10px 0;
+            border: 1px solid #555;
+        }
+        
+        .status {
+            padding: 5px;
+            border-radius: 3px;
+            margin: 5px 0;
+        }
+        
+        .success { background: rgba(0, 255, 0, 0.2); color: #00ff00; }
+        .error { background: rgba(255, 0, 0, 0.2); color: #ff4444; }
+        .loading { background: rgba(255, 255, 0, 0.2); color: #ffff00; }
+        
+        button {
+            background: #0080ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        button:hover {
+            background: #00aaff;
+        }
+    </style>
+</head>
+<body>
+    <h1>🗺️ geo-three瓦片URL可用性测试</h1>
+    <p>测试各种地图瓦片服务的可用性和跨域访问</p>
+    
+    <button onclick="testAllTiles()">🚀 开始测试所有瓦片</button>
+    <button onclick="clearResults()">🗑️ 清除结果</button>
+    
+    <div class="test-section">
+        <div class="test-title">📍 测试位置：上海中心 (31.2304, 121.4737), 缩放级别: 8</div>
+        <div id="tile-coords"></div>
+    </div>
+    
+    <div class="test-section">
+        <div class="test-title">🗺️ OpenStreetMap (街道地图)</div>
+        <div id="osm-test" class="tile-test">
+            <div class="tile-url" id="osm-url">正在生成URL...</div>
+            <div class="status loading" id="osm-status">等待测试</div>
+            <img id="osm-img" class="tile-image" style="display: none;" width="256" height="256">
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <div class="test-title">🛰️ Google卫星图</div>
+        <div id="satellite-test" class="tile-test">
+            <div class="tile-url" id="satellite-url">正在生成URL...</div>
+            <div class="status loading" id="satellite-status">等待测试</div>
+            <img id="satellite-img" class="tile-image" style="display: none;" width="256" height="256">
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <div class="test-title">⛰️ Google地形图</div>
+        <div id="terrain-test" class="tile-test">
+            <div class="tile-url" id="terrain-url">正在生成URL...</div>
+            <div class="status loading" id="terrain-status">等待测试</div>
+            <img id="terrain-img" class="tile-image" style="display: none;" width="256" height="256">
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <div class="test-title">🌙 CartoDB暗色主题</div>
+        <div id="dark-test" class="tile-test">
+            <div class="tile-url" id="dark-url">正在生成URL...</div>
+            <div class="status loading" id="dark-status">等待测试</div>
+            <img id="dark-img" class="tile-image" style="display: none;" width="256" height="256">
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <div class="test-title">📊 测试结果汇总</div>
+        <div id="summary"></div>
+    </div>
+
+    <script>
+        // 测试配置
+        const testLocation = { lat: 31.2304, lng: 121.4737 }; // 上海
+        const testZoom = 8;
+        
+        // 瓦片样式配置
+        const tileStyles = {
+            osm: {
+                name: 'OpenStreetMap',
+                url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                corsProblems: false
+            },
+            satellite: {
+                name: 'Google卫星图',
+                url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+                corsProblems: true
+            },
+            terrain: {
+                name: 'Google地形图',
+                url: 'https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}',
+                corsProblems: true
+            },
+            dark: {
+                name: 'CartoDB暗色',
+                url: 'https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png',
+                corsProblems: false
+            }
+        };
+
+        // 经纬度转瓦片坐标
+        function lngLatToTile(lng, lat, zoom) {
+            const latRad = lat * Math.PI / 180;
+            const n = Math.pow(2, zoom);
+            const x = Math.floor((lng + 180) / 360 * n);
+            const y = Math.floor((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2 * n);
+            return { x, y, z: zoom };
+        }
+
+        // 生成瓦片URL
+        function getTileUrl(style, zoom, x, y) {
+            const template = tileStyles[style].url;
+            return template
+                .replace('{z}', zoom.toString())
+                .replace('{x}', x.toString())
+                .replace('{y}', y.toString());
+        }
+
+        // 测试单个瓦片
+        function testTile(styleKey) {
+            return new Promise((resolve) => {
+                const style = tileStyles[styleKey];
+                const tile = lngLatToTile(testLocation.lng, testLocation.lat, testZoom);
+                const url = getTileUrl(styleKey, tile.z, tile.x, tile.y);
+                
+                // 更新URL显示
+                document.getElementById(`${styleKey}-url`).textContent = url;
+                document.getElementById(`${styleKey}-status`).textContent = '正在测试...';
+                document.getElementById(`${styleKey}-status`).className = 'status loading';
+                
+                console.log(`🧪 测试 ${style.name}: ${url}`);
+                
+                const img = document.getElementById(`${styleKey}-img`);
+                const startTime = performance.now();
+                
+                img.onload = () => {
+                    const loadTime = (performance.now() - startTime).toFixed(0);
+                    console.log(`✅ ${style.name} 加载成功 (${loadTime}ms)`);
+                    
+                    document.getElementById(`${styleKey}-status`).textContent = 
+                        `✅ 加载成功 (${loadTime}ms)`;
+                    document.getElementById(`${styleKey}-status`).className = 'status success';
+                    img.style.display = 'block';
+                    
+                    resolve({ success: true, loadTime, url });
+                };
+                
+                img.onerror = (error) => {
+                    const loadTime = (performance.now() - startTime).toFixed(0);
+                    console.error(`❌ ${style.name} 加载失败 (${loadTime}ms):`, error);
+                    
+                    document.getElementById(`${styleKey}-status`).textContent = 
+                        `❌ 加载失败 (${loadTime}ms) - 可能是CORS或服务不可用`;
+                    document.getElementById(`${styleKey}-status`).className = 'status error';
+                    img.style.display = 'none';
+                    
+                    resolve({ success: false, loadTime, url, error: error.type || 'unknown' });
+                };
+                
+                // 设置超时
+                setTimeout(() => {
+                    if (img.complete === false) {
+                        console.warn(`⏰ ${style.name} 加载超时`);
+                        document.getElementById(`${styleKey}-status`).textContent = 
+                            '⏰ 加载超时 - 网络问题或服务器响应慢';
+                        document.getElementById(`${styleKey}-status`).className = 'status error';
+                        resolve({ success: false, timeout: true, url });
+                    }
+                }, 10000);
+                
+                // 开始加载
+                img.src = url;
+            });
+        }
+
+        // 测试所有瓦片
+        async function testAllTiles() {
+            console.log('🚀 开始测试所有瓦片样式...');
+            
+            // 显示瓦片坐标信息
+            const tile = lngLatToTile(testLocation.lng, testLocation.lat, testZoom);
+            document.getElementById('tile-coords').textContent = 
+                `瓦片坐标: (${tile.x}, ${tile.y}), 缩放: ${tile.z}`;
+            
+            const results = {};
+            const testOrder = ['osm', 'satellite', 'terrain', 'dark'];
+            
+            // 逐个测试（避免并发请求被限制）
+            for (const styleKey of testOrder) {
+                console.log(`📋 测试 ${tileStyles[styleKey].name}...`);
+                results[styleKey] = await testTile(styleKey);
+                
+                // 每个测试之间稍作延迟
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            // 显示汇总结果
+            displaySummary(results);
+            
+            console.log('✅ 所有瓦片测试完成', results);
+        }
+
+        // 显示测试汇总
+        function displaySummary(results) {
+            const summary = document.getElementById('summary');
+            let successCount = 0;
+            let totalCount = 0;
+            let summaryHTML = '<h4>📈 测试汇总结果:</h4>';
+            
+            Object.keys(results).forEach(styleKey => {
+                const result = results[styleKey];
+                const style = tileStyles[styleKey];
+                totalCount++;
+                
+                if (result.success) {
+                    successCount++;
+                    summaryHTML += `<div class="success">✅ ${style.name}: 成功 (${result.loadTime}ms)</div>`;
+                } else {
+                    summaryHTML += `<div class="error">❌ ${style.name}: 失败 ${result.timeout ? '(超时)' : '(加载错误)'}</div>`;
+                }
+            });
+            
+            summaryHTML += `<div style="margin-top: 15px; padding: 10px; border: 1px solid #00ffff; border-radius: 4px;">`;
+            summaryHTML += `<strong>总体结果: ${successCount}/${totalCount} 成功</strong><br/>`;
+            
+            if (successCount === totalCount) {
+                summaryHTML += `<span class="success">🎉 所有瓦片服务都可用！geo-three地图引擎应该能正常工作。</span>`;
+            } else if (successCount > 0) {
+                summaryHTML += `<span style="color: #ffaa00;">⚠️ 部分瓦片服务可用。某些地图样式可能无法加载。</span>`;
+            } else {
+                summaryHTML += `<span class="error">💥 所有瓦片服务都无法访问！检查网络连接或防火墙设置。</span>`;
+            }
+            
+            summaryHTML += `</div>`;
+            
+            if (successCount > 0) {
+                summaryHTML += `<div style="margin-top: 10px; padding: 8px; background: rgba(0, 255, 0, 0.1); border-radius: 4px;">`;
+                summaryHTML += `💡 <strong>解决方案:</strong> 使用可用的瓦片服务，geo-three地图应该能正常显示瓦片。`;
+                summaryHTML += `</div>`;
+            } else {
+                summaryHTML += `<div style="margin-top: 10px; padding: 8px; background: rgba(255, 0, 0, 0.1); border-radius: 4px;">`;
+                summaryHTML += `💡 <strong>可能原因:</strong><br/>`;
+                summaryHTML += `• CORS (跨域) 限制<br/>`;
+                summaryHTML += `• 网络连接问题<br/>`;
+                summaryHTML += `• 瓦片服务器不可用<br/>`;
+                summaryHTML += `• 防火墙阻止外部请求`;
+                summaryHTML += `</div>`;
+            }
+            
+            summary.innerHTML = summaryHTML;
+        }
+
+        // 清除结果
+        function clearResults() {
+            ['osm', 'satellite', 'terrain', 'dark'].forEach(styleKey => {
+                document.getElementById(`${styleKey}-url`).textContent = '正在生成URL...';
+                document.getElementById(`${styleKey}-status`).textContent = '等待测试';
+                document.getElementById(`${styleKey}-status`).className = 'status loading';
+                document.getElementById(`${styleKey}-img`).style.display = 'none';
+                document.getElementById(`${styleKey}-img`).src = '';
+            });
+            
+            document.getElementById('summary').innerHTML = '';
+            document.getElementById('tile-coords').textContent = '';
+            
+            console.log('🗑️ 测试结果已清除');
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('📋 瓦片URL测试页面已加载');
+            
+            // 显示瓦片坐标信息
+            const tile = lngLatToTile(testLocation.lng, testLocation.lat, testZoom);
+            document.getElementById('tile-coords').textContent = 
+                `瓦片坐标: (${tile.x}, ${tile.y}), 缩放: ${tile.z}`;
+            
+            // 生成URL预览
+            Object.keys(tileStyles).forEach(styleKey => {
+                const url = getTileUrl(styleKey, tile.z, tile.x, tile.y);
+                document.getElementById(`${styleKey}-url`).textContent = url;
+            });
+        });
+    </script>
+</body>
+</html>

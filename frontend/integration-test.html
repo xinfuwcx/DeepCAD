@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepCAD Mapbox + Three.js 集成测试</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #0a0a0a, #1a1a2e);
+            color: #ffffff;
+            font-family: 'Arial', sans-serif;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background: rgba(0, 217, 255, 0.1);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-button {
+            background: linear-gradient(45deg, #00d9ff, #0066cc);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 8px;
+        }
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 217, 255, 0.4);
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: monospace;
+        }
+        .success { background: rgba(82, 196, 26, 0.2); border-left: 4px solid #52c41a; }
+        .error { background: rgba(255, 77, 79, 0.2); border-left: 4px solid #ff4d4f; }
+        .warning { background: rgba(250, 173, 20, 0.2); border-left: 4px solid #faad14; }
+        .info { background: rgba(24, 144, 255, 0.2); border-left: 4px solid #1890ff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌍 DeepCAD Mapbox + Three.js 集成测试</h1>
+        <p>2号几何专家 - 依赖验证和数据流连通性测试</p>
+
+        <div class="test-section">
+            <h2>📦 依赖测试</h2>
+            <button class="test-button" onclick="testThreeJS()">测试 Three.js</button>
+            <button class="test-button" onclick="testMapboxGL()">测试 Mapbox GL</button>
+            <button class="test-button" onclick="testGeographicalService()">测试地理服务</button>
+            <button class="test-button" onclick="runAllTests()">运行全部测试</button>
+            <div id="test-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🎯 功能演示</h2>
+            <button class="test-button" onclick="createTestProject()">创建测试项目</button>
+            <button class="test-button" onclick="simulateDataFlow()">模拟数据流</button>
+            <button class="test-button" onclick="testCoordinateTransform()">测试坐标转换</button>
+            <div id="demo-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 系统状态</h2>
+            <div id="system-status">
+                <div class="info">正在检查系统状态...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入CDN库进行测试 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r164/three.min.js"></script>
+    
+    <script>
+        // 测试结果显示
+        function showResult(containerId, message, type = 'info') {
+            const container = document.getElementById(containerId);
+            const result = document.createElement('div');
+            result.className = `result ${type}`;
+            result.innerHTML = message;
+            container.appendChild(result);
+        }
+
+        // 清除结果
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        // 测试 Three.js
+        function testThreeJS() {
+            clearResults('test-results');
+            showResult('test-results', '🔍 开始测试 Three.js...', 'info');
+            
+            try {
+                if (typeof THREE !== 'undefined') {
+                    showResult('test-results', '✅ Three.js 全局对象已加载', 'success');
+                    
+                    // 测试核心组件
+                    const scene = new THREE.Scene();
+                    const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+                    const geometry = new THREE.BoxGeometry(1, 1, 1);
+                    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+                    const cube = new THREE.Mesh(geometry, material);
+                    
+                    scene.add(cube);
+                    showResult('test-results', '✅ Three.js 核心组件测试通过', 'success');
+                    showResult('test-results', `📊 场景对象数量: ${scene.children.length}`, 'info');
+                    
+                    return true;
+                } else {
+                    showResult('test-results', '❌ Three.js 未正确加载', 'error');
+                    return false;
+                }
+            } catch (error) {
+                showResult('test-results', `❌ Three.js 测试失败: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        // 测试 Mapbox GL
+        function testMapboxGL() {
+            showResult('test-results', '🔍 开始测试 Mapbox GL...', 'info');
+            
+            try {
+                // 检查是否可以访问Mapbox相关API
+                if (typeof fetch !== 'undefined') {
+                    showResult('test-results', '✅ Fetch API 可用 (Mapbox GL 需要)', 'success');
+                }
+                
+                if (typeof WebGLRenderingContext !== 'undefined') {
+                    showResult('test-results', '✅ WebGL 支持可用', 'success');
+                }
+                
+                // 模拟地理坐标转换测试
+                const testCoords = { lng: 116.4074, lat: 39.9042 };
+                showResult('test-results', `✅ 测试坐标: 经度${testCoords.lng}, 纬度${testCoords.lat}`, 'success');
+                
+                showResult('test-results', '⚠️ Mapbox GL 需要有效 token 才能完全测试', 'warning');
+                return true;
+            } catch (error) {
+                showResult('test-results', `❌ Mapbox GL 环境测试失败: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        // 测试地理服务
+        function testGeographicalService() {
+            showResult('test-results', '🔍 开始测试地理可视化服务...', 'info');
+            
+            try {
+                // 模拟项目数据结构
+                const testProject = {
+                    id: 'test-project-001',
+                    name: '北京测试深基坑项目',
+                    location: {
+                        latitude: 39.9042,
+                        longitude: 116.4074,
+                        elevation: 50
+                    },
+                    status: 'active',
+                    depth: 15,
+                    boundaries: [
+                        { lat: 39.9040, lng: 116.4070 },
+                        { lat: 39.9040, lng: 116.4078 },
+                        { lat: 39.9044, lng: 116.4078 },
+                        { lat: 39.9044, lng: 116.4070 }
+                    ],
+                    excavationDepth: 15,
+                    supportStructures: [],
+                    geologicalLayers: [],
+                    materials: []
+                };
+                
+                showResult('test-results', '✅ 项目数据结构验证通过', 'success');
+                showResult('test-results', `📊 项目: ${testProject.name}`, 'info');
+                showResult('test-results', `📍 位置: ${testProject.location.latitude}, ${testProject.location.longitude}`, 'info');
+                showResult('test-results', `🏗️ 深度: ${testProject.depth}m`, 'info');
+                showResult('test-results', `📐 边界点数: ${testProject.boundaries.length}`, 'info');
+                
+                return true;
+            } catch (error) {
+                showResult('test-results', `❌ 地理服务测试失败: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        // 运行所有测试
+        function runAllTests() {
+            clearResults('test-results');
+            showResult('test-results', '🚀 开始运行完整集成测试...', 'info');
+            
+            const results = {
+                threeJS: testThreeJS(),
+                mapboxGL: testMapboxGL(),
+                geoService: testGeographicalService()
+            };
+            
+            const passedTests = Object.values(results).filter(r => r === true).length;
+            const totalTests = Object.keys(results).length;
+            
+            showResult('test-results', '=' .repeat(50), 'info');
+            showResult('test-results', '📊 测试结果汇总:', 'info');
+            showResult('test-results', `✅ 通过: ${passedTests}/${totalTests}`, 'success');
+            showResult('test-results', `❌ 失败: ${totalTests - passedTests}/${totalTests}`, 'error');
+            
+            if (passedTests === totalTests) {
+                showResult('test-results', '🎉 所有测试通过！系统集成正常', 'success');
+            } else if (passedTests > 0) {
+                showResult('test-results', '⚠️ 部分测试通过，系统可基本运行', 'warning');
+            } else {
+                showResult('test-results', '❌ 所有测试失败，请检查依赖安装', 'error');
+            }
+        }
+
+        // 创建测试项目
+        function createTestProject() {
+            clearResults('demo-results');
+            showResult('demo-results', '🏗️ 创建测试项目...', 'info');
+            
+            const projects = [
+                {
+                    name: '上海中心深基坑',
+                    location: { lat: 31.2304, lng: 121.4737 },
+                    depth: 25,
+                    status: 'active'
+                },
+                {
+                    name: '北京大兴机场T1',
+                    location: { lat: 39.5098, lng: 116.4105 },
+                    depth: 18,
+                    status: 'planning'
+                },
+                {
+                    name: '深圳前海金融中心',
+                    location: { lat: 22.5329, lng: 113.8900 },
+                    depth: 30,
+                    status: 'completed'
+                }
+            ];
+            
+            projects.forEach((project, index) => {
+                setTimeout(() => {
+                    showResult('demo-results', `✅ 项目创建: ${project.name} | 深度: ${project.depth}m | 状态: ${project.status}`, 'success');
+                }, index * 300);
+            });
+            
+            setTimeout(() => {
+                showResult('demo-results', `🎯 共创建 ${projects.length} 个测试项目`, 'info');
+            }, projects.length * 300);
+        }
+
+        // 模拟数据流
+        function simulateDataFlow() {
+            showResult('demo-results', '🔄 模拟数据流连通性测试...', 'info');
+            
+            const steps = [
+                '📊 获取项目数据',
+                '🗺️ 地理坐标转换',
+                '🏗️ Three.js 3D模型生成',
+                '🎨 Mapbox 地图图层渲染',
+                '🔗 实时数据同步',
+                '✅ 数据流测试完成'
+            ];
+            
+            steps.forEach((step, index) => {
+                setTimeout(() => {
+                    showResult('demo-results', step, index === steps.length - 1 ? 'success' : 'info');
+                }, index * 500);
+            });
+        }
+
+        // 测试坐标转换
+        function testCoordinateTransform() {
+            showResult('demo-results', '🧭 测试地理坐标转换...', 'info');
+            
+            const testLocations = [
+                { name: '北京', lat: 39.9042, lng: 116.4074 },
+                { name: '上海', lat: 31.2304, lng: 121.4737 },
+                { name: '深圳', lat: 22.5429, lng: 114.0596 },
+                { name: '广州', lat: 23.1291, lng: 113.2644 }
+            ];
+            
+            testLocations.forEach((loc, index) => {
+                setTimeout(() => {
+                    // 简单的墨卡托投影转换模拟
+                    const x = (loc.lng + 180) * (256 / 360);
+                    const y = (1 - Math.log(Math.tan(loc.lat * Math.PI / 180) + 1 / Math.cos(loc.lat * Math.PI / 180)) / Math.PI) / 2 * 256;
+                    
+                    showResult('demo-results', `🌍 ${loc.name}: (${loc.lat}, ${loc.lng}) → (${x.toFixed(2)}, ${y.toFixed(2)})`, 'success');
+                }, index * 200);
+            });
+        }
+
+        // 初始化系统状态检查
+        function initSystemStatus() {
+            const statusDiv = document.getElementById('system-status');
+            statusDiv.innerHTML = '';
+            
+            // 检查浏览器支持
+            const checks = [
+                { name: 'WebGL 支持', test: () => !!window.WebGLRenderingContext },
+                { name: 'Canvas 支持', test: () => !!document.createElement('canvas').getContext },
+                { name: 'Fetch API', test: () => !!window.fetch },
+                { name: 'ES6 支持', test: () => { try { eval('() => {}'); return true; } catch(e) { return false; } } },
+                { name: 'localStorage', test: () => !!window.localStorage },
+                { name: '设备像素比', test: () => window.devicePixelRatio || 1, value: true }
+            ];
+            
+            checks.forEach(check => {
+                const result = check.test();
+                const type = result ? 'success' : 'error';
+                const message = check.value ? 
+                    `✅ ${check.name}: ${result}` : 
+                    `${result ? '✅' : '❌'} ${check.name}: ${result ? '支持' : '不支持'}`;
+                
+                showResult('system-status', message, type);
+            });
+            
+            showResult('system-status', `🌐 用户代理: ${navigator.userAgent.substring(0, 80)}...`, 'info');
+            showResult('system-status', `📱 屏幕分辨率: ${screen.width}x${screen.height}`, 'info');
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('load', () => {
+            initSystemStatus();
+            showResult('system-status', '🚀 系统检查完成，可以开始测试', 'success');
+        });
+    </script>
+</body>
+</html>

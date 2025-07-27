@@ -1,0 +1,200 @@
+{
+  "problem_data": {
+    "problem_name": "test_coupling",
+    "start_time": 0.0,
+    "end_time": 5.0,
+    "echo_level": 1,
+    "parallel_type": "OpenMP",
+    "number_of_threads": 4
+  },
+  "coupling_solver_settings": {
+    "coupling_sequence": [
+      {
+        "solver_name": "fluid_solver",
+        "coupling_operations": [
+          "transfer_pressure_to_solid"
+        ]
+      },
+      {
+        "solver_name": "solid_solver",
+        "coupling_operations": [
+          "transfer_displacement_to_fluid"
+        ]
+      }
+    ],
+    "coupling_strategy": "gauss_seidel",
+    "max_coupling_iterations": 10,
+    "coupling_tolerance": 1e-06,
+    "relaxation_factor": 0.7
+  },
+  "solver_settings": {
+    "fluid_solver": {
+      "solver_type": "navier_stokes_u_p",
+      "model_part_name": "FluidDomain",
+      "domain_size": 3,
+      "time_stepping": {
+        "automatic_time_step": false,
+        "time_step": 0.1
+      },
+      "formulation": {
+        "element_type": "vms",
+        "use_orthogonal_subscales": false,
+        "dynamic_tau": 1.0
+      },
+      "maximum_iterations": 50,
+      "relative_velocity_tolerance": 1e-05,
+      "absolute_velocity_tolerance": 1e-07,
+      "relative_pressure_tolerance": 1e-05,
+      "absolute_pressure_tolerance": 1e-07,
+      "linear_solver_settings": {
+        "solver_type": "amgcl",
+        "tolerance": 1e-06,
+        "max_iteration": 200
+      },
+      "material_import_settings": {
+        "materials_filename": "test_coupling_fluid_materials.json"
+      }
+    },
+    "solid_solver": {
+      "solver_type": "U_Pw",
+      "model_part_name": "SolidDomain",
+      "domain_size": 3,
+      "analysis_type": "non_linear",
+      "time_stepping": {
+        "time_step": 0.1,
+        "reduction_factor": 0.5,
+        "increase_factor": 2.0
+      },
+      "convergence_criteria": "And_criterion",
+      "displacement_relative_tolerance": 0.0001,
+      "displacement_absolute_tolerance": 1e-09,
+      "residual_relative_tolerance": 0.0001,
+      "residual_absolute_tolerance": 1e-09,
+      "water_pressure_relative_tolerance": 0.0001,
+      "water_pressure_absolute_tolerance": 1e-09,
+      "max_iterations": 25,
+      "linear_solver_settings": {
+        "solver_type": "amgcl",
+        "tolerance": 1e-06,
+        "max_iteration": 200
+      },
+      "material_import_settings": {
+        "materials_filename": "test_coupling_solid_materials.json"
+      }
+    }
+  },
+  "processes": {
+    "constraints_process_list": [
+      {
+        "python_module": "apply_vector_constraint_table_process",
+        "kratos_module": "KratosMultiphysics.GeoMechanicsApplication",
+        "process_name": "ApplyVectorConstraintTableProcess",
+        "Parameters": {
+          "model_part_name": "SolidDomain.FixedBoundary",
+          "variable_name": "DISPLACEMENT",
+          "constrained": [
+            true,
+            true,
+            true
+          ],
+          "value": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "python_module": "apply_scalar_constraint_table_process",
+        "kratos_module": "KratosMultiphysics.GeoMechanicsApplication",
+        "process_name": "ApplyScalarConstraintTableProcess",
+        "Parameters": {
+          "model_part_name": "FluidDomain.PressureBoundary",
+          "variable_name": "PRESSURE",
+          "constrained": true,
+          "value": 50000.0
+        }
+      }
+    ],
+    "loads_process_list": [],
+    "auxiliar_process_list": [
+      {
+        "python_module": "apply_seepage_face_process",
+        "kratos_module": "KratosMultiphysics.GeoMechanicsApplication",
+        "process_name": "ApplySeepageFaceProcess",
+        "Parameters": {
+          "model_part_name": "SolidDomain.SeepageFace",
+          "reference_coordinate": 0.0,
+          "gravity_direction": 2
+        }
+      }
+    ]
+  },
+  "output_processes": {
+    "vtk_output": [
+      {
+        "python_module": "vtk_output_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "VtkOutputProcess",
+        "Parameters": {
+          "model_part_name": "FluidDomain",
+          "output_control_type": "time",
+          "output_interval": 1.0,
+          "file_format": "binary",
+          "output_precision": 7,
+          "output_sub_model_parts": true,
+          "folder_name": "fluid_vtk_output",
+          "save_output_files_in_folder": true,
+          "nodal_solution_step_data_variables": [
+            "VELOCITY",
+            "PRESSURE"
+          ],
+          "gauss_point_variables_extrapolated_to_nodes": [
+            "VELOCITY_GRADIENT"
+          ]
+        }
+      },
+      {
+        "python_module": "vtk_output_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "VtkOutputProcess",
+        "Parameters": {
+          "model_part_name": "SolidDomain",
+          "output_control_type": "time",
+          "output_interval": 1.0,
+          "file_format": "binary",
+          "output_precision": 7,
+          "output_sub_model_parts": true,
+          "folder_name": "solid_vtk_output",
+          "save_output_files_in_folder": true,
+          "nodal_solution_step_data_variables": [
+            "DISPLACEMENT",
+            "WATER_PRESSURE"
+          ],
+          "gauss_point_variables_extrapolated_to_nodes": [
+            "CAUCHY_STRESS_TENSOR",
+            "GREEN_LAGRANGE_STRAIN_TENSOR"
+          ]
+        }
+      }
+    ],
+    "json_output": [
+      {
+        "python_module": "json_output_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "JsonOutputProcess",
+        "Parameters": {
+          "output_variables": [
+            "DISPLACEMENT",
+            "VELOCITY",
+            "PRESSURE",
+            "WATER_PRESSURE"
+          ],
+          "output_file_name": "test_coupling_coupling_results.json",
+          "model_part_name": "CouplingInterface",
+          "time_frequency": 0.1
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,257 @@
+/* 精确菜单修复 - 基于实际界面问题 */
+
+/* === 重置所有菜单项样式 === */
+.ant-menu.ant-menu-dark .ant-menu-item {
+  /* 完全重置高度和间距 */
+  height: auto !important;
+  min-height: 85px !important;
+  line-height: normal !important;
+  
+  /* 重置边距和内边距 */
+  margin: 0 8px 8px 8px !important;
+  padding: 20px 16px !important;
+  
+  /* 重置显示方式 */
+  display: flex !important;
+  align-items: flex-start !important;
+  flex-direction: row !important;
+  
+  /* 重置背景和边框 */
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 8px !important;
+  
+  /* 重置文本属性 */
+  color: var(--text-primary) !important;
+  font-size: 14px !important;
+  
+  /* 重置其他属性 */
+  position: relative !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  
+  /* 过渡效果 */
+  transition: all 0.3s ease !important;
+}
+
+/* === 图标容器精确定位 === */
+.ant-menu.ant-menu-dark .ant-menu-item .ant-menu-item-icon {
+  /* 图标尺寸和位置 */
+  width: 24px !important;
+  height: 24px !important;
+  margin-right: 16px !important;
+  margin-top: 4px !important;
+  
+  /* 图标样式 */
+  color: var(--primary-color) !important;
+  font-size: 18px !important;
+  line-height: 24px !important;
+  
+  /* 布局控制 */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  
+  /* 确保不换行 */
+  white-space: nowrap !important;
+}
+
+/* === 文本容器精确控制 === */
+.ant-menu.ant-menu-dark .ant-menu-item .ant-menu-title-content {
+  /* 容器属性 */
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  align-items: flex-start !important;
+  
+  /* 最小高度确保空间 */
+  min-height: 50px !important;
+  
+  /* 间距控制 */
+  padding: 0 !important;
+  margin: 0 !important;
+  
+  /* 文本控制 */
+  line-height: normal !important;
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  overflow: visible !important;
+}
+
+/* === 自定义内容区域 === */
+.menu-item-content {
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+}
+
+/* === 主标题样式 === */
+.menu-item-content > div:first-child {
+  /* 文本属性 */
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  letter-spacing: 0.5px !important;
+  
+  /* 颜色 */
+  color: var(--text-primary) !important;
+  
+  /* 布局 */
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  
+  /* 文本控制 */
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  
+  /* 确保单行显示 */
+  display: block !important;
+  max-width: 180px !important;
+}
+
+/* === 副标题样式 === */
+.menu-item-content > div:last-child {
+  /* 文本属性 */
+  font-size: 0.7rem !important;
+  font-weight: 400 !important;
+  line-height: 1.2 !important;
+  
+  /* 颜色 */
+  color: var(--text-muted) !important;
+  
+  /* 布局 */
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  
+  /* 文本控制 */
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  
+  /* 确保单行显示 */
+  display: block !important;
+  max-width: 180px !important;
+}
+
+/* === 交互状态 === */
+.ant-menu.ant-menu-dark .ant-menu-item:hover {
+  background: rgba(0, 217, 255, 0.1) !important;
+  border-color: rgba(0, 217, 255, 0.3) !important;
+  transform: translateX(4px) !important;
+}
+
+.ant-menu.ant-menu-dark .ant-menu-item:hover .menu-item-content > div:first-child {
+  color: var(--primary-color) !important;
+}
+
+.ant-menu.ant-menu-dark .ant-menu-item-selected {
+  background: rgba(0, 217, 255, 0.15) !important;
+  border-color: rgba(0, 217, 255, 0.5) !important;
+  box-shadow: 0 0 15px rgba(0, 217, 255, 0.2) !important;
+}
+
+.ant-menu.ant-menu-dark .ant-menu-item-selected .menu-item-content > div:first-child {
+  color: var(--primary-color) !important;
+}
+
+.ant-menu.ant-menu-dark .ant-menu-item-selected::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 3px !important;
+  background: var(--primary-color) !important;
+  border-radius: 0 2px 2px 0 !important;
+}
+
+/* === 折叠状态 === */
+.ant-menu-inline-collapsed .ant-menu-item {
+  padding: 20px 16px !important;
+  min-height: 64px !important;
+  justify-content: center !important;
+}
+
+.ant-menu-inline-collapsed .ant-menu-item .ant-menu-item-icon {
+  margin-right: 0 !important;
+  margin-top: 0 !important;
+}
+
+.ant-menu-inline-collapsed .ant-menu-item .ant-menu-title-content {
+  display: none !important;
+}
+
+/* === 菜单容器 === */
+.ant-menu.ant-menu-dark {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+/* === 确保垂直布局 === */
+.ant-menu-inline {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.ant-menu-inline .ant-menu-item {
+  order: initial !important;
+  flex: none !important;
+}
+
+/* === 响应式适配 === */
+@media (max-width: 768px) {
+  .ant-menu.ant-menu-dark .ant-menu-item {
+    min-height: 75px !important;
+    padding: 16px 12px !important;
+    margin: 0 6px 6px 6px !important;
+  }
+  
+  .ant-menu.ant-menu-dark .ant-menu-item .ant-menu-item-icon {
+    width: 20px !important;
+    height: 20px !important;
+    margin-right: 12px !important;
+    font-size: 16px !important;
+  }
+  
+  .menu-item-content > div:first-child {
+    font-size: 0.85rem !important;
+    max-width: 150px !important;
+  }
+  
+  .menu-item-content > div:last-child {
+    font-size: 0.65rem !important;
+    max-width: 150px !important;
+  }
+}
+
+/* === 最高优先级覆盖 === */
+.ant-menu.ant-menu-dark.ant-menu-inline .ant-menu-item {
+  height: auto !important;
+  min-height: 85px !important;
+  margin: 0 8px 8px 8px !important;
+  padding: 20px 16px !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  flex-direction: row !important;
+  line-height: normal !important;
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  overflow: visible !important;
+}
+
+/* === 强制清除浮动 === */
+.ant-menu.ant-menu-dark .ant-menu-item::after {
+  content: '' !important;
+  display: table !important;
+  clear: both !important;
+}

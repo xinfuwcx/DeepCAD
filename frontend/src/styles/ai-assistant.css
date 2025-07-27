@@ -1,0 +1,129 @@
+/* DeepCAD AI Assistant 样式 */
+
+.ai-assistant-fab {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-assistant-fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 12px 40px rgba(102, 126, 234, 0.6) !important;
+}
+
+.ai-assistant-fab:active {
+  transform: scale(0.95);
+}
+
+.ai-assistant-panel {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.ai-assistant-panel:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, 
+    rgba(102, 126, 234, 0.1) 0%, 
+    rgba(118, 75, 162, 0.1) 100%
+  );
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* 滚动条样式 */
+.ai-assistant-panel *::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ai-assistant-panel *::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.ai-assistant-panel *::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.ai-assistant-panel *::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* 动画效果 */
+@keyframes ai-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.ai-assistant-fab .animate-pulse {
+  animation: ai-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes ai-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ai-assistant-panel .animate-spin {
+  animation: ai-spin 1s linear infinite;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .ai-assistant-panel {
+    width: 350px !important;
+    max-height: 500px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .ai-assistant-panel {
+    width: calc(100vw - 40px) !important;
+    max-height: 80vh !important;
+  }
+  
+  .ai-assistant-fab {
+    width: 56px !important;
+    height: 56px !important;
+  }
+}
+
+/* 深色主题适配 */
+@media (prefers-color-scheme: dark) {
+  .ai-assistant-panel {
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* 高对比度模式 */
+@media (prefers-contrast: high) {
+  .ai-assistant-panel {
+    border: 2px solid rgba(102, 126, 234, 0.8);
+  }
+  
+  .ai-assistant-fab {
+    border: 2px solid rgba(255, 255, 255, 0.8);
+  }
+}
+
+/* 减少动画模式 */
+@media (prefers-reduced-motion: reduce) {
+  .ai-assistant-fab,
+  .ai-assistant-panel,
+  .ai-assistant-fab:hover,
+  .ai-assistant-panel .animate-spin {
+    transition: none !important;
+    animation: none !important;
+  }
+}

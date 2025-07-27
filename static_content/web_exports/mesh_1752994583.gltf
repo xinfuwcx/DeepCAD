@@ -1,0 +1,46 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "PyVista Web Bridge"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0
+    }
+  ],
+  "meshes": [
+    {
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0
+          }
+        }
+      ]
+    }
+  ],
+  "accessors": [
+    {
+      "componentType": 5126,
+      "count": 384,
+      "type": "VEC3"
+    }
+  ],
+  "extensionsUsed": [
+    "KHR_mesh_quantization"
+  ],
+  "extras": {
+    "source_format": "obj",
+    "source_file": "mesh_1752994583.obj",
+    "points": 384,
+    "cells": 294
+  }
+}

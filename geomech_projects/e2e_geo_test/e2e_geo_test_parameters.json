@@ -1,0 +1,153 @@
+{
+  "problem_data": {
+    "problem_name": "e2e_geo_test",
+    "start_time": 0.0,
+    "end_time": 1,
+    "echo_level": 1,
+    "parallel_type": "OpenMP",
+    "number_of_threads": 4
+  },
+  "solver_settings": {
+    "solver_type": "U_Pw",
+    "model_part_name": "PorousDomain",
+    "domain_size": 3,
+    "analysis_type": "non_linear",
+    "time_stepping": {
+      "time_step": 1.0,
+      "reduction_factor": 0.5,
+      "increase_factor": 2.0
+    },
+    "convergence_criteria": {
+      "displacement_tolerance": 1e-06,
+      "force_tolerance": 1e-06,
+      "max_iterations": 50
+    },
+    "linear_solver_settings": {
+      "solver_type": "amgcl",
+      "tolerance": 1e-06,
+      "max_iteration": 200,
+      "scaling": false,
+      "verbosity": 1
+    },
+    "model_import_settings": {
+      "input_type": "mdpa",
+      "input_filename": "e2e_geo_test"
+    },
+    "material_import_settings": {
+      "materials_filename": "e2e_geo_test_materials.json"
+    }
+  },
+  "processes": {
+    "constraints_process_list": [
+      {
+        "python_module": "apply_vector_constraint_table_process",
+        "kratos_module": "KratosMultiphysics.GeoMechanicsApplication",
+        "process_name": "ApplyVectorConstraintTableProcess",
+        "Parameters": {
+          "model_part_name": "PorousDomain.FixedBoundary",
+          "variable_name": "DISPLACEMENT",
+          "constrained": [
+            true,
+            true,
+            true
+          ],
+          "value": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "table": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "python_module": "apply_scalar_constraint_table_process",
+        "kratos_module": "KratosMultiphysics.GeoMechanicsApplication",
+        "process_name": "ApplyScalarConstraintTableProcess",
+        "Parameters": {
+          "model_part_name": "PorousDomain.GroundwaterBoundary",
+          "variable_name": "WATER_PRESSURE",
+          "constrained": true,
+          "value": 0.0,
+          "table": [
+            0
+          ]
+        }
+      }
+    ],
+    "loads_process_list": [],
+    "auxiliar_process_list": [
+      {
+        "python_module": "deactivate_conditions_on_inactive_elements_process",
+        "kratos_module": "KratosMultiphysics.GeoMechanicsApplication",
+        "process_name": "DeactivateConditionsOnInactiveElementsProcess",
+        "Parameters": {
+          "model_part_name": "PorousDomain",
+          "start_time": 0.0,
+          "end_time": 1.0,
+          "deactivation_depth": 4.0
+        }
+      },
+      {
+        "python_module": "activate_model_part_process",
+        "kratos_module": "KratosMultiphysics.GeoMechanicsApplication",
+        "process_name": "ActivateModelPartProcess",
+        "Parameters": {
+          "model_part_name": "StructuralDomain.RetainingWall_Stage0",
+          "start_time": 0.0,
+          "end_time": 1000.0
+        }
+      }
+    ]
+  },
+  "output_processes": {
+    "vtk_output": [
+      {
+        "python_module": "vtk_output_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "VtkOutputProcess",
+        "Parameters": {
+          "model_part_name": "PorousDomain",
+          "output_control_type": "step",
+          "output_interval": 1,
+          "file_format": "binary",
+          "output_precision": 7,
+          "output_sub_model_parts": true,
+          "folder_name": "vtk_output",
+          "save_output_files_in_folder": true,
+          "nodal_solution_step_data_variables": [
+            "DISPLACEMENT",
+            "WATER_PRESSURE",
+            "REACTION"
+          ],
+          "gauss_point_variables_extrapolated_to_nodes": [
+            "CAUCHY_STRESS_TENSOR",
+            "GREEN_LAGRANGE_STRAIN_TENSOR"
+          ]
+        }
+      }
+    ],
+    "json_output": [
+      {
+        "python_module": "json_output_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "JsonOutputProcess",
+        "Parameters": {
+          "output_variables": [
+            "DISPLACEMENT",
+            "EFFECTIVE_STRESS",
+            "PORE_PRESSURE",
+            "PLASTIC_STRAIN",
+            "FACTOR_OF_SAFETY"
+          ],
+          "output_file_name": "e2e_geo_test_results.json",
+          "model_part_name": "PorousDomain",
+          "time_frequency": 1.0
+        }
+      }
+    ]
+  }
+}

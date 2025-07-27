@@ -1,0 +1,92 @@
+# Version control
+.git
+.gitignore
+.github
+
+# Virtual environments
+.venv
+venv/
+backend_venv/
+env/
+
+# Node modules
+node_modules/
+**/node_modules/
+
+# Build outputs
+frontend/dist/
+frontend/build/
+dist/
+build/
+
+# Cache directories
+.cache/
+**/.cache/
+.npm/
+.pnpm-store/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Kratos source (too large for Docker)
+kratos_source/
+core/kratos_source/
+
+# Development files
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Documentation
+docs/
+README*.md
+*.md
+
+# Test files
+tests/
+**/*test*
+**/*spec*
+
+# Scripts
+scripts/
+*.sh
+*.bat
+*.ps1
+
+# Data files (exclude large datasets)
+data/
+static_content/meshes/
+static_content/results/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Configuration files that shouldn't be in container
+.env
+.env.local
+.env.*.local
+config/local*

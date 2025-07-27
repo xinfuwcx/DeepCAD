@@ -1,0 +1,46 @@
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
+
+// 主要视图组件
+import DashboardView from '../views/DashboardView';
+import GeometryView from '../views/GeometryView';
+import MeshingView from '../views/MeshingView';
+import AnalysisView from '../views/AnalysisView';
+import ResultsView from '../views/ResultsView';
+import MaterialsView from '../views/MaterialsView';
+import SettingsView from '../views/SettingsView';
+
+// 备用模块组件
+import FuturisticDashboardModule from '../components/modules/FuturisticDashboardModule';
+import GeometryLabModule from '../components/modules/GeometryLabModule';
+import DebugGeometryView from '../views/DebugGeometryView';
+import GeologyModule from '../components/modules/GeologyModule';
+import GeologyModuleSimple from '../components/modules/GeologyModuleSimple';
+import ExcavationModule from '../components/modules/ExcavationModule';
+
+// 测试组件
+import UltraSimple3D from '../components/UltraSimple3D';
+
+const AppRoutes: React.FC = () => {
+  return (
+    <Routes>
+      <Route path="/dashboard" element={<DashboardView />} />
+      <Route path="/geometry" element={<GeometryView />} />
+      <Route path="/geology" element={<GeologyModule />} />
+      <Route path="/excavation" element={<ExcavationModule />} />
+      <Route path="/meshing" element={<MeshingView />} />
+      <Route path="/analysis" element={<AnalysisView />} />
+      <Route path="/results" element={<ResultsView />} />
+      <Route path="/materials" element={<MaterialsView />} />
+      <Route path="/settings" element={<SettingsView />} />
+      {/* 测试路由 */}
+      <Route path="/test3d" element={<UltraSimple3D />} />
+      <Route path="/old-dashboard" element={<FuturisticDashboardModule />} />
+      {/* 默认路由 */}
+      <Route path="/" element={<DashboardView />} />
+      <Route path="/*" element={<DashboardView />} />
+    </Routes>
+  );
+};
+
+export default AppRoutes;

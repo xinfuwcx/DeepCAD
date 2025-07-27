@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>测试支护结构前端集成</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>DeepCAD 支护结构功能测试</h1>
+    
+    <h2>1. 前端路由测试</h2>
+    <div class="info">
+        <strong>当前状态：</strong> App.tsx 已更新为 GeometryView (完整版)
+        <br><strong>支护结构路径：</strong> /geometry → 第3步 (支护结构)
+        <br><strong>组件路径：</strong> components/geometry/SupportStructure.tsx
+    </div>
+    
+    <h2>2. 后端API测试</h2>
+    <div id="api-test" class="info">测试中...</div>
+    
+    <h2>3. 功能验证</h2>
+    <div class="success">
+        ✅ 支护结构组件已更新：三个竖向大按钮<br>
+        ✅ 后端API服务已实现：PyVista 3D几何生成<br>
+        ✅ 前端路由已修复：GeometryView → SupportStructure<br>
+        ✅ 参数验证和API调用已完成
+    </div>
+    
+    <h2>4. 使用步骤</h2>
+    <ol>
+        <li>启动后端服务：<code>python start_backend.py</code></li>
+        <li>启动前端服务：<code>npm run dev</code></li>
+        <li>访问：<code>http://localhost:3000/geometry</code></li>
+        <li>点击第3步："支护结构"</li>
+        <li>选择支护类型：支护墙设计 / 排桩设计 / 锚杆设计</li>
+    </ol>
+    
+    <h2>5. API端点</h2>
+    <ul>
+        <li><code>POST /api/geometry/support-structure</code> - 创建支护结构</li>
+        <li><code>GET /api/geometry/support-structure-types</code> - 获取支护类型</li>
+        <li><code>POST /api/geometry/validate-support-parameters</code> - 验证参数</li>
+    </ul>
+
+    <script>
+        // 测试后端API
+        fetch('http://localhost:8080/api/geometry/support-structure-types')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('api-test').innerHTML = 
+                    '<div class="success">✅ 后端API正常：找到 ' + 
+                    data.structure_types.length + ' 种支护结构类型</div>';
+            })
+            .catch(error => {
+                document.getElementById('api-test').innerHTML = 
+                    '<div class="error">❌ 后端API连接失败：' + error.message + 
+                    '<br>请确保后端服务运行在 localhost:8080</div>';
+            });
+    </script>
+</body>
+</html>

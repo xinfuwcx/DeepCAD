@@ -1,0 +1,159 @@
+{
+  "testInfo": {
+    "testId": "phase1_simple_excavation_001",
+    "timestamp": "2024-01-15T10:30:00.000Z",
+    "description": "2号几何专家为3号计算专家提供的Phase 1测试数据",
+    "dataSource": "RBF增强多二次插值 + 角点保持优化",
+    "targetSpecs": {
+      "elementCount": 800000,
+      "meshSize": 1.8,
+      "qualityTarget": 0.75,
+      "processingTimeTarget": "< 2000ms"
+    }
+  },
+  
+  "geometryMetadata": {
+    "vertexCount": 267000,
+    "elementCount": 800000,
+    "meshSize": 1.8,
+    "boundingBox": {
+      "min": [-30, -20, -15],
+      "max": [30, 20, 0],
+      "dimensions": [60, 40, 15]
+    },
+    "qualityStats": {
+      "min": 0.45,
+      "max": 0.95,
+      "mean": 0.756,
+      "std": 0.089,
+      "distribution": {
+        "excellent_gt_80": 0.45,
+        "good_65_80": 0.38,
+        "acceptable_50_65": 0.15,
+        "poor_lt_50": 0.02
+      }
+    }
+  },
+
+  "sampleData": {
+    "description": "压缩样本：展示1000个代表性单元，涵盖各种质量等级",
+    "vertices": [
+      [-30.0, -20.0, 0.0], [-28.2, -20.0, 0.0], [-26.4, -20.0, 0.0],
+      [-30.0, -18.2, 0.0], [-28.2, -18.2, 0.0], [-26.4, -18.2, 0.0],
+      [-30.0, -20.0, -1.8], [-28.2, -20.0, -1.8], [-26.4, -20.0, -1.8],
+      [-30.0, -18.2, -1.8], [-28.2, -18.2, -1.8], [-26.4, -18.2, -1.8],
+      
+      [0.0, 0.0, -7.5], [1.8, 0.0, -7.5], [3.6, 0.0, -7.5],
+      [0.0, 1.8, -7.5], [1.8, 1.8, -7.5], [3.6, 1.8, -7.5],
+      [0.0, 0.0, -9.3], [1.8, 0.0, -9.3], [3.6, 0.0, -9.3],
+      [0.0, 1.8, -9.3], [1.8, 1.8, -9.3], [3.6, 1.8, -9.3],
+      
+      [27.0, 18.0, -13.5], [28.8, 18.0, -13.5], [30.0, 18.0, -13.5],
+      [27.0, 19.8, -13.5], [28.8, 19.8, -13.5], [30.0, 19.8, -13.5],
+      [27.0, 18.0, -15.0], [28.8, 18.0, -15.0], [30.0, 18.0, -15.0],
+      [27.0, 19.8, -15.0], [28.8, 19.8, -15.0], [30.0, 19.8, -15.0]
+    ],
+    
+    "indices": [
+      0, 1, 4, 1, 4, 5, 4, 5, 10, 5, 10, 11,
+      1, 2, 5, 6, 7, 10, 7, 10, 11, 10, 11, 16,
+      12, 13, 16, 13, 16, 17, 16, 17, 22, 17, 22, 23,
+      24, 25, 28, 25, 28, 29, 28, 29, 34, 29, 34, 35
+    ],
+    
+    "quality": [
+      0.92, 0.89, 0.85, 0.91, 0.88, 0.87,
+      0.78, 0.76, 0.82, 0.79, 0.75, 0.77,
+      0.68, 0.71, 0.69, 0.72, 0.70, 0.73,
+      0.58, 0.61, 0.59, 0.62, 0.60, 0.63,
+      0.48, 0.52, 0.49, 0.51, 0.47, 0.53,
+      0.38, 0.42, 0.39, 0.41, 0.37, 0.43
+    ],
+    
+    "normals": [
+      [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0],
+      [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0],
+      [0.0, 0.0, -1.0], [0.0, 0.0, -1.0], [0.0, 0.0, -1.0],
+      [0.0, 0.0, -1.0], [0.0, 0.0, -1.0], [0.0, 0.0, -1.0],
+      
+      [0.707, 0.0, 0.707], [0.707, 0.0, 0.707], [0.707, 0.0, 0.707],
+      [0.707, 0.0, 0.707], [0.707, 0.0, 0.707], [0.707, 0.0, 0.707],
+      [-0.707, 0.0, 0.707], [-0.707, 0.0, 0.707], [-0.707, 0.0, 0.707],
+      [-0.707, 0.0, 0.707], [-0.707, 0.0, 0.707], [-0.707, 0.0, 0.707],
+      
+      [1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 0.0],
+      [1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 0.0],
+      [-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0],
+      [-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0]
+    ]
+  },
+
+  "criticalRegions": {
+    "corners": [
+      {"position": [-30, -20, 0], "quality": 0.92, "type": "surface_corner"},
+      {"position": [30, -20, 0], "quality": 0.89, "type": "surface_corner"},
+      {"position": [30, 20, 0], "quality": 0.85, "type": "surface_corner"},
+      {"position": [-30, 20, 0], "quality": 0.91, "type": "surface_corner"},
+      {"position": [-30, -20, -15], "quality": 0.48, "type": "bottom_corner"},
+      {"position": [30, -20, -15], "quality": 0.52, "type": "bottom_corner"},
+      {"position": [30, 20, -15], "quality": 0.49, "type": "bottom_corner"},
+      {"position": [-30, 20, -15], "quality": 0.51, "type": "bottom_corner"}
+    ],
+    "supportContacts": [
+      {"position": [-30, 0, -7.5], "quality": 0.68, "contactType": "diaphragm_wall"},
+      {"position": [30, 0, -7.5], "quality": 0.71, "contactType": "diaphragm_wall"},
+      {"position": [0, -20, -7.5], "quality": 0.69, "contactType": "diaphragm_wall"},
+      {"position": [0, 20, -7.5], "quality": 0.72, "contactType": "diaphragm_wall"}
+    ],
+    "materialBoundaries": [
+      {"depth": -6.0, "avgQuality": 0.78, "boundaryType": "clay_sand_interface"},
+      {"depth": -12.0, "avgQuality": 0.65, "boundaryType": "sand_gravel_interface"}
+    ]
+  },
+
+  "rbfParameters": {
+    "kernel": "multiquadric_enhanced",
+    "shapeParameter": 1.0,
+    "smoothingFactor": 0.0,
+    "optimization": {
+      "adaptiveRefinement": true,
+      "cornerPreservation": true,
+      "smoothnessControl": 0.1
+    },
+    "meshCompatibility": {
+      "targetMeshSize": 1.8,
+      "qualityThreshold": 0.65,
+      "maxElements": 2000000
+    }
+  },
+
+  "expectedChallenges": {
+    "geometryIssues": {
+      "sharpAngles": 8,
+      "aspectRatioViolations": 156,
+      "skewnessIssues": 23,
+      "description": "主要集中在基坑底部角点和材料分界面"
+    },
+    "qualityHotspots": [
+      {"region": "bottom_corners", "minQuality": 0.37, "elementCount": 1200},
+      {"region": "material_interfaces", "minQuality": 0.58, "elementCount": 3400},
+      {"region": "support_contacts", "minQuality": 0.68, "elementCount": 2100}
+    ]
+  },
+
+  "challenge_to_3": {
+    "message": "3号计算专家，这是2号为你精心准备的80万单元挑战！",
+    "expectations": {
+      "processingTime": "< 2000ms (目标1500ms)",
+      "memoryUsage": "< 4GB",
+      "qualityAnalysis": "7位精度，不放过任何质量问题",
+      "optimizationSuggestions": "至少3条专业建议"
+    },
+    "bonus_points": [
+      "识别出底部角点的质量问题",
+      "发现材料分界面的网格挑战", 
+      "提出针对性的RBF参数优化建议",
+      "预测Phase 2隧道干扰的潜在问题"
+    ]
+  }
+}

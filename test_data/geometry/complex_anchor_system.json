@@ -1,0 +1,276 @@
+{
+  "header": {
+    "version": "1.0",
+    "timestamp": "2025-01-23T10:30:00Z",
+    "geometryType": "composite",
+    "coordinateSystem": "LOCAL",
+    "units": "meters",
+    "creator": "2nd-Geometry-Expert",
+    "description": "复杂锚杆系统测试用例 - 6层锚杆 + 腰梁"
+  },
+  
+  "excavationGeometry": {
+    "boundary": [
+      {"x": 0, "y": 0, "z": 0},
+      {"x": 60, "y": 0, "z": 0},
+      {"x": 65, "y": 20, "z": 0},
+      {"x": 45, "y": 35, "z": 0},
+      {"x": 15, "y": 40, "z": 0},
+      {"x": -5, "y": 25, "z": 0},
+      {"x": 0, "y": 0, "z": 0}
+    ],
+    "depth": 18.0,
+    "volume": 39600,
+    "area": 2200,
+    "perimeter": 185
+  },
+  
+  "anchorSystem": {
+    "totalAnchors": 72,
+    "totalWaleBeams": 36,
+    "levels": 6,
+    "statistics": {
+      "totalAnchorLength": 1080,
+      "totalWaleBeamLength": 1110,
+      "averageSpacing": 2.5,
+      "anchorsByLevel": {
+        "1": 12,
+        "2": 12, 
+        "3": 12,
+        "4": 12,
+        "5": 12,
+        "6": 12
+      }
+    },
+    "anchors": [
+      {
+        "id": "anchor_L1_S0_1",
+        "levelId": 1,
+        "position": {"x": 5.0, "y": 0.4, "z": -2.0},
+        "direction": {"x": 0.966, "y": 0.0, "z": -0.259},
+        "endPosition": {"x": 19.49, "y": 0.4, "z": -5.89},
+        "length": 15.0,
+        "diameter": 32,
+        "angle": 15,
+        "preStress": 200,
+        "groutZone": {
+          "startDistance": 9.0,
+          "endDistance": 15.0,
+          "diameter": 130
+        }
+      },
+      {
+        "id": "anchor_L1_S0_2", 
+        "levelId": 1,
+        "position": {"x": 10.0, "y": 0.4, "z": -2.0},
+        "direction": {"x": 0.966, "y": 0.0, "z": -0.259},
+        "endPosition": {"x": 24.49, "y": 0.4, "z": -5.89},
+        "length": 15.0,
+        "diameter": 32,
+        "angle": 15,
+        "preStress": 200,
+        "groutZone": {
+          "startDistance": 9.0,
+          "endDistance": 15.0,
+          "diameter": 130
+        }
+      },
+      {
+        "id": "anchor_L2_S0_1",
+        "levelId": 2,
+        "position": {"x": 5.0, "y": 0.4, "z": -4.0},
+        "direction": {"x": 0.966, "y": 0.0, "z": -0.259},
+        "endPosition": {"x": 19.49, "y": 0.4, "z": -7.89},
+        "length": 15.0,
+        "diameter": 32,
+        "angle": 15,
+        "preStress": 250,
+        "groutZone": {
+          "startDistance": 9.0,
+          "endDistance": 15.0,
+          "diameter": 130
+        }
+      }
+    ],
+    "waleBeams": [
+      {
+        "id": "walebeam_L1_S0",
+        "levelId": 1,
+        "startPoint": {"x": 0, "y": 0, "z": -2.0},
+        "endPoint": {"x": 60, "y": 0, "z": -2.0},
+        "crossSection": {
+          "width": 300,
+          "height": 400
+        },
+        "material": "concrete",
+        "connectedAnchors": ["anchor_L1_S0_1", "anchor_L1_S0_2"]
+      }
+    ]
+  },
+  
+  "diaphragmWall": {
+    "thickness": 0.8,
+    "topElevation": 0,
+    "bottomElevation": -25,
+    "coordinates": [
+      {"x": 0, "y": 0, "z": 0},
+      {"x": 60, "y": 0, "z": 0},
+      {"x": 65, "y": 20, "z": 0},
+      {"x": 45, "y": 35, "z": 0},
+      {"x": 15, "y": 40, "z": 0},
+      {"x": -5, "y": 25, "z": 0},
+      {"x": 0, "y": 0, "z": 0}
+    ]
+  },
+  
+  "materialZones": [
+    {
+      "zoneId": "clay_layer",
+      "zoneName": "粘土层",
+      "materialType": "soil",
+      "elevationRange": {"top": 0, "bottom": -8},
+      "properties": {
+        "density": 1900,
+        "elasticModulus": 25000000,
+        "poissonRatio": 0.4,
+        "cohesion": 20000,
+        "frictionAngle": 18,
+        "permeability": 5e-10
+      }
+    },
+    {
+      "zoneId": "sand_layer",
+      "zoneName": "砂层", 
+      "materialType": "soil",
+      "elevationRange": {"top": -8, "bottom": -18},
+      "properties": {
+        "density": 2000,
+        "elasticModulus": 45000000,
+        "poissonRatio": 0.3,
+        "cohesion": 0,
+        "frictionAngle": 35,
+        "permeability": 1e-5
+      }
+    },
+    {
+      "zoneId": "concrete_wall",
+      "zoneName": "地连墙",
+      "materialType": "concrete",
+      "properties": {
+        "density": 2500,
+        "elasticModulus": 30000000000,
+        "poissonRatio": 0.2,
+        "compressiveStrength": 30000000,
+        "tensileStrength": 3000000
+      }
+    },
+    {
+      "zoneId": "steel_anchor",
+      "zoneName": "锚杆",
+      "materialType": "steel",
+      "properties": {
+        "density": 7850,
+        "elasticModulus": 200000000000,
+        "poissonRatio": 0.3,
+        "yieldStrength": 400000000,
+        "ultimateStrength": 600000000
+      }
+    }
+  ],
+  
+  "meshGuidance": {
+    "globalElementSize": 2.5,
+    "localRefinement": [
+      {
+        "region": "anchor_connections",
+        "targetSize": 0.8,
+        "priority": "critical",
+        "description": "锚杆与墙体连接处"
+      },
+      {
+        "region": "wale_beam_interface",
+        "targetSize": 1.0,
+        "priority": "high",
+        "description": "腰梁与墙体接触面"
+      },
+      {
+        "region": "excavation_corners",
+        "targetSize": 1.5,
+        "priority": "medium",
+        "description": "开挖边界转角处"
+      }
+    ],
+    "qualityRequirements": {
+      "minAngle": 15,
+      "maxAspectRatio": 4.0,
+      "targetQuality": 0.7,
+      "maxSkewness": 0.4
+    }
+  },
+  
+  "boundaryConditions": {
+    "fixedBoundaries": [
+      {
+        "region": "far_field",
+        "constraintType": "fixed",
+        "description": "远场边界固定约束"
+      },
+      {
+        "region": "wall_bottom",
+        "constraintType": "pinned",
+        "description": "墙底铰接约束"
+      }
+    ],
+    "loadBoundaries": [
+      {
+        "region": "anchor_prestress",
+        "loadType": "force",
+        "magnitude": 200000,
+        "direction": "anchor_direction",
+        "description": "锚杆预应力"
+      },
+      {
+        "region": "soil_pressure",
+        "loadType": "pressure", 
+        "magnitude": "depth_dependent",
+        "description": "土压力"
+      }
+    ]
+  },
+  
+  "qualityInfo": {
+    "geometryValid": true,
+    "manifoldSurface": true,
+    "selfIntersection": false,
+    "precision": 0.001,
+    "warnings": [
+      "部分锚杆角度较小，可能影响网格质量",
+      "不规则边界可能需要更细的网格"
+    ],
+    "recommendations": [
+      "在锚杆连接处使用局部细分网格",
+      "建议采用六面体主导的混合网格",
+      "考虑使用渐变网格密度"
+    ]
+  },
+  
+  "testMetadata": {
+    "testCase": "complex_anchor_system",
+    "priority": "medium",
+    "complexity": "high",
+    "expectedProcessingTime": "60-120秒",
+    "expectedElementCount": "8000-12000",
+    "expectedNodeCount": "2000-3000",
+    "validationCriteria": {
+      "minQuality": 0.5,
+      "maxAspectRatio": 5.0,
+      "maxProcessingTime": 180,
+      "maxMemoryUsage": "4GB"
+    },
+    "specialRequirements": [
+      "需要处理锚杆与墙体的接触约束",
+      "需要考虑预应力的施加方式",
+      "需要验证多材料界面的网格质量"
+    ]
+  }
+}

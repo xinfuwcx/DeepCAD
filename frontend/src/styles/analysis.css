@@ -1,0 +1,132 @@
+/* 分析视图相关样式 */
+
+.analysis-view {
+  padding: 24px;
+}
+
+/* 分析视图头部样式 */
+.analysis-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+/* 视口容器样式 */
+.analysis-viewport {
+  height: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+/* 计算进度条样式 */
+.computation-progress {
+  margin-top: 16px;
+}
+
+.progress-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.progress-bar-inner {
+  height: 100%;
+  background: linear-gradient(90deg, #1890ff, #52c41a);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* 步骤条样式 */
+.analysis-view .ant-steps-item-title {
+  color: white !important;
+}
+
+.analysis-view .ant-steps-item-description {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.analysis-view .ant-steps-item-tail::after {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.analysis-view .ant-steps-item-finish .ant-steps-item-tail::after {
+  background-color: #1890ff !important;
+}
+
+/* 标签页样式 */
+.analysis-view .ant-tabs-tab {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.analysis-view .ant-tabs-tab.ant-tabs-tab-active {
+  color: white !important;
+}
+
+.analysis-view .ant-tabs-ink-bar {
+  background: #1890ff !important;
+}
+
+.analysis-view .ant-tabs-nav::before {
+  border-bottom-color: #424242 !important;
+}
+
+/* 折叠面板样式 */
+.analysis-view .ant-collapse-ghost > .ant-collapse-item {
+  border-bottom-color: #424242 !important;
+}
+
+.analysis-view .ant-collapse-ghost > .ant-collapse-item > .ant-collapse-header {
+  color: white !important;
+}
+
+.analysis-view .ant-collapse-ghost > .ant-collapse-item > .ant-collapse-content > .ant-collapse-content-box {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* 计算覆盖层动画 */
+@keyframes glowing {
+  0% { box-shadow: 0 0 5px rgba(24, 144, 255, 0.5); }
+  50% { box-shadow: 0 0 20px rgba(24, 144, 255, 0.8); }
+  100% { box-shadow: 0 0 5px rgba(24, 144, 255, 0.5); }
+}
+
+.computation-overlay {
+  animation: glowing 2s infinite;
+  border: 1px solid rgba(24, 144, 255, 0.3);
+}
+
+/* 响应式调整 */
+@media (max-width: 992px) {
+  .analysis-view {
+    padding: 16px;
+  }
+  
+  .viewport-container {
+    height: 50vh !important;
+    margin-bottom: 16px;
+  }
+}
+
+/* 加载状态 */
+.analysis-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+}
+
+/* 空状态 */
+.analysis-empty {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  color: rgba(255, 255, 255, 0.45);
+} 

@@ -1,0 +1,766 @@
+import React, { useState } from 'react';
+import { 
+  Button, 
+  Typography, 
+  Select, 
+  InputNumber, 
+  Switch, 
+  Progress, 
+  Tag,
+  Badge,
+  Space
+} from 'antd';
+import { 
+  RocketOutlined, 
+  BarChartOutlined, 
+  CheckCircleOutlined,
+  LoadingOutlined,
+  ExclamationCircleOutlined,
+  InfoCircleOutlined,
+  BulbOutlined as BrainOutlined,
+  ExperimentOutlined,
+  CalculatorOutlined,
+  StopOutlined,
+  HistoryOutlined,
+  ThunderboltOutlined,
+  PlayCircleOutlined,
+  SaveOutlined,
+  UploadOutlined,
+  CloseOutlined,
+  MenuOutlined,
+  BorderOutlined,
+  ColumnHeightOutlined,
+  AimOutlined,
+  FullscreenOutlined,
+  SettingOutlined
+} from '@ant-design/icons';
+import SimpleViewport3D from '../components/SimpleViewport3D';
+import { useSceneStore } from '../stores/useSceneStore';
+import { useUIStore } from '../stores/useUIStore';
+import { useShallow } from 'zustand/react/shallow';
+
+const { Title, Text } = Typography;
+const { Option } = Select;
+
+const AnalysisView: React.FC = () => {
+    const [leftPanelVisible, setLeftPanelVisible] = useState(true);
+    const [rightPanelVisible, setRightPanelVisible] = useState(true);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [currentStep, setCurrentStep] = useState(0);
+    const [analysisType, setAnalysisType] = useState('geostatic');
+    const [constitutiveModel, setConstitutiveModel] = useState('mohr_coulomb');
+    const [boundaryConditionsSet, setBoundaryConditionsSet] = useState(false);
+    const [loadsApplied, setLoadsApplied] = useState(false);
+    const [materialsAssigned, setMaterialsAssigned] = useState(false);
+    const [solverConfigured, setSolverConfigured] = useState(false);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [modalType, setModalType] = useState<'boundary' | 'loads' | 'materials' | 'solver' | 'convergence' | 'mesh' | null>(null);
+    const [form] = Form.useForm();
+    const [analysisProgress, setAnalysisProgress] = useState(0);
+
+    // 调试信息
+    React.useEffect(() => {
+        console.log('AnalysisView 组件已加载');
+        console.log('左侧面板可见:', leftPanelVisible);
+        console.log('右侧面板可见:', rightPanelVisible);
+    }, [leftPanelVisible, rightPanelVisible]);
+
+    // 仿真分析工作流程步骤
+    const analysisSteps = [
+        {
+            title: '前处理',
+            description: '载荷、边界条件和材料设置',
+            icon: <SettingOutlined />,
+            key: 'preprocessing'
+        },
+        {
+            title: '求解设置', 
+            description: '选择求解器和计算参数',
+            icon: <CalculatorOutlined />,
+            key: 'solver'
+        },
+        {
+            title: '计算执行',
+            description: '运行有限元分析计算',
+            icon: <RocketOutlined />,
+            key: 'execution'
+        }
+    ];
+
+    const handleStepChange = (step: number) => {
+        setCurrentStep(step);
+    };
+
+    const handleStartAnalysis = async () => {
+        setIsAnalyzing(true);
+        setTimeout(() => {
+            setIsAnalyzing(false);
+            console.log('仿真分析完成');
+        }, 5000);
+    };
+
+    const handleSave = () => {
+        console.log('分析保存');
+    };
+
+    const handleExport = () => {
+        console.log('分析导出');
+    };
+
+    return (
+        <div style={{ 
+            position: 'relative', 
+            width: '100%', 
+            height: '100%', 
+            background: '#1a1a2e',
+            overflow: 'hidden'
+        }}>
+
+            {/* 全屏3D视口 - 作为主要内容 */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+                <SimpleViewport3D 
+                    title="智能仿真分析 - 3D视口"
+                    description="高级有限元分析与物理AI优化"
+                    mode="analysis"
+                    onAction={(action) => console.log('分析视口操作:', action)}
+                />
+            </div>
+
+            {/* 悬浮控制按钮 - 左上角 */}
+            <div style={{ 
+                position: 'absolute', 
+                top: '60px', 
+                left: '20px', 
+                zIndex: 9000,
+                display: 'flex',
+                gap: '10px'
+            }}>
+                <Button
+                    type={leftPanelVisible ? "primary" : "default"}
+                    icon={<MenuOutlined />}
+                    onClick={() => {
+                        console.log('切换左侧面板，当前状态:', leftPanelVisible);
+                        setLeftPanelVisible(!leftPanelVisible);
+                    }}
+                    style={{
+                        background: leftPanelVisible ? 'rgba(0, 217, 255, 0.8)' : 'rgba(26, 26, 46, 0.8)',
+                        borderColor: 'rgba(0, 217, 255, 0.6)',
+                        color: '#ffffff',
+                        fontWeight: 'normal',
+                        fontSize: '14px',
+                        padding: '6px 12px',
+                        height: '36px',
+                        backdropFilter: 'blur(5px)'
+                    }}
+                >
+                    分析面板
+                </Button>
+                <Button
+                    type={rightPanelVisible ? "primary" : "default"}
+                    icon={<InfoCircleOutlined />}
+                    onClick={() => setRightPanelVisible(!rightPanelVisible)}
+                    style={{
+                        background: rightPanelVisible ? 'rgba(0, 217, 255, 0.8)' : 'rgba(26, 26, 46, 0.8)',
+                        borderColor: 'rgba(0, 217, 255, 0.6)',
+                        color: '#ffffff',
+                        fontWeight: 'normal',
+                        fontSize: '14px',
+                        padding: '6px 12px',
+                        height: '36px',
+                        backdropFilter: 'blur(5px)'
+                    }}
+                >
+                    监控面板
+                </Button>
+            </div>
+
+            {/* 3D视口工具栏 - 右下角横向布局 */}
+            <div style={{ 
+                position: 'absolute', 
+                bottom: '20px', 
+                right: '20px', 
+                zIndex: 9000,
+                display: 'flex',
+                gap: '6px'
+            }}>
+                <Button 
+                    size="small" 
+                    icon={<BorderOutlined />}
+                    style={{
+                        background: 'rgba(26, 26, 46, 0.8)',
+                        borderColor: 'rgba(0, 217, 255, 0.4)',
+                        color: '#ffffff',
+                        fontSize: '11px',
+                        height: '32px',
+                        backdropFilter: 'blur(5px)'
+                    }}
+                >
+                    应力云图
+                </Button>
+                <Button 
+                    size="small" 
+                    icon={<ColumnHeightOutlined />}
+                    style={{
+                        background: 'rgba(26, 26, 46, 0.8)',
+                        borderColor: 'rgba(0, 217, 255, 0.4)',
+                        color: '#ffffff',
+                        fontSize: '11px',
+                        height: '32px',
+                        backdropFilter: 'blur(5px)'
+                    }}
+                >
+                    位移云图
+                </Button>
+                <Button 
+                    size="small" 
+                    icon={<AimOutlined />}
+                    style={{
+                        background: 'rgba(26, 26, 46, 0.8)',
+                        borderColor: 'rgba(0, 217, 255, 0.4)',
+                        color: '#ffffff',
+                        fontSize: '11px',
+                        height: '32px',
+                        backdropFilter: 'blur(5px)'
+                    }}
+                >
+                    变形动画
+                </Button>
+                <Button 
+                    size="small" 
+                    icon={<FullscreenOutlined />}
+                    style={{
+                        background: 'rgba(26, 26, 46, 0.8)',
+                        borderColor: 'rgba(0, 217, 255, 0.4)',
+                        color: '#ffffff',
+                        fontSize: '11px',
+                        height: '32px',
+                        backdropFilter: 'blur(5px)'
+                    }}
+                >
+                    全屏
+                </Button>
+            </div>
+
+            {/* 悬浮左侧分析面板 */}
+            {leftPanelVisible && (
+                <div style={{
+                    position: 'absolute',
+                    top: '110px',
+                    left: '20px',
+                    bottom: '80px',
+                    width: '350px',
+                    zIndex: 8000,
+                    background: 'rgba(26, 26, 46, 0.75)',
+                    border: '1px solid rgba(0, 217, 255, 0.4)',
+                    borderRadius: '12px',
+                    padding: '20px',
+                    color: '#ffffff',
+                    backdropFilter: 'blur(10px)',
+                    boxShadow: '0 0 20px rgba(0, 217, 255, 0.2)',
+                    overflowY: 'auto',
+                    maxHeight: 'calc(100vh - 150px)'
+                }}>
+                    {/* 面板标题 */}
+                    <div style={{ 
+                        borderBottom: '1px solid rgba(0, 217, 255, 0.3)', 
+                        paddingBottom: '12px', 
+                        marginBottom: '18px',
+                        textAlign: 'center'
+                    }}>
+                        <h2 style={{ 
+                            color: '#00d9ff', 
+                            margin: 0, 
+                            fontSize: '18px', 
+                            fontWeight: 'normal',
+                            lineHeight: '1.2'
+                        }}>
+                            仿真分析工作流
+                        </h2>
+                        <p style={{ 
+                            color: 'rgba(255, 255, 255, 0.7)', 
+                            fontSize: '12px', 
+                            margin: '6px 0 0 0',
+                            lineHeight: '1.3'
+                        }}>
+                            高级有限元分析与计算
+                        </p>
+                    </div>
+                    
+                    {/* 工作流程步骤 */}
+                    <div style={{ marginBottom: '20px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {analysisSteps.map((step, index) => (
+                                <Button 
+                                    key={step.key}
+                                    type={currentStep === index ? "primary" : "default"}
+                                    size="large" 
+                                    icon={step.icon}
+                                    onClick={() => setCurrentStep(index)}
+                                    style={{ 
+                                        background: currentStep === index ? 'rgba(0, 217, 255, 0.8)' : 'rgba(0, 217, 255, 0.1)', 
+                                        borderColor: 'rgba(0, 217, 255, 0.4)',
+                                        color: currentStep === index ? '#000000' : '#ffffff',
+                                        height: '60px',
+                                        fontSize: '14px',
+                                        fontWeight: 'normal',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'flex-start',
+                                        textAlign: 'left',
+                                        transition: 'all 0.3s ease',
+                                        boxShadow: currentStep === index ? '0 0 10px rgba(0, 217, 255, 0.3)' : 'none',
+                                        padding: '8px 16px'
+                                    }}
+                                >
+                                    <div style={{ 
+                                        display: 'flex', 
+                                        flexDirection: 'column', 
+                                        alignItems: 'flex-start',
+                                        marginLeft: '8px',
+                                        lineHeight: '1.4'
+                                    }}>
+                                        <div style={{ 
+                                            fontWeight: 'bold',
+                                            marginBottom: '2px',
+                                            fontSize: '14px'
+                                        }}>
+                                            {step.title}
+                                        </div>
+                                        <div style={{ 
+                                            fontSize: '11px', 
+                                            opacity: 0.8,
+                                            color: currentStep === index ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.7)',
+                                            lineHeight: '1.2'
+                                        }}>
+                                            {step.description}
+                                        </div>
+                                    </div>
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* 当前步骤的详细配置 */}
+                    <div style={{ 
+                        background: 'rgba(0, 217, 255, 0.05)', 
+                        borderRadius: '8px', 
+                        padding: '12px',
+                        border: '1px solid rgba(0, 217, 255, 0.2)',
+                        marginBottom: '15px'
+                    }}>
+                        <h4 style={{ 
+                            color: 'rgba(0, 217, 255, 0.9)', 
+                            margin: '0 0 12px 0', 
+                            fontSize: '14px',
+                            textAlign: 'center',
+                            fontWeight: 'normal'
+                        }}>
+                            {analysisSteps[currentStep]?.title} 配置
+                        </h4>
+                        
+                        {currentStep === 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <Button size="small" style={{ 
+                                    background: 'rgba(0, 217, 255, 0.1)', 
+                                    borderColor: 'rgba(0, 217, 255, 0.3)', 
+                                    color: 'rgba(255, 255, 255, 0.9)',
+                                    height: '32px',
+                                    fontSize: '12px'
+                                }}>
+                                    ⚖️ 边界条件设置
+                                </Button>
+                                <Button size="small" style={{ 
+                                    background: 'rgba(0, 217, 255, 0.1)', 
+                                    borderColor: 'rgba(0, 217, 255, 0.3)', 
+                                    color: 'rgba(255, 255, 255, 0.9)',
+                                    height: '32px',
+                                    fontSize: '12px'
+                                }}>
+                                    🏗️ 载荷定义
+                                </Button>
+                                <Button size="small" style={{ 
+                                    background: 'rgba(0, 217, 255, 0.1)', 
+                                    borderColor: 'rgba(0, 217, 255, 0.3)', 
+                                    color: 'rgba(255, 255, 255, 0.9)',
+                                    height: '32px',
+                                    fontSize: '12px'
+                                }}>
+                                    🧱 材料属性分配
+                                </Button>
+                            </div>
+                        )}
+                        
+                        {currentStep === 1 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <Button size="small" style={{ 
+                                    background: 'rgba(0, 217, 255, 0.1)', 
+                                    borderColor: 'rgba(0, 217, 255, 0.3)', 
+                                    color: 'rgba(255, 255, 255, 0.9)',
+                                    height: '32px',
+                                    fontSize: '12px'
+                                }}>
+                                    ⚡ Kratos求解器
+                                </Button>
+                                <Button size="small" style={{ 
+                                    background: 'rgba(0, 217, 255, 0.1)', 
+                                    borderColor: 'rgba(0, 217, 255, 0.3)', 
+                                    color: 'rgba(255, 255, 255, 0.9)',
+                                    height: '32px',
+                                    fontSize: '12px'
+                                }}>
+                                    🔧 收敛参数
+                                </Button>
+                                <Button size="small" style={{ 
+                                    background: 'rgba(0, 217, 255, 0.1)', 
+                                    borderColor: 'rgba(0, 217, 255, 0.3)', 
+                                    color: 'rgba(255, 255, 255, 0.9)',
+                                    height: '32px',
+                                    fontSize: '12px'
+                                }}>
+                                    🌊 Moving-Mesh设置
+                                </Button>
+                            </div>
+                        )}
+                        
+                        {currentStep === 2 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <Button size="small" style={{ 
+                                    background: 'rgba(0, 217, 255, 0.1)', 
+                                    borderColor: 'rgba(0, 217, 255, 0.3)', 
+                                    color: 'rgba(255, 255, 255, 0.9)',
+                                    height: '32px',
+                                    fontSize: '12px'
+                                }}>
+                                    🚀 提交计算任务
+                                </Button>
+                                <Button size="small" style={{ 
+                                    background: 'rgba(0, 217, 255, 0.1)', 
+                                    borderColor: 'rgba(0, 217, 255, 0.3)', 
+                                    color: 'rgba(255, 255, 255, 0.9)',
+                                    height: '32px',
+                                    fontSize: '12px'
+                                }}>
+                                    📊 实时监控
+                                </Button>
+                                <Button size="small" style={{ 
+                                    background: 'rgba(0, 217, 255, 0.1)', 
+                                    borderColor: 'rgba(0, 217, 255, 0.3)', 
+                                    color: 'rgba(255, 255, 255, 0.9)',
+                                    height: '32px',
+                                    fontSize: '12px'
+                                }}>
+                                    ⏹️ 停止计算
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* 分析进度 */}
+                    {isAnalyzing && (
+                        <div style={{ 
+                            background: 'rgba(0, 217, 255, 0.05)', 
+                            borderRadius: '8px', 
+                            padding: '12px',
+                            border: '1px solid rgba(0, 217, 255, 0.2)',
+                            marginBottom: '15px'
+                        }}>
+                            <h4 style={{ 
+                                color: 'rgba(0, 217, 255, 0.9)', 
+                                margin: '0 0 8px 0', 
+                                fontSize: '14px',
+                                textAlign: 'center',
+                                fontWeight: 'normal'
+                            }}>
+                                分析计算进度
+                            </h4>
+                            <Progress 
+                                percent={75} 
+                                status="active" 
+                                strokeColor={{
+                                    '0%': '#00d9ff',
+                                    '100%': '#52c41a',
+                                }}
+                                size="small"
+                            />
+                            <Text style={{ 
+                                color: 'rgba(255, 255, 255, 0.7)', 
+                                fontSize: '11px',
+                                display: 'block',
+                                textAlign: 'center',
+                                marginTop: '6px'
+                            }}>
+                                正在进行有限元计算...
+                            </Text>
+                        </div>
+                    )}
+
+                    {/* 底部操作按钮 */}
+                    <div style={{ 
+                        marginTop: '15px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                        borderTop: '1px solid rgba(0, 217, 255, 0.2)',
+                        paddingTop: '12px'
+                    }}>
+                        <Button 
+                            type="primary" 
+                            icon={<PlayCircleOutlined />}
+                            loading={isAnalyzing}
+                            onClick={handleStartAnalysis}
+                            style={{
+                                background: 'rgba(0, 217, 255, 0.6)',
+                                borderColor: 'rgba(0, 217, 255, 0.4)',
+                                color: '#000000',
+                                height: '40px',
+                                fontSize: '14px',
+                                fontWeight: 'normal',
+                                boxShadow: '0 2px 8px rgba(0, 217, 255, 0.2)'
+                            }}
+                        >
+                            {isAnalyzing ? '分析中...' : '🚀 开始分析计算'}
+                        </Button>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                            <Button 
+                                icon={<SaveOutlined />} 
+                                onClick={handleSave}
+                                style={{ 
+                                    flex: 1,
+                                    background: 'rgba(0, 217, 255, 0.1)', 
+                                    borderColor: 'rgba(0, 217, 255, 0.3)', 
+                                    color: 'rgba(255, 255, 255, 0.9)',
+                                    height: '34px',
+                                    fontSize: '12px'
+                                }}
+                            >
+                                💾 保存
+                            </Button>
+                            <Button 
+                                icon={<UploadOutlined />} 
+                                onClick={handleExport}
+                                style={{ 
+                                    flex: 1,
+                                    background: 'rgba(0, 217, 255, 0.1)', 
+                                    borderColor: 'rgba(0, 217, 255, 0.3)', 
+                                    color: 'rgba(255, 255, 255, 0.9)',
+                                    height: '34px',
+                                    fontSize: '12px'
+                                }}
+                            >
+                                📤 导出
+                            </Button>
+                        </div>
+                    </div>
+                    
+                    {/* 关闭按钮 */}
+                    <div style={{ 
+                        position: 'absolute', 
+                        top: '10px', 
+                        right: '10px' 
+                    }}>
+                        <Button
+                            type="text"
+                            icon={<CloseOutlined />}
+                            onClick={() => setLeftPanelVisible(false)}
+                            style={{ color: '#ffffff', fontSize: '16px' }}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {/* 悬浮右侧监控面板 */}
+            {rightPanelVisible && (
+                <div style={{
+                    position: 'absolute',
+                    top: '110px',
+                    right: '20px',
+                    bottom: '80px',
+                    width: '280px',
+                    zIndex: 8000,
+                    background: 'rgba(26, 26, 46, 0.75)',
+                    border: '1px solid rgba(0, 217, 255, 0.4)',
+                    borderRadius: '12px',
+                    padding: '20px',
+                    color: '#ffffff',
+                    backdropFilter: 'blur(10px)',
+                    boxShadow: '0 0 20px rgba(0, 217, 255, 0.2)',
+                    overflowY: 'auto',
+                    maxHeight: 'calc(100vh - 150px)'
+                }}>
+                    {/* 监控面板标题 */}
+                    <div style={{ 
+                        borderBottom: '1px solid rgba(0, 217, 255, 0.3)', 
+                        paddingBottom: '12px', 
+                        marginBottom: '18px',
+                        textAlign: 'center'
+                    }}>
+                        <h2 style={{ 
+                            color: '#00d9ff', 
+                            margin: 0, 
+                            fontSize: '18px', 
+                            fontWeight: 'normal',
+                            lineHeight: '1.2'
+                        }}>
+                            计算监控
+                        </h2>
+                        <p style={{ 
+                            color: 'rgba(255, 255, 255, 0.7)', 
+                            fontSize: '12px', 
+                            margin: '6px 0 0 0',
+                            lineHeight: '1.3'
+                        }}>
+                            实时监控分析进度
+                        </p>
+                    </div>
+
+                    {/* 系统状态 */}
+                    <div style={{ 
+                        background: 'rgba(0, 217, 255, 0.05)', 
+                        borderRadius: '8px', 
+                        padding: '12px',
+                        border: '1px solid rgba(0, 217, 255, 0.2)',
+                        marginBottom: '15px'
+                    }}>
+                        <h4 style={{ 
+                            color: 'rgba(0, 217, 255, 0.9)', 
+                            margin: '0 0 12px 0', 
+                            fontSize: '14px',
+                            textAlign: 'center',
+                            fontWeight: 'normal'
+                        }}>
+                            系统资源状态
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'rgba(255, 255, 255, 0.8)' }}>CPU使用率:</span>
+                                <span style={{ color: '#00d9ff', fontFamily: 'monospace' }}>45%</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'rgba(255, 255, 255, 0.8)' }}>内存使用:</span>
+                                <span style={{ color: '#00d9ff', fontFamily: 'monospace' }}>2.3 GB</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'rgba(255, 255, 255, 0.8)' }}>已用时间:</span>
+                                <span style={{ color: '#00d9ff', fontFamily: 'monospace' }}>00:05:23</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'rgba(255, 255, 255, 0.8)' }}>预计剩余:</span>
+                                <span style={{ color: '#00d9ff', fontFamily: 'monospace' }}>00:12:45</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 计算统计 */}
+                    <div style={{ 
+                        background: 'rgba(0, 217, 255, 0.05)', 
+                        borderRadius: '8px', 
+                        padding: '12px',
+                        border: '1px solid rgba(0, 217, 255, 0.2)',
+                        marginBottom: '15px'
+                    }}>
+                        <h4 style={{ 
+                            color: 'rgba(0, 217, 255, 0.9)', 
+                            margin: '0 0 12px 0', 
+                            fontSize: '14px',
+                            textAlign: 'center',
+                            fontWeight: 'normal'
+                        }}>
+                            计算统计信息
+                        </h4>
+                        
+                        {/* 模型统计 */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                                <span style={{ color: 'rgba(255, 255, 255, 0.8)' }}>节点数:</span>
+                                <span style={{ color: '#00d9ff', fontFamily: 'monospace' }}>23,456</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                                <span style={{ color: 'rgba(255, 255, 255, 0.8)' }}>单元数:</span>
+                                <span style={{ color: '#00d9ff', fontFamily: 'monospace' }}>45,123</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                                <span style={{ color: 'rgba(255, 255, 255, 0.8)' }}>自由度:</span>
+                                <span style={{ color: '#00d9ff', fontFamily: 'monospace' }}>70,368</span>
+                            </div>
+                        </div>
+
+                        {/* 收敛状态 */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div style={{ 
+                                background: 'rgba(0, 217, 255, 0.1)', 
+                                padding: '6px 10px', 
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                color: '#ffffff',
+                                display: 'flex',
+                                justifyContent: 'space-between'
+                            }}>
+                                <span>🟢 位移收敛:</span>
+                                <span>1.2e-6</span>
+                            </div>
+                            <div style={{ 
+                                background: 'rgba(0, 217, 255, 0.1)', 
+                                padding: '6px 10px', 
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                color: '#ffffff',
+                                display: 'flex',
+                                justifyContent: 'space-between'
+                            }}>
+                                <span>🟡 应力收敛:</span>
+                                <span>3.4e-5</span>
+                            </div>
+                            <div style={{ 
+                                background: 'rgba(0, 217, 255, 0.1)', 
+                                padding: '6px 10px', 
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                color: '#ffffff',
+                                display: 'flex',
+                                justifyContent: 'space-between'
+                            }}>
+                                <span>🔵 当前步数:</span>
+                                <span>156/500</span>
+                            </div>
+                        </div>
+
+                        {/* 总体状态 */}
+                        <div style={{ 
+                            marginTop: '12px',
+                            padding: '8px',
+                            background: 'rgba(0, 217, 255, 0.1)',
+                            borderRadius: '4px',
+                            textAlign: 'center'
+                        }}>
+                            <Badge status="processing" />
+                            <Text style={{ 
+                                color: '#52c41a',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                marginLeft: '8px'
+                            }}>
+                                计算进行中 😊
+                            </Text>
+                        </div>
+                    </div>
+
+                    {/* 关闭按钮 */}
+                    <div style={{ 
+                        position: 'absolute', 
+                        top: '10px', 
+                        right: '10px' 
+                    }}>
+                        <Button
+                            type="text"
+                            icon={<CloseOutlined />}
+                            onClick={() => setRightPanelVisible(false)}
+                            style={{ color: '#ffffff', fontSize: '16px' }}
+                        />
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default AnalysisView;

@@ -1,0 +1,517 @@
+/* 主题相关样式 - QuantumForge UI */
+
+:root {
+  /* 深色主题变量 - 科技感强化 */
+  --dark-bg-primary: #080b14;
+  --dark-bg-secondary: rgba(13, 17, 28, 0.85);
+  --dark-bg-tertiary: rgba(20, 25, 38, 0.7);
+  --dark-border-color: rgba(99, 123, 255, 0.3);
+  --dark-text-primary: rgba(255, 255, 255, 0.9);
+  --dark-text-secondary: rgba(210, 220, 255, 0.75);
+  --dark-text-disabled: rgba(180, 190, 255, 0.45);
+  --dark-shadow-color: rgba(0, 10, 40, 0.7);
+  --dark-component-bg: rgba(15, 20, 35, 0.7);
+  
+  /* 浅色主题变量 - 科技感强化 */
+  --light-bg-primary: #f0f5ff;
+  --light-bg-secondary: rgba(255, 255, 255, 0.85);
+  --light-bg-tertiary: rgba(245, 248, 255, 0.7);
+  --light-border-color: rgba(99, 123, 255, 0.2);
+  --light-text-primary: rgba(20, 30, 60, 0.9);
+  --light-text-secondary: rgba(40, 60, 100, 0.75);
+  --light-text-disabled: rgba(60, 80, 120, 0.45);
+  --light-shadow-color: rgba(50, 80, 180, 0.15);
+  --light-component-bg: rgba(255, 255, 255, 0.7);
+  
+  /* 量子色彩系统 */
+  --quantum-blue: #3c8eff;
+  --quantum-purple: #8a5fff;
+  --quantum-pink: #ff3c8e;
+  --quantum-cyan: #3cffed;
+  --quantum-green: #3cff8e;
+  
+  /* 渐变色系统 */
+  --gradient-blue: linear-gradient(135deg, #3c8eff, #3cffed);
+  --gradient-purple: linear-gradient(135deg, #8a5fff, #ff3c8e);
+  --gradient-cyan: linear-gradient(135deg, #3cffed, #3cff8e);
+  --gradient-primary: linear-gradient(135deg, #3c8eff 0%, #8a5fff 50%, #ff3c8e 100%);
+  --gradient-quantum: conic-gradient(from 0deg, #3c8eff, #8a5fff, #ff3c8e, #3cffed, #3c8eff);
+  
+  /* 品牌色变量 - 科技感增强 */
+  --primary-color: #3c8eff;
+  --primary-color-hover: #549fff;
+  --primary-color-active: #2c6eff;
+  --primary-color-outline: rgba(60, 142, 255, 0.25);
+  
+  /* 功能色变量 */
+  --success-color: #3cff8e;
+  --warning-color: #ffb83c;
+  --error-color: #ff3c6f;
+  --info-color: #3c8eff;
+  
+  /* 玻璃态效果 */
+  --glass-blur: 12px;
+  --glass-opacity-dark: 0.7;
+  --glass-opacity-light: 0.8;
+  --glass-border-dark: 1px solid rgba(99, 123, 255, 0.3);
+  --glass-border-light: 1px solid rgba(255, 255, 255, 0.4);
+  
+  /* 动画时间 */
+  --transition-slow: 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+  --transition-medium: 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  --transition-fast: 0.15s cubic-bezier(0.25, 0.8, 0.25, 1);
+  
+  /* 粒子系统 */
+  --particle-color-1: rgba(60, 142, 255, 0.8);
+  --particle-color-2: rgba(138, 95, 255, 0.8);
+  --particle-color-3: rgba(255, 60, 142, 0.8);
+  --particle-color-4: rgba(60, 255, 237, 0.8);
+  --particle-size-min: 1px;
+  --particle-size-max: 3px;
+  --particle-speed: 1;
+}
+
+/* 深色模式 - 科技感增强 */
+.dark-mode {
+  --bg-primary: var(--dark-bg-primary);
+  --bg-secondary: var(--dark-bg-secondary);
+  --bg-tertiary: var(--dark-bg-tertiary);
+  --border-color: var(--dark-border-color);
+  --text-primary: var(--dark-text-primary);
+  --text-secondary: var(--dark-text-secondary);
+  --text-disabled: var(--dark-text-disabled);
+  --shadow-color: var(--dark-shadow-color);
+  --component-bg: var(--dark-component-bg);
+  --glass-opacity: var(--glass-opacity-dark);
+  --glass-border: var(--glass-border-dark);
+  
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  background-image: 
+    radial-gradient(circle at 10% 10%, rgba(60, 142, 255, 0.1), transparent 40%),
+    radial-gradient(circle at 90% 90%, rgba(138, 95, 255, 0.1), transparent 40%);
+}
+
+/* 浅色模式 - 科技感增强 */
+.light-mode {
+  --bg-primary: var(--light-bg-primary);
+  --bg-secondary: var(--light-bg-secondary);
+  --bg-tertiary: var(--light-bg-tertiary);
+  --border-color: var(--light-border-color);
+  --text-primary: var(--light-text-primary);
+  --text-secondary: var(--light-text-secondary);
+  --text-disabled: var(--light-text-disabled);
+  --shadow-color: var(--light-shadow-color);
+  --component-bg: var(--light-component-bg);
+  --glass-opacity: var(--glass-opacity-light);
+  --glass-border: var(--glass-border-light);
+  
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  background-image: 
+    radial-gradient(circle at 10% 10%, rgba(60, 142, 255, 0.05), transparent 40%),
+    radial-gradient(circle at 90% 90%, rgba(138, 95, 255, 0.05), transparent 40%);
+}
+
+/* Fusion模式 - 炫酷科技感 */
+.fusion-mode {
+  --glass-blur: 12px;
+  --glass-opacity-dark: 0.7;
+  --glass-opacity-light: 0.8;
+  --glass-border-dark: 1px solid rgba(99, 123, 255, 0.3);
+  --glass-border-light: 1px solid rgba(255, 255, 255, 0.4);
+  --transition-slow: 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+  --transition-medium: 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  --transition-fast: 0.15s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* Minimal模式 - 扁平极简 */
+.minimal-mode {
+  --glass-blur: 0px;
+  --glass-opacity-dark: 0.9;
+  --glass-opacity-light: 0.95;
+  --glass-border-dark: 1px solid rgba(60, 70, 100, 0.2);
+  --glass-border-light: 1px solid rgba(200, 210, 230, 0.3);
+  --transition-slow: 0.3s ease;
+  --transition-medium: 0.2s ease;
+  --transition-fast: 0.1s ease;
+}
+
+/* 玻璃态卡片样式 - 科技感增强 */
+.theme-card {
+  background-color: var(--bg-secondary);
+  border: var(--glass-border);
+  color: var(--text-primary);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px var(--shadow-color);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  transition: all var(--transition-medium);
+  position: relative;
+  overflow: hidden;
+}
+
+.fusion-mode .theme-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--quantum-blue), transparent);
+  opacity: 0.5;
+}
+
+.theme-card:hover {
+  box-shadow: 0 12px 48px var(--shadow-color);
+  transform: translateY(-2px);
+}
+
+.minimal-mode .theme-card:hover {
+  transform: none;
+  box-shadow: 0 8px 32px var(--shadow-color);
+}
+
+/* 主题通用文本样式 */
+.theme-text-primary {
+  color: var(--text-primary);
+}
+
+.theme-text-secondary {
+  color: var(--text-secondary);
+}
+
+.theme-text-disabled {
+  color: var(--text-disabled);
+}
+
+.theme-text-gradient {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-fill-color: transparent;
+}
+
+/* 量子文本 - 仅在Fusion模式下激活 */
+.fusion-mode .quantum-text {
+  position: relative;
+  background: var(--gradient-quantum);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-fill-color: transparent;
+  animation: quantum-shift 8s infinite linear;
+}
+
+.fusion-mode .quantum-text::after {
+  content: attr(data-text);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--gradient-blue);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-fill-color: transparent;
+  opacity: 0;
+  animation: quantum-pulse 3s infinite ease-in-out;
+}
+
+/* 主题通用表单样式 */
+.theme-form .ant-form-item-label > label {
+  color: var(--text-primary) !important;
+}
+
+.theme-form .ant-input,
+.theme-form .ant-input-number,
+.theme-form .ant-select-selector {
+  background-color: var(--component-bg);
+  border: var(--glass-border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.theme-form .ant-input:hover,
+.theme-form .ant-input-number:hover,
+.theme-form .ant-select-selector:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-color-outline);
+}
+
+.theme-form .ant-input:focus,
+.theme-form .ant-input-number-focused,
+.theme-form .ant-select-focused .ant-select-selector {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-color-outline);
+}
+
+/* 主题通用按钮样式 */
+.theme-btn {
+  background-color: var(--component-bg);
+  border: var(--glass-border);
+  color: var(--text-primary);
+  border-radius: 8px;
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  transition: all var(--transition-medium);
+  position: relative;
+  overflow: hidden;
+}
+
+.fusion-mode .theme-btn::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    to bottom right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: rotate(45deg);
+  transition: all 0.3s ease;
+  opacity: 0;
+}
+
+.theme-btn:hover {
+  border-color: var(--primary-color-hover);
+  color: var(--primary-color-hover);
+  transform: translateY(-1px);
+}
+
+.minimal-mode .theme-btn:hover {
+  transform: none;
+}
+
+.fusion-mode .theme-btn:hover::after {
+  animation: shine 1.5s ease;
+}
+
+.theme-btn-primary {
+  background: var(--gradient-blue);
+  border: none;
+  color: white;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 4px 12px rgba(60, 142, 255, 0.3);
+}
+
+.minimal-mode .theme-btn-primary {
+  background: var(--primary-color);
+  box-shadow: 0 2px 6px rgba(60, 142, 255, 0.2);
+}
+
+.fusion-mode .theme-btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--gradient-purple);
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  border-radius: 8px;
+}
+
+.theme-btn-primary:hover {
+  color: white;
+  box-shadow: 0 6px 16px rgba(138, 95, 255, 0.4);
+}
+
+.minimal-mode .theme-btn-primary:hover {
+  background: var(--primary-color-hover);
+  box-shadow: 0 2px 8px rgba(60, 142, 255, 0.3);
+}
+
+.fusion-mode .theme-btn-primary:hover::before {
+  opacity: 1;
+}
+
+/* 数据表格样式 */
+.theme-table {
+  background-color: var(--bg-secondary);
+  border-radius: 12px;
+  overflow: hidden;
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.theme-table .ant-table-thead > tr > th {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.theme-table .ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.theme-table .ant-table-tbody > tr:hover > td {
+  background-color: var(--bg-tertiary);
+}
+
+/* 菜单样式 */
+.theme-menu {
+  background-color: transparent;
+  border-right: none;
+  color: var(--text-primary);
+}
+
+.theme-menu .ant-menu-item {
+  color: var(--text-secondary);
+  border-radius: 8px;
+  margin: 4px 0;
+  transition: all var(--transition-medium);
+}
+
+.theme-menu .ant-menu-item:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-tertiary);
+}
+
+.theme-menu .ant-menu-item-selected {
+  color: var(--text-primary);
+  background-color: var(--bg-tertiary);
+  font-weight: 500;
+}
+
+.fusion-mode .theme-menu .ant-menu-item-selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--gradient-primary);
+  border-radius: 0 3px 3px 0;
+}
+
+/* 3D视口容器 */
+.viewport-3d-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.fusion-mode .viewport-3d-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid transparent;
+  border-image: var(--gradient-quantum);
+  border-image-slice: 1;
+  pointer-events: none;
+  opacity: 0.5;
+  border-radius: 12px;
+}
+
+/* 粒子容器 */
+.particle-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 量子场效果 */
+.quantum-field {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, 
+    rgba(60, 142, 255, 0.05),
+    transparent 70%);
+  opacity: 0.5;
+  animation: quantum-pulse 8s infinite ease-in-out;
+}
+
+.minimal-mode .quantum-field,
+.minimal-mode .particle-container {
+  display: none;
+}
+
+/* 动画关键帧 */
+@keyframes shine {
+  0% {
+    opacity: 0;
+    transform: translateX(-100%) rotate(45deg);
+  }
+  20% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(100%) rotate(45deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes quantum-pulse {
+  0%, 100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes quantum-shift {
+  0% {
+    filter: hue-rotate(0deg);
+  }
+  100% {
+    filter: hue-rotate(360deg);
+  }
+}
+
+/* 确保基本样式应用于全局 */
+body {
+  margin: 0;
+  padding: 0;
+  transition: background-color var(--transition-medium);
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-color);
+} 

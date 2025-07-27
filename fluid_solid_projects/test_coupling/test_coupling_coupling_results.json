@@ -1,0 +1,480 @@
+{
+  "analysis_summary": {
+    "total_time_steps": 50,
+    "max_displacement_mm": 19.945367259265556,
+    "max_pressure_kpa": 35.84388477779554,
+    "max_velocity_mm_s": 0.09997488253572008,
+    "final_seepage_rate_l_s": 0.000616057148767181,
+    "average_coupling_iterations": 4.92,
+    "convergence_rate": 0.0
+  },
+  "time_history_data": [
+    {
+      "time": 0.0,
+      "displacement": 0.00017483788080484188,
+      "pressure": 32375.67534443788,
+      "velocity": 7.096524637016054e-05,
+      "seepage_rate": 6.376058576694197e-07,
+      "coupling_iterations": 3,
+      "converged": false
+    },
+    {
+      "time": 0.1,
+      "displacement": 0.00037224375447929015,
+      "pressure": 33745.66555105077,
+      "velocity": 1.8854439456461513e-06,
+      "seepage_rate": 7.929601494240231e-07,
+      "coupling_iterations": 5,
+      "converged": false
+    },
+    {
+      "time": 0.2,
+      "displacement": 0.0011609839096509997,
+      "pressure": 29648.842606459442,
+      "velocity": 9.918751096451934e-05,
+      "seepage_rate": 1.0655537427379506e-07,
+      "coupling_iterations": 7,
+      "converged": false
+    },
+    {
+      "time": 0.30000000000000004,
+      "displacement": 0.00022093457399080294,
+      "pressure": 23088.14115182115,
+      "velocity": 3.4196096501164016e-05,
+      "seepage_rate": 7.56537115267041e-07,
+      "coupling_iterations": 6,
+      "converged": false
+    },
+    {
+      "time": 0.4,
+      "displacement": 0.0006051905965700667,
+      "pressure": 13279.819745012275,
+      "velocity": 5.312810952843627e-05,
+      "seepage_rate": 8.402928621312512e-07,
+      "coupling_iterations": 5,
+      "converged": false
+    },
+    {
+      "time": 0.5,
+      "displacement": 0.0015943708314257688,
+      "pressure": 26139.155062870683,
+      "velocity": 3.401205399559777e-05,
+      "seepage_rate": 5.4515315174766654e-08,
+      "coupling_iterations": 5,
+      "converged": false
+    },
+    {
+      "time": 0.6000000000000001,
+      "displacement": 0.0017507434035311513,
+      "pressure": 34532.623974602815,
+      "velocity": 4.177689600598793e-05,
+      "seepage_rate": 9.61451669260932e-07,
+      "coupling_iterations": 7,
+      "converged": false
+    },
+    {
+      "time": 0.7000000000000001,
+      "displacement": 0.0024095395659317464,
+      "pressure": 34941.700200415944,
+      "velocity": 9.215007415315003e-05,
+      "seepage_rate": 5.444098530098102e-07,
+      "coupling_iterations": 7,
+      "converged": false
+    },
+    {
+      "time": 0.8,
+      "displacement": 0.002352283145220309,
+      "pressure": 35843.88477779554,
+      "velocity": 5.7247250892964705e-05,
+      "seepage_rate": 1.328551986399868e-07,
+      "coupling_iterations": 5,
+      "converged": false
+    },
+    {
+      "time": 0.9,
+      "displacement": 0.0022216515212378197,
+      "pressure": 32916.57153783263,
+      "velocity": 8.316041651264121e-05,
+      "seepage_rate": 1.691649075670048e-07,
+      "coupling_iterations": 3,
+      "converged": false
+    },
+    {
+      "time": 1.0,
+      "displacement": 0.0030098062651440116,
+      "pressure": 23386.6194471617,
+      "velocity": 9.997488253572008e-05,
+      "seepage_rate": 3.271132880074151e-07,
+      "coupling_iterations": 4,
+      "converged": false
+    },
+    {
+      "time": 1.1,
+      "displacement": 0.004574379771219238,
+      "pressure": 22445.52207343397,
+      "velocity": 8.857435359406029e-05,
+      "seepage_rate": 1.0703119698824816e-07,
+      "coupling_iterations": 5,
+      "converged": false
+    },
+    {
+      "time": 1.2000000000000002,
+      "displacement": 0.004322892834097658,
+      "pressure": 11022.831392570655,
+      "velocity": 1.9633821792901286e-05,
+      "seepage_rate": 3.9319402327092674e-07,
+      "coupling_iterations": 3,
+      "converged": false
+    },
+    {
+      "time": 1.3,
+      "displacement": 0.0043695580830445625,
+      "pressure": 31229.961977142895,
+      "velocity": 6.31410458760352e-05,
+      "seepage_rate": 7.601030497621349e-07,
+      "coupling_iterations": 3,
+      "converged": false
+    },
+    {
+      "time": 1.4000000000000001,
+      "displacement": 0.004524509389008873,
+      "pressure": 24482.803259694872,
+      "velocity": 1.578836139723273e-05,
+      "seepage_rate": 4.514642693196302e-07,
+      "coupling_iterations": 5,
+      "converged": false
+    },
+    {
+      "time": 1.5,
+      "displacement": 0.0027516621749677293,
+      "pressure": 7116.036349441473,
+      "velocity": 1.5442004450754495e-05,
+      "seepage_rate": 1.8480713870698544e-07,
+      "coupling_iterations": 7,
+      "converged": false
+    },
+    {
+      "time": 1.6,
+      "displacement": 0.0013757202343762244,
+      "pressure": 20981.086407915685,
+      "velocity": 7.348626119557635e-05,
+      "seepage_rate": 2.162988016483584e-07,
+      "coupling_iterations": 6,
+      "converged": false
+    },
+    {
+      "time": 1.7000000000000002,
+      "displacement": 0.0035240003747779836,
+      "pressure": 14325.84684916511,
+      "velocity": 8.355432161279903e-05,
+      "seepage_rate": 3.969416743026784e-07,
+      "coupling_iterations": 7,
+      "converged": false
+    },
+    {
+      "time": 1.8,
+      "displacement": 0.00047601408357126376,
+      "pressure": 11146.66938879774,
+      "velocity": 4.1752881059038474e-05,
+      "seepage_rate": 9.612933390753561e-08,
+      "coupling_iterations": 4,
+      "converged": false
+    },
+    {
+      "time": 1.9000000000000001,
+      "displacement": 0.007269490112629058,
+      "pressure": 26659.140090450484,
+      "velocity": 4.577208811898974e-05,
+      "seepage_rate": 8.825457443166195e-07,
+      "coupling_iterations": 4,
+      "converged": false
+    },
+    {
+      "time": 2.0,
+      "displacement": 0.004670519291029513,
+      "pressure": 18914.31209164132,
+      "velocity": 3.754431020926042e-05,
+      "seepage_rate": 3.0159383051154465e-07,
+      "coupling_iterations": 3,
+      "converged": false
+    },
+    {
+      "time": 2.1,
+      "displacement": 0.002270118219714722,
+      "pressure": 9290.588309979606,
+      "velocity": 3.117058146232325e-05,
+      "seepage_rate": 2.6390913110661314e-07,
+      "coupling_iterations": 7,
+      "converged": false
+    },
+    {
+      "time": 2.2,
+      "displacement": 0.00833226288601914,
+      "pressure": 10260.754384099357,
+      "velocity": 8.29054448416243e-05,
+      "seepage_rate": 5.483730000896863e-07,
+      "coupling_iterations": 3,
+      "converged": false
+    },
+    {
+      "time": 2.3000000000000003,
+      "displacement": 0.00919105639595044,
+      "pressure": 6582.499199230801,
+      "velocity": 5.918507271323407e-05,
+      "seepage_rate": 3.384821801902965e-08,
+      "coupling_iterations": 6,
+      "converged": false
+    },
+    {
+      "time": 2.4000000000000004,
+      "displacement": 0.0041439103000108155,
+      "pressure": 20102.873184565786,
+      "velocity": 5.072762405455461e-05,
+      "seepage_rate": 7.175401754204812e-07,
+      "coupling_iterations": 4,
+      "converged": false
+    },
+    {
+      "time": 2.5,
+      "displacement": 0.002296450264897326,
+      "pressure": 16857.013535252074,
+      "velocity": 4.650349882578758e-05,
+      "seepage_rate": 9.555375402953092e-07,
+      "coupling_iterations": 5,
+      "converged": false
+    },
+    {
+      "time": 2.6,
+      "displacement": 0.004142166395421984,
+      "pressure": 6559.920465536401,
+      "velocity": 6.130200191426927e-05,
+      "seepage_rate": 6.17752185702703e-07,
+      "coupling_iterations": 7,
+      "converged": false
+    },
+    {
+      "time": 2.7,
+      "displacement": 0.0014090499450491953,
+      "pressure": 21937.34980050339,
+      "velocity": 6.953356297710837e-05,
+      "seepage_rate": 1.7849582895422232e-07,
+      "coupling_iterations": 3,
+      "converged": false
+    },
+    {
+      "time": 2.8000000000000003,
+      "displacement": 0.0031711283594584904,
+      "pressure": 6073.375397089092,
+      "velocity": 3.011026861090816e-05,
+      "seepage_rate": 4.005182121817364e-07,
+      "coupling_iterations": 5,
+      "converged": false
+    },
+    {
+      "time": 2.9000000000000004,
+      "displacement": 0.007084203407901528,
+      "pressure": 8455.882038275759,
+      "velocity": 7.312504361737859e-05,
+      "seepage_rate": 6.094387876447788e-07,
+      "coupling_iterations": 3,
+      "converged": false
+    },
+    {
+      "time": 3.0,
+      "displacement": 0.008004430884797792,
+      "pressure": 15329.705517730024,
+      "velocity": 2.447589089971155e-05,
+      "seepage_rate": 9.983148109145724e-07,
+      "coupling_iterations": 5,
+      "converged": false
+    },
+    {
+      "time": 3.1,
+      "displacement": 0.01133286928494003,
+      "pressure": 12024.758660693513,
+      "velocity": 6.673548347995416e-05,
+      "seepage_rate": 5.37944237083216e-07,
+      "coupling_iterations": 5,
+      "converged": false
+    },
+    {
+      "time": 3.2,
+      "displacement": 0.007546788332201272,
+      "pressure": 4805.899927421585,
+      "velocity": 6.415900310549831e-05,
+      "seepage_rate": 8.038054470591488e-07,
+      "coupling_iterations": 4,
+      "converged": false
+    },
+    {
+      "time": 3.3000000000000003,
+      "displacement": 0.004744847866067595,
+      "pressure": 4621.001825248441,
+      "velocity": 7.841402367384743e-06,
+      "seepage_rate": 7.547966281785978e-07,
+      "coupling_iterations": 3,
+      "converged": false
+    },
+    {
+      "time": 3.4000000000000004,
+      "displacement": 0.013837579785805425,
+      "pressure": 14894.283945493491,
+      "velocity": 6.928091268193491e-06,
+      "seepage_rate": 8.586865926876078e-07,
+      "coupling_iterations": 7,
+      "converged": false
+    },
+    {
+      "time": 3.5,
+      "displacement": 0.00839921598193778,
+      "pressure": 7980.4614270113825,
+      "velocity": 1.887630663642872e-05,
+      "seepage_rate": 1.5559440598570632e-07,
+      "coupling_iterations": 7,
+      "converged": false
+    },
+    {
+      "time": 3.6,
+      "displacement": 0.004191893324281307,
+      "pressure": 11883.158252844163,
+      "velocity": 9.402639345897697e-05,
+      "seepage_rate": 2.5049528839119304e-07,
+      "coupling_iterations": 4,
+      "converged": false
+    },
+    {
+      "time": 3.7,
+      "displacement": 0.011584059275282624,
+      "pressure": 11917.118531285942,
+      "velocity": 6.679996811907104e-05,
+      "seepage_rate": 4.944886115133232e-07,
+      "coupling_iterations": 5,
+      "converged": false
+    },
+    {
+      "time": 3.8000000000000003,
+      "displacement": 0.013106327682562232,
+      "pressure": 8904.80617726336,
+      "velocity": 4.2657496666447066e-05,
+      "seepage_rate": 2.736583631609353e-08,
+      "coupling_iterations": 5,
+      "converged": false
+    },
+    {
+      "time": 3.9000000000000004,
+      "displacement": 0.002449577159098768,
+      "pressure": 3242.4256623201454,
+      "velocity": 3.1253864990274625e-06,
+      "seepage_rate": 5.244317264721291e-07,
+      "coupling_iterations": 3,
+      "converged": false
+    },
+    {
+      "time": 4.0,
+      "displacement": 0.005433787153205562,
+      "pressure": 4999.683192546951,
+      "velocity": 5.8326560348499315e-05,
+      "seepage_rate": 5.743831611726277e-07,
+      "coupling_iterations": 5,
+      "converged": false
+    },
+    {
+      "time": 4.1000000000000005,
+      "displacement": 0.012036183345825487,
+      "pressure": 6934.549943278611,
+      "velocity": 5.026174850001647e-05,
+      "seepage_rate": 8.596006296816959e-07,
+      "coupling_iterations": 4,
+      "converged": false
+    },
+    {
+      "time": 4.2,
+      "displacement": 0.01678696071044406,
+      "pressure": 4916.24295446477,
+      "velocity": 8.722451715091187e-05,
+      "seepage_rate": 7.513397326689925e-07,
+      "coupling_iterations": 5,
+      "converged": false
+    },
+    {
+      "time": 4.3,
+      "displacement": 0.01417989221929671,
+      "pressure": 2178.894055821003,
+      "velocity": 5.4947014619253054e-05,
+      "seepage_rate": 1.739533474940731e-07,
+      "coupling_iterations": 7,
+      "converged": false
+    },
+    {
+      "time": 4.4,
+      "displacement": 0.006879993235214768,
+      "pressure": 4492.596800890883,
+      "velocity": 4.860363994323054e-05,
+      "seepage_rate": 1.5002924218648037e-07,
+      "coupling_iterations": 3,
+      "converged": false
+    },
+    {
+      "time": 4.5,
+      "displacement": 0.012854408200145278,
+      "pressure": 3840.2741180136136,
+      "velocity": 3.744391759759869e-05,
+      "seepage_rate": 2.464379786865109e-07,
+      "coupling_iterations": 6,
+      "converged": false
+    },
+    {
+      "time": 4.6000000000000005,
+      "displacement": 0.015190841350610393,
+      "pressure": 1622.903616226516,
+      "velocity": 2.6389272013422767e-05,
+      "seepage_rate": 9.487652364104155e-07,
+      "coupling_iterations": 7,
+      "converged": false
+    },
+    {
+      "time": 4.7,
+      "displacement": 0.01722213326897322,
+      "pressure": 1924.9945170381727,
+      "velocity": 8.982386983960735e-05,
+      "seepage_rate": 3.7884748224102344e-07,
+      "coupling_iterations": 5,
+      "converged": false
+    },
+    {
+      "time": 4.800000000000001,
+      "displacement": 0.015965697950915195,
+      "pressure": 1018.3868480119298,
+      "velocity": 4.698709128946669e-06,
+      "seepage_rate": 6.414474415418392e-07,
+      "coupling_iterations": 5,
+      "converged": false
+    },
+    {
+      "time": 4.9,
+      "displacement": 0.019945367259265556,
+      "pressure": 215.65439419797656,
+      "velocity": 2.2506326442239987e-05,
+      "seepage_rate": 6.16057148767181e-07,
+      "coupling_iterations": 4,
+      "converged": false
+    }
+  ],
+  "coupling_performance": {
+    "total_coupling_iterations": 246,
+    "max_coupling_iterations": 7,
+    "convergence_failures": 50
+  },
+  "engineering_assessment": {
+    "displacement_status": "safe",
+    "pressure_status": "safe",
+    "seepage_status": "safe",
+    "coupling_stability": "unstable",
+    "overall_safety": "needs_attention"
+  },
+  "recommendations": [
+    "监测渗流-变形耦合效应",
+    "定期检查排水系统效果",
+    "关注地下水位变化对稳定性的影响"
+  ]
+}

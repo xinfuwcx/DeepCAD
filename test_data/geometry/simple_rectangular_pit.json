@@ -1,0 +1,144 @@
+{
+  "header": {
+    "version": "1.0",
+    "timestamp": "2025-01-23T10:00:00Z",
+    "geometryType": "excavation",
+    "coordinateSystem": "LOCAL",
+    "units": "meters",
+    "creator": "2nd-Geometry-Expert",
+    "description": "简单矩形基坑测试用例 - 50m×30m×15m"
+  },
+  
+  "meshGeometry": {
+    "vertices": [
+      0.0, 0.0, 0.0,      // 顶面
+      50.0, 0.0, 0.0,
+      50.0, 30.0, 0.0,
+      0.0, 30.0, 0.0,
+      0.0, 0.0, -15.0,    // 底面
+      50.0, 0.0, -15.0,
+      50.0, 30.0, -15.0,
+      0.0, 30.0, -15.0
+    ],
+    "faces": [
+      0, 1, 2,  2, 3, 0,      // 顶面 (2个三角形)
+      4, 7, 6,  6, 5, 4,      // 底面 (2个三角形)
+      0, 4, 5,  5, 1, 0,      // 侧面1 (2个三角形)
+      1, 5, 6,  6, 2, 1,      // 侧面2 (2个三角形)
+      2, 6, 7,  7, 3, 2,      // 侧面3 (2个三角形)
+      3, 7, 4,  4, 0, 3       // 侧面4 (2个三角形)
+    ],
+    "normals": [
+      0.0, 0.0, 1.0,    0.0, 0.0, 1.0,    0.0, 0.0, 1.0,    0.0, 0.0, 1.0,      // 顶面法向量
+      0.0, 0.0, -1.0,   0.0, 0.0, -1.0,   0.0, 0.0, -1.0,   0.0, 0.0, -1.0     // 底面法向量
+    ],
+    "vertexCount": 8,
+    "faceCount": 12
+  },
+  
+  "materialZones": [
+    {
+      "zoneId": "pit_volume",
+      "zoneName": "开挖区域",
+      "materialType": "soil",
+      "faceIndices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      "properties": {
+        "density": 1800,
+        "elasticModulus": 20000000,
+        "poissonRatio": 0.35,
+        "cohesion": 15000,
+        "frictionAngle": 25,
+        "permeability": 1e-8,
+        "description": "典型粘土参数"
+      }
+    }
+  ],
+  
+  "boundaryConditions": {
+    "fixedBoundaries": {
+      "faceIndices": [4, 5, 6, 7, 8, 9, 10, 11],
+      "constraintType": "fixed",
+      "description": "侧面和底面固定约束"
+    },
+    "loadBoundaries": {
+      "faceIndices": [0, 1],
+      "loadType": "pressure",
+      "magnitude": -10000,
+      "direction": [0, 0, -1],
+      "description": "顶面施加向下压力"
+    }
+  },
+  
+  "meshGuidance": {
+    "globalElementSize": 2.0,
+    "localRefinement": [
+      {
+        "region": "corner",
+        "faceIndices": [0, 1, 2, 3],
+        "targetSize": 1.0,
+        "priority": "high",
+        "reason": "角点区域需要精细网格"
+      },
+      {
+        "region": "bottom",
+        "faceIndices": [4, 5],
+        "targetSize": 1.5,
+        "priority": "medium",
+        "reason": "底面应力集中区域"
+      }
+    ],
+    "qualityRequirements": {
+      "minAngle": 20,
+      "maxAspectRatio": 3.0,
+      "targetQuality": 0.8,
+      "maxSkewness": 0.3
+    }
+  },
+  
+  "qualityInfo": {
+    "geometryValid": true,
+    "manifoldSurface": true,
+    "selfIntersection": false,
+    "precision": 0.001,
+    "warnings": [],
+    "recommendations": [
+      "建议在角点区域使用更小的网格尺寸",
+      "可考虑在深度方向增加网格层数"
+    ]
+  },
+  
+  "excavationStages": [
+    {
+      "stageId": 1,
+      "depth": 5.0,
+      "description": "第一层开挖",
+      "duration": "7天"
+    },
+    {
+      "stageId": 2,
+      "depth": 10.0,
+      "description": "第二层开挖",
+      "duration": "10天"
+    },
+    {
+      "stageId": 3,
+      "depth": 15.0,
+      "description": "第三层开挖",
+      "duration": "8天"
+    }
+  ],
+  
+  "testMetadata": {
+    "testCase": "simple_rectangular_pit",
+    "priority": "high",
+    "complexity": "low",
+    "expectedProcessingTime": "10-20秒",
+    "expectedElementCount": "1500-2000",
+    "expectedNodeCount": "400-600",
+    "validationCriteria": {
+      "minQuality": 0.6,
+      "maxAspectRatio": 4.0,
+      "maxProcessingTime": 60
+    }
+  }
+}

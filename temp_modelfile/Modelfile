@@ -1,0 +1,5 @@
+FROM qwen/qwen3-coder
+PARAMETER temperature 0.2
+PARAMETER top_p 0.95
+PARAMETER stop "\n\n\n"
+PARAMETER num_ctx 16384 

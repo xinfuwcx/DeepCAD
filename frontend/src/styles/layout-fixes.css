@@ -1,0 +1,457 @@
+/* Layout Fixes - 解决对齐和显示问题 */
+
+/* === Ant Design 组件修复 === */
+
+/* Layout 组件修复 */
+.ant-layout {
+  background: transparent;
+}
+
+.ant-layout-sider {
+  background: transparent;
+  min-height: 100vh;
+}
+
+.ant-layout-header {
+  background: transparent;
+  padding: 0;
+  height: auto;
+  line-height: normal;
+}
+
+.ant-layout-content {
+  background: transparent;
+  min-height: calc(100vh - 64px);
+}
+
+/* Menu 组件修复 */
+.ant-menu-dark {
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.ant-menu-dark .ant-menu-item {
+  background: transparent;
+  color: var(--text-primary);
+  border-radius: 8px;
+  margin: 6px 8px;
+  padding: 12px 16px;
+  min-height: 60px;
+  height: auto;
+  display: flex;
+  align-items: center;
+  position: relative;
+  overflow: visible;
+}
+
+.ant-menu-dark .ant-menu-item-selected {
+  background: var(--bg-glass);
+  color: var(--primary-color);
+  border: 1px solid var(--border-color);
+}
+
+.ant-menu-dark .ant-menu-item:hover {
+  background: var(--bg-glass);
+  color: var(--primary-color);
+}
+
+.ant-menu-dark .ant-menu-item .ant-menu-item-icon {
+  color: var(--primary-color);
+  margin-right: 12px;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ant-menu-dark .ant-menu-item .ant-menu-title-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.4;
+}
+
+/* 自定义菜单项内容 */
+.menu-item-content {
+  width: 100%;
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow: hidden;
+}
+
+.menu-item-content > div {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 修复菜单项间距 */
+.ant-menu-inline .ant-menu-item {
+  margin-bottom: 4px;
+}
+
+.ant-menu-inline .ant-menu-item:not(:last-child) {
+  margin-bottom: 4px;
+}
+
+/* 确保折叠状态下的样式 */
+.ant-menu-inline-collapsed .ant-menu-item {
+  padding: 12px 16px;
+  text-align: center;
+}
+
+.ant-menu-inline-collapsed .ant-menu-item .ant-menu-item-icon {
+  margin-right: 0;
+  font-size: 18px;
+}
+
+/* Button 组件修复 */
+.ant-btn {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.ant-btn-text {
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.ant-btn-text:hover {
+  color: var(--primary-color);
+  background: var(--bg-glass);
+}
+
+/* Drawer 组件修复 */
+.ant-drawer-body {
+  padding: 0;
+  background: var(--bg-card);
+}
+
+.ant-drawer-content {
+  background: var(--bg-card);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.ant-drawer-header {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Card 组件修复 */
+.ant-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.ant-card-body {
+  color: var(--text-primary);
+}
+
+/* Typography 组件修复 */
+.ant-typography {
+  color: var(--text-primary);
+  margin-bottom: 0;
+}
+
+.ant-typography h1,
+.ant-typography h2,
+.ant-typography h3,
+.ant-typography h4,
+.ant-typography h5,
+.ant-typography h6 {
+  color: var(--text-primary);
+  margin-bottom: 0;
+}
+
+/* === 布局修复 === */
+
+/* Flexbox 对齐修复 */
+.flex-fix {
+  display: flex;
+  align-items: center;
+}
+
+.flex-fix-full {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.flex-fix-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-fix-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* 高度修复 */
+.height-fix-full {
+  height: 100vh;
+  min-height: 100vh;
+}
+
+.height-fix-content {
+  height: calc(100vh - 64px);
+  min-height: calc(100vh - 64px);
+}
+
+.height-fix-auto {
+  height: auto;
+  min-height: auto;
+}
+
+/* 宽度修复 */
+.width-fix-full {
+  width: 100%;
+}
+
+.width-fix-auto {
+  width: auto;
+}
+
+.width-fix-fit {
+  width: fit-content;
+}
+
+/* 溢出修复 */
+.overflow-fix-hidden {
+  overflow: hidden;
+}
+
+.overflow-fix-auto {
+  overflow: auto;
+}
+
+.overflow-fix-scroll {
+  overflow: scroll;
+}
+
+.overflow-fix-x-hidden {
+  overflow-x: hidden;
+}
+
+.overflow-fix-y-auto {
+  overflow-y: auto;
+}
+
+/* === 响应式修复 === */
+
+/* 移动端修复 */
+@media (max-width: 768px) {
+  .mobile-fix-hidden {
+    display: none;
+  }
+  
+  .mobile-fix-block {
+    display: block;
+  }
+  
+  .mobile-fix-flex {
+    display: flex;
+  }
+  
+  .mobile-fix-padding {
+    padding: 8px;
+  }
+  
+  .mobile-fix-margin {
+    margin: 8px;
+  }
+  
+  .mobile-fix-text-sm {
+    font-size: 0.875rem;
+  }
+  
+  .mobile-fix-gap-sm {
+    gap: 8px;
+  }
+  
+  /* 修复移动端侧边栏 */
+  .ant-layout-sider {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+  
+  .ant-layout-sider.ant-layout-sider-collapsed {
+    transform: translateX(0);
+  }
+  
+  /* 修复移动端内容区域 */
+  .ant-layout-content {
+    margin-left: 0;
+    transition: margin-left 0.3s ease;
+  }
+}
+
+/* 平板端修复 */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .tablet-fix-hidden {
+    display: none;
+  }
+  
+  .tablet-fix-block {
+    display: block;
+  }
+  
+  .tablet-fix-flex {
+    display: flex;
+  }
+  
+  .tablet-fix-padding {
+    padding: 16px;
+  }
+  
+  .tablet-fix-margin {
+    margin: 16px;
+  }
+  
+  .tablet-fix-text-base {
+    font-size: 1rem;
+  }
+  
+  .tablet-fix-gap-md {
+    gap: 16px;
+  }
+}
+
+/* 桌面端修复 */
+@media (min-width: 1025px) {
+  .desktop-fix-hidden {
+    display: none;
+  }
+  
+  .desktop-fix-block {
+    display: block;
+  }
+  
+  .desktop-fix-flex {
+    display: flex;
+  }
+  
+  .desktop-fix-padding {
+    padding: 24px;
+  }
+  
+  .desktop-fix-margin {
+    margin: 24px;
+  }
+  
+  .desktop-fix-text-lg {
+    font-size: 1.125rem;
+  }
+  
+  .desktop-fix-gap-lg {
+    gap: 24px;
+  }
+}
+
+/* === 特殊修复 === */
+
+/* 修复 backdrop-filter 在某些浏览器中的问题 */
+@supports not (backdrop-filter: blur(10px)) {
+  .glass-card,
+  .ant-card,
+  .ant-layout-sider,
+  .ant-layout-header {
+    background: var(--bg-card);
+    opacity: 0.95;
+  }
+}
+
+/* 修复 iOS Safari 中的问题 */
+@supports (-webkit-touch-callout: none) {
+  .ios-fix-vh {
+    height: -webkit-fill-available;
+    min-height: -webkit-fill-available;
+  }
+  
+  .ios-fix-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* 修复高 DPI 屏幕的模糊问题 */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .high-dpi-fix {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+}
+
+/* 修复焦点样式 */
+.focus-fix:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.focus-fix:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.focus-fix:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* === 可访问性修复 === */
+
+/* 高对比度修复 */
+@media (prefers-contrast: high) {
+  .high-contrast-fix {
+    border: 2px solid var(--border-color);
+    background: var(--bg-container);
+  }
+}
+
+/* 减少动画修复 */
+@media (prefers-reduced-motion: reduce) {
+  .reduced-motion-fix {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* 颜色模式修复 */
+@media (prefers-color-scheme: dark) {
+  .dark-mode-fix {
+    color-scheme: dark;
+  }
+}
+
+/* === 打印样式修复 === */
+@media print {
+  .print-fix-hidden {
+    display: none;
+  }
+  
+  .print-fix-visible {
+    display: block;
+  }
+  
+  .print-fix-no-background {
+    background: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}

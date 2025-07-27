@@ -1,0 +1,143 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "geometry": "Geometry Modeling",
+    "mesh": "Mesh Generation",
+    "analysis": "Analysis & Calculation",
+    "results": "Results Viewer",
+    "materials": "Material Library",
+    "settings": "System Settings",
+    "help": "Help Center"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "remove": "Remove",
+    "reset": "Reset",
+    "submit": "Submit",
+    "close": "Close",
+    "open": "Open",
+    "create": "Create",
+    "update": "Update",
+    "generate": "Generate",
+    "export": "Export",
+    "import": "Import",
+    "loading": "Loading...",
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Information"
+  },
+  "geometry": {
+    "title": "Deep Foundation Pit Geometry Modeling",
+    "workflow": "Geometry Modeling Workflow",
+    "geology": {
+      "title": "Geological Modeling",
+      "description": "Import borehole data and generate geological model",
+      "interpolationMethod": "Interpolation Method",
+      "gridResolution": "Grid Resolution",
+      "completed": "Completed",
+      "notGenerated": "Not Generated"
+    },
+    "excavation": {
+      "title": "Excavation",
+      "description": "Import DXF drawings and define excavation volume",
+      "depth": "Excavation Depth",
+      "layerHeight": "Layer Height",
+      "slopeRatio": "Slope Ratio",
+      "dxfImport": "Import Excavation Profile",
+      "booleanOperation": "Boolean Operation",
+      "statistics": "Excavation Statistics",
+      "excavationVolume": "Excavation Volume",
+      "pitArea": "Pit Area",
+      "layerCount": "Layer Count"
+    },
+    "support": {
+      "title": "Support Structure",
+      "description": "Design diaphragm walls, pile rows, anchors, etc.",
+      "diaphragmWall": "Diaphragm Wall",
+      "pilePile": "Pile Row",
+      "anchor": "Anchor System",
+      "steelSupport": "Steel Support System",
+      "thickness": "Thickness",
+      "depth": "Depth",
+      "diameter": "Diameter",
+      "spacing": "Spacing",
+      "length": "Length",
+      "angle": "Angle"
+    },
+    "validation": "Design Validation",
+    "stats": {
+      "components": "Components",
+      "totalLength": "Total Length",
+      "materials": "Materials"
+    }
+  },
+  "forms": {
+    "required": "This field is required",
+    "invalidEmail": "Invalid email format",
+    "passwordTooShort": "Password must be at least 8 characters",
+    "passwordMismatch": "Passwords do not match",
+    "numberRange": "Value must be between {{min}} and {{max}}",
+    "selectOption": "Please select an option"
+  },
+  "units": {
+    "length": {
+      "m": "meters",
+      "mm": "millimeters",
+      "km": "kilometers"
+    },
+    "area": {
+      "m2": "square meters",
+      "km2": "square kilometers"
+    },
+    "volume": {
+      "m3": "cubic meters",
+      "km3": "cubic kilometers"
+    },
+    "angle": {
+      "deg": "degrees",
+      "rad": "radians"
+    },
+    "force": {
+      "n": "Newtons",
+      "kn": "kilonewtons",
+      "mn": "meganewtons"
+    }
+  },
+  "analysis": {
+    "phases": {
+      "geostatic": "Geostatic Equilibrium",
+      "construction": "Step Construction",
+      "seepage": "Steady Seepage"
+    },
+    "status": {
+      "waiting": "Waiting",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed"
+    }
+  },
+  "settings": {
+    "title": "System Settings",
+    "general": "General Settings",
+    "preferences": "Preferences",
+    "language": "Language",
+    "theme": "Theme",
+    "units": "Unit System",
+    "autoSave": "Auto Save",
+    "notifications": "Notification Settings"
+  },
+  "help": {
+    "title": "Help & Documentation",
+    "gettingStarted": "Getting Started",
+    "userGuide": "User Guide",
+    "tutorials": "Tutorials",
+    "faq": "FAQ",
+    "contact": "Contact Us"
+  }
+}

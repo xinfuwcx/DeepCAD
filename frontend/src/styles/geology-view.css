@@ -1,0 +1,105 @@
+/* 地质视图深色主题样式 */
+.geology-view {
+  background: #1a1a2e !important;
+}
+
+.geology-view .ant-tabs-tab {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(0, 217, 255, 0.3) !important;
+  color: #ffffff !important;
+}
+
+.geology-view .ant-tabs-tab:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(0, 217, 255, 0.6) !important;
+  color: #00d9ff !important;
+}
+
+.geology-view .ant-tabs-tab.ant-tabs-tab-active {
+  background: #1a1a2e !important;
+  border-color: #00d9ff !important;
+  color: #00d9ff !important;
+}
+
+.geology-view .ant-tabs-content-holder {
+  background: #1a1a2e !important;
+}
+
+.geology-view .ant-tabs-tabpane {
+  background: #1a1a2e !important;
+}
+
+.geology-view .ant-table {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #ffffff !important;
+}
+
+.geology-view .ant-table-thead > tr > th {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #ffffff !important;
+  border-color: rgba(0, 217, 255, 0.3) !important;
+}
+
+.geology-view .ant-table-tbody > tr > td {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #ffffff !important;
+  border-color: rgba(0, 217, 255, 0.3) !important;
+}
+
+.geology-view .ant-table-tbody > tr:hover > td {
+  background: rgba(0, 217, 255, 0.1) !important;
+}
+
+.geology-view .ant-upload.ant-upload-drag {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(0, 217, 255, 0.3) !important;
+}
+
+.geology-view .ant-upload.ant-upload-drag:hover {
+  border-color: rgba(0, 217, 255, 0.6) !important;
+}
+
+.geology-view .ant-upload.ant-upload-drag .ant-upload-text {
+  color: #ffffff !important;
+}
+
+.geology-view .ant-upload.ant-upload-drag .ant-upload-hint {
+  color: #a0a0a0 !important;
+}
+
+.geology-view .ant-upload.ant-upload-drag .ant-upload-drag-icon {
+  color: #00d9ff !important;
+}
+
+.geology-view .ant-form-item-label > label {
+  color: #ffffff !important;
+}
+
+.geology-view .ant-select-selector {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(0, 217, 255, 0.3) !important;
+  color: #ffffff !important;
+}
+
+.geology-view .ant-input-number {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(0, 217, 255, 0.3) !important;
+  color: #ffffff !important;
+}
+
+.geology-view .ant-radio-wrapper {
+  color: #ffffff !important;
+}
+
+.geology-view .ant-slider-rail {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.geology-view .ant-slider-track {
+  background: #00d9ff !important;
+}
+
+.geology-view .ant-slider-handle {
+  border-color: #00d9ff !important;
+  background: #00d9ff !important;
+}

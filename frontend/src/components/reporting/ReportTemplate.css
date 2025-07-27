@@ -1,0 +1,80 @@
+/* Styles for the off-screen report rendering */
+.report-hidden-container {
+  position: absolute;
+  left: -9999px; /* Move it off-screen */
+  top: -9999px;
+  z-index: -1;
+  width: 210mm; /* A4 width */
+  min-height: 297mm; /* A4 height */
+  background: white;
+  color: black;
+}
+
+/* General styles for the report content */
+.report-container {
+  padding: 15mm;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+.report-header {
+  text-align: center;
+  margin-bottom: 12mm;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 8mm;
+}
+
+.report-footer {
+  text-align: center;
+  margin-top: 12mm;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 8mm;
+  font-size: 12px;
+}
+
+.report-card {
+  margin-bottom: 10mm;
+  break-inside: avoid; /* Avoid breaking cards across pages */
+}
+
+.report-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  background-color: #fafafa;
+  border: 1px dashed #d9d9d9;
+  color: #8c8c8c;
+}
+
+/* Override Ant Design component styles for printing */
+.report-container .ant-card {
+  background: white;
+  border: 1px solid #d9d9d9;
+}
+
+.report-container .ant-card-head {
+  background: #fafafa;
+  border-bottom: 1px solid #d9d9d9;
+  color: black !important;
+}
+
+.report-container .ant-descriptions-item-label,
+.report-container .ant-descriptions-item-content,
+.report-container .ant-table-cell {
+  color: black !important;
+}
+
+.report-container .ant-typography {
+    color: black !important;
+}
+
+.report-container .ant-table-thead > tr > th {
+  background: #fafafa !important;
+}
+
+@media print {
+  body, .report-container {
+    background: white !important;
+    color: black !important;
+  }
+} 

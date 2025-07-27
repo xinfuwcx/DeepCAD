@@ -1,0 +1,275 @@
+name: DeepCAD 测试套件
+
+on:
+  push:
+    branches: [ main, develop, feature/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.10'
+
+jobs:
+  # 单元测试和集成测试
+  unit-integration-tests:
+    name: 单元和集成测试
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: 安装前端依赖
+      working-directory: ./frontend
+      run: npm ci
+      
+    - name: 运行代码检查
+      working-directory: ./frontend
+      run: |
+        npm run lint
+        npm run type-check
+        
+    - name: 运行单元测试
+      working-directory: ./frontend
+      run: npm run test:unit -- --coverage --reporter=json --reporter=junit
+      
+    - name: 运行集成测试
+      working-directory: ./frontend
+      run: npm run test:integration -- --coverage --reporter=json
+      
+    - name: 上传测试覆盖率报告
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./frontend/coverage/lcov.info
+        flags: unittests
+        name: deepcad-coverage
+        fail_ci_if_error: true
+        
+    - name: 上传测试结果
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-unit
+        path: |
+          frontend/test-results/
+          frontend/coverage/
+        retention-days: 7
+
+  # E2E测试
+  e2e-tests:
+    name: 端到端测试
+    runs-on: ubuntu-latest
+    needs: unit-integration-tests
+    
+    strategy:
+      matrix:
+        browser: [chromium, firefox, webkit]
+      fail-fast: false
+      
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: 安装前端依赖
+      working-directory: ./frontend
+      run: npm ci
+      
+    - name: 安装Playwright浏览器
+      working-directory: ./frontend
+      run: npx playwright install --with-deps ${{ matrix.browser }}
+      
+    - name: 构建前端应用
+      working-directory: ./frontend
+      run: npm run build
+      
+    - name: 设置Python环境（用于后端）
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+        
+    - name: 安装后端依赖
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: 启动后端服务
+      run: |
+        python start_backend.py &
+        sleep 30  # 等待后端启动
+        
+    - name: 运行E2E测试
+      working-directory: ./frontend
+      run: npx playwright test --project=${{ matrix.browser }}
+      env:
+        CI: true
+        
+    - name: 上传E2E测试报告
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: e2e-report-${{ matrix.browser }}
+        path: |
+          frontend/playwright-report/
+          frontend/test-results/
+        retention-days: 7
+
+  # 性能基准测试
+  performance-tests:
+    name: 性能基准测试
+    runs-on: ubuntu-latest
+    needs: unit-integration-tests
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: 安装前端依赖
+      working-directory: ./frontend
+      run: npm ci
+      
+    - name: 构建优化版本
+      working-directory: ./frontend
+      run: npm run build
+      
+    - name: 运行性能测试
+      working-directory: ./frontend
+      run: npm run test:performance
+      
+    - name: 上传性能报告
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-report
+        path: frontend/performance-results/
+        retention-days: 7
+
+  # 安全扫描
+  security-scan:
+    name: 安全扫描
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 运行前端安全扫描
+      working-directory: ./frontend
+      run: |
+        npm audit --audit-level=moderate
+        npx snyk test || echo "Snyk扫描完成"
+        
+    - name: 设置Python环境
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: 运行后端安全扫描
+      run: |
+        pip install bandit safety
+        bandit -r . -f json -o security-report.json || echo "Bandit扫描完成"
+        safety check --json --output safety-report.json || echo "Safety扫描完成"
+        
+    - name: 上传安全报告
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          security-report.json
+          safety-report.json
+        retention-days: 7
+
+  # 测试报告汇总
+  test-summary:
+    name: 测试结果汇总
+    runs-on: ubuntu-latest
+    needs: [unit-integration-tests, e2e-tests, performance-tests, security-scan]
+    if: always()
+    
+    steps:
+    - name: 下载所有测试报告
+      uses: actions/download-artifact@v4
+      
+    - name: 生成测试汇总报告
+      run: |
+        echo "# DeepCAD 测试结果汇总" > test-summary.md
+        echo "## 测试概览" >> test-summary.md
+        echo "- 构建时间: $(date)" >> test-summary.md
+        echo "- 提交哈希: ${{ github.sha }}" >> test-summary.md
+        echo "- 分支: ${{ github.ref_name }}" >> test-summary.md
+        echo "" >> test-summary.md
+        
+        # 检查各个测试作业的状态
+        echo "## 测试状态" >> test-summary.md
+        echo "- 单元测试: ${{ needs.unit-integration-tests.result }}" >> test-summary.md  
+        echo "- E2E测试: ${{ needs.e2e-tests.result }}" >> test-summary.md
+        echo "- 性能测试: ${{ needs.performance-tests.result }}" >> test-summary.md
+        echo "- 安全扫描: ${{ needs.security-scan.result }}" >> test-summary.md
+        
+        # 如果有覆盖率数据，添加到报告中
+        if [ -f "test-results-unit/coverage/coverage-summary.json" ]; then
+          echo "" >> test-summary.md
+          echo "## 测试覆盖率" >> test-summary.md
+          cat test-results-unit/coverage/coverage-summary.json | jq -r '.total | "- 行覆盖率: \(.lines.pct)% | 函数覆盖率: \(.functions.pct)% | 分支覆盖率: \(.branches.pct)%"' >> test-summary.md
+        fi
+        
+    - name: 上传测试汇总
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-summary
+        path: test-summary.md
+        retention-days: 30
+        
+    - name: 添加PR评论
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const summary = fs.readFileSync('test-summary.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          });
+
+  # 通知
+  notify:
+    name: 通知
+    runs-on: ubuntu-latest
+    needs: test-summary
+    if: always()
+    
+    steps:
+    - name: 发送通知
+      run: |
+        if [ "${{ needs.test-summary.result }}" == "success" ]; then
+          echo "✅ 所有测试通过"
+        else
+          echo "❌ 测试失败，请检查详细报告"
+          exit 1
+        fi

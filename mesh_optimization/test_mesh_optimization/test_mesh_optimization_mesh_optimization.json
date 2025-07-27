@@ -1,0 +1,66 @@
+{
+  "success": true,
+  "optimization_time_s": 0.2808687686920166,
+  "original_analysis": {},
+  "optimization_strategy": {
+    "optimization_targets": [],
+    "parallel_tasks": [
+      {
+        "task": "surface_smoothing",
+        "cores": 1,
+        "priority": "low"
+      }
+    ],
+    "resource_allocation": {
+      "total_cores": 4,
+      "memory_limit_mb": 4096,
+      "time_limit_s": 300
+    },
+    "expected_improvements": {
+      "quality_score_increase": 10,
+      "memory_reduction_percent": 15,
+      "computation_speedup": 1.5
+    }
+  },
+  "optimization_results": {
+    "completed_tasks": [
+      "surface_smoothing"
+    ],
+    "task_results": {
+      "surface_smoothing": {
+        "success": true,
+        "task_name": "surface_smoothing",
+        "cores_used": 1,
+        "execution_time_s": 0.22325587272644043,
+        "improvements": {
+          "surface_quality_improvement": 14.876724875577288,
+          "convergence_improvement": 1.2529935078360488
+        }
+      }
+    },
+    "overall_status": "success"
+  },
+  "optimized_analysis": {
+    "validation_passed": true,
+    "quality_checks": {
+      "total_quality_improvement": 0.0,
+      "quality_threshold_met": false
+    },
+    "performance_checks": {
+      "computation_speedup": 1.0,
+      "memory_saved_mb": 0.0,
+      "performance_target_met": false
+    },
+    "warnings": [
+      "质量改善有限",
+      "性能提升不明显"
+    ]
+  },
+  "performance_improvement": {
+    "quality_improvement_percent": 0.0,
+    "memory_reduction_percent": 0.0,
+    "speed_improvement_factor": 1.0,
+    "overall_improvement_score": 0.0
+  },
+  "output_directory": "mesh_optimization\\test_mesh_optimization"
+}

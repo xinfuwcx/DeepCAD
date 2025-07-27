@@ -1,0 +1,355 @@
+/* Design Tokens - DeepCAD Design System */
+
+:root {
+  /* === Color Palette === */
+  /* Primary Colors - CAE Blue */
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
+
+  /* Secondary Colors - Engineering Orange */
+  --color-secondary-50: #fff7ed;
+  --color-secondary-100: #ffedd5;
+  --color-secondary-200: #fed7aa;
+  --color-secondary-300: #fdba74;
+  --color-secondary-400: #fb923c;
+  --color-secondary-500: #f97316;
+  --color-secondary-600: #ea580c;
+  --color-secondary-700: #c2410c;
+  --color-secondary-800: #9a3412;
+  --color-secondary-900: #7c2d12;
+
+  /* Accent Colors - Professional Green */
+  --color-accent-50: #f0fdf4;
+  --color-accent-100: #dcfce7;
+  --color-accent-200: #bbf7d0;
+  --color-accent-300: #86efac;
+  --color-accent-400: #4ade80;
+  --color-accent-500: #22c55e;
+  --color-accent-600: #16a34a;
+  --color-accent-700: #15803d;
+  --color-accent-800: #166534;
+  --color-accent-900: #14532d;
+
+  /* Neutral Colors */
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f4f4f5;
+  --color-neutral-200: #e4e4e7;
+  --color-neutral-300: #d4d4d8;
+  --color-neutral-400: #a1a1aa;
+  --color-neutral-500: #71717a;
+  --color-neutral-600: #52525b;
+  --color-neutral-700: #3f3f46;
+  --color-neutral-800: #27272a;
+  --color-neutral-900: #18181b;
+
+  /* Status Colors */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+
+  /* === Typography === */
+  /* Font Families */
+  --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Fira Code', 'SF Mono', Consolas, monospace;
+  --font-display: 'Inter Display', var(--font-primary);
+
+  /* Font Sizes */
+  --text-xs: 0.75rem;      /* 12px */
+  --text-sm: 0.875rem;     /* 14px */
+  --text-base: 1rem;       /* 16px */
+  --text-lg: 1.125rem;     /* 18px */
+  --text-xl: 1.25rem;      /* 20px */
+  --text-2xl: 1.5rem;      /* 24px */
+  --text-3xl: 1.875rem;    /* 30px */
+  --text-4xl: 2.25rem;     /* 36px */
+
+  /* Font Weights */
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* Line Heights */
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.75;
+
+  /* === Spacing === */
+  --space-0: 0;
+  --space-1: 0.25rem;      /* 4px */
+  --space-2: 0.5rem;       /* 8px */
+  --space-3: 0.75rem;      /* 12px */
+  --space-4: 1rem;         /* 16px */
+  --space-5: 1.25rem;      /* 20px */
+  --space-6: 1.5rem;       /* 24px */
+  --space-8: 2rem;         /* 32px */
+  --space-10: 2.5rem;      /* 40px */
+  --space-12: 3rem;        /* 48px */
+  --space-16: 4rem;        /* 64px */
+  --space-20: 5rem;        /* 80px */
+
+  /* === Border Radius === */
+  --radius-none: 0;
+  --radius-sm: 0.125rem;   /* 2px */
+  --radius-base: 0.25rem;  /* 4px */
+  --radius-md: 0.375rem;   /* 6px */
+  --radius-lg: 0.5rem;     /* 8px */
+  --radius-xl: 0.75rem;    /* 12px */
+  --radius-2xl: 1rem;      /* 16px */
+  --radius-full: 9999px;
+
+  /* === Shadows === */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-base: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+
+  /* === Animation === */
+  /* Timing Functions */
+  --ease-linear: linear;
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* Durations */
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 350ms;
+
+  /* === Z-Index === */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  --z-toast: 1080;
+
+  /* === Container Sizes === */
+  --container-sm: 640px;
+  --container-md: 768px;
+  --container-lg: 1024px;
+  --container-xl: 1280px;
+  --container-2xl: 1536px;
+
+  /* === Breakpoints === */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+}
+
+/* === Light Theme === */
+:root[data-theme="light"] {
+  /* Background Colors */
+  --bg-primary: var(--color-neutral-50);
+  --bg-secondary: var(--color-neutral-100);
+  --bg-tertiary: var(--color-neutral-200);
+  --bg-container: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-overlay: rgba(255, 255, 255, 0.95);
+
+  /* Text Colors */
+  --text-primary: var(--color-neutral-900);
+  --text-secondary: var(--color-neutral-600);
+  --text-tertiary: var(--color-neutral-500);
+  --text-inverse: #ffffff;
+  --text-muted: var(--color-neutral-400);
+
+  /* Border Colors */
+  --border-primary: var(--color-neutral-200);
+  --border-secondary: var(--color-neutral-300);
+  --border-accent: var(--color-primary-200);
+
+  /* Glass Morphism */
+  --glass-bg: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-backdrop: blur(10px);
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+
+  /* Interactive States */
+  --hover-bg: var(--color-neutral-100);
+  --active-bg: var(--color-neutral-200);
+  --focus-ring: var(--color-primary-500);
+}
+
+/* === Dark Theme === */
+:root[data-theme="dark"] {
+  /* Background Colors */
+  --bg-primary: var(--color-neutral-900);
+  --bg-secondary: var(--color-neutral-800);
+  --bg-tertiary: var(--color-neutral-700);
+  --bg-container: var(--color-neutral-800);
+  --bg-elevated: var(--color-neutral-700);
+  --bg-overlay: rgba(0, 0, 0, 0.95);
+
+  /* Text Colors */
+  --text-primary: var(--color-neutral-50);
+  --text-secondary: var(--color-neutral-300);
+  --text-tertiary: var(--color-neutral-400);
+  --text-inverse: var(--color-neutral-900);
+  --text-muted: var(--color-neutral-500);
+
+  /* Border Colors */
+  --border-primary: var(--color-neutral-700);
+  --border-secondary: var(--color-neutral-600);
+  --border-accent: var(--color-primary-700);
+
+  /* Glass Morphism */
+  --glass-bg: rgba(0, 0, 0, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-backdrop: blur(10px);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+
+  /* Interactive States */
+  --hover-bg: var(--color-neutral-700);
+  --active-bg: var(--color-neutral-600);
+  --focus-ring: var(--color-primary-400);
+}
+
+/* === CAE Specific Variables === */
+:root {
+  /* Engineering Status Colors */
+  --status-analyzing: var(--color-primary-500);
+  --status-complete: var(--color-accent-500);
+  --status-error: var(--color-error);
+  --status-warning: var(--color-warning);
+  --status-pending: var(--color-neutral-400);
+
+  /* 3D Viewport */
+  --viewport-bg: #1a1a1a;
+  --viewport-grid: rgba(255, 255, 255, 0.1);
+  --viewport-axis-x: #ff4444;
+  --viewport-axis-y: #44ff44;
+  --viewport-axis-z: #4444ff;
+
+  /* Material Types */
+  --material-concrete: #8b7355;
+  --material-steel: #7d8490;
+  --material-soil: #8b4513;
+  --material-rock: #696969;
+
+  /* Simulation Progress */
+  --progress-bg: var(--color-neutral-200);
+  --progress-fill: var(--color-primary-500);
+  --progress-success: var(--color-accent-500);
+  --progress-error: var(--color-error);
+
+  /* === Component Specific Tokens === */
+  /* Form Components */
+  --form-label-color: var(--text-primary);
+  --form-input-bg: var(--bg-container);
+  --form-input-border: var(--border-primary);
+  --form-input-focus-border: var(--color-primary-500);
+  --form-input-error-border: var(--color-error);
+  --form-input-disabled-bg: var(--bg-secondary);
+  --form-input-disabled-color: var(--text-muted);
+  --form-input-placeholder: var(--text-tertiary);
+  --form-help-text: var(--text-secondary);
+  --form-error-text: var(--color-error);
+
+  /* Button Components */
+  --btn-primary-bg: var(--color-primary-500);
+  --btn-primary-hover: var(--color-primary-600);
+  --btn-primary-active: var(--color-primary-700);
+  --btn-primary-text: #ffffff;
+  --btn-secondary-bg: var(--color-secondary-500);
+  --btn-secondary-hover: var(--color-secondary-600);
+  --btn-secondary-text: #ffffff;
+  --btn-ghost-bg: transparent;
+  --btn-ghost-hover: var(--hover-bg);
+  --btn-ghost-text: var(--text-primary);
+  --btn-disabled-bg: var(--bg-secondary);
+  --btn-disabled-text: var(--text-muted);
+
+  /* Card Components */
+  --card-bg: var(--bg-container);
+  --card-border: var(--border-primary);
+  --card-shadow: var(--shadow-base);
+  --card-hover-shadow: var(--shadow-md);
+  --card-radius: var(--radius-lg);
+  --card-padding: var(--space-4);
+
+  /* Navigation Components */
+  --nav-bg: var(--bg-elevated);
+  --nav-border: var(--border-primary);
+  --nav-item-hover: var(--hover-bg);
+  --nav-item-active: var(--color-primary-50);
+  --nav-item-active-border: var(--color-primary-500);
+  --nav-text: var(--text-primary);
+  --nav-text-active: var(--color-primary-600);
+
+  /* CAE Engineering Specific */
+  --analysis-waiting: var(--color-neutral-400);
+  --analysis-running: var(--color-primary-500);
+  --analysis-completed: var(--color-accent-500);
+  --analysis-failed: var(--color-error);
+  --geometry-geology: var(--color-accent-600);
+  --geometry-excavation: var(--color-primary-600);
+  --geometry-support: var(--color-warning);
+  --mesh-excellent: var(--color-accent-500);
+  --mesh-good: var(--color-primary-500);
+  --mesh-fair: var(--color-warning);
+  --mesh-poor: var(--color-error);
+}
+
+/* === Utility Classes === */
+.bg-glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-backdrop);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.transition-smooth {
+  transition-duration: var(--duration-normal);
+  transition-timing-function: var(--ease-out);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--color-primary-600), var(--color-secondary-500));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.border-gradient {
+  position: relative;
+  background: var(--bg-container);
+}
+
+.border-gradient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--color-primary-500), var(--color-secondary-500));
+  border-radius: inherit;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: xor;
+  -webkit-mask-composite: xor;
+}
+
+/* === Responsive Breakpoints === */
+/* These will be used in component styles */
+/*
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+*/

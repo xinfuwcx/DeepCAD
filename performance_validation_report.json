@@ -1,0 +1,63 @@
+{
+  "validation_timestamp": "2025-07-26 09:40:54",
+  "system_results": {
+    "iot": {
+      "system_name": "IoT Data Fusion System",
+      "overall_score": 95.81444485473634,
+      "metrics": {
+        "accuracy": 98.5,
+        "throughput": 5744.444086495062,
+        "latency": 15.677757263183594,
+        "stability": 97.8,
+        "scalability": 90.06,
+        "cpu_usage": 30.1,
+        "memory_usage": 3.13671875
+      }
+    },
+    "pde": {
+      "system_name": "PDE Constraint Optimization System",
+      "overall_score": 64.09781081018917,
+      "metrics": {
+        "accuracy": 101.23471885714507,
+        "throughput": 22.91988185695511,
+        "latency": 43.630242347717285,
+        "stability": 70.0,
+        "scalability": 2.0,
+        "cpu_usage": 27.1,
+        "memory_usage": 30.7265625
+      }
+    },
+    "rom": {
+      "system_name": "ROM Reduced Order Model System",
+      "overall_score": 69.580637778469,
+      "metrics": {
+        "accuracy": 99.99999999999977,
+        "throughput": 4315460.555083983,
+        "latency": 46.34499549865723,
+        "stability": 95.0,
+        "scalability": 5.025125628140704,
+        "cpu_usage": 32.0,
+        "memory_usage": 9.52734375
+      }
+    },
+    "ai": {
+      "system_name": "AI Intelligent Prediction System",
+      "overall_score": 95.0428841572458,
+      "metrics": {
+        "accuracy": 96.87426207223561,
+        "throughput": 9682.235324670328,
+        "latency": 3.3050219217936196,
+        "stability": 85.0,
+        "scalability": 96.82235324670327,
+        "cpu_usage": 16.7,
+        "memory_usage": 0.1953125
+      }
+    }
+  },
+  "overall_assessment": {
+    "overall_score": 81.13394440016008,
+    "grade": "A (Good)",
+    "valid_systems": 4,
+    "total_systems": 4
+  }
+}

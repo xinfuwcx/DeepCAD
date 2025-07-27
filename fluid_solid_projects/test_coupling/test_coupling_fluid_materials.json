@@ -1,0 +1,23 @@
+{
+  "properties": [
+    {
+      "model_part_name": "FluidDomain.FluidBody",
+      "properties_id": 1,
+      "Material": {
+        "constitutive_law": {
+          "name": "Newtonian2DLaw"
+        },
+        "Variables": {
+          "density": 1000.0,
+          "dynamic_viscosity": 0.001,
+          "bulk_modulus": 2200000000.0,
+          "permeability_xx": 1e-10,
+          "permeability_yy": 1e-10,
+          "permeability_zz": 1e-10,
+          "porosity": 0.3
+        },
+        "Tables": {}
+      }
+    }
+  ]
+}

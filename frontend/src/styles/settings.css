@@ -1,0 +1,141 @@
+/* 设置视图相关样式 */
+
+.settings-view {
+  padding: 24px;
+}
+
+/* 设置视图头部样式 */
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+/* 设置卡片样式 */
+.settings-card {
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+  margin-bottom: 24px;
+  padding: 24px;
+}
+
+.settings-card:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* 设置分组样式 */
+.settings-group {
+  margin-bottom: 32px;
+}
+
+.settings-group-title {
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+}
+
+.settings-group-title .anticon {
+  margin-right: 8px;
+  font-size: 20px;
+}
+
+/* 设置项样式 */
+.settings-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.settings-item:last-child {
+  border-bottom: none;
+}
+
+.settings-item-label {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.settings-item-description {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+/* 表单样式 */
+.settings-form .ant-form-item-label > label {
+  color: var(--text-primary) !important;
+}
+
+.settings-form .ant-input,
+.settings-form .ant-input-number,
+.settings-form .ant-select-selector {
+  background-color: var(--component-bg);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.settings-form .ant-input:hover,
+.settings-form .ant-input-number:hover,
+.settings-form .ant-select-selector:hover {
+  border-color: var(--primary-color);
+}
+
+.settings-form .ant-input:focus,
+.settings-form .ant-input-number-focused,
+.settings-form .ant-select-focused .ant-select-selector {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-color-outline);
+}
+
+/* 动态表单项样式 */
+.dynamic-delete-button {
+  color: var(--error-color);
+  transition: all 0.3s;
+}
+
+.dynamic-delete-button:hover {
+  color: #ff7875;
+}
+
+.dynamic-delete-button[disabled] {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+/* 主题切换样式 */
+.theme-switch {
+  display: flex;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.theme-switch-label {
+  margin-right: 16px;
+  color: var(--text-primary);
+}
+
+/* 响应式调整 */
+@media (max-width: 992px) {
+  .settings-view {
+    padding: 16px;
+  }
+  
+  .settings-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .settings-item-control {
+    margin-top: 8px;
+    width: 100%;
+  }
+} 

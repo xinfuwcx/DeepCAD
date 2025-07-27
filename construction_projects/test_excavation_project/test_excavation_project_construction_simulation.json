@@ -1,0 +1,1960 @@
+{
+  "project_summary": {
+    "total_stages": 5,
+    "total_duration": 42,
+    "start_date": "2025-07-13",
+    "estimated_completion": "2025-08-24"
+  },
+  "performance_metrics": {
+    "total_excavated_m3": 521.7404185845724,
+    "total_supports_installed": 29,
+    "average_weather_impact": 0.6885529391894701,
+    "schedule_performance_index": 1.0,
+    "quality_pass_rate": 38.095238095238095,
+    "total_quality_issues": 26
+  },
+  "stage_analysis": {
+    "stage1": {
+      "stage_name": "施工准备",
+      "planned_duration": 7,
+      "actual_duration": 8,
+      "average_daily_excavation": 0.12427840820525729,
+      "average_weather_factor": 0.7310494600309252,
+      "quality_pass_rate": 0.0,
+      "performance_rating": "需要改进"
+    },
+    "stage2": {
+      "stage_name": "第一层开挖",
+      "planned_duration": 10,
+      "actual_duration": 11,
+      "average_daily_excavation": 0.1748167397713283,
+      "average_weather_factor": 0.6855558422405031,
+      "quality_pass_rate": 18.181818181818183,
+      "performance_rating": "需要改进"
+    },
+    "stage3": {
+      "stage_name": "支撑系统安装",
+      "planned_duration": 5,
+      "actual_duration": 6,
+      "average_daily_excavation": 0.0,
+      "average_weather_factor": 0.6973338673377086,
+      "quality_pass_rate": 100.0,
+      "performance_rating": "良好"
+    },
+    "stage4": {
+      "stage_name": "第二层开挖",
+      "planned_duration": 12,
+      "actual_duration": 13,
+      "average_daily_excavation": 0.14285462777788413,
+      "average_weather_factor": 0.6722570718959252,
+      "quality_pass_rate": 30.76923076923077,
+      "performance_rating": "需要改进"
+    },
+    "stage5": {
+      "stage_name": "最终开挖",
+      "planned_duration": 8,
+      "actual_duration": 4,
+      "average_daily_excavation": 0.11077065540163998,
+      "average_weather_factor": 0.6515920905978823,
+      "quality_pass_rate": 100.0,
+      "performance_rating": "良好"
+    }
+  },
+  "quality_reports": {
+    "stage1": {
+      "stage_name": "施工准备",
+      "total_days": 8,
+      "quality_pass_rate": 0.0,
+      "total_issues": 8,
+      "unique_issues": [
+        "安全系数不足: 1.81 < 2.00",
+        "安全系数不足: 1.92 < 2.00",
+        "安全系数不足: 1.83 < 2.00",
+        "安全系数不足: 1.85 < 2.00",
+        "安全系数不足: 1.68 < 2.00",
+        "安全系数不足: 1.60 < 2.00",
+        "安全系数不足: 1.86 < 2.00"
+      ],
+      "recommendations": [
+        "暂停施工，加强支护措施"
+      ]
+    },
+    "stage2": {
+      "stage_name": "第一层开挖",
+      "total_days": 11,
+      "quality_pass_rate": 0.18181818181818182,
+      "total_issues": 9,
+      "unique_issues": [
+        "安全系数不足: 1.73 < 1.80",
+        "安全系数不足: 1.75 < 1.80",
+        "安全系数不足: 1.68 < 1.80",
+        "安全系数不足: 1.70 < 1.80",
+        "安全系数不足: 1.78 < 1.80",
+        "安全系数不足: 1.66 < 1.80",
+        "安全系数不足: 1.62 < 1.80"
+      ],
+      "recommendations": [
+        "暂停施工，加强支护措施"
+      ]
+    },
+    "stage3": {
+      "stage_name": "支撑系统安装",
+      "total_days": 6,
+      "quality_pass_rate": 1.0,
+      "total_issues": 0,
+      "unique_issues": [],
+      "recommendations": []
+    },
+    "stage4": {
+      "stage_name": "第二层开挖",
+      "total_days": 13,
+      "quality_pass_rate": 0.3076923076923077,
+      "total_issues": 9,
+      "unique_issues": [
+        "安全系数不足: 1.45 < 1.50",
+        "安全系数不足: 1.48 < 1.50",
+        "安全系数不足: 1.36 < 1.50",
+        "安全系数不足: 1.49 < 1.50",
+        "安全系数不足: 1.37 < 1.50",
+        "安全系数不足: 1.39 < 1.50",
+        "安全系数不足: 1.43 < 1.50"
+      ],
+      "recommendations": [
+        "暂停施工，加强支护措施"
+      ]
+    },
+    "stage5": {
+      "stage_name": "最终开挖",
+      "total_days": 4,
+      "quality_pass_rate": 1.0,
+      "total_issues": 0,
+      "unique_issues": [],
+      "recommendations": []
+    }
+  },
+  "risk_assessment": {
+    "overall_risk_level": "高",
+    "identified_risks": [
+      "质量控制风险",
+      "天气影响风险"
+    ],
+    "mitigation_measures": [
+      "加强质量检查频率和标准",
+      "制定恶劣天气应对预案"
+    ]
+  },
+  "recommendations": [
+    "建议加强施工质量控制和监测频率",
+    "建立完善的监测预警系统",
+    "定期评估施工风险和质量状况",
+    "加强与设计单位的沟通协调",
+    "制定详细的应急处置预案"
+  ],
+  "daily_progress_data": [
+    {
+      "date": "2025-07-13",
+      "day_index": 0,
+      "stage_id": "stage1",
+      "stage_name": "施工准备",
+      "weather_factor": 0.701403082054784,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.11923852394931327,
+          "method": "manual",
+          "efficiency": 0.701403082054784
+        },
+        {
+          "type": "support",
+          "support_type": "site_preparation",
+          "installation_time": 2,
+          "properties": {
+            "type": "temporary_fence"
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "baseline",
+          "measurements": {
+            "displacement": 0.0273366100262822,
+            "stress": 53820.299147171
+          }
+        }
+      ],
+      "total_excavation": 0.11923852394931327,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "baseline",
+            "measurements": {
+              "displacement": 0.0273366100262822,
+              "stress": 53820.299147171
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.0273366100262822,
+          "stress": 53820.299147171
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.83 < 2.00"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 0.11923852394931327,
+        "total_supports": 1
+      }
+    },
+    {
+      "date": "2025-07-14",
+      "day_index": 1,
+      "stage_id": "stage1",
+      "stage_name": "施工准备",
+      "weather_factor": 0.7115813075354814,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.12096882228103184,
+          "method": "manual",
+          "efficiency": 0.7115813075354814
+        },
+        {
+          "type": "support",
+          "support_type": "site_preparation",
+          "installation_time": 2,
+          "properties": {
+            "type": "temporary_fence"
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "baseline",
+          "measurements": {
+            "displacement": -0.03568692996289169,
+            "stress": 46356.05760107777
+          }
+        }
+      ],
+      "total_excavation": 0.12096882228103184,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "baseline",
+            "measurements": {
+              "displacement": -0.03568692996289169,
+              "stress": 46356.05760107777
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": -0.03568692996289169,
+          "stress": 46356.05760107777
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.92 < 2.00"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 0.24020734623034512,
+        "total_supports": 2
+      }
+    },
+    {
+      "date": "2025-07-15",
+      "day_index": 2,
+      "stage_id": "stage1",
+      "stage_name": "施工准备",
+      "weather_factor": 0.7486318591669644,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.12726741605838393,
+          "method": "manual",
+          "efficiency": 0.7486318591669644
+        },
+        {
+          "type": "support",
+          "support_type": "site_preparation",
+          "installation_time": 2,
+          "properties": {
+            "type": "temporary_fence"
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "baseline",
+          "measurements": {
+            "displacement": -0.001908827625387687,
+            "stress": 50872.36451490975
+          }
+        }
+      ],
+      "total_excavation": 0.12726741605838393,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "baseline",
+            "measurements": {
+              "displacement": -0.001908827625387687,
+              "stress": 50872.36451490975
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": -0.001908827625387687,
+          "stress": 50872.36451490975
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.86 < 2.00"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 0.36747476228872905,
+        "total_supports": 3
+      }
+    },
+    {
+      "date": "2025-07-16",
+      "day_index": 3,
+      "stage_id": "stage1",
+      "stage_name": "施工准备",
+      "weather_factor": 0.7367579749975841,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.1252488557495893,
+          "method": "manual",
+          "efficiency": 0.7367579749975841
+        },
+        {
+          "type": "support",
+          "support_type": "site_preparation",
+          "installation_time": 2,
+          "properties": {
+            "type": "temporary_fence"
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "baseline",
+          "measurements": {
+            "displacement": 0.00774668573807967,
+            "stress": 52093.18541296258
+          }
+        }
+      ],
+      "total_excavation": 0.1252488557495893,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "baseline",
+            "measurements": {
+              "displacement": 0.00774668573807967,
+              "stress": 52093.18541296258
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.00774668573807967,
+          "stress": 52093.18541296258
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.85 < 2.00"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 0.4927236180383183,
+        "total_supports": 4
+      }
+    },
+    {
+      "date": "2025-07-17",
+      "day_index": 4,
+      "stage_id": "stage1",
+      "stage_name": "施工准备",
+      "weather_factor": 0.7269860199670315,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.12358762339439536,
+          "method": "manual",
+          "efficiency": 0.7269860199670315
+        },
+        {
+          "type": "support",
+          "support_type": "site_preparation",
+          "installation_time": 2,
+          "properties": {
+            "type": "temporary_fence"
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "baseline",
+          "measurements": {
+            "displacement": 0.007593203310439256,
+            "stress": 54882.3970377339
+          }
+        }
+      ],
+      "total_excavation": 0.12358762339439536,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "baseline",
+            "measurements": {
+              "displacement": 0.007593203310439256,
+              "stress": 54882.3970377339
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.007593203310439256,
+          "stress": 54882.3970377339
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.81 < 2.00"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 0.6163112414327137,
+        "total_supports": 5
+      }
+    },
+    {
+      "date": "2025-07-18",
+      "day_index": 5,
+      "stage_id": "stage1",
+      "stage_name": "施工准备",
+      "weather_factor": 0.6941695828359188,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.1180088290821062,
+          "method": "manual",
+          "efficiency": 0.6941695828359188
+        },
+        {
+          "type": "support",
+          "support_type": "site_preparation",
+          "installation_time": 2,
+          "properties": {
+            "type": "temporary_fence"
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "baseline",
+          "measurements": {
+            "displacement": 0.002185213275583438,
+            "stress": 46502.03275047332
+          }
+        }
+      ],
+      "total_excavation": 0.1180088290821062,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "baseline",
+            "measurements": {
+              "displacement": 0.002185213275583438,
+              "stress": 46502.03275047332
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.002185213275583438,
+          "stress": 46502.03275047332
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.92 < 2.00"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 0.7343200705148198,
+        "total_supports": 6
+      }
+    },
+    {
+      "date": "2025-07-19",
+      "day_index": 6,
+      "stage_id": "stage1",
+      "stage_name": "施工准备",
+      "weather_factor": 0.794661361782111,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.13509243150295888,
+          "method": "manual",
+          "efficiency": 0.794661361782111
+        },
+        {
+          "type": "support",
+          "support_type": "site_preparation",
+          "installation_time": 2,
+          "properties": {
+            "type": "temporary_fence"
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "baseline",
+          "measurements": {
+            "displacement": -0.020430903951149916,
+            "stress": 65181.94220064028
+          }
+        }
+      ],
+      "total_excavation": 0.13509243150295888,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "baseline",
+            "measurements": {
+              "displacement": -0.020430903951149916,
+              "stress": 65181.94220064028
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": -0.020430903951149916,
+          "stress": 65181.94220064028
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.68 < 2.00"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 0.8694125020177788,
+        "total_supports": 7
+      }
+    },
+    {
+      "date": "2025-07-20",
+      "day_index": 7,
+      "stage_id": "stage1",
+      "stage_name": "施工准备",
+      "weather_factor": 0.7342044919075263,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.12481476362427947,
+          "method": "manual",
+          "efficiency": 0.7342044919075263
+        },
+        {
+          "type": "support",
+          "support_type": "site_preparation",
+          "installation_time": 2,
+          "properties": {
+            "type": "temporary_fence"
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "baseline",
+          "measurements": {
+            "displacement": -0.0030419475486472107,
+            "stress": 71614.77493531836
+          }
+        }
+      ],
+      "total_excavation": 0.12481476362427947,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "baseline",
+            "measurements": {
+              "displacement": -0.0030419475486472107,
+              "stress": 71614.77493531836
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": -0.0030419475486472107,
+          "stress": 71614.77493531836
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.60 < 2.00"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 0.9942272656420582,
+        "total_supports": 8
+      }
+    },
+    {
+      "date": "2025-07-21",
+      "day_index": 8,
+      "stage_id": "stage2",
+      "stage_name": "第一层开挖",
+      "weather_factor": 0.6938383838482894,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.1769287878813138,
+          "method": "mechanical",
+          "efficiency": 0.6938383838482894
+        },
+        {
+          "type": "support",
+          "support_type": "retaining_wall",
+          "installation_time": 3,
+          "properties": {
+            "thickness": 0.8,
+            "depth": 15.0
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "continuous",
+          "measurements": {
+            "displacement": 0.019039710303955397,
+            "stress": 57655.7883655901,
+            "water_pressure": 9274.919727655004
+          }
+        }
+      ],
+      "total_excavation": 0.1769287878813138,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "continuous",
+            "measurements": {
+              "displacement": 0.019039710303955397,
+              "stress": 57655.7883655901,
+              "water_pressure": 9274.919727655004
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.019039710303955397,
+          "stress": 57655.7883655901,
+          "water_pressure": 9274.919727655004
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.78 < 1.80"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 1.171156053523372,
+        "total_supports": 9
+      }
+    },
+    {
+      "date": "2025-07-22",
+      "day_index": 9,
+      "stage_id": "stage2",
+      "stage_name": "第一层开挖",
+      "weather_factor": 0.6916137833658642,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.17636151475829537,
+          "method": "mechanical",
+          "efficiency": 0.6916137833658642
+        },
+        {
+          "type": "support",
+          "support_type": "retaining_wall",
+          "installation_time": 3,
+          "properties": {
+            "thickness": 0.8,
+            "depth": 15.0
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "continuous",
+          "measurements": {
+            "displacement": 0.010302433049648844,
+            "stress": 51919.092748666684,
+            "water_pressure": 10659.488628372661
+          }
+        }
+      ],
+      "total_excavation": 0.17636151475829537,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "continuous",
+            "measurements": {
+              "displacement": 0.010302433049648844,
+              "stress": 51919.092748666684,
+              "water_pressure": 10659.488628372661
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.010302433049648844,
+          "stress": 51919.092748666684,
+          "water_pressure": 10659.488628372661
+        }
+      },
+      "quality_check": {
+        "passed": true,
+        "issues": [],
+        "recommendations": []
+      },
+      "cumulative_progress": {
+        "total_excavated": 1.3475175682816674,
+        "total_supports": 10
+      }
+    },
+    {
+      "date": "2025-07-23",
+      "day_index": 10,
+      "stage_id": "stage2",
+      "stage_name": "第一层开挖",
+      "weather_factor": 0.6743959376884494,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.1719709641105546,
+          "method": "mechanical",
+          "efficiency": 0.6743959376884494
+        },
+        {
+          "type": "support",
+          "support_type": "retaining_wall",
+          "installation_time": 3,
+          "properties": {
+            "thickness": 0.8,
+            "depth": 15.0
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "continuous",
+          "measurements": {
+            "displacement": 0.03384203322201133,
+            "stress": 61498.443512350575,
+            "water_pressure": 8946.218545058426
+          }
+        }
+      ],
+      "total_excavation": 0.1719709641105546,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "continuous",
+            "measurements": {
+              "displacement": 0.03384203322201133,
+              "stress": 61498.443512350575,
+              "water_pressure": 8946.218545058426
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.03384203322201133,
+          "stress": 61498.443512350575,
+          "water_pressure": 8946.218545058426
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.73 < 1.80"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 1.519488532392222,
+        "total_supports": 11
+      }
+    },
+    {
+      "date": "2025-07-24",
+      "day_index": 11,
+      "stage_id": "stage2",
+      "stage_name": "第一层开挖",
+      "weather_factor": 0.7384916068499406,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.18831535974673486,
+          "method": "mechanical",
+          "efficiency": 0.7384916068499406
+        },
+        {
+          "type": "support",
+          "support_type": "retaining_wall",
+          "installation_time": 3,
+          "properties": {
+            "thickness": 0.8,
+            "depth": 15.0
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "continuous",
+          "measurements": {
+            "displacement": 0.00016499364513838932,
+            "stress": 55930.088401437366,
+            "water_pressure": 10314.068315770823
+          }
+        }
+      ],
+      "total_excavation": 0.18831535974673486,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "continuous",
+            "measurements": {
+              "displacement": 0.00016499364513838932,
+              "stress": 55930.088401437366,
+              "water_pressure": 10314.068315770823
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.00016499364513838932,
+          "stress": 55930.088401437366,
+          "water_pressure": 10314.068315770823
+        }
+      },
+      "quality_check": {
+        "passed": true,
+        "issues": [],
+        "recommendations": []
+      },
+      "cumulative_progress": {
+        "total_excavated": 1.707803892138957,
+        "total_supports": 12
+      }
+    },
+    {
+      "date": "2025-07-25",
+      "day_index": 12,
+      "stage_id": "stage2",
+      "stage_name": "第一层开挖",
+      "weather_factor": 0.6622415490898201,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.1688715950179041,
+          "method": "mechanical",
+          "efficiency": 0.6622415490898201
+        },
+        {
+          "type": "support",
+          "support_type": "retaining_wall",
+          "installation_time": 3,
+          "properties": {
+            "thickness": 0.8,
+            "depth": 15.0
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "continuous",
+          "measurements": {
+            "displacement": 0.0168905533081552,
+            "stress": 64008.03323514055,
+            "water_pressure": 10880.571835407743
+          }
+        }
+      ],
+      "total_excavation": 0.1688715950179041,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "continuous",
+            "measurements": {
+              "displacement": 0.0168905533081552,
+              "stress": 64008.03323514055,
+              "water_pressure": 10880.571835407743
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.0168905533081552,
+          "stress": 64008.03323514055,
+          "water_pressure": 10880.571835407743
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.70 < 1.80"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 1.876675487156861,
+        "total_supports": 13
+      }
+    },
+    {
+      "date": "2025-07-26",
+      "day_index": 13,
+      "stage_id": "stage2",
+      "stage_name": "第一层开挖",
+      "weather_factor": 0.692977680130496,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.17670930843327648,
+          "method": "mechanical",
+          "efficiency": 0.692977680130496
+        },
+        {
+          "type": "support",
+          "support_type": "retaining_wall",
+          "installation_time": 3,
+          "properties": {
+            "thickness": 0.8,
+            "depth": 15.0
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "continuous",
+          "measurements": {
+            "displacement": 0.03764678430745419,
+            "stress": 59929.74603994038,
+            "water_pressure": 10913.222015579253
+          }
+        }
+      ],
+      "total_excavation": 0.17670930843327648,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "continuous",
+            "measurements": {
+              "displacement": 0.03764678430745419,
+              "stress": 59929.74603994038,
+              "water_pressure": 10913.222015579253
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.03764678430745419,
+          "stress": 59929.74603994038,
+          "water_pressure": 10913.222015579253
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.75 < 1.80"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 2.053384795590137,
+        "total_supports": 14
+      }
+    },
+    {
+      "date": "2025-07-27",
+      "day_index": 14,
+      "stage_id": "stage2",
+      "stage_name": "第一层开挖",
+      "weather_factor": 0.6492767297288143,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.16556556608084766,
+          "method": "mechanical",
+          "efficiency": 0.6492767297288143
+        },
+        {
+          "type": "support",
+          "support_type": "retaining_wall",
+          "installation_time": 3,
+          "properties": {
+            "thickness": 0.8,
+            "depth": 15.0
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "continuous",
+          "measurements": {
+            "displacement": 0.07099441920986019,
+            "stress": 63942.93004263883,
+            "water_pressure": 11353.182014484537
+          }
+        }
+      ],
+      "total_excavation": 0.16556556608084766,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "continuous",
+            "measurements": {
+              "displacement": 0.07099441920986019,
+              "stress": 63942.93004263883,
+              "water_pressure": 11353.182014484537
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.07099441920986019,
+          "stress": 63942.93004263883,
+          "water_pressure": 11353.182014484537
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.70 < 1.80"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 2.218950361670985,
+        "total_supports": 15
+      }
+    },
+    {
+      "date": "2025-07-28",
+      "day_index": 15,
+      "stage_id": "stage2",
+      "stage_name": "第一层开挖",
+      "weather_factor": 0.7074794278158236,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.180407254093035,
+          "method": "mechanical",
+          "efficiency": 0.7074794278158236
+        },
+        {
+          "type": "support",
+          "support_type": "retaining_wall",
+          "installation_time": 3,
+          "properties": {
+            "thickness": 0.8,
+            "depth": 15.0
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "continuous",
+          "measurements": {
+            "displacement": 0.04115746066751644,
+            "stress": 59617.54029726057,
+            "water_pressure": 11775.854088252154
+          }
+        }
+      ],
+      "total_excavation": 0.180407254093035,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "continuous",
+            "measurements": {
+              "displacement": 0.04115746066751644,
+              "stress": 59617.54029726057,
+              "water_pressure": 11775.854088252154
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.04115746066751644,
+          "stress": 59617.54029726057,
+          "water_pressure": 11775.854088252154
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.75 < 1.80"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 2.39935761576402,
+        "total_supports": 16
+      }
+    },
+    {
+      "date": "2025-07-29",
+      "day_index": 16,
+      "stage_id": "stage2",
+      "stage_name": "第一层开挖",
+      "weather_factor": 0.6500557186977917,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.16576420826793686,
+          "method": "mechanical",
+          "efficiency": 0.6500557186977917
+        },
+        {
+          "type": "support",
+          "support_type": "retaining_wall",
+          "installation_time": 3,
+          "properties": {
+            "thickness": 0.8,
+            "depth": 15.0
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "continuous",
+          "measurements": {
+            "displacement": 0.08584993997978234,
+            "stress": 66764.57170243093,
+            "water_pressure": 10841.928886618525
+          }
+        }
+      ],
+      "total_excavation": 0.16576420826793686,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "continuous",
+            "measurements": {
+              "displacement": 0.08584993997978234,
+              "stress": 66764.57170243093,
+              "water_pressure": 10841.928886618525
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.08584993997978234,
+          "stress": 66764.57170243093,
+          "water_pressure": 10841.928886618525
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.66 < 1.80"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 2.565121824031957,
+        "total_supports": 17
+      }
+    },
+    {
+      "date": "2025-07-30",
+      "day_index": 17,
+      "stage_id": "stage2",
+      "stage_name": "第一层开挖",
+      "weather_factor": 0.652698994793462,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.16643824367233281,
+          "method": "mechanical",
+          "efficiency": 0.652698994793462
+        },
+        {
+          "type": "support",
+          "support_type": "retaining_wall",
+          "installation_time": 3,
+          "properties": {
+            "thickness": 0.8,
+            "depth": 15.0
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "continuous",
+          "measurements": {
+            "displacement": 0.00719734533312421,
+            "stress": 70366.62639886742,
+            "water_pressure": 11364.524606734734
+          }
+        }
+      ],
+      "total_excavation": 0.16643824367233281,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "continuous",
+            "measurements": {
+              "displacement": 0.00719734533312421,
+              "stress": 70366.62639886742,
+              "water_pressure": 11364.524606734734
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.00719734533312421,
+          "stress": 70366.62639886742,
+          "water_pressure": 11364.524606734734
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.62 < 1.80"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 2.7315600677042897,
+        "total_supports": 18
+      }
+    },
+    {
+      "date": "2025-07-31",
+      "day_index": 18,
+      "stage_id": "stage2",
+      "stage_name": "第一层开挖",
+      "weather_factor": 0.7280444526367834,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.18565133542237977,
+          "method": "mechanical",
+          "efficiency": 0.7280444526367834
+        },
+        {
+          "type": "support",
+          "support_type": "retaining_wall",
+          "installation_time": 3,
+          "properties": {
+            "thickness": 0.8,
+            "depth": 15.0
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "continuous",
+          "measurements": {
+            "displacement": 0.024310854676894755,
+            "stress": 65598.06361253034,
+            "water_pressure": 8830.0381532208
+          }
+        }
+      ],
+      "total_excavation": 0.18565133542237977,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "continuous",
+            "measurements": {
+              "displacement": 0.024310854676894755,
+              "stress": 65598.06361253034,
+              "water_pressure": 8830.0381532208
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.024310854676894755,
+          "stress": 65598.06361253034,
+          "water_pressure": 8830.0381532208
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.68 < 1.80"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 2.9172114031266694,
+        "total_supports": 19
+      }
+    },
+    {
+      "date": "2025-08-01",
+      "day_index": 19,
+      "stage_id": "stage3",
+      "stage_name": "支撑系统安装",
+      "weather_factor": 0.6565367893175056,
+      "activities_performed": [
+        {
+          "type": "support",
+          "support_type": "strut_system",
+          "installation_time": 4,
+          "properties": {
+            "beam_size": "600x800",
+            "spacing": 3.0
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "installation",
+          "measurements": {
+            "displacement": 0.08950723793728901,
+            "stress": 63377.48416888153
+          }
+        }
+      ],
+      "total_excavation": 0.0,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "installation",
+            "measurements": {
+              "displacement": 0.08950723793728901,
+              "stress": 63377.48416888153
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.08950723793728901,
+          "stress": 63377.48416888153
+        }
+      },
+      "quality_check": {
+        "passed": true,
+        "issues": [],
+        "recommendations": []
+      },
+      "cumulative_progress": {
+        "total_excavated": 2.9172114031266694,
+        "total_supports": 20
+      }
+    },
+    {
+      "date": "2025-08-02",
+      "day_index": 20,
+      "stage_id": "stage3",
+      "stage_name": "支撑系统安装",
+      "weather_factor": 0.6889988365587706,
+      "activities_performed": [
+        {
+          "type": "support",
+          "support_type": "strut_system",
+          "installation_time": 4,
+          "properties": {
+            "beam_size": "600x800",
+            "spacing": 3.0
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "installation",
+          "measurements": {
+            "displacement": 0.05721565114737691,
+            "stress": 70711.03591183426
+          }
+        }
+      ],
+      "total_excavation": 0.0,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "installation",
+            "measurements": {
+              "displacement": 0.05721565114737691,
+              "stress": 70711.03591183426
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.05721565114737691,
+          "stress": 70711.03591183426
+        }
+      },
+      "quality_check": {
+        "passed": true,
+        "issues": [],
+        "recommendations": []
+      },
+      "cumulative_progress": {
+        "total_excavated": 2.9172114031266694,
+        "total_supports": 21
+      }
+    },
+    {
+      "date": "2025-08-03",
+      "day_index": 21,
+      "stage_id": "stage3",
+      "stage_name": "支撑系统安装",
+      "weather_factor": 0.7113692922796245,
+      "activities_performed": [
+        {
+          "type": "support",
+          "support_type": "strut_system",
+          "installation_time": 4,
+          "properties": {
+            "beam_size": "600x800",
+            "spacing": 3.0
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "installation",
+          "measurements": {
+            "displacement": 0.05347858423794318,
+            "stress": 65117.158096836785
+          }
+        }
+      ],
+      "total_excavation": 0.0,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "installation",
+            "measurements": {
+              "displacement": 0.05347858423794318,
+              "stress": 65117.158096836785
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.05347858423794318,
+          "stress": 65117.158096836785
+        }
+      },
+      "quality_check": {
+        "passed": true,
+        "issues": [],
+        "recommendations": []
+      },
+      "cumulative_progress": {
+        "total_excavated": 2.9172114031266694,
+        "total_supports": 22
+      }
+    },
+    {
+      "date": "2025-08-04",
+      "day_index": 22,
+      "stage_id": "stage3",
+      "stage_name": "支撑系统安装",
+      "weather_factor": 0.7240029067549387,
+      "activities_performed": [
+        {
+          "type": "support",
+          "support_type": "strut_system",
+          "installation_time": 4,
+          "properties": {
+            "beam_size": "600x800",
+            "spacing": 3.0
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "installation",
+          "measurements": {
+            "displacement": 0.07015178696025814,
+            "stress": 69423.95214042289
+          }
+        }
+      ],
+      "total_excavation": 0.0,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "installation",
+            "measurements": {
+              "displacement": 0.07015178696025814,
+              "stress": 69423.95214042289
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.07015178696025814,
+          "stress": 69423.95214042289
+        }
+      },
+      "quality_check": {
+        "passed": true,
+        "issues": [],
+        "recommendations": []
+      },
+      "cumulative_progress": {
+        "total_excavated": 2.9172114031266694,
+        "total_supports": 23
+      }
+    },
+    {
+      "date": "2025-08-05",
+      "day_index": 23,
+      "stage_id": "stage3",
+      "stage_name": "支撑系统安装",
+      "weather_factor": 0.6852735066585746,
+      "activities_performed": [
+        {
+          "type": "support",
+          "support_type": "strut_system",
+          "installation_time": 4,
+          "properties": {
+            "beam_size": "600x800",
+            "spacing": 3.0
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "installation",
+          "measurements": {
+            "displacement": 0.07070188763354557,
+            "stress": 63627.94098346011
+          }
+        }
+      ],
+      "total_excavation": 0.0,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "installation",
+            "measurements": {
+              "displacement": 0.07070188763354557,
+              "stress": 63627.94098346011
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.07070188763354557,
+          "stress": 63627.94098346011
+        }
+      },
+      "quality_check": {
+        "passed": true,
+        "issues": [],
+        "recommendations": []
+      },
+      "cumulative_progress": {
+        "total_excavated": 2.9172114031266694,
+        "total_supports": 24
+      }
+    },
+    {
+      "date": "2025-08-06",
+      "day_index": 24,
+      "stage_id": "stage3",
+      "stage_name": "支撑系统安装",
+      "weather_factor": 0.7178218724568376,
+      "activities_performed": [
+        {
+          "type": "support",
+          "support_type": "strut_system",
+          "installation_time": 4,
+          "properties": {
+            "beam_size": "600x800",
+            "spacing": 3.0
+          }
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "installation",
+          "measurements": {
+            "displacement": 0.0626517613489109,
+            "stress": 77993.39177283972
+          }
+        }
+      ],
+      "total_excavation": 0.0,
+      "supports_installed": 1,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "installation",
+            "measurements": {
+              "displacement": 0.0626517613489109,
+              "stress": 77993.39177283972
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.0626517613489109,
+          "stress": 77993.39177283972
+        }
+      },
+      "quality_check": {
+        "passed": true,
+        "issues": [],
+        "recommendations": []
+      },
+      "cumulative_progress": {
+        "total_excavated": 2.9172114031266694,
+        "total_supports": 25
+      }
+    },
+    {
+      "date": "2025-08-07",
+      "day_index": 25,
+      "stage_id": "stage4",
+      "stage_name": "第二层开挖",
+      "weather_factor": 0.66040650730003,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.14033638280125638,
+          "method": "mechanical",
+          "efficiency": 0.66040650730003
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "intensive",
+          "measurements": {
+            "displacement": 0.05814064351408931,
+            "stress": 89929.41415462567,
+            "water_pressure": 9628.453278656982
+          }
+        }
+      ],
+      "total_excavation": 0.14033638280125638,
+      "supports_installed": 0,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "intensive",
+            "measurements": {
+              "displacement": 0.05814064351408931,
+              "stress": 89929.41415462567,
+              "water_pressure": 9628.453278656982
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.05814064351408931,
+          "stress": 89929.41415462567,
+          "water_pressure": 9628.453278656982
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.37 < 1.50"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 3.057547785927926,
+        "total_supports": 25
+      }
+    },
+    {
+      "date": "2025-08-08",
+      "day_index": 26,
+      "stage_id": "stage4",
+      "stage_name": "第二层开挖",
+      "weather_factor": 0.6897098327390585,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.14656333945704994,
+          "method": "mechanical",
+          "efficiency": 0.6897098327390585
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "intensive",
+          "measurements": {
+            "displacement": 0.09253281183542024,
+            "stress": 74390.74364080268,
+            "water_pressure": 9447.507517190385
+          }
+        }
+      ],
+      "total_excavation": 0.14656333945704994,
+      "supports_installed": 0,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "intensive",
+            "measurements": {
+              "displacement": 0.09253281183542024,
+              "stress": 74390.74364080268,
+              "water_pressure": 9447.507517190385
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.09253281183542024,
+          "stress": 74390.74364080268,
+          "water_pressure": 9447.507517190385
+        }
+      },
+      "quality_check": {
+        "passed": true,
+        "issues": [],
+        "recommendations": []
+      },
+      "cumulative_progress": {
+        "total_excavated": 3.204111125384976,
+        "total_supports": 25
+      }
+    },
+    {
+      "date": "2025-08-09",
+      "day_index": 27,
+      "stage_id": "stage4",
+      "stage_name": "第二层开挖",
+      "weather_factor": 0.6106046517570811,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.12975348849837973,
+          "method": "mechanical",
+          "efficiency": 0.6106046517570811
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "intensive",
+          "measurements": {
+            "displacement": 0.07425785612936694,
+            "stress": 83901.33569698417,
+            "water_pressure": 11560.850513108375
+          }
+        }
+      ],
+      "total_excavation": 0.12975348849837973,
+      "supports_installed": 0,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "intensive",
+            "measurements": {
+              "displacement": 0.07425785612936694,
+              "stress": 83901.33569698417,
+              "water_pressure": 11560.850513108375
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.07425785612936694,
+          "stress": 83901.33569698417,
+          "water_pressure": 11560.850513108375
+        }
+      },
+      "quality_check": {
+        "passed": false,
+        "issues": [
+          "安全系数不足: 1.45 < 1.50"
+        ],
+        "recommendations": [
+          "暂停施工，加强支护措施"
+        ]
+      },
+      "cumulative_progress": {
+        "total_excavated": 3.3338646138833554,
+        "total_supports": 25
+      }
+    },
+    {
+      "date": "2025-08-10",
+      "day_index": 28,
+      "stage_id": "stage4",
+      "stage_name": "第二层开挖",
+      "weather_factor": 0.7218029139209408,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.15338311920819991,
+          "method": "mechanical",
+          "efficiency": 0.7218029139209408
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "intensive",
+          "measurements": {
+            "displacement": 0.12346799083243987,
+            "stress": 73899.1084061488,
+            "water_pressure": 11396.631988437275
+          }
+        }
+      ],
+      "total_excavation": 0.15338311920819991,
+      "supports_installed": 0,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "intensive",
+            "measurements": {
+              "displacement": 0.12346799083243987,
+              "stress": 73899.1084061488,
+              "water_pressure": 11396.631988437275
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.12346799083243987,
+          "stress": 73899.1084061488,
+          "water_pressure": 11396.631988437275
+        }
+      },
+      "quality_check": {
+        "passed": true,
+        "issues": [],
+        "recommendations": []
+      },
+      "cumulative_progress": {
+        "total_excavated": 3.4872477330915554,
+        "total_supports": 25
+      }
+    },
+    {
+      "date": "2025-08-11",
+      "day_index": 29,
+      "stage_id": "stage4",
+      "stage_name": "第二层开挖",
+      "weather_factor": 0.6567228707031911,
+      "activities_performed": [
+        {
+          "type": "excavation",
+          "amount": 0.13955361002442812,
+          "method": "mechanical",
+          "efficiency": 0.6567228707031911
+        },
+        {
+          "type": "monitoring",
+          "monitoring_type": "intensive",
+          "measurements": {
+            "displacement": 0.07652629365621999,
+            "stress": 78378.57979809948,
+            "water_pressure": 9127.187326040987
+          }
+        }
+      ],
+      "total_excavation": 0.13955361002442812,
+      "supports_installed": 0,
+      "monitoring_data": {
+        "activities": [
+          {
+            "type": "monitoring",
+            "monitoring_type": "intensive",
+            "measurements": {
+              "displacement": 0.07652629365621999,
+              "stress": 78378.57979809948,
+              "water_pressure": 9127.187326040987
+            }
+          }
+        ],
+        "measurements": {
+          "displacement": 0.07652629365621999,
+          "stress": 78378.57979809948,
+          "water_pressure": 9127.187326040987
+        }
+      },
+      "quality_check": {
+        "passed": true,
+        "issues": [],
+        "recommendations": []
+      },
+      "cumulative_progress": {
+        "total_excavated": 3.6268013431159836,
+        "total_supports": 25
+      }
+    }
+  ]
+}

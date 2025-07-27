@@ -1,0 +1,96 @@
+{
+  "testId": "rectangular_pit_basic",
+  "description": "标准30m×20m×15m矩形基坑测试用例",
+  "geometryData": {
+    "header": {
+      "version": "1.0", 
+      "timestamp": "2025-01-23T14:30:00Z",
+      "geometryType": "excavation",
+      "coordinateSystem": "LOCAL",
+      "units": "meters"
+    },
+    "excavationParameters": {
+      "type": "rectangular",
+      "width": 30.0,
+      "length": 20.0, 
+      "depth": 15.0,
+      "slopeRatio": 0.0,
+      "position": { "x": 0, "y": 0, "z": 0 }
+    },
+    "meshGeometry": {
+      "vertices": [
+        0, 0, 0,     30, 0, 0,     30, 20, 0,    0, 20, 0,
+        0, 0, -15,   30, 0, -15,   30, 20, -15,  0, 20, -15,
+        5, 5, -15,   25, 5, -15,   25, 15, -15,  5, 15, -15
+      ],
+      "faces": [
+        0, 1, 2,  0, 2, 3,  4, 7, 6,  4, 6, 5,
+        0, 4, 5,  0, 5, 1,  1, 5, 6,  1, 6, 2,
+        2, 6, 7,  2, 7, 3,  3, 7, 4,  3, 4, 0,
+        8, 9, 10, 8, 10, 11
+      ],
+      "normals": [
+        0, 0, 1,   0, 0, 1,   0, 0, 1,   0, 0, 1,
+        0, 0, -1,  0, 0, -1,  0, 0, -1,  0, 0, -1,
+        0, 0, -1,  0, 0, -1,  0, 0, -1,  0, 0, -1
+      ],
+      "vertexCount": 12,
+      "faceCount": 14
+    },
+    "materialZones": [
+      {
+        "zoneId": "excavation_air",
+        "zoneName": "开挖空间",
+        "materialType": "air",
+        "faceIndices": [12, 13],
+        "properties": {
+          "density": 1.225,
+          "pressure": 101325
+        }
+      }
+    ],
+    "boundaryConditions": {
+      "fixedBoundaries": {
+        "faceIndices": [2, 3],
+        "constraintType": "fixed"
+      },
+      "loadBoundaries": {
+        "faceIndices": [0, 1], 
+        "loadType": "pressure",
+        "magnitude": -20000,
+        "direction": [0, 0, -1]
+      }
+    },
+    "meshGuidance": {
+      "globalElementSize": 2.0,
+      "localRefinement": [
+        {
+          "region": "corner",
+          "faceIndices": [0, 1, 2, 3],
+          "targetSize": 1.0,
+          "priority": "high"
+        }
+      ],
+      "qualityRequirements": {
+        "minAngle": 20,
+        "maxAspectRatio": 10,
+        "targetQuality": 0.8
+      }
+    },
+    "qualityInfo": {
+      "geometryValid": true,
+      "manifoldSurface": true,
+      "selfIntersection": false,
+      "precision": 0.001,
+      "warnings": [],
+      "recommendations": ["建议角点区域加密网格"]
+    }
+  },
+  "expectedResults": {
+    "meshElementCount": 800,
+    "meshNodeCount": 300,
+    "processingTime": 2000,
+    "memoryUsage": "50MB",
+    "qualityScore": 0.85
+  }
+}

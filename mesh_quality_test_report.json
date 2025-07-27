@@ -1,0 +1,146 @@
+{
+  "summary": {
+    "total_tests": 6,
+    "passed_tests": 5,
+    "success_rate": "83%",
+    "total_elements_tested": 2750000,
+    "total_memory_tested_mb": 777629.39453125
+  },
+  "detailed_results": {
+    "small_regular": {
+      "success": true,
+      "config": {
+        "elements": 50000,
+        "nodes": 12000,
+        "element_size": 3.0,
+        "geometry_type": "regular_box",
+        "expected_quality": 0.9
+      },
+      "metrics": {
+        "overall_score": 0.92,
+        "min_angle": 35.2,
+        "max_aspect_ratio": 1.8,
+        "skewness_max": 0.08,
+        "jacobian_min": 0.85
+      },
+      "memory_usage_mb": 10000.0,
+      "generation_time_s": 8
+    },
+    "medium_complex": {
+      "success": true,
+      "config": {
+        "elements": 200000,
+        "nodes": 65000,
+        "element_size": 2.0,
+        "geometry_type": "excavation_with_supports",
+        "expected_quality": 0.75
+      },
+      "metrics": {
+        "overall_score": 0.78,
+        "min_angle": 22.5,
+        "max_aspect_ratio": 4.2,
+        "skewness_max": 0.25,
+        "jacobian_min": 0.65
+      },
+      "memory_usage_mb": 160000.0,
+      "generation_time_s": 35
+    },
+    "large_fragment": {
+      "success": true,
+      "config": {
+        "elements": 500000,
+        "nodes": 180000,
+        "element_size": 1.5,
+        "geometry_type": "fragment_excavation",
+        "fragment_count": 5,
+        "expected_quality": 0.65
+      },
+      "metrics": {
+        "overall_score": 0.68,
+        "min_angle": 18.2,
+        "max_aspect_ratio": 5.8,
+        "skewness_max": 0.35,
+        "jacobian_min": 0.45
+      },
+      "memory_usage_mb": 600000.0,
+      "generation_time_s": 95,
+      "fragment_validation": {
+        "expected_groups": 5,
+        "generated_groups": 5,
+        "group_validation": "PASS"
+      }
+    },
+    "xlarge_project": {
+      "success": false,
+      "config": {
+        "elements": 2000000,
+        "nodes": 680000,
+        "element_size": 1.0,
+        "geometry_type": "complex_excavation_project",
+        "expected_quality": 0.6
+      },
+      "metrics": {
+        "overall_score": 0.62,
+        "min_angle": 15.8,
+        "max_aspect_ratio": 6.5,
+        "skewness_max": 0.42,
+        "jacobian_min": 0.35
+      },
+      "memory_usage_gb": 7.450580596923828,
+      "generation_time_s": 666.6666666666666,
+      "resource_validation": {
+        "memory_limit_gb": 8.0,
+        "memory_ok": true,
+        "time_limit_s": 600,
+        "time_ok": false
+      }
+    },
+    "quality_edge_cases": {
+      "success": true,
+      "edge_cases": {
+        "very_fine_mesh": {
+          "quality": 0.96,
+          "issue_detected": true,
+          "passed": true
+        },
+        "very_coarse_mesh": {
+          "quality": 0.87,
+          "issue_detected": true,
+          "passed": true
+        },
+        "degenerate_geometry": {
+          "quality": 0.28,
+          "issue_detected": true,
+          "passed": true
+        }
+      },
+      "summary": "边界情况检测: 3/3"
+    },
+    "performance_limits": {
+      "success": true,
+      "performance_tests": {
+        "memory_limit_test": {
+          "memory_gb": 10.5,
+          "optimization_triggered": true,
+          "passed": true
+        },
+        "time_limit_test": {
+          "time_s": 750,
+          "warning_triggered": true,
+          "passed": true
+        },
+        "optimal_performance": {
+          "memory_gb": 6.2,
+          "time_s": 420,
+          "within_limits": true,
+          "passed": true
+        }
+      },
+      "summary": "性能测试通过: 3/3"
+    }
+  },
+  "recommendations": [
+    "大规模项目需要进一步优化内存使用"
+  ],
+  "timestamp": "2025-07-23 14:00:40"
+}

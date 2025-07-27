@@ -1,0 +1,24 @@
+[bandit]
+# Bandit configuration for security scanning
+exclude_dirs = [
+    "kratos_source",
+    "tests", 
+    ".venv",
+    "venv",
+    "frontend",
+    "node_modules"
+]
+
+# Skip specific tests that may cause false positives
+skips = [
+    "B101",  # assert_used - asserts are OK in tests
+    "B601",  # paramiko_calls - we don't use paramiko
+    "B602",  # subprocess_popen_with_shell_equals_true - subprocess usage is controlled
+]
+
+# Test severity levels
+severity = "medium"
+confidence = "medium"
+
+# Output format
+format = "json"

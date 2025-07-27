@@ -1,0 +1,46 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable", "WebWorker"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting - 3号计算专家建议开启严格模式 */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    
+    /* Decorator support */
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    /* Path mapping - 3号计算专家优化的路径映射 */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/components/*": ["./src/components/*"],
+      "@/services/*": ["./src/services/*"],
+      "@/integration/*": ["./src/integration/*"],
+      "@/types/*": ["./src/types/*"]
+    },
+
+    /* WebGPU和GPU计算支持 */
+    "types": ["@webgpu/types", "@types/webgl2", "vite/client"]
+  },
+  "include": [
+    "src",
+    "**/*.ts", 
+    "**/*.tsx"
+  ],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

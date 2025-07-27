@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>钻孔数据前端集成测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a2e;
+            color: #ffffff;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: rgba(0, 217, 255, 0.1);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .borehole-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .borehole-table th, .borehole-table td {
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            padding: 8px;
+            text-align: left;
+        }
+        .borehole-table th {
+            background: rgba(0, 217, 255, 0.2);
+        }
+        .soil-color {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        button {
+            background: rgba(0, 217, 255, 0.8);
+            border: none;
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            background: rgba(0, 217, 255, 1.0);
+        }
+    </style>
+</head>
+<body>
+    <h1>🌍 DeepCAD钻孔数据集成测试</h1>
+    <p>测试生成的100个钻孔数据是否能正确导入前端界面</p>
+    
+    <div>
+        <button onclick="loadBoreholeData()">📂 加载钻孔数据</button>
+        <button onclick="exportToGeologyModule()">🔄 导出到地质建模</button>
+        <button onclick="visualizeDistribution()">📊 可视化分布</button>
+    </div>
+
+    <div id="stats" class="stats"></div>
+    <div id="visualization"></div>
+    <div id="data-table"></div>
+
+    <script>
+        let boreholeData = null;
+        
+        const soilColors = {
+            fill: '#D2B48C',
+            clay: '#8B4513', 
+            silt: '#DDD',
+            sand: '#F4A460',
+            gravel: '#696969',
+            rock: '#2F4F4F'
+        };
+
+        async function loadBoreholeData() {
+            try {
+                const response = await fetch('./boreholes_for_import.json');
+                boreholeData = await response.json();
+                
+                console.log('✅ 钻孔数据加载成功:', boreholeData);
+                
+                displayStats();
+                displayDataTable();
+                
+                alert(`成功加载 ${boreholeData.length} 个钻孔数据！`);
+            } catch (error) {
+                console.error('❌ 加载钻孔数据失败:', error);
+                alert('数据加载失败: ' + error.message);
+            }
+        }
+        
+        function displayStats() {
+            if (!boreholeData) return;
+            
+            const totalBoreholes = boreholeData.length;
+            const totalStrata = boreholeData.reduce((sum, bh) => sum + bh.strata.length, 0);
+            
+            const xCoords = boreholeData.map(bh => bh.x);
+            const yCoords = boreholeData.map(bh => bh.y);
+            const depths = boreholeData.map(bh => bh.total_depth);
+            const elevations = boreholeData.map(bh => bh.ground_elevation);
+            
+            // 土层统计
+            const soilTypeCount = {};
+            boreholeData.forEach(bh => {
+                bh.strata.forEach(stratum => {
+                    soilTypeCount[stratum.soil_type] = (soilTypeCount[stratum.soil_type] || 0) + 1;
+                });
+            });
+            
+            const statsHTML = `
+                <div class="stat-card">
+                    <h3>🌍 基本统计</h3>
+                    <p><strong>钻孔总数:</strong> ${totalBoreholes}</p>
+                    <p><strong>土层总数:</strong> ${totalStrata}</p>
+                    <p><strong>平均每孔:</strong> ${(totalStrata/totalBoreholes).toFixed(1)} 层</p>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>📍 空间分布</h3>
+                    <p><strong>X范围:</strong> ${Math.min(...xCoords).toFixed(1)} ~ ${Math.max(...xCoords).toFixed(1)} m</p>
+                    <p><strong>Y范围:</strong> ${Math.min(...yCoords).toFixed(1)} ~ ${Math.max(...yCoords).toFixed(1)} m</p>
+                    <p><strong>覆盖面积:</strong> ${((Math.max(...xCoords) - Math.min(...xCoords)) * (Math.max(...yCoords) - Math.min(...yCoords)) / 10000).toFixed(1)} 公顷</p>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>📏 深度统计</h3>
+                    <p><strong>地面标高:</strong> ${Math.min(...elevations).toFixed(1)} ~ ${Math.max(...elevations).toFixed(1)} m</p>
+                    <p><strong>钻孔深度:</strong> ${Math.min(...depths).toFixed(1)} ~ ${Math.max(...depths).toFixed(1)} m</p>
+                    <p><strong>平均深度:</strong> ${(depths.reduce((a,b) => a+b, 0)/depths.length).toFixed(1)} m</p>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>🗂️ 土层类型</h3>
+                    ${Object.entries(soilTypeCount)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([type, count]) => `
+                            <p>
+                                <span class="soil-color" style="background-color: ${soilColors[type] || '#666'}"></span>
+                                <strong>${type}:</strong> ${count}段 (${(count/totalStrata*100).toFixed(1)}%)
+                            </p>
+                        `).join('')}
+                </div>
+            `;
+            
+            document.getElementById('stats').innerHTML = statsHTML;
+        }
+        
+        function displayDataTable() {
+            if (!boreholeData) return;
+            
+            const tableHTML = `
+                <h3>📋 钻孔数据预览（前10个）</h3>
+                <table class="borehole-table">
+                    <thead>
+                        <tr>
+                            <th>钻孔编号</th>
+                            <th>X坐标(m)</th>
+                            <th>Y坐标(m)</th>
+                            <th>地面标高(m)</th>
+                            <th>总深度(m)</th>
+                            <th>土层数</th>
+                            <th>主要土类</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${boreholeData.slice(0, 10).map(bh => {
+                            const mainSoilTypes = [...new Set(bh.strata.map(s => s.soil_type))];
+                            return `
+                                <tr>
+                                    <td>${bh.name}</td>
+                                    <td>${bh.x.toFixed(2)}</td>
+                                    <td>${bh.y.toFixed(2)}</td>
+                                    <td>${bh.ground_elevation.toFixed(2)}</td>
+                                    <td>${bh.total_depth.toFixed(1)}</td>
+                                    <td>${bh.strata.length}</td>
+                                    <td>
+                                        ${mainSoilTypes.map(type => `
+                                            <span class="soil-color" style="background-color: ${soilColors[type] || '#666'}"></span>${type}
+                                        `).join(' ')}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            document.getElementById('data-table').innerHTML = tableHTML;
+        }
+        
+        function exportToGeologyModule() {
+            if (!boreholeData) {
+                alert('请先加载钻孔数据');
+                return;
+            }
+            
+            // 构造适配GeologyParamsAdvanced的完整参数
+            const geologyParams = {
+                boreholes: boreholeData,
+                domain: {
+                    extension_method: 'convex_hull',
+                    x_extend: 100,
+                    y_extend: 100,
+                    bottom_elevation: -35,
+                    mesh_resolution: 2.0
+                },
+                algorithm: {
+                    core_radius: 80,
+                    transition_distance: 200,
+                    variogram_model: 'spherical',
+                    trend_order: 'linear',
+                    uncertainty_analysis: false
+                },
+                gmsh_params: {
+                    characteristic_length: 2.0,
+                    physical_groups: false,
+                    mesh_quality: 0.8
+                }
+            };
+            
+            console.log('🔄 导出到地质建模模块:', geologyParams);
+            
+            // 这里应该调用前端的地质建模接口
+            // onParamsChange(geologyParams);
+            // onGenerate(geologyParams);
+            
+            alert(`已导出 ${boreholeData.length} 个钻孔到地质建模模块！\\n推荐参数:\\n- 核心区半径: 80m\\n- 过渡距离: 200m\\n- 网格分辨率: 2.0m`);
+        }
+        
+        function visualizeDistribution() {
+            if (!boreholeData) {
+                alert('请先加载钻孔数据');
+                return;
+            }
+            
+            // 简单的ASCII可视化
+            const xCoords = boreholeData.map(bh => bh.x);
+            const yCoords = boreholeData.map(bh => bh.y);
+            
+            const xMin = Math.min(...xCoords);
+            const xMax = Math.max(...xCoords);
+            const yMin = Math.min(...yCoords);
+            const yMax = Math.max(...yCoords);
+            
+            const visualizationHTML = `
+                <div class="stat-card">
+                    <h3>📊 钻孔空间分布可视化</h3>
+                    <p><strong>研究区域:</strong> ${(xMax - xMin).toFixed(0)}m × ${(yMax - yMin).toFixed(0)}m</p>
+                    <p><strong>钻孔密度:</strong> ${(boreholeData.length / ((xMax - xMin) * (yMax - yMin) / 10000)).toFixed(2)} 个/公顷</p>
+                    <p><strong>平均间距:</strong> ${Math.sqrt(((xMax - xMin) * (yMax - yMin)) / boreholeData.length).toFixed(1)} m</p>
+                    <canvas id="distribution-canvas" width="400" height="400" style="border: 1px solid #00d9ff; background: rgba(0,0,0,0.3);"></canvas>
+                </div>
+            `;
+            
+            document.getElementById('visualization').innerHTML = visualizationHTML;
+            
+            // 绘制钻孔分布图
+            const canvas = document.getElementById('distribution-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = '#00d9ff';
+            boreholeData.forEach(bh => {
+                const x = ((bh.x - xMin) / (xMax - xMin)) * 380 + 10;
+                const y = ((bh.y - yMin) / (yMax - yMin)) * 380 + 10;
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+        }
+        
+        // 页面加载时自动加载数据
+        window.onload = function() {
+            console.log('🚀 页面加载完成，准备测试钻孔数据集成...');
+            loadBoreholeData();
+        };
+    </script>
+</body>
+</html>

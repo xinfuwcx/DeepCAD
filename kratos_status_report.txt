@@ -1,0 +1,41 @@
+
+============================================================
+Kratos应用模块状态报告
+============================================================
+
+🎯 CRITICAL 优先级模块:
+------------------------------
+❌ KratosMultiphysics
+   错误: No module named 'KratosMultiphysics'
+
+❌ GeoMechanicsApplication
+   功能: 地质力学分析 - DeepCAD核心功能
+   错误: No module named 'KratosMultiphysics'
+
+❌ LinearSolversApplication
+   功能: 线性求解器
+   错误: No module named 'KratosMultiphysics'
+
+🎯 HIGH 优先级模块:
+------------------------------
+❌ StructuralMechanicsApplication
+   功能: 结构力学分析 - 支护结构计算
+   错误: No module named 'KratosMultiphysics'
+
+🎯 MEDIUM 优先级模块:
+------------------------------
+❌ FluidDynamicsApplication
+   功能: 流体力学分析 - 地下水渗流
+   错误: No module named 'KratosMultiphysics'
+
+❌ FSIApplication
+   功能: 流固耦合分析
+   错误: No module named 'KratosMultiphysics'
+
+❌ OptimizationApplication
+   功能: 结构优化分析
+   错误: No module named 'KratosMultiphysics'
+
+============================================================
+总结: 0/7 模块可用
+============================================================

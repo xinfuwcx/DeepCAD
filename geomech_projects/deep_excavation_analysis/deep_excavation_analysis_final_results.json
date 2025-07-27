@@ -1,0 +1,56 @@
+{
+  "analysis_summary": {
+    "total_stages": 4,
+    "max_displacement_mm": 100.99026402600343,
+    "max_stress_mpa": 3.6524927205422757,
+    "min_safety_factor": 1.8763489609890784,
+    "analysis_status": "completed"
+  },
+  "stage_by_stage_results": [
+    {
+      "stage_name": "Stage1_Surface",
+      "excavation_depth": 2.0,
+      "max_displacement": 0.014919632040208516,
+      "max_stress": 3608732.1038030707,
+      "safety_factor": 2.609203951273305,
+      "convergence": true
+    },
+    {
+      "stage_name": "Stage2_FirstLevel",
+      "excavation_depth": 4.0,
+      "max_displacement": 0.05719764516175434,
+      "max_stress": 3561443.3536947095,
+      "safety_factor": 2.5930077274223007,
+      "convergence": true
+    },
+    {
+      "stage_name": "Stage3_SecondLevel",
+      "excavation_depth": 6.0,
+      "max_displacement": 0.07667173386454794,
+      "max_stress": 1532275.471408778,
+      "safety_factor": 2.746008438791719,
+      "convergence": true
+    },
+    {
+      "stage_name": "Stage4_Final",
+      "excavation_depth": 8.0,
+      "max_displacement": 0.10099026402600343,
+      "max_stress": 3652492.720542276,
+      "safety_factor": 1.8763489609890784,
+      "convergence": true
+    }
+  ],
+  "engineering_assessment": {
+    "displacement_status": "critical",
+    "stability_status": "safe",
+    "overall_safety": "needs_attention",
+    "risk_level": "high"
+  },
+  "recommendations": [
+    "变形较大，建议加强监测位移变化",
+    "考虑增加支护刚度或调整开挖工序",
+    "建立完善的监测系统，实时跟踪关键指标",
+    "制定应急预案，确保施工安全",
+    "定期检查支护结构完整性"
+  ]
+}

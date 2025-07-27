@@ -1,0 +1,26 @@
+{
+  "properties": [
+    {
+      "model_part_name": "SolidDomain.SoilBody",
+      "properties_id": 1,
+      "Material": {
+        "constitutive_law": {
+          "name": "SmallStrainUPwDiffOrderPlaneStrainMohrCoulomb"
+        },
+        "Variables": {
+          "young_modulus": 25000000.0,
+          "poisson_ratio": 0.3,
+          "density": 1800.0,
+          "cohesion": 20000.0,
+          "friction_angle": 25.0,
+          "dilatancy_angle": 0.0,
+          "biot_coefficient": 1.0,
+          "initial_stress_xx": -100000.0,
+          "initial_stress_yy": -100000.0,
+          "initial_stress_zz": -150000.0
+        },
+        "Tables": {}
+      }
+    }
+  ]
+}

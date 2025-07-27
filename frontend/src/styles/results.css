@@ -1,0 +1,187 @@
+/* 结果视图相关样式 */
+
+.results-view {
+  padding: 24px;
+}
+
+/* 结果视图头部样式 */
+.results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+/* 结果卡片样式 */
+.result-card {
+  background: #2c2c2c;
+  border-color: #424242;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.result-card:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* 结果视口容器样式 */
+.results-viewport {
+  height: 600px;
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+/* 结果控制栏样式 */
+.results-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 5px;
+  border-radius: 4px;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+/* 标签页样式 */
+.results-view .ant-tabs-tab {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.results-view .ant-tabs-tab.ant-tabs-tab-active {
+  color: white !important;
+}
+
+.results-view .ant-tabs-ink-bar {
+  background: #1890ff !important;
+}
+
+.results-view .ant-tabs-nav::before {
+  border-bottom-color: #424242 !important;
+}
+
+/* 面包屑导航样式 */
+.results-breadcrumb {
+  margin-bottom: 16px;
+}
+
+.results-breadcrumb .ant-breadcrumb-link,
+.results-breadcrumb .ant-breadcrumb-link a {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.results-breadcrumb .ant-breadcrumb-link a:hover {
+  color: #1890ff !important;
+}
+
+.results-breadcrumb .ant-breadcrumb-separator {
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+/* 列表样式 */
+.results-list .ant-list-item {
+  border-bottom-color: #424242 !important;
+}
+
+.results-list .ant-list-item-meta-title {
+  color: white !important;
+}
+
+.results-list .ant-list-item-meta-description {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* 加载状态 */
+.results-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 400px;
+  width: 100%;
+}
+
+/* 空状态 */
+.results-empty {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 400px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* 响应式调整 */
+@media (max-width: 992px) {
+  .results-view {
+    padding: 16px;
+  }
+  
+  .results-viewport {
+    height: 400px;
+  }
+  
+  .results-controls-panel {
+    margin-top: 16px;
+  }
+}
+
+/* 结果比较视图样式 */
+.comparison-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.comparison-row {
+  display: flex;
+  gap: 16px;
+}
+
+.comparison-card {
+  flex: 1;
+  min-height: 300px;
+  background: #2c2c2c;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.comparison-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #424242;
+}
+
+/* 结果指标卡片样式 */
+.metric-card {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 16px;
+  height: 100%;
+  transition: all 0.3s ease;
+}
+
+.metric-card:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.metric-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #1890ff;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.metric-label {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+} 

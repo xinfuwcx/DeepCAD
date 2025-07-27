@@ -1,0 +1,143 @@
+{
+  "nav": {
+    "dashboard": "仪表板",
+    "geometry": "几何建模",
+    "mesh": "网格生成",
+    "analysis": "分析计算",
+    "results": "结果查看",
+    "materials": "材料库",
+    "settings": "系统设置",
+    "help": "帮助中心"
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "取消",
+    "confirm": "确认",
+    "delete": "删除",
+    "edit": "编辑",
+    "add": "添加",
+    "remove": "移除",
+    "reset": "重置",
+    "submit": "提交",
+    "close": "关闭",
+    "open": "打开",
+    "create": "创建",
+    "update": "更新",
+    "generate": "生成",
+    "export": "导出",
+    "import": "导入",
+    "loading": "加载中...",
+    "success": "成功",
+    "error": "错误",
+    "warning": "警告",
+    "info": "信息"
+  },
+  "geometry": {
+    "title": "深基坑几何建模",
+    "workflow": "几何建模工作流程",
+    "geology": {
+      "title": "地质建模",
+      "description": "导入钻孔数据，生成地质模型",
+      "interpolationMethod": "插值方法",
+      "gridResolution": "网格分辨率",
+      "completed": "已完成",
+      "notGenerated": "未生成"
+    },
+    "excavation": {
+      "title": "基坑开挖",
+      "description": "导入DXF图纸，定义开挖体",
+      "depth": "开挖深度",
+      "layerHeight": "分层高度",
+      "slopeRatio": "坡率系数",
+      "dxfImport": "基坑轮廓导入",
+      "booleanOperation": "布尔运算",
+      "statistics": "开挖统计",
+      "excavationVolume": "开挖体积",
+      "pitArea": "基坑面积",
+      "layerCount": "开挖层数"
+    },
+    "support": {
+      "title": "支护结构",
+      "description": "设计地连墙、排桩、锚杆等",
+      "diaphragmWall": "地下连续墙",
+      "pilePile": "排桩结构",
+      "anchor": "锚杆系统",
+      "steelSupport": "钢支撑系统",
+      "thickness": "厚度",
+      "depth": "深度",
+      "diameter": "直径",
+      "spacing": "间距",
+      "length": "长度",
+      "angle": "角度"
+    },
+    "validation": "设计验证",
+    "stats": {
+      "components": "构件",
+      "totalLength": "总长",
+      "materials": "材料"
+    }
+  },
+  "forms": {
+    "required": "此字段是必填的",
+    "invalidEmail": "邮箱格式不正确",
+    "passwordTooShort": "密码至少需要8个字符",
+    "passwordMismatch": "密码不匹配",
+    "numberRange": "数值必须在 {{min}} 到 {{max}} 之间",
+    "selectOption": "请选择一个选项"
+  },
+  "units": {
+    "length": {
+      "m": "米",
+      "mm": "毫米",
+      "km": "千米"
+    },
+    "area": {
+      "m2": "平方米",
+      "km2": "平方千米"
+    },
+    "volume": {
+      "m3": "立方米",
+      "km3": "立方千米"
+    },
+    "angle": {
+      "deg": "度",
+      "rad": "弧度"
+    },
+    "force": {
+      "n": "牛顿",
+      "kn": "千牛",
+      "mn": "兆牛"
+    }
+  },
+  "analysis": {
+    "phases": {
+      "geostatic": "地应力平衡",
+      "construction": "分步施工",
+      "seepage": "稳态渗流"
+    },
+    "status": {
+      "waiting": "等待中",
+      "running": "运行中",
+      "completed": "已完成",
+      "failed": "失败"
+    }
+  },
+  "settings": {
+    "title": "系统设置",
+    "general": "常规设置",
+    "preferences": "偏好设置",
+    "language": "语言",
+    "theme": "主题",
+    "units": "单位系统",
+    "autoSave": "自动保存",
+    "notifications": "通知设置"
+  },
+  "help": {
+    "title": "帮助与文档",
+    "gettingStarted": "快速开始",
+    "userGuide": "用户指南",
+    "tutorials": "教程",
+    "faq": "常见问题",
+    "contact": "联系我们"
+  }
+}

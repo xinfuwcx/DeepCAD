@@ -1,0 +1,237 @@
+/* 紧急菜单修复 - 解决严重重叠问题 */
+
+/* === 清除所有可能的冲突样式 === */
+.ant-menu * {
+  box-sizing: border-box !important;
+}
+
+/* === 强制重置菜单容器 === */
+.ant-menu.ant-menu-dark {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: visible !important;
+}
+
+/* === 核心菜单项完全重写 === */
+.ant-menu.ant-menu-dark .ant-menu-item {
+  /* 基础布局 */
+  display: block !important;
+  position: relative !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 80px !important;
+  max-height: none !important;
+  
+  /* 间距控制 */
+  margin: 0 0 12px 0 !important;
+  padding: 16px 16px 16px 16px !important;
+  
+  /* 外观 */
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 8px !important;
+  
+  /* 文本 */
+  color: var(--text-primary) !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+  
+  /* 过渡效果 */
+  transition: all 0.3s ease !important;
+  
+  /* 强制清除浮动和定位 */
+  float: none !important;
+  clear: both !important;
+  
+  /* 确保不重叠 */
+  z-index: 1 !important;
+  overflow: visible !important;
+}
+
+/* === 菜单项内容区域 === */
+.ant-menu.ant-menu-dark .ant-menu-item::before,
+.ant-menu.ant-menu-dark .ant-menu-item::after {
+  display: none !important;
+}
+
+.ant-menu.ant-menu-dark .ant-menu-item .ant-menu-item-icon {
+  /* 图标容器 */
+  display: inline-block !important;
+  width: 24px !important;
+  height: 24px !important;
+  margin-right: 16px !important;
+  margin-top: 4px !important;
+  vertical-align: top !important;
+  
+  /* 图标样式 */
+  color: var(--primary-color) !important;
+  font-size: 16px !important;
+  line-height: 24px !important;
+  text-align: center !important;
+  
+  /* 定位 */
+  position: relative !important;
+  float: left !important;
+  clear: none !important;
+}
+
+.ant-menu.ant-menu-dark .ant-menu-item .ant-menu-title-content {
+  /* 文本容器 */
+  display: block !important;
+  margin-left: 40px !important;
+  min-height: 48px !important;
+  padding-top: 2px !important;
+  
+  /* 文本样式 */
+  color: var(--text-primary) !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+  
+  /* 确保不重叠 */
+  overflow: visible !important;
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+/* === 自定义菜单内容 === */
+.menu-item-content {
+  display: block !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+
+.menu-item-content > div {
+  display: block !important;
+  width: 100% !important;
+  margin: 0 0 4px 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  word-wrap: break-word !important;
+}
+
+.menu-item-content > div:first-child {
+  /* 主标题 */
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  color: var(--text-primary) !important;
+  letter-spacing: 0.5px !important;
+  line-height: 1.3 !important;
+  margin-bottom: 4px !important;
+}
+
+.menu-item-content > div:last-child {
+  /* 副标题 */
+  font-size: 0.7rem !important;
+  color: var(--text-muted) !important;
+  line-height: 1.2 !important;
+  margin-bottom: 0 !important;
+}
+
+/* === 交互状态 === */
+.ant-menu.ant-menu-dark .ant-menu-item:hover {
+  background: rgba(0, 217, 255, 0.1) !important;
+  border-color: rgba(0, 217, 255, 0.3) !important;
+  color: var(--primary-color) !important;
+}
+
+.ant-menu.ant-menu-dark .ant-menu-item:hover .menu-item-content > div:first-child {
+  color: var(--primary-color) !important;
+}
+
+.ant-menu.ant-menu-dark .ant-menu-item-selected {
+  background: rgba(0, 217, 255, 0.15) !important;
+  border-color: rgba(0, 217, 255, 0.5) !important;
+  color: var(--primary-color) !important;
+}
+
+.ant-menu.ant-menu-dark .ant-menu-item-selected .menu-item-content > div:first-child {
+  color: var(--primary-color) !important;
+}
+
+/* === 折叠状态 === */
+.ant-menu-inline-collapsed .ant-menu-item {
+  padding: 20px 16px !important;
+  text-align: center !important;
+  min-height: 64px !important;
+}
+
+.ant-menu-inline-collapsed .ant-menu-item .ant-menu-item-icon {
+  margin-right: 0 !important;
+  margin-left: 0 !important;
+  float: none !important;
+  display: block !important;
+  width: 100% !important;
+  text-align: center !important;
+}
+
+.ant-menu-inline-collapsed .ant-menu-item .ant-menu-title-content {
+  display: none !important;
+}
+
+/* === 响应式修复 === */
+@media (max-width: 768px) {
+  .ant-menu.ant-menu-dark .ant-menu-item {
+    min-height: 70px !important;
+    margin-bottom: 8px !important;
+    padding: 12px 12px !important;
+  }
+  
+  .ant-menu.ant-menu-dark .ant-menu-item .ant-menu-item-icon {
+    margin-right: 12px !important;
+    width: 20px !important;
+    height: 20px !important;
+  }
+  
+  .ant-menu.ant-menu-dark .ant-menu-item .ant-menu-title-content {
+    margin-left: 36px !important;
+    min-height: 40px !important;
+  }
+  
+  .menu-item-content > div:first-child {
+    font-size: 0.85rem !important;
+  }
+  
+  .menu-item-content > div:last-child {
+    font-size: 0.65rem !important;
+  }
+}
+
+/* === 最高优先级修复 === */
+.ant-menu.ant-menu-dark.ant-menu-inline .ant-menu-item {
+  height: auto !important;
+  min-height: 80px !important;
+  line-height: 1.4 !important;
+  padding: 16px !important;
+  margin: 0 0 12px 0 !important;
+  display: block !important;
+  position: relative !important;
+  overflow: visible !important;
+}
+
+/* === 清除可能的浮动问题 === */
+.ant-menu.ant-menu-dark .ant-menu-item {
+  clear: both !important;
+}
+
+.ant-menu.ant-menu-dark .ant-menu-item:after {
+  content: "" !important;
+  display: table !important;
+  clear: both !important;
+}
+
+/* === 强制垂直排列 === */
+.ant-menu.ant-menu-dark {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.ant-menu.ant-menu-dark .ant-menu-item {
+  flex: none !important;
+  width: 100% !important;
+  order: unset !important;
+}

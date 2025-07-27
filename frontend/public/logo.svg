@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 外层圆环 - 代表全方位覆盖 -->
+  <circle cx="32" cy="32" r="30" stroke="url(#gradient1)" stroke-width="2" fill="none" opacity="0.8"/>
+  
+  <!-- 内层六边形 - 代表几何建模 -->
+  <polygon points="32,8 48,20 48,44 32,56 16,44 16,20" 
+           fill="url(#gradient2)" 
+           stroke="url(#gradient1)" 
+           stroke-width="1.5" 
+           opacity="0.9"/>
+  
+  <!-- 中心立方体 - 代表3D CAD -->
+  <g transform="translate(32,32)">
+    <!-- 立方体前面 -->
+    <path d="M-8,-8 L8,-8 L8,8 L-8,8 Z" fill="url(#gradient3)" opacity="0.95"/>
+    <!-- 立方体右面 -->
+    <path d="M8,-8 L14,-14 L14,2 L8,8 Z" fill="url(#gradient4)" opacity="0.8"/>
+    <!-- 立方体顶面 -->
+    <path d="M-8,-8 L-2,-14 L14,-14 L8,-8 Z" fill="url(#gradient5)" opacity="0.9"/>
+  </g>
+  
+  <!-- 数据流线条 - 代表深度分析 -->
+  <path d="M8,32 Q16,24 24,32 Q32,40 40,32 Q48,24 56,32" 
+        stroke="url(#gradient1)" 
+        stroke-width="2" 
+        fill="none" 
+        opacity="0.6">
+    <animate attributeName="stroke-dasharray" values="0,20;20,0;0,20" dur="3s" repeatCount="indefinite"/>
+  </path>
+  
+  <!-- 梯度定义 -->
+  <defs>
+    <!-- 主要渐变 - 青蓝色 -->
+    <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00d9ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0066cc;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- 六边形渐变 -->
+    <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00d9ff;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#0066cc;stop-opacity:0.1" />
+    </linearGradient>
+    
+    <!-- 立方体前面 -->
+    <linearGradient id="gradient3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00d9ff;stop-opacity:0.9" />
+      <stop offset="100%" style="stop-color:#0099dd;stop-opacity:0.9" />
+    </linearGradient>
+    
+    <!-- 立方体右面 -->
+    <linearGradient id="gradient4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0099dd;stop-opacity:0.7" />
+      <stop offset="100%" style="stop-color:#0066cc;stop-opacity:0.7" />
+    </linearGradient>
+    
+    <!-- 立方体顶面 -->
+    <linearGradient id="gradient5" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#33e6ff;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#00d9ff;stop-opacity:0.8" />
+    </linearGradient>
+  </defs>
+</svg>

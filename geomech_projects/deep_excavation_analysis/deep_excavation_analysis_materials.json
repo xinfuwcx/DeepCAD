@@ -1,0 +1,66 @@
+{
+  "properties": [
+    {
+      "model_part_name": "Materials.Clay",
+      "properties_id": 1,
+      "Material": {
+        "constitutive_law": {
+          "name": "SmallStrainUPwDiffOrderPlaneStrainMohrCoulomb"
+        },
+        "Variables": {
+          "COHESION": 20000,
+          "FRICTION_ANGLE": 25,
+          "YOUNG_MODULUS": 10000000.0,
+          "POISSON_RATIO": 0.35,
+          "DENSITY": 1800,
+          "TENSILE_STRENGTH": 0,
+          "PERMEABILITY": 1e-09,
+          "POROSITY": 0.4,
+          "INITIAL_VOID_RATIO": 1.0,
+          "COMPRESSION_INDEX": 0.3
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Materials.Sand",
+      "properties_id": 2,
+      "Material": {
+        "constitutive_law": {
+          "name": "SmallStrainUPwDiffOrderPlaneStrainMohrCoulomb"
+        },
+        "Variables": {
+          "COHESION": 0,
+          "FRICTION_ANGLE": 35,
+          "YOUNG_MODULUS": 25000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 1900,
+          "TENSILE_STRENGTH": 0,
+          "PERMEABILITY": 0.0001,
+          "POROSITY": 0.35,
+          "INITIAL_VOID_RATIO": 0.8,
+          "COMPRESSION_INDEX": 0.05
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Materials.Concrete",
+      "properties_id": 3,
+      "Material": {
+        "constitutive_law": {
+          "name": "LinearElasticPlaneStrain2DLaw"
+        },
+        "Variables": {
+          "COHESION": 0,
+          "FRICTION_ANGLE": 0,
+          "YOUNG_MODULUS": 30000000000.0,
+          "POISSON_RATIO": 0.2,
+          "DENSITY": 2400,
+          "TENSILE_STRENGTH": 3000000.0
+        },
+        "Tables": {}
+      }
+    }
+  ]
+}

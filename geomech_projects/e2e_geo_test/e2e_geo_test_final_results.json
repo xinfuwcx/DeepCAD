@@ -1,0 +1,30 @@
+{
+  "analysis_summary": {
+    "total_stages": 1,
+    "max_displacement_mm": 12.441820690964875,
+    "max_stress_mpa": 3.413923750236376,
+    "min_safety_factor": 2.083157190379003,
+    "analysis_status": "completed"
+  },
+  "stage_by_stage_results": [
+    {
+      "stage_name": "Test_Stage",
+      "excavation_depth": 4.0,
+      "max_displacement": 0.012441820690964875,
+      "max_stress": 3413923.750236376,
+      "safety_factor": 2.083157190379003,
+      "convergence": true
+    }
+  ],
+  "engineering_assessment": {
+    "displacement_status": "safe",
+    "stability_status": "safe",
+    "overall_safety": "acceptable",
+    "risk_level": "low"
+  },
+  "recommendations": [
+    "建立完善的监测系统，实时跟踪关键指标",
+    "制定应急预案，确保施工安全",
+    "定期检查支护结构完整性"
+  ]
+}

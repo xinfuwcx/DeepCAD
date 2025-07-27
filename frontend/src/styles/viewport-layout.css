@@ -1,0 +1,146 @@
+/**
+ * 3D Viewport Layout Styles
+ * Ensures the CAE3DViewport fills the bottom-right screen area
+ */
+
+.fill-viewport-bottom-right {
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: calc(100vh - 200px) !important;
+  background: var(--bg-primary) !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+
+.fill-viewport-bottom-right canvas {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 12px !important;
+}
+
+/* Grid and cube view integration */
+.cae-3d-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(135deg, 
+    rgba(26, 26, 26, 0.95) 0%, 
+    rgba(40, 40, 40, 0.95) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cae-3d-viewport .glass-card {
+  backdrop-filter: blur(10px) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Coordinate system positioning in 3D viewport */
+.coordinate-system {
+  z-index: 100 !important;
+}
+
+.coordinate-system-canvas {
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.coordinate-system-labels {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 101;
+}
+
+.axis-label {
+  position: absolute;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: bold;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+  transition: all 0.2s ease;
+}
+
+.axis-label.hovered {
+  color: var(--primary-color);
+  text-shadow: 0 0 8px var(--primary-color);
+  transform: scale(1.2);
+}
+
+.axis-label.x-label {
+  bottom: 10px;
+  right: 15px;
+  color: #ff4444;
+}
+
+.axis-label.y-label {
+  top: 15px;
+  right: 15px;
+  color: #44ff44;
+}
+
+.axis-label.z-label {
+  top: 15px;
+  left: 15px;
+  color: #4444ff;
+}
+
+/* Performance optimizations for 3D viewport */
+.cae-3d-viewport canvas {
+  image-rendering: auto;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+@media (max-width: 768px) {
+  .fill-viewport-bottom-right {
+    min-height: calc(100vh - 250px) !important;
+  }
+}
+
+/* Integration with dashboard layout */
+.dashboard-3d-integration {
+  display: flex;
+  height: 100%;
+  gap: 12px;
+}
+
+.dashboard-3d-integration .tools-panel {
+  width: 50%;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.dashboard-3d-integration .viewport-panel {
+  width: 50%;
+  height: 100%;
+  position: relative;
+}
+
+/* Ensure 3D viewport toolbar is properly positioned */
+.cae-3d-viewport .absolute.top-4.right-4 {
+  top: 16px !important;
+  right: 16px !important;
+  z-index: 50 !important;
+}
+
+.cae-3d-viewport .absolute.bottom-4.left-4 {
+  bottom: 16px !important;
+  left: 16px !important;
+  z-index: 50 !important;
+}
+
+.cae-3d-viewport .absolute.bottom-4.right-4 {
+  bottom: 16px !important;
+  right: 16px !important;
+  z-index: 50 !important;
+}

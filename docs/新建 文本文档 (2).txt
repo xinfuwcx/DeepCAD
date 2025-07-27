@@ -1,0 +1,20 @@
+在 docs 目录与项目根目录的文档中，直接聚焦「界面 / 前端（UI、React、Three.js、Material-UI 等）」主题的文件主要有以下几份——按覆盖深度与专注度大致从高到低排列，供你快速定位：
+docs/ui_enhancement_summary.md
+专题性总结：深基坑分析系统界面美化的目标、配色方案、MUI 主题定制、交互优化成效等。
+docs/zhuque_architecture_technical_guide.md
+整体技术方案文档，其中第 2 章「前端技术栈」与第 4 章「前端集成」专门讲 React + TS + Three.js 架构、服务层设计、与微服务通信方式等。
+docs/zhuque_architecture_design.md
+架构设计说明，第 1.2 节列出前端技术选型（React、Three.js），并在阶段规划中包含「计算界面优化」。
+docs/unified_cae_architecture_design.md
+统一 CAE 架构长文，第 3.1 节「前端架构：工作台模式 + 云原生 UI」提供前端整体设计、工作台概念、启动命令等。
+docs/step3_user_experience.md
+“分步实施”系列第三篇，关注用户体验：交互流程、界面原型、可用性指标，对前端实现有直接指导意义。
+docs/rendering_optimization_summary.md
+Three.js / WebGL 渲染性能优化笔记，面向前端 3D 场景的帧率、LOD、材质等调优。
+docs/technical_summary_2025_01_27.md
+技术周报性质的总结，其中「前端核心系统」「前端工具」两节记录近期 UI / 前端迭代要点。
+docs/zhuque_architecture_implementation_plan.md
+实施计划文档，任务分配表中有“前端开发工程师”及“完成前端与微服务的集成”等里程碑，可了解前端排期。
+README.md（项目根目录）
+快速指南里包含「前端」章节：依赖、启动脚本等。
+如需进一步细读，只需打开上述文件即可获取完整内容。
