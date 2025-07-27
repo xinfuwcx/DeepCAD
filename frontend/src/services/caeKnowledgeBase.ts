@@ -210,7 +210,7 @@ export const globalVectorDB = new SimpleVectorDatabase();
 
 // 初始化专业知识条目
 export const initializeKnowledgeBase = async () => {
-  const knowledgeEntries: KnowledgeEntry[] = [
+  const mockKnowledgeEntries: KnowledgeEntry[] = [
     {
       id: 'deep-excavation-basics',
       category: 'deep_excavation',
@@ -505,11 +505,15 @@ export const initializeKnowledgeBase = async () => {
   ];
   
   // 添加到向量数据库
-  for (const entry of knowledgeEntries) {
+  for (const entry of mockKnowledgeEntries) {
     await globalVectorDB.addEntry(entry);
   }
   
-  console.log(`已初始化 ${knowledgeEntries.length} 条CAE专业知识条目`);
+  console.log(`已初始化 ${mockKnowledgeEntries.length} 条CAE专业知识条目`);
+  
+  // 设置全局mock数据供KnowledgeBaseAPI使用
+  setMockKnowledgeEntries(mockKnowledgeEntries);
+  return mockKnowledgeEntries;
 };
 
 // 知识库查询接口
@@ -526,6 +530,11 @@ export class KnowledgeBaseAPI {
     return await globalVectorDB.findSimilar(entryId);
   }
   
+  static async getAllEntries(): Promise<KnowledgeEntry[]> {
+    // 返回所有知识条目（从全局mock数据库获取）
+    return globalMockKnowledgeEntries;
+  }
+  
   static async addKnowledge(entry: Omit<KnowledgeEntry, 'id' | 'lastUpdated'>): Promise<string> {
     const newEntry: KnowledgeEntry = {
       ...entry,
@@ -537,5 +546,13 @@ export class KnowledgeBaseAPI {
     return newEntry.id;
   }
 }
+
+// 全局mock数据，供KnowledgeBaseAPI使用
+let globalMockKnowledgeEntries: KnowledgeEntry[] = [];
+
+// 初始化时设置mock数据
+export const setMockKnowledgeEntries = (entries: KnowledgeEntry[]) => {
+  globalMockKnowledgeEntries = entries;
+};
 
 export default KnowledgeBaseAPI;

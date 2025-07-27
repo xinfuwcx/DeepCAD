@@ -1,17 +1,17 @@
 /**
  * 天气效果控制面板 - 1号专家炫酷天气系统控制界面
  * 提供雨雪雾云彩等所有天气效果的实时控制
- * 与Epic控制中心完美集成
+ * 与控制中心完美集成
  */
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GeoThreeMapController } from '../../services/GeoThreeMapController';
+import { GeoThreeController } from '../../services/GeoThreeController';
 
 // ======================= 接口定义 =======================
 
 interface WeatherControlPanelProps {
-  mapController: GeoThreeMapController | null;
+  mapController: GeoThreeController | null;
   isVisible: boolean;
   onClose: () => void;
 }
@@ -330,7 +330,7 @@ export const WeatherControlPanel: React.FC<WeatherControlPanelProps> = ({
                   fontSize: '16px',
                   textShadow: '0 0 10px rgba(0, 255, 255, 0.5)'
                 }}>
-                  Epic天气控制
+                  天气控制中心
                 </h3>
                 <p style={{ 
                   color: 'rgba(255, 255, 255, 0.7)', 

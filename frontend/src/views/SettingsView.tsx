@@ -6,7 +6,11 @@ import {
   ReloadOutlined,
   BulbOutlined,
   GlobalOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  ExperimentOutlined,
+  SafetyOutlined,
+  CalculatorOutlined,
+  EnvironmentOutlined
 } from '@ant-design/icons';
 
 const { Content } = Layout;
@@ -25,6 +29,17 @@ const SettingsView: React.FC = () => {
     showGrid: true,
     showAxisHelper: true,
     enableHotkeys: true,
+    // 深基坑CAE专业设置
+    geologySolver: 'kratos',
+    meshQuality: 'high',
+    analysisType: 'coupled',
+    safetyFactors: {
+      bearing: 2.0,
+      sliding: 1.5,
+      overturning: 2.0
+    },
+    materialDatabase: 'chinese_standard',
+    designCode: 'JGJ120-2012'
   });
 
   const handleSave = () => {
@@ -45,6 +60,17 @@ const SettingsView: React.FC = () => {
       showGrid: true,
       showAxisHelper: true,
       enableHotkeys: true,
+      // 深基坑CAE专业设置
+      geologySolver: 'kratos',
+      meshQuality: 'high',
+      analysisType: 'coupled',
+      safetyFactors: {
+        bearing: 2.0,
+        sliding: 1.5,
+        overturning: 2.0
+      },
+      materialDatabase: 'chinese_standard',
+      designCode: 'JGJ120-2012'
     };
     setSettings(defaultSettings);
     form.setFieldsValue(defaultSettings);
@@ -184,6 +210,95 @@ const SettingsView: React.FC = () => {
                 </Card>
               </Col>
 
+              {/* CAE专业设置 */}
+              <Col span={12}>
+                <Card 
+                  title={
+                    <span>
+                      <ExperimentOutlined style={{ marginRight: '8px', color: '#00d9ff' }} />
+                      CAE专业设置
+                    </span>
+                  }
+                  style={{ height: '400px' }}
+                >
+                  <Form.Item label="地质求解器" name="geologySolver">
+                    <Select>
+                      <Option value="kratos">Kratos多物理场</Option>
+                      <Option value="plaxis">Plaxis岩土</Option>
+                      <Option value="abaqus">Abaqus通用</Option>
+                    </Select>
+                  </Form.Item>
+
+                  <Form.Item label="网格质量" name="meshQuality">
+                    <Select>
+                      <Option value="coarse">粗网格</Option>
+                      <Option value="medium">中等网格</Option>
+                      <Option value="fine">细网格</Option>
+                      <Option value="ultra">超细网格</Option>
+                    </Select>
+                  </Form.Item>
+
+                  <Form.Item label="分析类型" name="analysisType">
+                    <Select>
+                      <Option value="static">静力分析</Option>
+                      <Option value="dynamic">动力分析</Option>
+                      <Option value="coupled">流固耦合</Option>
+                      <Option value="thermal">热力耦合</Option>
+                    </Select>
+                  </Form.Item>
+                </Card>
+              </Col>
+
+              {/* 工程规范设置 */}
+              <Col span={12}>
+                <Card 
+                  title={
+                    <span>
+                      <SafetyOutlined style={{ marginRight: '8px', color: '#00d9ff' }} />
+                      工程规范设置
+                    </span>
+                  }
+                  style={{ height: '400px' }}
+                >
+                  <Form.Item label="设计规范" name="designCode">
+                    <Select>
+                      <Option value="JGJ120-2012">建筑基坑支护技术规程</Option>
+                      <Option value="GB50007-2011">建筑地基基础设计规范</Option>
+                      <Option value="JTS165-2013">海港工程地基规范</Option>
+                      <Option value="DG/TJ08-61-2018">上海地基基础规范</Option>
+                    </Select>
+                  </Form.Item>
+
+                  <Form.Item label="材料数据库" name="materialDatabase">
+                    <Select>
+                      <Option value="chinese_standard">中国标准材料库</Option>
+                      <Option value="international">国际通用材料库</Option>
+                      <Option value="custom">自定义材料库</Option>
+                    </Select>
+                  </Form.Item>
+
+                  <Form.Item label="承载力安全系数">
+                    <InputNumber
+                      min={1.2}
+                      max={3.0}
+                      step={0.1}
+                      defaultValue={2.0}
+                      style={{ width: '100%' }}
+                    />
+                  </Form.Item>
+
+                  <Form.Item label="抗滑移安全系数">
+                    <InputNumber
+                      min={1.2}
+                      max={2.5}
+                      step={0.1}
+                      defaultValue={1.5}
+                      style={{ width: '100%' }}
+                    />
+                  </Form.Item>
+                </Card>
+              </Col>
+
               {/* 高级设置 */}
               <Col span={12}>
                 <Card 
@@ -210,8 +325,47 @@ const SettingsView: React.FC = () => {
                   <Divider />
                   
                   <Text type="secondary" style={{ fontSize: '12px' }}>
-                    DeepCAD v1.0.0 - 专业CAE建模平台
+                    DeepCAD v1.0.0 - 专业深基坑CAE平台
                   </Text>
+                </Card>
+              </Col>
+
+              {/* 计算设置 */}
+              <Col span={12}>
+                <Card 
+                  title={
+                    <span>
+                      <CalculatorOutlined style={{ marginRight: '8px', color: '#00d9ff' }} />
+                      计算设置
+                    </span>
+                  }
+                  style={{ height: '300px' }}
+                >
+                  <Form.Item label="GPU加速" valuePropName="checked">
+                    <Switch />
+                  </Form.Item>
+
+                  <Form.Item label="并行计算" valuePropName="checked" initialValue={true}>
+                    <Switch />
+                  </Form.Item>
+
+                  <Form.Item label="内存限制 (GB)">
+                    <InputNumber
+                      min={4}
+                      max={64}
+                      defaultValue={16}
+                      style={{ width: '100%' }}
+                    />
+                  </Form.Item>
+
+                  <Form.Item label="收敛精度">
+                    <Select defaultValue="1e-6">
+                      <Option value="1e-4">1×10⁻⁴ (粗糙)</Option>
+                      <Option value="1e-5">1×10⁻⁵ (标准)</Option>
+                      <Option value="1e-6">1×10⁻⁶ (精细)</Option>
+                      <Option value="1e-7">1×10⁻⁷ (超精细)</Option>
+                    </Select>
+                  </Form.Item>
                 </Card>
               </Col>
             </Row>

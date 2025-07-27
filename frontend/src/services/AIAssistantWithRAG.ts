@@ -105,11 +105,11 @@ class VectorSimilarityCalculator {
 // ======================= 知识检索器 =======================
 
 class KnowledgeRetriever {
-  private knowledgeBase: KnowledgeBaseAPI;
+  private knowledgeBase: typeof KnowledgeBaseAPI;
   private similarityCalculator: VectorSimilarityCalculator;
   private corpus: string[] = [];
   
-  constructor(knowledgeBase: KnowledgeBaseAPI) {
+  constructor(knowledgeBase: typeof KnowledgeBaseAPI) {
     this.knowledgeBase = knowledgeBase;
     this.similarityCalculator = new VectorSimilarityCalculator();
   }
@@ -328,7 +328,7 @@ class AIResponseGenerator {
 // ======================= 主AI助手类 =======================
 
 export class AIAssistantWithRAG {
-  private knowledgeBase: KnowledgeBaseAPI;
+  private knowledgeBase: typeof KnowledgeBaseAPI;
   private retriever: KnowledgeRetriever;
   private responseGenerator: AIResponseGenerator;
   private chatHistory: ChatMessage[] = [];
@@ -344,7 +344,7 @@ export class AIAssistantWithRAG {
       ...config
     };
     
-    this.knowledgeBase = new KnowledgeBaseAPI();
+    this.knowledgeBase = KnowledgeBaseAPI; // 使用静态类
     this.retriever = new KnowledgeRetriever(this.knowledgeBase);
     this.responseGenerator = new AIResponseGenerator();
   }
@@ -352,7 +352,8 @@ export class AIAssistantWithRAG {
   public async initialize(): Promise<void> {
     console.log('🤖 正在初始化RAG增强AI助手...');
     
-    await this.knowledgeBase.initialize();
+    // KnowledgeBaseAPI是静态类，不需要初始化
+    // await this.knowledgeBase.initialize();
     await this.retriever.initializeCorpus();
     
     // 添加系统消息

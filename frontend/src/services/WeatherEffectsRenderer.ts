@@ -6,7 +6,7 @@
  */
 
 import * as THREE from 'three';
-import { WeatherData } from './OpenMeteoService';
+import { WeatherData } from '../types/weather';
 
 // ======================= 接口定义 =======================
 

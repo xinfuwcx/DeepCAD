@@ -30,11 +30,14 @@ export class SimpleTileRenderer {
   private currentZoom = 8;
   private centerCoord: GeographicCoordinate = { lat: 31.2304, lng: 121.4737 };
   
-  // 瓦片服务URL (优先使用最稳定的)
+  // 瓦片服务URL (优先使用最稳定的，增加备用选项)
   private readonly TILE_URLS = {
     osm: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     google_satellite: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-    cartodb_dark: 'https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png'
+    cartodb_dark: 'https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png',
+    // 备用URL - 如果主要的不工作
+    backup_osm: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    wikimedia: 'https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png'
   };
   
   private currentStyle: keyof typeof this.TILE_URLS = 'osm';
@@ -102,45 +105,69 @@ export class SimpleTileRenderer {
   }
 
   /**
-   * 加载瓦片纹理
+   * 加载瓦片纹理 - 增强版，带备用URL和超时处理
    */
   private async loadTileTexture(mesh: THREE.Mesh, x: number, y: number, z: number): Promise<boolean> {
-    return new Promise((resolve) => {
-      const url = this.getTileUrl(x, y, z);
-      console.log(`🌐 加载瓦片: ${z}/${x}/${y} - ${url}`);
-
-      this.loader.load(
-        url,
-        (texture) => {
-          // 配置纹理
-          texture.flipY = false;
-          texture.wrapS = THREE.ClampToEdgeWrapping;
-          texture.wrapT = THREE.ClampToEdgeWrapping;
-          texture.minFilter = THREE.LinearFilter;
-          texture.magFilter = THREE.LinearFilter;
-
-          // 应用到材质
-          const material = mesh.material as THREE.MeshBasicMaterial;
-          material.map = texture;
-          material.color.setHex(0xffffff); // 白色以显示真实纹理
-          material.needsUpdate = true;
-
-          console.log(`✅ 瓦片加载成功: ${z}/${x}/${y}`);
-          resolve(true);
-        },
-        undefined, // progress callback
-        (error) => {
-          console.warn(`⚠️ 瓦片加载失败: ${z}/${x}/${y}`, error);
-          
-          // 设置错误颜色
-          const material = mesh.material as THREE.MeshBasicMaterial;
-          material.color.setHex(0xff6666); // 红色表示加载失败
-          material.needsUpdate = true;
-          
+    const urls = [
+      this.getTileUrl(x, y, z),
+      // 备用URL
+      `https://a.tile.openstreetmap.org/${z}/${x}/${y}.png`,
+      `https://maps.wikimedia.org/osm-intl/${z}/${x}/${y}.png`
+    ];
+    
+    // 尝试每个URL
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
+      console.log(`🌐 尝试加载瓦片 ${i + 1}/${urls.length}: ${z}/${x}/${y} - ${url}`);
+      
+      const success = await new Promise<boolean>((resolve) => {
+        const timeoutId = setTimeout(() => {
+          console.warn(`⏰ 瓦片加载超时: ${z}/${x}/${y} - ${url}`);
           resolve(false);
-        }
-      );
-    });
+        }, 8000); // 8秒超时
+        
+        this.loader.load(
+          url,
+          (texture) => {
+            clearTimeout(timeoutId);
+            
+            // 配置纹理
+            texture.flipY = false;
+            texture.wrapS = THREE.ClampToEdgeWrapping;
+            texture.wrapT = THREE.ClampToEdgeWrapping;
+            texture.minFilter = THREE.LinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+
+            // 应用到材质
+            const material = mesh.material as THREE.MeshBasicMaterial;
+            material.map = texture;
+            material.color.setHex(0xffffff); // 白色以显示真实纹理
+            material.needsUpdate = true;
+
+            console.log(`✅ 瓦片加载成功: ${z}/${x}/${y} (尝试 ${i + 1})`);
+            resolve(true);
+          },
+          undefined, // progress callback
+          (error) => {
+            clearTimeout(timeoutId);
+            console.warn(`⚠️ 瓦片加载失败: ${z}/${x}/${y} (尝试 ${i + 1})`, error);
+            resolve(false);
+          }
+        );
+      });
+      
+      if (success) {
+        return true;
+      }
+    }
+    
+    // 所有URL都失败了，显示错误颜色
+    console.error(`❌ 所有URL都失败: ${z}/${x}/${y}`);
+    const material = mesh.material as THREE.MeshBasicMaterial;
+    material.color.setHex(0xff6666); // 红色表示加载失败
+    material.needsUpdate = true;
+    
+    return false;
   }
 
   /**
@@ -148,6 +175,8 @@ export class SimpleTileRenderer {
    */
   public async loadVisibleTiles(): Promise<void> {
     console.log('🚀 SimpleTileRenderer: 开始加载可见瓦片...');
+    console.log(`📍 地图中心: ${this.centerCoord.lat}, ${this.centerCoord.lng}`);
+    console.log(`🔍 缩放级别: ${this.currentZoom}`);
     
     // 清除现有瓦片
     this.clearAllTiles();
@@ -155,6 +184,9 @@ export class SimpleTileRenderer {
     // 计算中心瓦片
     const centerTile = this.lngLatToTile(this.centerCoord.lng, this.centerCoord.lat, this.currentZoom);
     console.log(`📍 中心瓦片: ${centerTile.z}/${centerTile.x}/${centerTile.y}`);
+    
+    // 首先创建一个明显的彩色瓦片作为基底，确保有东西显示
+    this.createFallbackTiles(centerTile);
     
     // 加载3x3网格的瓦片
     const radius = 1; // 3x3 = (2*1+1)²
@@ -199,11 +231,14 @@ export class SimpleTileRenderer {
       console.log(`✅ 瓦片加载完成: ${successCount}/${totalTiles} 成功`);
       
       if (successCount === 0) {
-        console.error('❌ 所有瓦片都加载失败！可能是网络问题或CORS限制');
-        this.showErrorMessage();
+        console.error('❌ 所有瓦片都加载失败！显示备用地图');
+        this.showColorfulFallback();
       } else {
         console.log('🎉 至少有部分瓦片加载成功，地图应该可见了！');
       }
+      
+      // 强制触发一次渲染
+      this.renderer.render(this.scene, this.camera);
       
     } catch (error) {
       console.error('❌ 瓦片加载过程中出现错误:', error);

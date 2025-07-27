@@ -6,7 +6,7 @@
  */
 
 import * as THREE from 'three';
-import { openMeteoService, WeatherData } from './OpenMeteoService';
+import { WeatherData } from '../types/weather';
 import { WeatherEffectsRenderer } from './WeatherEffectsRenderer';
 import { CloudRenderingSystem } from './CloudRenderingSystem';
 import { SimpleTileRenderer } from './SimpleTileRenderer';

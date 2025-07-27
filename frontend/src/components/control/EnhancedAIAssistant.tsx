@@ -1,7 +1,7 @@
 /**
  * 增强版AI助手面板 - 1号专家RAG智能对话系统
  * 集成检索增强生成功能，提供专业级AI问答体验
- * 炫酷未来感UI设计，完美融入Epic控制中心
+ * 炫酷未来感UI设计，完美融入控制中心
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';

@@ -14,6 +14,7 @@ import {
 } from '@ant-design/icons';
 import { useSceneStore } from '../../stores/useSceneStore';
 import { useShallow } from 'zustand/react/shallow';
+import { MeshGenerationRequest } from '../../services/meshingService';
 import { 
   AnimatedNumberInput, 
   AnimatedSelect, 
@@ -26,6 +27,14 @@ const { Text } = Typography;
 
 interface PileSystemProps {
   component: any;
+  systemConfig?: {
+    systemType: 'pile_anchor' | 'diaphragm_anchor';
+    pileSystem?: {
+      calculationMode: 'beam_calculation' | 'equivalent_shell';
+      needsCrownBeam: boolean;
+    };
+  };
+  onCalculationModeChange?: (mode: 'beam_calculation' | 'equivalent_shell') => void;
 }
 
 // 冠梁配置接口
@@ -51,9 +60,14 @@ interface PileConfiguration {
   pile_type: 'bored' | 'driven' | 'cast_in_place';
   concrete_grade: string;
   reinforcement_ratio: number;
+  calculation_mode: 'beam_calculation' | 'equivalent_shell'; // 新增：计算模式
 }
 
-const PileSystemForm: React.FC<PileSystemProps> = ({ component }) => {
+const PileSystemForm: React.FC<PileSystemProps> = ({ 
+  component, 
+  systemConfig, 
+  onCalculationModeChange 
+}) => {
   const [form] = Form.useForm();
   const [activeTab, setActiveTab] = useState('pile');
   
@@ -64,7 +78,8 @@ const PileSystemForm: React.FC<PileSystemProps> = ({ component }) => {
     pile_bottom_elevation: component.pile_bottom_elevation || -15.0,
     pile_type: component.pile_type || 'bored',
     concrete_grade: component.concrete_grade || 'C30',
-    reinforcement_ratio: component.reinforcement_ratio || 0.8
+    reinforcement_ratio: component.reinforcement_ratio || 0.8,
+    calculation_mode: component.calculation_mode || 'beam_calculation' // 默认梁计算模式
   });
 
   const [crownBeam, setCrownBeam] = useState<CrownBeam>({
@@ -87,6 +102,25 @@ const PileSystemForm: React.FC<PileSystemProps> = ({ component }) => {
     }))
   );
 
+  // Fragment网格生成API调用
+  const callFragmentMeshAPI = async (request: MeshGenerationRequest) => {
+    const response = await fetch('/api/meshing/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request)
+    });
+    return response.json();
+  };
+
+  const validateFragmentAPI = async (request: MeshGenerationRequest) => {
+    const response = await fetch('/api/meshing/validate-fragments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request)
+    });
+    return response.json();
+  };
+
   useEffect(() => {
     form.setFieldsValue({
       ...pileConfig,
@@ -94,14 +128,84 @@ const PileSystemForm: React.FC<PileSystemProps> = ({ component }) => {
     });
   }, [pileConfig, crownBeam, form]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const values = form.getFieldsValue();
+    
+    // 更新组件配置
     updateComponent(component.id, {
       ...component,
       ...pileConfig,
       crown_beam: crownBeam,
       system_type: 'pile_with_crown_beam'
     });
+
+    // 如果启用了Fragment配置，调用网格生成API
+    if (systemConfig?.fragmentConfig?.enable_fragment) {
+      try {
+        // 生成排桩的Fragment配置
+        const pileFragments = [{
+          id: `pile_system_${component.id}`,
+          name: '排桩支护结构',
+          fragment_type: 'structure' as const,
+          geometry: {
+            type: 'auto_pile_layout' as const,
+            geometry: {
+              excavation_boundary: systemConfig.fragmentConfig.excavation_geometry?.boundary_points || [],
+              pile_diameter: pileConfig.pile_diameter,
+              pile_spacing: pileConfig.pile_spacing,
+              pile_top_elevation: pileConfig.pile_top_elevation,
+              pile_bottom_elevation: pileConfig.pile_bottom_elevation,
+              calculation_mode: pileConfig.calculation_mode,
+              crown_beam_enabled: crownBeam.enabled
+            }
+          },
+          mesh_properties: {
+            element_size: 0.5,
+            element_type: 'tetrahedral',
+            mesh_density: 'fine'
+          },
+          enabled: true,
+          priority: 2
+        }];
+
+        const meshRequest: MeshGenerationRequest = {
+          boundingBoxMin: [-25, -25, Math.min(pileConfig.pile_bottom_elevation - 5, -20)],
+          boundingBoxMax: [25, 25, Math.max(pileConfig.pile_top_elevation + 5, 5)],
+          meshSize: 1.0,
+          clientId: `pile_system_${component.id}`,
+          enable_fragment: true,
+          domain_fragments: [
+            // 基坑开挖Fragment
+            ...(systemConfig.fragmentConfig.domain_fragments || []),
+            // 排桩Fragment
+            ...pileFragments
+          ],
+          global_mesh_settings: {
+            element_type: 'tetrahedral',
+            default_element_size: 1.0,
+            mesh_quality: 'medium',
+            mesh_smoothing: true
+          }
+        };
+
+        console.log('发送Fragment网格生成请求:', meshRequest);
+        
+        // 验证Fragment配置
+        const validation = await validateFragmentAPI(meshRequest);
+        if (!validation.is_valid) {
+          console.warn('Fragment配置验证失败:', validation.errors);
+          // TODO: 显示用户友好的错误信息
+        } else {
+          // 生成网格
+          const meshResult = await callFragmentMeshAPI(meshRequest);
+          console.log('Fragment网格生成成功:', meshResult);
+          // TODO: 更新UI显示生成结果
+        }
+      } catch (error) {
+        console.error('Fragment网格生成失败:', error);
+        // TODO: 显示错误信息给用户
+      }
+    }
   };
 
   // 计算桩长
@@ -127,6 +231,23 @@ const PileSystemForm: React.FC<PileSystemProps> = ({ component }) => {
     { value: 'C40', label: 'C40' },
     { value: 'C45', label: 'C45' }
   ];
+
+  // 新增：获取计算模式选项
+  const getCalculationModeOptions = () => [
+    { value: 'beam_calculation', label: '按梁计算（考虑冠梁影响）' },
+    { value: 'equivalent_shell', label: '等效壳元计算（不考虑冠梁）' }
+  ];
+
+  // 新增：根据体系配置判断是否需要冠梁
+  const shouldShowCrownBeam = () => {
+    return systemConfig?.pileSystem?.needsCrownBeam ?? (pileConfig.calculation_mode === 'beam_calculation');
+  };
+
+  // 处理计算模式变化
+  const handleCalculationModeChange = (mode: 'beam_calculation' | 'equivalent_shell') => {
+    setPileConfig(prev => ({ ...prev, calculation_mode: mode }));
+    onCalculationModeChange?.(mode);
+  };
 
   return (
     <Form
@@ -240,6 +361,23 @@ const PileSystemForm: React.FC<PileSystemProps> = ({ component }) => {
               </Col>
             </Row>
 
+            {/* 新增：计算模式选择 */}
+            <Row gutter={16} style={{ marginTop: '16px' }}>
+              <Col span={24}>
+                <FormItemWithTooltip
+                  label="计算模式"
+                  tooltip="选择排桩的计算方式，影响是否需要考虑冠梁"
+                >
+                  <Select
+                    value={pileConfig.calculation_mode}
+                    onChange={handleCalculationModeChange}
+                    options={getCalculationModeOptions()}
+                    style={{ width: '100%' }}
+                  />
+                </FormItemWithTooltip>
+              </Col>
+            </Row>
+
             <FormItemWithTooltip
               label="配筋率"
               tooltip="桩身钢筋配筋率"
@@ -271,11 +409,12 @@ const PileSystemForm: React.FC<PileSystemProps> = ({ component }) => {
           />
         </TabPane>
 
-        {/* 冠梁配置 */}
-        <TabPane 
-          tab={<Space><BorderBottomOutlined />冠梁配置</Space>} 
-          key="crown"
-        >
+        {/* 冠梁配置 - 根据计算模式显示 */}
+        {shouldShowCrownBeam() && (
+          <TabPane 
+            tab={<Space><BorderBottomOutlined />冠梁配置</Space>} 
+            key="crown"
+          >
           <Card title="冠梁参数" size="small">
             <FormItemWithTooltip
               label="启用冠梁"
@@ -440,6 +579,7 @@ const PileSystemForm: React.FC<PileSystemProps> = ({ component }) => {
             />
           )}
         </TabPane>
+        )}
 
         {/* 截面图 */}
         <TabPane 

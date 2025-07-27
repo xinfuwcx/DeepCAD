@@ -4,6 +4,7 @@ import { DiaphragmWall } from '../../stores/components';
 import { Material } from '../../stores/models';
 import { useSceneStore } from '../../stores/useSceneStore';
 import { useShallow } from 'zustand/react/shallow';
+import { MeshGenerationRequest } from '../../services/meshingService';
 import { 
   SaveOutlined, 
   ToolOutlined, 
@@ -24,9 +25,15 @@ const { Text } = Typography;
 
 interface DiaphragmWallFormProps {
   component: DiaphragmWall;
+  systemConfig?: {
+    systemType: 'pile_anchor' | 'diaphragm_anchor';
+    diaphragmWall?: {
+      isConnected: boolean;
+    };
+  };
 }
 
-const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
+const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component, systemConfig }) => {
   const [form] = Form.useForm();
   const [activeTab, setActiveTab] = useState('wall');
   const wallConfig = Form.useWatch([], form);
@@ -53,12 +60,84 @@ const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
     form.setFieldsValue(initialValues);
   }, [component, form]);
 
-  const handleSave = () => {
+  // Fragment网格生成API调用
+  const callFragmentMeshAPI = async (request: MeshGenerationRequest) => {
+    const response = await fetch('/api/meshing/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request)
+    });
+    return response.json();
+  };
+
+  const handleSave = async () => {
     const values = form.getFieldsValue();
+    
+    // 更新组件配置
     updateComponent(component.id, {
       ...component,
       ...values,
     });
+
+    // 如果启用了Fragment配置，生成地连墙的Fragment
+    if (systemConfig?.fragmentConfig?.enable_fragment) {
+      try {
+        // 生成地连墙的Fragment配置
+        const wallFragment = {
+          id: `diaphragm_wall_${component.id}`,
+          name: '地下连续墙',
+          fragment_type: 'structure' as const,
+          geometry: {
+            type: 'auto_wall_layout' as const,
+            geometry: {
+              excavation_boundary: systemConfig.fragmentConfig.excavation_geometry?.boundary_points || [],
+              wall_thickness: values.thickness,
+              wall_depth: values.depth,
+              panel_length: values.panel_length,
+              joint_type: values.joint_type,
+              construction_method: values.construction_method,
+              is_continuous: true // 地连墙为连续结构
+            }
+          },
+          mesh_properties: {
+            element_size: 0.2,
+            element_type: 'tetrahedral',
+            mesh_density: 'very_fine' // 地连墙需要精细网格
+          },
+          enabled: true,
+          priority: 2
+        };
+
+        const meshRequest: MeshGenerationRequest = {
+          boundingBoxMin: [-25, -25, -Math.abs(values.depth || 20) - 5],
+          boundingBoxMax: [25, 25, 5],
+          meshSize: 0.5,
+          clientId: `diaphragm_wall_${component.id}`,
+          enable_fragment: true,
+          domain_fragments: [
+            // 基坑开挖Fragment
+            ...(systemConfig.fragmentConfig.domain_fragments || []),
+            // 地连墙Fragment
+            wallFragment
+          ],
+          global_mesh_settings: {
+            element_type: 'tetrahedral',
+            default_element_size: 0.5,
+            mesh_quality: 'high',
+            mesh_smoothing: true
+          }
+        };
+
+        console.log('发送地连墙Fragment网格生成请求:', meshRequest);
+        
+        // 生成网格
+        const meshResult = await callFragmentMeshAPI(meshRequest);
+        console.log('地连墙Fragment网格生成成功:', meshResult);
+        
+      } catch (error) {
+        console.error('地连墙Fragment网格生成失败:', error);
+      }
+    }
   };
 
   const getConstructionMethodOptions = () => [
@@ -195,6 +274,16 @@ const DiaphragmWallForm: React.FC<DiaphragmWallFormProps> = ({ component }) => {
           tab={<Space><ColumnWidthOutlined />地连墙配置</Space>} 
           key="wall"
         >
+          {/* 支护体系说明 */}
+          <Alert
+            message="地连墙-锚杆支护体系"
+            description="地连墙为连续结构，具有良好的整体性，锚杆可直接连接墙体传递荷载，无需设置腰梁"
+            type="info"
+            showIcon
+            icon={<InfoCircleOutlined />}
+            style={{ marginBottom: '16px' }}
+          />
+
           <Card title="地连墙参数" size="small">
             <Row gutter={16}>
               <Col span={12}>

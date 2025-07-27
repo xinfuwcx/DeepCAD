@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Form, Card, Row, Col, Divider, Space, InputNumber, Switch, Alert, Table, Button, Popconfirm, Tabs, Select, Typography } from 'antd';
 import { useSceneStore } from '../../stores/useSceneStore';
 import { useShallow } from 'zustand/react/shallow';
+import { MeshGenerationRequest } from '../../services/meshingService';
 import { 
   AnimatedNumberInput, 
   AnimatedSelect, 
@@ -37,9 +38,16 @@ interface WalerBeam {
 
 interface AnchorRodProps {
   component: any;
+  systemConfig?: {
+    systemType: 'pile_anchor' | 'diaphragm_anchor';
+    anchorSystem: {
+      needsWalerBeam: boolean;
+      supportWallType: 'pile' | 'diaphragm_wall';
+    };
+  };
 }
 
-const AnchorRodForm: React.FC<AnchorRodProps> = ({ component }) => {
+const AnchorRodForm: React.FC<AnchorRodProps> = ({ component, systemConfig }) => {
   const [form] = Form.useForm();
   const [activeTab, setActiveTab] = useState('anchors');
   const [anchorRows, setAnchorRows] = useState<AnchorRow[]>(
@@ -99,8 +107,20 @@ const AnchorRodForm: React.FC<AnchorRodProps> = ({ component }) => {
     setGlobalPrestress(component.global_prestress || 0);
   }, [component, form]);
 
-  const handleSave = () => {
+  // Fragment网格生成API调用
+  const callFragmentMeshAPI = async (request: MeshGenerationRequest) => {
+    const response = await fetch('/api/meshing/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request)
+    });
+    return response.json();
+  };
+
+  const handleSave = async () => {
     const values = form.getFieldsValue();
+    
+    // 更新组件配置
     updateComponent(component.id, {
       ...component,
       ...values,
@@ -109,6 +129,70 @@ const AnchorRodForm: React.FC<AnchorRodProps> = ({ component }) => {
       global_prestress: globalPrestress,
       waler_beam: walerBeam,
     });
+
+    // 如果启用了Fragment配置，生成锚杆的Fragment
+    if (systemConfig?.fragmentConfig?.enable_fragment) {
+      try {
+        // 生成锚杆的Fragment配置
+        const anchorFragments = anchorRows
+          .filter(row => row.enabled)
+          .map((row, index) => ({
+            id: `anchor_row_${row.id}`,
+            name: `第${row.rowNumber}排锚杆`,
+            fragment_type: 'structure' as const,
+            geometry: {
+              type: 'auto_anchor_layout' as const,
+              geometry: {
+                excavation_boundary: systemConfig.fragmentConfig?.excavation_geometry?.boundary_points || [],
+                horizontal_spacing: row.horizontalSpacing,
+                vertical_position: row.verticalPosition,
+                anchor_count: row.anchorCount,
+                anchor_angle: values.angle || 15,
+                anchor_length: (values.free_length || 5) + (values.bonded_length || 8),
+                anchor_diameter: values.diameter || 150,
+                support_wall_type: systemConfig.anchorSystem.supportWallType,
+                waler_beam_enabled: walerBeam.enabled && systemConfig.anchorSystem.needsWalerBeam
+              }
+            },
+            mesh_properties: {
+              element_size: 0.3,
+              element_type: 'tetrahedral',
+              mesh_density: 'fine'
+            },
+            enabled: true,
+            priority: 3 + index // 锚杆优先级在排桩之后
+          }));
+
+        const meshRequest: MeshGenerationRequest = {
+          boundingBoxMin: [-30, -30, -Math.max(...anchorRows.map(r => r.verticalPosition)) - 10],
+          boundingBoxMax: [30, 30, 5],
+          meshSize: 0.8,
+          clientId: `anchor_system_${component.id}`,
+          enable_fragment: true,
+          domain_fragments: [
+            // 已有的Fragment
+            ...(systemConfig.fragmentConfig.domain_fragments || []),
+            // 锚杆Fragment
+            ...anchorFragments
+          ],
+          global_mesh_settings: {
+            element_type: 'tetrahedral',
+            default_element_size: 0.8,
+            mesh_quality: 'fine',
+            mesh_smoothing: true
+          }
+        };
+
+        console.log('发送锚杆Fragment网格生成请求:', meshRequest);
+        
+        // 生成网格
+        const meshResult = await callFragmentMeshAPI(meshRequest);
+        console.log('锚杆Fragment网格生成成功:', meshResult);
+        
+      } catch (error) {
+        console.error('锚杆Fragment网格生成失败:', error);
+      }
+    }
   };
 
   // 添加新排
@@ -167,6 +251,21 @@ const AnchorRodForm: React.FC<AnchorRodProps> = ({ component }) => {
     { value: 'hinged', label: '铰接连接' },
     { value: 'elastic', label: '弹性连接' }
   ];
+
+  // 新增：根据支护体系判断是否需要腰梁
+  const shouldShowWalerBeam = () => {
+    return systemConfig?.anchorSystem.needsWalerBeam ?? true;
+  };
+
+  // 获取当前支护墙类型描述
+  const getSupportWallDescription = () => {
+    const wallType = systemConfig?.anchorSystem.supportWallType || 'pile';
+    if (wallType === 'pile') {
+      return '排桩支护体系 - 锚杆需要腰梁分配荷载';
+    } else {
+      return '地连墙支护体系 - 锚杆直接连接墙体';
+    }
+  };
 
   // 渲染腰梁截面图
   const renderWalerSection = () => (
@@ -248,6 +347,15 @@ const AnchorRodForm: React.FC<AnchorRodProps> = ({ component }) => {
           tab={<Space><ToolOutlined />锚杆参数</Space>} 
           key="anchors"
         >
+          {/* 支护体系说明 */}
+          <Alert
+            message="当前支护体系"
+            description={getSupportWallDescription()}
+            type="info"
+            showIcon
+            style={{ marginBottom: '16px' }}
+          />
+
           <div className="form-group">
             <div className="form-group-title">
               <ToolOutlined /> 锚杆参数
@@ -546,11 +654,12 @@ const AnchorRodForm: React.FC<AnchorRodProps> = ({ component }) => {
           </div>
         </TabPane>
 
-        {/* 腰梁配置 */}
-        <TabPane 
-          tab={<Space><BorderHorizontalOutlined />腰梁配置</Space>} 
-          key="waler"
-        >
+        {/* 腰梁配置 - 根据支护体系显示 */}
+        {shouldShowWalerBeam() && (
+          <TabPane 
+            tab={<Space><BorderHorizontalOutlined />腰梁配置</Space>} 
+            key="waler"
+          >
           <Card title="腰梁参数" size="small">
             <FormItemWithTooltip
               label="启用腰梁"
@@ -665,6 +774,7 @@ const AnchorRodForm: React.FC<AnchorRodProps> = ({ component }) => {
             />
           )}
         </TabPane>
+        )}
 
         {/* 截面图 */}
         <TabPane 
