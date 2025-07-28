@@ -10,6 +10,8 @@ from .services import SoilLayerGenerator
 from .simple_geology_service import get_simple_geology_service
 from .direct_geology_service import get_direct_geology_service
 from .geometry_modeling_service import get_geometry_modeling_service
+from .gempy_integration_service import get_gempy_integration_service
+from .gempy_enhanced_service import get_gempy_enhanced_service
 import os
 import logging
 
@@ -595,4 +597,363 @@ async def test_geometry_service():
             'success': False,
             'message': f'Geometry service test failed: {str(e)}',
             'service_available': False
-        } 
+        }
+
+# === 新增：GemPy集成API端点 ===
+
+@router.post("/gempy-modeling")
+async def gempy_geological_modeling(request: dict):
+    """
+    GemPy集成地质建模
+    支持复杂地质结构：夹层、断层、稀疏钻孔数据
+    RBF增强插值 + GemPy隐式建模 + PyVista转换 + Three.js显示
+    """
+    try:
+        service = get_gempy_integration_service()
+        
+        # 记录请求开始
+        logger.info("🌍 开始GemPy集成地质建模...")
+        
+        # 处理建模请求
+        result = service.process_geological_modeling_request(request)
+        
+        if result['success']:
+            logger.info(f"✓ GemPy地质建模成功完成，方法: {result['method']}")
+            
+            # 构建响应数据
+            response = {
+                "message": "GemPy集成地质建模成功完成",
+                "success": True,
+                "modeling_method": result['method'],
+                "processing_time": result.get('processing_time', 0),
+                "model_data": {
+                    "threejs_data": result.get('threejs_data', {}),
+                    "surfaces": result.get('surfaces', {}),
+                    "model_stats": result.get('model_stats', {}),
+                    "quality_metrics": result.get('quality_metrics', {})
+                },
+                "input_analysis": result.get('input_data', {}),
+                "domain_config": result.get('domain_config', {}),
+                "dependencies": result.get('dependencies', {}),
+                "capabilities": [
+                    "RBF增强插值算法 (自适应邻域)",
+                    "GemPy隐式地质建模 (如可用)",
+                    "复杂地质结构处理 (夹层、断层)",  
+                    "稀疏钻孔数据优化",
+                    "PyVista高效网格转换",
+                    "Three.js原生显示支持",
+                    "地质不确定性量化"
+                ],
+                "algorithm_features": {
+                    "adaptive_rbf": "根据数据密度自适应调整插值策略",
+                    "geological_constraints": "地层序列和连续性约束",
+                    "confidence_mapping": "插值置信度评估",
+                    "sparse_data_handling": "稀疏区域保守插值策略",
+                    "implicit_modeling": "GemPy自动处理复杂地质关系"
+                }
+            }
+            
+            # 如果有模型文件，添加下载链接
+            if 'model_id' in result:
+                response["model_files"] = {
+                    "model_id": result['model_id'],
+                    "download_available": True
+                }
+            
+            return response
+            
+        else:
+            logger.error(f"❌ GemPy地质建模失败: {result.get('error', 'Unknown error')}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"地质建模失败: {result.get('error', 'Unknown error')}"
+            )
+            
+    except ValueError as e:
+        logger.error(f"❌ 请求参数错误: {e}")
+        raise HTTPException(status_code=400, detail=f"参数错误: {str(e)}")
+    except Exception as e:
+        logger.error(f"❌ GemPy地质建模异常: {e}")
+        raise HTTPException(status_code=500, detail=f"建模异常: {str(e)}")
+
+@router.get("/gempy-capabilities")
+async def get_gempy_capabilities():
+    """
+    获取GemPy集成能力信息
+    检查依赖库可用性和功能支持
+    """
+    try:
+        service = get_gempy_integration_service()
+        dependencies = service.check_dependencies()
+        
+        capabilities = {
+            "service_available": True,
+            "dependencies": dependencies,
+            "supported_features": {
+                "rbf_interpolation": True,
+                "adaptive_neighbors": True,
+                "geological_constraints": True,
+                "gempy_modeling": dependencies['gempy'],
+                "pyvista_conversion": dependencies['pyvista'],
+                "threejs_export": True,
+                "sparse_data_handling": True,
+                "confidence_mapping": True
+            },
+            "algorithm_info": {
+                "rbf_kernels": [
+                    "thin_plate_spline", "gaussian", "multiquadric", 
+                    "inverse_multiquadric", "linear", "cubic"
+                ],
+                "interpolation_modes": [
+                    "adaptive_neighbors", "density_aware", "edge_conservative"
+                ],
+                "geological_constraints": [
+                    "formation_sequence", "thickness_limits", 
+                    "continuity_preservation", "boundary_handling"
+                ]
+            },
+            "performance_info": {
+                "recommended_max_boreholes": 500,
+                "recommended_grid_resolution": [50, 50, 25],
+                "memory_efficient": True,
+                "gpu_acceleration": dependencies['gempy']
+            },
+            "data_requirements": {
+                "min_boreholes": 3,
+                "required_fields": ["x", "y", "z", "formation_id"],
+                "optional_fields": ["soil_type", "layer_id", "depth"],
+                "coordinate_system": "任意笛卡尔坐标系"
+            }
+        }
+        
+        # 添加推荐使用策略
+        if dependencies['gempy']:
+            capabilities["recommended_workflow"] = "GemPy隐式建模 (完整功能)"
+            capabilities["fallback_workflow"] = "增强RBF插值 (兼容模式)"
+        else:
+            capabilities["recommended_workflow"] = "增强RBF插值 (主要模式)"
+            capabilities["upgrade_suggestion"] = "安装GemPy以获得完整隐式建模功能"
+        
+        logger.info("✓ GemPy能力信息查询完成")
+        
+        return capabilities
+        
+    except Exception as e:
+        logger.error(f"❌ GemPy能力查询失败: {e}")
+        raise HTTPException(status_code=500, detail=f"能力查询失败: {str(e)}")
+
+@router.post("/test-gempy-service")
+async def test_gempy_service():
+    """
+    测试GemPy集成服务
+    使用模拟数据验证完整建模流程
+    """
+    try:
+        service = get_gempy_integration_service()
+        
+        # 创建测试钻孔数据
+        test_boreholes = [
+            {"id": "BH001", "x": 0.0, "y": 0.0, "z": -3.0, "soil_type": "粘土", "layer_id": 1},
+            {"id": "BH002", "x": 50.0, "y": 0.0, "z": -4.0, "soil_type": "砂土", "layer_id": 2},
+            {"id": "BH003", "x": 25.0, "y": 50.0, "z": -3.5, "soil_type": "粘土", "layer_id": 1},
+            {"id": "BH004", "x": -25.0, "y": 25.0, "z": -4.5, "soil_type": "砂土", "layer_id": 2},
+            {"id": "BH005", "x": 75.0, "y": 75.0, "z": -5.0, "soil_type": "岩石", "layer_id": 3}
+        ]
+        
+        # 测试请求配置
+        test_request = {
+            "boreholes": test_boreholes,
+            "domain": {
+                "resolution": [20, 20, 10]  # 较小分辨率用于测试
+            },
+            "use_gempy": True,  # 优先使用GemPy
+            "test_mode": True
+        }
+        
+        logger.info("🧪 开始GemPy服务测试...")
+        
+        # 执行测试建模
+        result = service.process_geological_modeling_request(test_request)
+        
+        # 分析测试结果
+        test_summary = {
+            "success": result['success'],
+            "modeling_method": result.get('method', 'Unknown'),
+            "processing_time": result.get('processing_time', 0),
+            "dependencies": result.get('dependencies', {}),
+            "test_results": {
+                "data_preprocessing": result.get('input_data', {}).get('n_boreholes', 0) == 5,
+                "interpolation_completed": 'interpolated_grid' in result or 'solution' in result,
+                "threejs_export": bool(result.get('threejs_data', {})),
+                "quality_metrics": result.get('quality_metrics', {})
+            }
+        }
+        
+        # 计算测试评分
+        passed_tests = sum([
+            test_summary["success"],
+            test_summary["test_results"]["data_preprocessing"],
+            test_summary["test_results"]["interpolation_completed"],
+            test_summary["processing_time"] < 30  # 30秒内完成
+        ])
+        
+        test_summary["test_score"] = f"{passed_tests}/4"
+        test_summary["performance_rating"] = (
+            "优秀" if passed_tests == 4 else
+            "良好" if passed_tests >= 3 else
+            "一般" if passed_tests >= 2 else
+            "需要改进"
+        )
+        
+        if result['success']:
+            logger.info(f"✓ GemPy服务测试完成: {test_summary['test_score']} - {test_summary['performance_rating']}")
+        else:
+            logger.warning(f"⚠️ GemPy服务测试部分失败: {result.get('error', 'Unknown error')}")
+        
+        return {
+            "message": "GemPy集成服务测试完成",
+            "test_summary": test_summary,
+            "detailed_result": result if result['success'] else {"error": result.get('error')},
+            "recommendations": [
+                "建议钻孔数量 ≥ 3个" if test_summary["test_results"]["data_preprocessing"] else "增加钻孔数据",
+                "网格分辨率建议 ≤ [50,50,25]" if test_summary["processing_time"] < 30 else "降低网格分辨率",
+                "GemPy可用时优先使用" if result.get('dependencies', {}).get('gempy') else "考虑安装GemPy",
+                "增强RBF作为可靠备选方案"
+            ]
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ GemPy服务测试失败: {e}")
+        return {
+            "success": False,
+            "message": f"测试失败: {str(e)}",
+            "test_summary": {"success": False, "error": str(e)},
+            "service_available": False
+        }
+
+# === 新增：GemPy增强服务API端点 ===
+
+@router.post("/gempy-enhanced-modeling")
+async def gempy_enhanced_geological_modeling(request: dict):
+    """
+    GemPy增强地质建模
+    在GemPy框架内提供多种插值选项：默认隐式建模、增强RBF、自适应RBF、Kriging
+    """
+    try:
+        service = get_gempy_enhanced_service()
+        
+        # 解析请求参数
+        boreholes = request.get('boreholes', [])
+        domain_config = request.get('domain', {})
+        interpolation_method = request.get('interpolation_method', 'enhanced_rbf')
+        
+        if len(boreholes) < 3:
+            raise HTTPException(status_code=400, detail="至少需要3个钻孔点进行建模")
+        
+        logger.info(f"🌍 开始GemPy增强地质建模: 方法={interpolation_method}")
+        
+        # 执行建模
+        result = service.create_geological_model(
+            borehole_data=boreholes,
+            domain_config=domain_config,
+            interpolation_method=interpolation_method
+        )
+        
+        if result.get('success', False):
+            logger.info(f"✓ GemPy增强建模完成: {result.get('method', 'Unknown')}")
+            
+            response = {
+                "message": "GemPy增强地质建模成功完成",
+                "success": True,
+                "interpolation_method": result.get('interpolation_method', interpolation_method),
+                "modeling_method": result.get('method', 'Unknown'),
+                "processing_time": result.get('processing_time', 0),
+                "model_data": {
+                    "threejs_data": result.get('threejs_data', {}),
+                    "surfaces": result.get('surfaces', {}),
+                    "interpolated_grid": result.get('interpolated_grid', None),
+                    "quality_metrics": result.get('quality_metrics', {})
+                },
+                "input_analysis": result.get('input_data', {}),
+                "domain_config": domain_config,
+                "algorithm_info": {
+                    "framework": "GemPy增强框架",
+                    "selected_method": interpolation_method,
+                    "available_methods": service.get_available_interpolation_methods()
+                }
+            }
+            
+            # 添加特定方法的信息
+            if 'adaptive_params' in result:
+                response["adaptive_parameters"] = result['adaptive_params']
+            
+            return response
+            
+        else:
+            logger.error(f"❌ GemPy增强建模失败: {result.get('error', 'Unknown error')}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"建模失败: {result.get('error', 'Unknown error')}"
+            )
+            
+    except ValueError as e:
+        logger.error(f"❌ 请求参数错误: {e}")
+        raise HTTPException(status_code=400, detail=f"参数错误: {str(e)}")
+    except Exception as e:
+        logger.error(f"❌ GemPy增强建模异常: {e}")
+        raise HTTPException(status_code=500, detail=f"建模异常: {str(e)}")
+
+@router.get("/gempy-enhanced-methods")
+async def get_gempy_enhanced_methods():
+    """
+    获取GemPy增强服务支持的插值方法
+    """
+    try:
+        service = get_gempy_enhanced_service()
+        available_methods = service.get_available_interpolation_methods()
+        
+        response = {
+            "service_available": True,
+            "framework": "GemPy增强框架",
+            "description": "在GemPy框架内集成多种插值选择",
+            "available_methods": available_methods,
+            "method_details": {
+                "gempy_default": {
+                    "name": "GemPy默认隐式建模",
+                    "description": "使用GemPy原生的隐式地质建模算法",
+                    "best_for": "复杂地质构造、大量数据",
+                    "requirements": "GemPy库可用"
+                },
+                "enhanced_rbf": {
+                    "name": "增强RBF插值",
+                    "description": "改进的径向基函数插值，适合一般地质建模",
+                    "best_for": "中等复杂度、中等数据量",
+                    "requirements": "SciPy库（通常已有）"
+                },
+                "adaptive_rbf": {
+                    "name": "自适应RBF插值",
+                    "description": "根据数据密度自动调整参数的RBF插值",
+                    "best_for": "数据分布不均匀的情况",
+                    "requirements": "SciPy + scikit-learn"
+                },
+                "kriging": {
+                    "name": "Kriging地统计插值",
+                    "description": "基于高斯过程的地统计学插值方法",
+                    "best_for": "需要不确定性评估的情况",
+                    "requirements": "scikit-learn库"
+                }
+            },
+            "usage_recommendations": {
+                "sparse_data": "推荐使用adaptive_rbf",
+                "dense_data": "推荐使用gempy_default或enhanced_rbf",
+                "uncertainty_analysis": "推荐使用kriging",
+                "general_purpose": "推荐使用enhanced_rbf"
+            }
+        }
+        
+        logger.info("✓ GemPy增强方法查询完成")
+        return response
+        
+    except Exception as e:
+        logger.error(f"❌ GemPy增强方法查询失败: {e}")
+        raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}") 

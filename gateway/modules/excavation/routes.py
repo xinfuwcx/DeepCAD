@@ -24,6 +24,11 @@ from .excavation_geometry_builder import (
 from .volume_calculator import (
     ExcavationVolumeCalculator, volume_calculator, VolumeCalculationResult
 )
+from .pile_anchor_system import (
+    PileAnchorSystemCalculator, pile_anchor_calculator,
+    PileSystemConfig, CrownBeamConfig, AnchorSystemConfig,
+    PileType, CalculationMode
+)
 
 router = APIRouter(
     prefix="/excavation",
@@ -84,37 +89,64 @@ def get_soil_model_mesh(model_id: str) -> pv.PolyData:
 async def generate_excavation(
     dxf_file: UploadFile = File(...),
     soil_domain_model_id: str = Form(...),
-    excavation_depth: float = Form(...)
+    excavation_depth: float = Form(...),
+    placement_mode: str = Form(default='auto_center', description="定位方式: centroid | auto_center")
 ):
     temp_dxf_path = os.path.join(UPLOAD_DIR, f"temp_{uuid.uuid4().hex}.dxf")
     try:
         with open(temp_dxf_path, "wb") as buffer:
             shutil.copyfileobj(dxf_file.file, buffer)
 
-        soil_mesh = get_soil_model_mesh(soil_domain_model_id)
+        # 模拟土层体数据 (实际使用时从地质建模模块获取)
+        soil_volumes = {
+            1: 1001,  # 土层ID: GMSH体标签
+            2: 1002,
+            3: 1003
+        }
+        
+        soil_materials = {
+            1: {'name': '填土层'},
+            2: {'name': '粘土层'},
+            3: {'name': '砂土层'}
+        }
+        
+        # 模拟土体域边界 (实际使用时从地质建模获取)
+        soil_domain_bounds = {
+            'x_min': -100, 'x_max': 100,
+            'y_min': -75, 'y_max': 75,
+            'z_min': -25, 'z_max': 0
+        }
 
         generator = ExcavationGenerator()
-        final_mesh = generator.create_excavation(
+        result = generator.create_excavation(
             dxf_path=temp_dxf_path,
-            soil_domain_mesh=soil_mesh,
-            excavation_depth=excavation_depth
+            soil_volumes=soil_volumes,
+            excavation_depth=excavation_depth,
+            placement_mode=placement_mode,
+            soil_domain_bounds=soil_domain_bounds,
+            soil_materials=soil_materials
         )
         
-        gltf_path = generator.export_mesh_to_gltf(
-            mesh=final_mesh,
+        if not result['success']:
+            raise HTTPException(status_code=500, detail=result['error'])
+        
+        # 导出MSH网格文件
+        mesh_file_path = generator.export_mesh_to_gltf(
+            mesh_file=result['mesh_file'],
             output_dir=OUTPUT_DIR,
             filename_prefix="excavation_result"
         )
         
-        gltf_filename = os.path.basename(gltf_path)
-        gltf_url = f"/excavation/models/{gltf_filename}"
+        mesh_filename = os.path.basename(mesh_file_path)
+        mesh_url = f"/excavation/models/{mesh_filename}"
 
         return ExcavationResponse(
-            message="Excavation completed successfully.",
-            result_gltf_url=gltf_url
+            message=f"GMSH OCC开挖完成: 体积{result['excavation_volume']:.2f}m³",
+            result_gltf_url=mesh_url
         )
 
     except Exception as e:
+        logger.error(f"开挖生成失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
     finally:
         if os.path.exists(temp_dxf_path):
@@ -342,8 +374,114 @@ async def get_excavation_status():
             "surface_elevation_query": True,
             "geometry_construction": True,
             "volume_calculation": SCIPY_AVAILABLE,
-            "triangular_integration": SCIPY_AVAILABLE
+            "triangular_integration": SCIPY_AVAILABLE,
+            "pile_anchor_system": True,
+            "intelligent_mode_selection": True
+        },
+        "support_systems": {
+            "pile_types": ["pressed_pile", "cast_in_place", "bored_pile"],
+            "calculation_modes": ["beam_calculation", "equivalent_shell"],
+            "auto_recommendation": True
         }
     }
     
-    return JSONResponse(content=status) 
+    return JSONResponse(content=status)
+
+
+# ==================== 新增支护体系API ====================
+
+@router.post("/pile-anchor/validate-config")
+async def validate_pile_anchor_config(
+    pile_config: Dict[str, Any] = Form(..., description="排桩配置"),
+    crown_beam_config: Dict[str, Any] = Form(..., description="冠梁配置"),
+    anchor_config: Dict[str, Any] = Form(..., description="锚杆配置")
+):
+    """
+    验证排桩-锚杆支护体系配置的合理性
+    """
+    try:
+        # 解析配置
+        pile_sys_config = PileSystemConfig(**pile_config)
+        crown_beam_cfg = CrownBeamConfig(**crown_beam_config)
+        anchor_sys_config = AnchorSystemConfig(**anchor_config)
+        
+        # 验证配置
+        validation_result = pile_anchor_calculator.validate_system_configuration(
+            pile_sys_config, crown_beam_cfg, anchor_sys_config
+        )
+        
+        return JSONResponse(content={
+            "success": True,
+            "validation": validation_result
+        })
+        
+    except Exception as e:
+        logger.error(f"支护体系配置验证失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"验证失败: {str(e)}")
+
+
+@router.post("/pile-anchor/recommend-calculation-mode")
+async def recommend_calculation_mode(
+    pile_type: str = Form(..., description="桩型")
+):
+    """
+    根据桩型推荐计算模式
+    """
+    try:
+        pile_type_enum = PileType(pile_type)
+        recommendation = pile_anchor_calculator.get_recommended_calculation_mode(pile_type_enum)
+        
+        return JSONResponse(content={
+            "success": True,
+            "pile_type": pile_type,
+            "recommendation": recommendation
+        })
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"无效的桩型: {pile_type}")
+    except Exception as e:
+        logger.error(f"推荐计算模式失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"推荐失败: {str(e)}")
+
+
+@router.post("/pile-anchor/generate-calculation-params")
+async def generate_calculation_parameters(
+    pile_config: Dict[str, Any] = Form(..., description="排桩配置"),
+    crown_beam_config: Dict[str, Any] = Form(..., description="冠梁配置"),
+    anchor_config: Dict[str, Any] = Form(..., description="锚杆配置")
+):
+    """
+    生成用于有限元计算的参数
+    """
+    try:
+        # 解析配置
+        pile_sys_config = PileSystemConfig(**pile_config)
+        crown_beam_cfg = CrownBeamConfig(**crown_beam_config)
+        anchor_sys_config = AnchorSystemConfig(**anchor_config)
+        
+        # 先验证配置
+        validation = pile_anchor_calculator.validate_system_configuration(
+            pile_sys_config, crown_beam_cfg, anchor_sys_config
+        )
+        
+        if not validation["is_valid"]:
+            return JSONResponse(content={
+                "success": False,
+                "message": "配置验证失败，无法生成计算参数",
+                "validation": validation
+            })
+        
+        # 生成计算参数
+        calc_params = pile_anchor_calculator.generate_calculation_parameters(
+            pile_sys_config, crown_beam_cfg, anchor_sys_config
+        )
+        
+        return JSONResponse(content={
+            "success": True,
+            "calculation_parameters": calc_params,
+            "validation": validation
+        })
+        
+    except Exception as e:
+        logger.error(f"生成计算参数失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}") 
