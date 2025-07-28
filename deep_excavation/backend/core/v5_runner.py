@@ -10,7 +10,7 @@ import meshio
 import numpy as np
 import tempfile
 import os
-import gempy as gp
+# import gempy as gp  # GemPy已移除
 import pandas as pd
 
 # Kratos Multiphysics - 我们的核心求解器

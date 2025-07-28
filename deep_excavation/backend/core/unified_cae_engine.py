@@ -13,7 +13,7 @@ from enum import Enum
 import asyncio
 
 # 地质建模核心
-import gempy as gp
+# import gempy as gp  # GemPy已移除
 import pandas as pd
 import numpy as np
 
