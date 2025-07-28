@@ -89,6 +89,14 @@ export class CAEThreeEngine {
   private onMeasurementCallback?: (measurement: any) => void;
 
   constructor(container: HTMLElement, props: Partial<CAEThreeEngineProps> = {}) {
+    console.log('🚀 CAE Three.js引擎构造函数开始...');
+    
+    if (!container) {
+      throw new Error('容器元素为空');
+    }
+    
+    console.log('容器有效，尺寸:', container.offsetWidth, 'x', container.offsetHeight);
+    
     // 初始化场景
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x0a0a0a);
@@ -154,20 +162,56 @@ export class CAEThreeEngine {
 
     // 添加基础场景元素
     this.addSceneHelpers();
+    
+    // 添加测试几何体
+    this.addTestGeometry();
+    
+    // 确保控制器启用
+    this.orbitControls.enabled = true;
+    this.setInteractionMode(CAEInteractionMode.ORBIT);
 
-    ComponentDevHelper.logDevTip('CAE Three.js引擎初始化完成');
+    ComponentDevHelper.logDevTip('CAE Three.js引擎初始化完成 - 控制器已启用');
   }
 
   // 设置控制器
   private setupControls(): void {
     // 轨道控制器
     this.orbitControls = new OrbitControls(this.camera, this.renderer.domElement);
+    
+    // 基础控制配置
+    this.orbitControls.enabled = true;
     this.orbitControls.enableDamping = true;
     this.orbitControls.dampingFactor = 0.05;
     this.orbitControls.screenSpacePanning = false;
     this.orbitControls.maxPolarAngle = Math.PI;
     this.orbitControls.minDistance = 0.1;
     this.orbitControls.maxDistance = 1000;
+    
+    // 鼠标按钮配置
+    this.orbitControls.mouseButtons = {
+      LEFT: THREE.MOUSE.ROTATE,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: THREE.MOUSE.PAN
+    };
+    
+    // 触摸配置
+    this.orbitControls.touches = {
+      ONE: THREE.TOUCH.ROTATE,
+      TWO: THREE.TOUCH.DOLLY_PAN
+    };
+    
+    // 启用所有交互
+    this.orbitControls.enableRotate = true;
+    this.orbitControls.enableZoom = true;
+    this.orbitControls.enablePan = true;
+    
+    // 旋转速度配置
+    this.orbitControls.rotateSpeed = 1.0;
+    this.orbitControls.zoomSpeed = 1.2;
+    this.orbitControls.panSpeed = 0.8;
+    
+    // 自动旋转禁用
+    this.orbitControls.autoRotate = false;
 
     // 变换控制器
     this.transformControls = new TransformControls(this.camera, this.renderer.domElement);
@@ -175,6 +219,8 @@ export class CAEThreeEngine {
       this.orbitControls.enabled = !event.value;
     });
     this.scene.add(this.transformControls as any);
+    
+    console.log('✅ 3D控制器已设置 - 支持鼠标旋转、缩放、平移');
   }
 
   // 设置专业光照系统
@@ -322,7 +368,7 @@ export class CAEThreeEngine {
   // 添加场景辅助元素
   private addSceneHelpers(): void {
     // 网格
-    const gridHelper = new THREE.GridHelper(50, 50, 0x00d9ff, 0x333333);
+    const gridHelper = new THREE.GridHelper(50, 50, 0x444444, 0x222222);
     gridHelper.name = 'grid';
     this.scene.add(gridHelper);
 
@@ -330,6 +376,41 @@ export class CAEThreeEngine {
     const axesHelper = new THREE.AxesHelper(10);
     axesHelper.name = 'axes';
     this.scene.add(axesHelper);
+  }
+  
+  // 添加测试几何体
+  private addTestGeometry(): void {
+    // 添加一个基本的立方体用于测试交互
+    const cubeGeometry = new THREE.BoxGeometry(2, 2, 2);
+    const cubeMaterial = new THREE.MeshLambertMaterial({ color: 0x00ff88 });
+    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+    cube.position.set(0, 1, 0);
+    cube.name = 'test-cube';
+    cube.castShadow = true;
+    cube.receiveShadow = true;
+    this.scene.add(cube);
+    
+    // 添加一个球体
+    const sphereGeometry = new THREE.SphereGeometry(1.5, 32, 32);
+    const sphereMaterial = new THREE.MeshLambertMaterial({ color: 0xff4444 });
+    const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+    sphere.position.set(-4, 1.5, 2);
+    sphere.name = 'test-sphere';
+    sphere.castShadow = true;
+    sphere.receiveShadow = true;
+    this.scene.add(sphere);
+    
+    // 添加地面
+    const planeGeometry = new THREE.PlaneGeometry(30, 30);
+    const planeMaterial = new THREE.MeshLambertMaterial({ color: 0x666666 });
+    const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+    plane.rotation.x = -Math.PI / 2;
+    plane.position.y = -0.5;
+    plane.receiveShadow = true;
+    plane.name = 'ground-plane';
+    this.scene.add(plane);
+    
+    ComponentDevHelper.logDevTip('测试几何体已添加到场景');
   }
 
   // 选择管理
@@ -564,11 +645,15 @@ export class CAEThreeEngine {
   public render(): void {
     const startTime = performance.now();
     
-    // 更新控制器
-    this.orbitControls.update();
+    // 确保控制器已启用并更新
+    if (this.orbitControls) {
+      this.orbitControls.update();
+    }
     
     // 更新LOD系统
-    this.lodManager.update();
+    if (this.lodManager) {
+      this.lodManager.update();
+    }
     
     // 性能监控
     const renderInfo = this.renderer.info;
@@ -584,7 +669,9 @@ export class CAEThreeEngine {
     this.performanceStats.fps = 1000 / this.performanceStats.frameTime;
     
     // 更新LOD管理器的性能时间
-    this.lodManager.setFrameTime(this.performanceStats.frameTime);
+    if (this.lodManager) {
+      this.lodManager.setFrameTime(this.performanceStats.frameTime);
+    }
   }
 
   // 添加几何体到场景（自动启用LOD）
@@ -625,26 +712,56 @@ export class CAEThreeEngine {
 const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<CAEThreeEngine | null>(null);
+  const animationIdRef = useRef<number>(0);
   const [isInitialized, setIsInitialized] = useState(false);
 
   const animate = useCallback(() => {
     if (engineRef.current) {
       engineRef.current.render();
     }
-    requestAnimationFrame(animate);
+    animationIdRef.current = requestAnimationFrame(animate);
   }, []);
 
+  // 初始化引擎
   useEffect(() => {
     if (!containerRef.current || isInitialized) return;
 
     try {
+      console.log('🚀 初始化CAE Three.js引擎...');
+      console.log('容器尺寸:', containerRef.current.offsetWidth, 'x', containerRef.current.offsetHeight);
+      
       engineRef.current = new CAEThreeEngine(containerRef.current, props);
       setIsInitialized(true);
-      animate();
 
+      console.log('✅ CAE Three.js引擎组件初始化完成');
       ComponentDevHelper.logDevTip('CAE Three.js引擎组件初始化完成');
     } catch (error) {
+      console.error('❌ CAE Three.js引擎初始化失败:', error);
       ComponentDevHelper.logError(error as Error, 'CAEThreeEngineComponent', '1号架构师');
+      
+      // 在容器中显示错误信息
+      if (containerRef.current) {
+        containerRef.current.innerHTML = `
+          <div style="
+            width: 100%; 
+            height: 100%; 
+            display: flex; 
+            flex-direction: column;
+            justify-content: center; 
+            align-items: center; 
+            background: #1a1a1a;
+            color: #ff6666;
+            font-family: monospace;
+          ">
+            <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
+            <div style="font-size: 18px; margin-bottom: 10px;">3D引擎初始化失败</div>
+            <div style="font-size: 12px; color: #999999; text-align: center; max-width: 400px;">
+              ${error.message}<br/>
+              请检查WebGL支持或刷新页面重试
+            </div>
+          </div>
+        `;
+      }
     }
 
     return () => {
@@ -652,8 +769,25 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
         engineRef.current.dispose();
         engineRef.current = null;
       }
+      if (animationIdRef.current) {
+        cancelAnimationFrame(animationIdRef.current);
+      }
     };
-  }, [props, isInitialized, animate]);
+  }, [props]);
+
+  // 启动动画循环
+  useEffect(() => {
+    if (isInitialized && engineRef.current) {
+      console.log('🎬 启动3D渲染动画循环');
+      animate();
+    }
+    
+    return () => {
+      if (animationIdRef.current) {
+        cancelAnimationFrame(animationIdRef.current);
+      }
+    };
+  }, [isInitialized, animate]);
 
   return (
     <div 
@@ -663,9 +797,40 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
         width: '100%', 
         height: '100%',
         background: '#0a0a0a',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        position: 'relative'
       }}
-    />
+    >
+      {!isInitialized && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          background: '#0a0a0a',
+          color: '#ffffff',
+          fontSize: '16px',
+          zIndex: 1000
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '20px', animation: 'spin 2s linear infinite' }}>🔄</div>
+          <div>正在初始化3D引擎...</div>
+          <div style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
+            首次加载可能需要几秒钟
+          </div>
+          <style>{`
+            @keyframes spin { 
+              0% { transform: rotate(0deg); } 
+              100% { transform: rotate(360deg); } 
+            }
+          `}</style>
+        </div>
+      )}
+    </div>
   );
 };
 

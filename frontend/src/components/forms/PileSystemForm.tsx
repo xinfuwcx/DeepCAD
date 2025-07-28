@@ -396,12 +396,17 @@ const PileSystemForm: React.FC<PileSystemProps> = ({
           </Card>
 
           <Alert
-            message="桩基统计"
+            message="桩基统计与配置信息"
             description={
               <Space direction="vertical" size={4}>
+                <div>桩型: <strong>{getPileTypeOptions().find(opt => opt.value === pileConfig.pile_type)?.label}</strong></div>
+                <div>计算模式: <strong>{getCalculationModeOptions().find(opt => opt.value === pileConfig.calculation_mode)?.label}</strong></div>
                 <div>桩长: <strong>{calculatePileLength().toFixed(2)} m</strong></div>
                 <div>桩间净距: <strong>{calculateClearSpacing().toFixed(2)} m</strong></div>
                 <div>长径比: <strong>{(calculatePileLength() / pileConfig.pile_diameter).toFixed(1)}</strong></div>
+                <div style={{ color: pileConfig.calculation_mode === 'beam_calculation' ? '#52c41a' : '#1890ff' }}>
+                  冠梁需求: <strong>{pileConfig.calculation_mode === 'beam_calculation' ? '需要冠梁' : '不需要冠梁'}</strong>
+                </div>
               </Space>
             }
             type="info"

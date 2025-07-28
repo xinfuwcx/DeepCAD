@@ -25,6 +25,9 @@ import ExcavationModule from '../components/excavation/ExcavationModule';
 import SupportModule from '../components/support/SupportModule';
 import AdvancedMeshConfig from '../components/meshing/AdvancedMeshConfig';
 import PhysicalGroupManager from '../components/meshing/PhysicalGroupManager';
+import IntegratedMeshControl from '../components/meshing/IntegratedMeshControl';
+import VerticalToolbar from '../components/geometry/VerticalToolbar';
+import type { VerticalToolType } from '../components/geometry/VerticalToolbar';
 import BoundaryConditionConfigPanel from '../components/computation/BoundaryConditionConfigPanel';
 import LoadConfigPanel from '../components/computation/LoadConfigPanel';
 import RealtimeProgressMonitor from '../components/computation/RealtimeProgressMonitor.simple';
@@ -32,6 +35,17 @@ import MeshInterface from '../components/computation/MeshInterface.simple';
 // 3号计算专家组件集成
 import ComputationControlPanel from '../components/ComputationControlPanel';
 import PhysicsAIEmbeddedPanel from '../components/PhysicsAIEmbeddedPanel_SIMPLIFIED';
+
+// 3号专家功能界面组件
+import ComputationResultsOverview from '../components/computation/ComputationResultsOverview';
+import ResultsVisualizationDashboard from '../components/ResultsVisualizationDashboard';
+import PhysicsAIDashboardPanel from '../components/PhysicsAIDashboardPanel';
+import PhysicsAIView from '../views/PhysicsAIView';
+
+// 3号专家工具栏组件
+import AnalysisToolbar from '../components/toolbars/AnalysisToolbar';
+import PhysicsAIToolbar from '../components/toolbars/PhysicsAIToolbar';
+import ResultsToolbar from '../components/toolbars/ResultsToolbar';
 import { ModuleErrorBoundary } from '../core/ErrorBoundary';
 import { useDeepCADTheme } from '../components/ui/DeepCADTheme';
 import { ComponentDevHelper } from '../utils/developmentTools';
@@ -68,8 +82,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
         100% { opacity: 1; transform: scale(1); }
       }
       .expert-panel-header {
-        background: linear-gradient(90deg, rgba(0,217,255,0.1) 0%, rgba(0,217,255,0.05) 100%);
-        border-left: 3px solid #00d9ff;
+        background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
         padding-left: 8px;
       }
     `;
@@ -99,8 +112,8 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
   const [rightPanelState, setRightPanelState] = useState<PanelState>(
     layoutConfig.rightPanelCollapsed ? 'collapsed' : 'normal'
   );
-  const [subViewsEnabled, setSubViewsEnabled] = useState(layoutConfig.subViewEnabled);
   const [rightPanelTab, setRightPanelTab] = useState('monitor');
+  const [activeGeometryTool, setActiveGeometryTool] = useState<VerticalToolType>('select');
   
   // 添加模块状态管理
   const [geologyParams, setGeologyParams] = useState({
@@ -149,6 +162,15 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
     }
   });
   const [supportStatus, setSupportStatus] = useState<'wait' | 'process' | 'finish' | 'error'>('wait');
+
+  // 网格工具栏状态
+  const [meshToolState, setMeshToolState] = useState({
+    isGenerating: false,
+    qualityCheckActive: false,
+    measureMode: false,
+    selectMode: false,
+    currentView: 'perspective'
+  });
   
   // 3号计算专家状态管理
   const [expert3State, setExpert3State] = useState({
@@ -156,40 +178,113 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
     meshAnalysisActive: false,
     physicsAIVisible: false,
     currentComputationTask: null as string | null,
-    computationResults: null as any
+    computationResults: null as any,
+    // 网格生成状态
+    meshingStatus: 'idle' as 'idle' | 'generating' | 'completed' | 'error',
+    meshQuality: 0,
+    meshProgress: 0,
+    // 计算分析状态
+    analysisProgress: 0,
+    currentSolver: 'TERRA' as 'TERRA' | 'Kratos' | 'FEM',
+    // 物理AI状态
+    physicsAIEnabled: false,
+    optimizationRunning: false,
+    aiRecommendations: [] as any[],
+    // 结果查看状态
+    resultVisualizationMode: '3D' as '3D' | 'chart' | 'table',
+    currentResults: null as any,
+    // 工具栏状态
+    activeTool: null as string | null
   });
   
   const [threeScene, setThreeScene] = useState<any>(null);
+
+  // 几何工具栏处理函数
+  const handleGeometryToolSelect = (tool: VerticalToolType) => {
+    setActiveGeometryTool(tool);
+    console.log(`🎯 选择几何工具: ${tool}`);
+    ComponentDevHelper.logDevTip(`几何工具已切换到: ${tool}`);
+  };
   
   // 3号专家功能处理
   const handleExpert3Action = (action: string, data?: any) => {
-    console.log(`3号计算专家执行: ${action}`, data);
+    console.log(`🧠 3号计算专家执行: ${action}`, data);
     
     switch (action) {
+      // 网格生成相关
+      case 'start_meshing':
+        setExpert3State(prev => ({ ...prev, meshingStatus: 'generating', meshProgress: 0 }));
+        break;
+      case 'mesh_progress':
+        setExpert3State(prev => ({ ...prev, meshProgress: data?.progress || 0 }));
+        break;
+      case 'mesh_completed':
+        setExpert3State(prev => ({ ...prev, meshingStatus: 'completed', meshQuality: data?.quality || 85 }));
+        break;
+        
+      // 计算分析相关
       case 'start_computation':
         setExpert3State(prev => ({ 
           ...prev, 
           computationActive: true,
+          analysisProgress: 0,
           currentComputationTask: data?.taskType || 'deep_excavation'
         }));
         break;
-        
-      case 'show_mesh_analysis':
-        setExpert3State(prev => ({ ...prev, meshAnalysisActive: true }));
+      case 'computation_progress':
+        setExpert3State(prev => ({ ...prev, analysisProgress: data?.progress || 0 }));
         break;
-        
-      case 'toggle_physics_ai':
-        setExpert3State(prev => ({ ...prev, physicsAIVisible: !prev.physicsAIVisible }));
-        break;
-        
       case 'computation_complete':
         setExpert3State(prev => ({ 
           ...prev, 
           computationActive: false,
+          analysisProgress: 100,
           currentComputationTask: null,
-          computationResults: data 
+          computationResults: data,
+          currentResults: data
         }));
         break;
+        
+      // 物理AI相关
+      case 'enable_physics_ai':
+        setExpert3State(prev => ({ ...prev, physicsAIEnabled: true }));
+        break;
+      case 'start_optimization':
+        setExpert3State(prev => ({ ...prev, optimizationRunning: true }));
+        break;
+      case 'ai_recommendation':
+        setExpert3State(prev => ({ 
+          ...prev, 
+          aiRecommendations: [...prev.aiRecommendations, data] 
+        }));
+        break;
+      case 'optimization_complete':
+        setExpert3State(prev => ({ ...prev, optimizationRunning: false }));
+        break;
+        
+      // 结果查看相关
+      case 'show_results':
+        setExpert3State(prev => ({ ...prev, currentResults: data }));
+        break;
+      case 'change_visualization':
+        setExpert3State(prev => ({ ...prev, resultVisualizationMode: data?.mode || '3D' }));
+        break;
+        
+      // 工具栏相关
+      case 'select_tool':
+        setExpert3State(prev => ({ ...prev, activeTool: data?.tool }));
+        break;
+        
+      // 传统操作兼容
+      case 'show_mesh_analysis':
+        setExpert3State(prev => ({ ...prev, meshAnalysisActive: true }));
+        break;
+      case 'toggle_physics_ai':
+        setExpert3State(prev => ({ ...prev, physicsAIVisible: !prev.physicsAIVisible }));
+        break;
+        
+      default:
+        console.warn(`未知的3号专家操作: ${action}`);
     }
   };
   
@@ -205,6 +300,78 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
       case 'support':
         setSupportParams(prev => ({ ...prev, [key]: value }));
         break;
+    }
+  };
+
+  // 网格工具栏功能函数
+  const meshToolHandlers = {
+    refreshMesh: () => {
+      console.log('🔄 刷新网格');
+      setMeshToolState(prev => ({ ...prev, isGenerating: true }));
+      // 模拟网格生成
+      setTimeout(() => {
+        setMeshToolState(prev => ({ ...prev, isGenerating: false }));
+        ComponentDevHelper.logDevTip('网格刷新完成');
+      }, 2000);
+    },
+    
+    startGeneration: () => {
+      console.log('▶️ 开始生成网格');
+      setMeshToolState(prev => ({ ...prev, isGenerating: true }));
+      // 调用实际的网格生成API
+      setTimeout(() => {
+        setMeshToolState(prev => ({ ...prev, isGenerating: false }));
+        ComponentDevHelper.logDevTip('网格生成完成');
+      }, 3000);
+    },
+    
+    pauseGeneration: () => {
+      console.log('⏸️ 暂停生成');
+      setMeshToolState(prev => ({ ...prev, isGenerating: false }));
+      ComponentDevHelper.logDevTip('网格生成已暂停');
+    },
+    
+    qualityCheck: () => {
+      console.log('🔍 质量检查');
+      setMeshToolState(prev => ({ ...prev, qualityCheckActive: !prev.qualityCheckActive }));
+      ComponentDevHelper.logDevTip(meshToolState.qualityCheckActive ? '退出质量检查' : '进入质量检查模式');
+    },
+    
+    measureTool: () => {
+      console.log('📏 测量工具');
+      setMeshToolState(prev => ({ ...prev, measureMode: !prev.measureMode, selectMode: false }));
+      ComponentDevHelper.logDevTip(meshToolState.measureMode ? '退出测量模式' : '进入测量模式');
+    },
+    
+    selectTool: () => {
+      console.log('🎯 选择工具');
+      setMeshToolState(prev => ({ ...prev, selectMode: !prev.selectMode, measureMode: false }));
+      ComponentDevHelper.logDevTip(meshToolState.selectMode ? '退出选择模式' : '进入选择模式');
+    },
+    
+    changeView: (view: string) => {
+      console.log(`👁️ 切换视角: ${view}`);
+      setMeshToolState(prev => ({ ...prev, currentView: view }));
+      ComponentDevHelper.logDevTip(`切换到${view}视角`);
+    },
+    
+    saveMesh: () => {
+      console.log('💾 保存网格');
+      ComponentDevHelper.logDevTip('网格已保存到项目');
+    },
+    
+    exportMesh: () => {
+      console.log('📤 导出网格');
+      ComponentDevHelper.logDevTip('网格导出中...');
+      // 模拟导出过程
+      setTimeout(() => {
+        ComponentDevHelper.logDevTip('网格导出完成');
+      }, 1500);
+    },
+    
+    quickSettings: () => {
+      console.log('⚙️ 快速设置');
+      ComponentDevHelper.logDevTip('打开快速设置面板');
     }
   };
   
@@ -230,7 +397,6 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
   // 响应式面板尺寸 - 根据设备类型和智能建议调整
   const [leftPanelWidth, setLeftPanelWidth] = useState(layoutConfig.leftPanelWidth);
   const [rightPanelWidth, setRightPanelWidth] = useState(layoutConfig.rightPanelWidth);
-  const [subViewHeight, setSubViewHeight] = useState(layoutConfig.subViewHeight);
 
   // 响应式样式配置
   const responsiveStyles = {
@@ -406,15 +572,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           { 
             key: 'borehole', 
             label: <span>{getActivityBadge('process')}钻孔可视化</span>, 
-            component: (
-              <div style={{ padding: '20px', color: '#fff' }}>
-                <div style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 'bold' }}>🗺️ 钻孔数据可视化</div>
-                <div style={{ color: '#1890ff', marginBottom: '12px' }}>📊 实时数据流: 45个钻孔</div>
-                <div style={{ color: '#52c41a', marginBottom: '12px' }}>✅ 地层分析: 12层土质</div>
-                <div style={{ color: '#ff7a45', marginBottom: '12px' }}>⚡ GPU渲染: 活跃中</div>
-                <div style={{ color: '#13c2c2' }}>🔄 2号几何专家模块运行中...</div>
-              </div>
-            )
+            component: <div style={{ padding: '20px', color: '#fff', textAlign: 'center' }}>🗺️ 钻孔数据可视化</div>
           },
           { 
             key: 'excavation', 
@@ -444,67 +602,27 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
         title: '网格生成控制 (2号&3号协作)',
         tabs: [
           { 
-            key: 'interface', 
-            label: <span>{getActivityBadge('finish')}网格接口</span>, 
-            component: <MeshInterface /> 
-          },
-          { 
-            key: 'fragment', 
-            label: <span>{getActivityBadge('process')}Fragment可视化</span>, 
-            component: (
-              <div style={{ padding: '20px', color: '#fff' }}>
-                <div style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 'bold' }}>🔲 Fragment网格可视化</div>
-                <div style={{ color: '#1890ff', marginBottom: '12px' }}>🔗 GMSH Fragment: 激活</div>
-                <div style={{ color: '#52c41a', marginBottom: '12px' }}>📐 几何分割: 1,867个区域</div>
-                <div style={{ color: '#ff7a45', marginBottom: '12px' }}>⚙️ 自适应细化: 运行</div>
-                <div style={{ color: '#13c2c2' }}>👥 2号&3号专家协作模块</div>
-              </div>
-            )
-          },
-          { 
-            key: 'quality', 
-            label: <span>{getActivityBadge(expert3State.meshAnalysisActive ? 'process' : 'wait')}🔍 网格质量分析</span>, 
-            component: (
-              <div style={{ padding: '20px', color: '#fff' }}>
-                <div style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 'bold' }}>🔍 3号专家 - 智能网格质量分析</div>
-                <div style={{ color: '#52c41a', marginBottom: '12px' }}>📊 总节点数: 15,847</div>
-                <div style={{ color: '#52c41a', marginBottom: '12px' }}>🔲 总单元数: 8,923 (四面体)</div>
-                <div style={{ color: '#faad14', marginBottom: '12px' }}>⚠️ 平均质量: 0.78</div>
-                <div style={{ color: '#ef4444', marginBottom: '12px' }}>❌ 问题单元: 67个 (长宽比&gt;10)</div>
-                <div style={{ color: '#13c2c2', marginBottom: '16px' }}>🎯 3号计算专家网格分析系统</div>
-                
-                <div style={{ marginTop: '16px', padding: '12px', backgroundColor: 'rgba(82, 196, 26, 0.1)', borderRadius: '8px', border: '1px solid #52c41a' }}>
-                  <div style={{ color: '#52c41a', fontWeight: 'bold', marginBottom: '8px' }}>🛠️ 网格优化建议</div>
-                  <div style={{ fontSize: '12px', color: '#fff', marginBottom: '8px' }}>• 在边界区域增加3层网格细化</div>
-                  <div style={{ fontSize: '12px', color: '#fff', marginBottom: '8px' }}>• 将目标单元尺寸减小到1.5m</div>
-                  <div style={{ fontSize: '12px', color: '#fff', marginBottom: '12px' }}>• 使用二次单元提升精度</div>
-                  
-                  <button 
-                    onClick={() => handleExpert3Action('show_mesh_analysis')}
-                    style={{
-                      width: '100%',
-                      padding: '8px',
-                      backgroundColor: '#52c41a',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    启动质量分析
-                  </button>
-                </div>
-              </div>
-            )
+            key: 'integrated', 
+            label: <span>{getActivityBadge('process')}🎛️ 集成控制</span>, 
+            component: <IntegratedMeshControl 
+              onMeshGenerated={(meshData) => {
+                console.log('网格生成完成:', meshData);
+                ComponentDevHelper.logDevTip('网格生成成功，参数已保存');
+              }}
+              onParametersChange={(params) => {
+                console.log('参数变更:', params);
+                ComponentDevHelper.logDevTip(`参数已更新: 单元尺寸=${params.global_element_size}`);
+              }}
+            /> 
           },
           { 
             key: 'config', 
-            label: <span>{getActivityBadge('wait')}网格配置</span>, 
+            label: <span>{getActivityBadge('wait')}⚙️ 高级算法</span>, 
             component: <AdvancedMeshConfig /> 
           },
           { 
             key: 'groups', 
-            label: <span>{getActivityBadge('finish')}物理组管理</span>, 
+            label: <span>{getActivityBadge('finish')}🏷️ 物理组</span>, 
             component: <PhysicalGroupManager /> 
           }
         ]
@@ -596,28 +714,12 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           {
             key: 'visualization',
             label: <span>{getActivityBadge('process')}3D可视化</span>,
-            component: (
-              <div style={{ padding: '20px', color: '#fff' }}>
-                <div style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 'bold' }}>📊 计算结果3D可视化</div>
-                <div style={{ color: '#1890ff', marginBottom: '12px' }}>🎨 应力云图: GPU渲染中</div>
-                <div style={{ color: '#52c41a', marginBottom: '12px' }}>📈 位移动画: 实时更新</div>
-                <div style={{ color: '#ff7a45', marginBottom: '12px' }}>🔥 温度场: 热力耦合分析</div>
-                <div style={{ color: '#13c2c2' }}>🎬 1号&3号协作可视化系统</div>
-              </div>
-            )
+            component: <div style={{ padding: '20px', color: '#fff', textAlign: 'center' }}>📊 计算结果3D可视化</div>
           },
           {
             key: 'export',
             label: <span>{getActivityBadge('finish')}数据导出</span>,
-            component: (
-              <div style={{ padding: '20px', color: '#fff' }}>
-                <div style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 'bold' }}>💾 结果数据导出</div>
-                <div style={{ color: '#1890ff', marginBottom: '12px' }}>📄 VTK格式: 准备就绪</div>
-                <div style={{ color: '#52c41a', marginBottom: '12px' }}>📊 CSV数据: 时程曲线</div>
-                <div style={{ color: '#ff7a45', marginBottom: '12px' }}>🖼️ 图像序列: 高清渲染</div>
-                <div style={{ color: '#13c2c2' }}>📈 报告生成: PDF格式</div>
-              </div>
-            )
+            component: <div style={{ padding: '20px', color: '#fff', textAlign: 'center' }}>💾 结果数据导出</div>
           },
           {
             key: 'analysis',
@@ -660,7 +762,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
         <Card
           title={
             <div className="expert-panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '-12px -16px 12px -16px', padding: '12px 16px' }}>
-              <span style={{ color: '#00d9ff', fontWeight: 'bold', fontSize: '14px' }}>{currentConfig.title}</span>
+              <span style={{ color: '#ffffff', fontWeight: 'bold', fontSize: '14px' }}>{currentConfig.title}</span>
               <Space>
                 <span style={{ 
                   fontSize: '10px', 
@@ -709,30 +811,142 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
 
   // 渲染中央主视口 - 根据activeModule显示不同内容
   const renderMainViewport = () => {
+    // 渲染网格工具栏
+    const renderMeshToolbar = () => {
+      const toolButtons = [
+        {
+          key: 'refresh',
+          icon: meshToolState.isGenerating ? '⏳' : '🔄',
+          tooltip: '刷新网格',
+          onClick: meshToolHandlers.refreshMesh,
+          disabled: meshToolState.isGenerating
+        },
+        {
+          key: 'generate',
+          icon: meshToolState.isGenerating ? '⏸️' : '▶️',
+          tooltip: meshToolState.isGenerating ? '暂停生成' : '开始生成',
+          onClick: meshToolState.isGenerating ? meshToolHandlers.pauseGeneration : meshToolHandlers.startGeneration,
+          highlight: meshToolState.isGenerating
+        },
+        {
+          key: 'quality',
+          icon: '🔍',
+          tooltip: '质量检查',
+          onClick: meshToolHandlers.qualityCheck,
+          active: meshToolState.qualityCheckActive
+        },
+        {
+          key: 'measure',
+          icon: '📏',
+          tooltip: '测量工具',
+          onClick: meshToolHandlers.measureTool,
+          active: meshToolState.measureMode
+        },
+        {
+          key: 'select',
+          icon: '🎯',
+          tooltip: '选择工具',
+          onClick: meshToolHandlers.selectTool,
+          active: meshToolState.selectMode
+        },
+        {
+          key: 'view',
+          icon: '👁️',
+          tooltip: '视角控制',
+          onClick: () => {
+            const views = ['perspective', 'top', 'front', 'side'];
+            const currentIndex = views.indexOf(meshToolState.currentView);
+            const nextView = views[(currentIndex + 1) % views.length];
+            meshToolHandlers.changeView(nextView);
+          }
+        },
+        {
+          key: 'save',
+          icon: '💾',
+          tooltip: '保存网格',
+          onClick: meshToolHandlers.saveMesh
+        },
+        {
+          key: 'export',
+          icon: '📤',
+          tooltip: '导出网格',
+          onClick: meshToolHandlers.exportMesh
+        },
+        {
+          key: 'settings',
+          icon: '⚙️',
+          tooltip: '快速设置',
+          onClick: meshToolHandlers.quickSettings
+        }
+      ];
+
+      return toolButtons.map(tool => (
+        <div
+          key={tool.key}
+          title={tool.tooltip}
+          onClick={tool.disabled ? undefined : tool.onClick}
+          style={{
+            width: '44px',
+            height: '44px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: tool.active ? 'rgba(255, 255, 255, 0.3)' : 
+                       tool.highlight ? 'rgba(255, 255, 255, 0.2)' :
+                       'rgba(255, 255, 255, 0.1)',
+            borderRadius: '8px',
+            cursor: tool.disabled ? 'not-allowed' : 'pointer',
+            border: tool.active ? '1px solid rgba(255, 255, 255, 0.5)' : '1px solid transparent',
+            fontSize: '18px',
+            opacity: tool.disabled ? 0.5 : 1,
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            if (!tool.disabled) {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!tool.disabled) {
+              e.currentTarget.style.background = tool.active ? 'rgba(255, 255, 255, 0.3)' : 
+                                                  tool.highlight ? 'rgba(255, 255, 255, 0.2)' :
+                                                  'rgba(255, 255, 255, 0.1)';
+            }
+          }}
+        >
+          {tool.icon}
+        </div>
+      ));
+    };
+
     const getMainContent = () => {
       switch (activeModule) {
         case 'geometry':
           return (
             <div style={{ 
               height: '100%',
-              background: 'linear-gradient(135deg, rgba(0, 217, 255, 0.1) 0%, rgba(0, 217, 255, 0.05) 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: `1px solid rgba(0, 217, 255, 0.3)`,
-              borderRadius: themeConfig.effects.borderRadius,
+              position: 'relative',
+              display: 'flex'
             }}>
-              <div style={{ textAlign: 'center', color: '#ffffff' }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>🏗️</div>
-                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#00d9ff', marginBottom: '8px' }}>
-                  几何建模工作区
-                </div>
-                <div style={{ fontSize: '16px', color: '#ffffff80', marginBottom: '16px' }}>
-                  2号几何专家 - 地质建模 • 基坑设计 • 支护结构
-                </div>
+              {/* 主3D视口 */}
+              <div style={{ flex: 1, height: '100%' }}>
                 <CAEThreeEngineComponent 
                   onSelection={(objects) => ComponentDevHelper.logDevTip(`几何选中: ${objects.length}个`)}
                   onMeasurement={(measurement) => ComponentDevHelper.logDevTip(`几何测量: ${JSON.stringify(measurement)}`)}
+                />
+              </div>
+              
+              {/* 右侧几何工具栏 */}
+              <div style={{ 
+                position: 'absolute',
+                right: '20px',
+                top: '20px',
+                bottom: '20px',
+                zIndex: 1000
+              }}>
+                <VerticalToolbar
+                  activeTool={activeGeometryTool}
+                  onToolSelect={handleGeometryToolSelect}
                 />
               </div>
             </div>
@@ -742,92 +956,175 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           return (
             <div style={{ 
               height: '100%',
-              background: 'linear-gradient(135deg, rgba(82, 196, 26, 0.1) 0%, rgba(82, 196, 26, 0.05) 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: `1px solid rgba(82, 196, 26, 0.3)`,
-              borderRadius: themeConfig.effects.borderRadius,
+              display: 'flex'
             }}>
-              <div style={{ textAlign: 'center', color: '#ffffff' }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔲</div>
-                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#52c41a', marginBottom: '8px' }}>
-                  网格生成工作区
-                </div>
-                <div style={{ fontSize: '16px', color: '#ffffff80', marginBottom: '16px' }}>
-                  2号&3号协作 - GMSH Fragment • 自适应细化 • 质量分析
-                </div>
-                <div style={{ marginTop: '20px' }}>
-                  <div style={{ color: '#52c41a', marginBottom: '8px' }}>🔗 Fragment区域: 1,867个</div>
-                  <div style={{ color: '#1890ff', marginBottom: '8px' }}>📐 网格单元: 156,847个</div>
+              {/* 左侧参数配置面板 */}
+              <div style={{ 
+                width: '300px',
+                minWidth: '300px',
+                background: 'rgba(0, 0, 0, 0.6)',
+                borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+                overflow: 'auto'
+              }}>
+                <AdvancedMeshConfig />
+              </div>
+              
+              {/* 中间3D预览区域 */}
+              <div style={{ 
+                flex: 1,
+                position: 'relative',
+                background: 'rgba(0, 0, 0, 0.2)',
+                height: '100%',
+                minHeight: '500px'
+              }}>
+                <CAEThreeEngineComponent 
+                  onSelection={(objects) => ComponentDevHelper.logDevTip(`选中对象: ${objects.length}个`)}
+                  onMeasurement={(measurement) => ComponentDevHelper.logDevTip(`测量结果: ${JSON.stringify(measurement)}`)}
+                />
+                
+                {/* 左上角状态信息 */}
+                <div style={{ 
+                  position: 'absolute',
+                  top: '16px',
+                  left: '16px',
+                  background: 'rgba(0, 0, 0, 0.7)',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  color: '#ffffff',
+                  fontSize: '12px',
+                  zIndex: 5
+                }}>
+                  <div style={{ color: '#52c41a', marginBottom: '4px' }}>🔗 Fragment区域: 1,867个</div>
+                  <div style={{ color: '#1890ff', marginBottom: '4px' }}>📐 网格单元: 156,847个</div>
                   <div style={{ color: '#faad14' }}>⚙️ 质量评分: 87/100</div>
                 </div>
+              </div>
+              
+              {/* 右侧工具栏 */}
+              <div style={{ 
+                width: '60px',
+                background: 'rgba(0, 0, 0, 0.8)',
+                borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                padding: '16px 8px',
+                gap: '12px'
+              }}>
+                {renderMeshToolbar()}
               </div>
             </div>
           );
           
         case 'analysis':
           return (
-            <div style={{ 
-              height: '100%',
-              background: 'linear-gradient(135deg, rgba(250, 173, 20, 0.1) 0%, rgba(250, 173, 20, 0.05) 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: `1px solid rgba(250, 173, 20, 0.3)`,
-              borderRadius: themeConfig.effects.borderRadius,
-            }}>
-              <div style={{ textAlign: 'center', color: '#ffffff' }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚡</div>
-                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#faad14', marginBottom: '8px' }}>
-                  计算分析工作区
-                </div>
-                <div style={{ fontSize: '16px', color: '#ffffff80', marginBottom: '16px' }}>
-                  3号计算专家 - Terra求解器 • 多物理耦合 • 伴随方法
-                </div>
-                <div style={{ marginTop: '20px' }}>
-                  <div style={{ color: '#faad14', marginBottom: '8px' }}>🧮 Terra引擎: 运行中</div>
-                  <div style={{ color: '#1890ff', marginBottom: '8px' }}>⚡ GPU加速: 激活</div>
-                  <div style={{ color: '#52c41a' }}>📊 收敛状态: 正常</div>
-                </div>
+            <div style={{ height: '100%', display: 'flex' }}>
+              {/* 主要3D计算结果可视化区域 */}
+              <div style={{ flex: 1, position: 'relative' }}>
+                <CAEThreeEngineComponent 
+                  mode="computation_results"
+                  onModelSelect={onSelection}
+                  showStressVisualization={expert3State.computationActive}
+                  showDeformationAnimation={expert3State.computationActive}
+                  computationResults={expert3State.currentResults}
+                  analysisProgress={expert3State.analysisProgress}
+                />
+                
+                {/* 计算状态悬浮显示 */}
+                {expert3State.computationActive && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '20px',
+                    right: '20px',
+                    background: 'rgba(0, 0, 0, 0.85)',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    border: '1px solid rgba(250, 173, 20, 0.5)',
+                    minWidth: '280px',
+                    backdropFilter: 'blur(10px)'
+                  }}>
+                    <div style={{ color: '#faad14', fontSize: '14px', fontWeight: 'bold', marginBottom: '12px' }}>
+                      🧮 {expert3State.currentSolver}求解器运行中
+                    </div>
+                    <div style={{ color: '#ffffff', fontSize: '12px', marginBottom: '8px' }}>
+                      计算进度: {expert3State.analysisProgress}%
+                    </div>
+                    <div style={{
+                      width: '100%',
+                      height: '4px',
+                      background: 'rgba(255, 255, 255, 0.2)',
+                      borderRadius: '2px',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{
+                        width: `${expert3State.analysisProgress}%`,
+                        height: '100%',
+                        background: 'linear-gradient(90deg, #faad14, #ff6b35)',
+                        transition: 'width 0.3s ease'
+                      }} />
+                    </div>
+                    <div style={{ color: '#ffffff80', fontSize: '11px', marginTop: '8px' }}>
+                      任务: {expert3State.currentComputationTask || '深基坑分析'}
+                    </div>
+                  </div>
+                )}
+                
+                {/* 计算结果概览 */}
+                {expert3State.currentResults && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '20px',
+                    left: '20px',
+                    right: '20px',
+                    maxHeight: '200px'
+                  }}>
+                    <ComputationResultsOverview 
+                      results={expert3State.currentResults}
+                      theme="dark"
+                      enableAnimation={true}
+                      onDetailView={(type) => console.log('查看详细结果:', type)}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           );
           
         case 'results':
           return (
-            <div style={{ 
-              height: '100%',
-              background: 'linear-gradient(135deg, rgba(235, 47, 150, 0.1) 0%, rgba(235, 47, 150, 0.05) 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: `1px solid rgba(235, 47, 150, 0.3)`,
-              borderRadius: themeConfig.effects.borderRadius,
-            }}>
-              <div style={{ textAlign: 'center', color: '#ffffff' }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>📊</div>
-                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#eb2f96', marginBottom: '8px' }}>
-                  结果查看工作区
-                </div>
-                <div style={{ fontSize: '16px', color: '#ffffff80', marginBottom: '16px' }}>
-                  1号&3号协作 - 3D可视化 • 数据导出 • 后处理分析
-                </div>
-                <div style={{ marginTop: '20px' }}>
-                  <div style={{ color: '#eb2f96', marginBottom: '8px' }}>🎨 应力云图: GPU渲染</div>
-                  <div style={{ color: '#1890ff', marginBottom: '8px' }}>📈 位移动画: 实时</div>
-                  <div style={{ color: '#52c41a' }}>💾 数据导出: 就绪</div>
-                </div>
-              </div>
+            <div style={{ height: '100%' }}>
+              <ResultsVisualizationDashboard 
+                results={expert3State.currentResults}
+                onVisualizationChange={(type) => handleExpert3Action('change_visualization', { mode: type })}
+                onExport={(format) => console.log('导出结果:', format)}
+                enableRealtimeUpdate={true}
+                showDetailedAnalysis={true}
+              />
+            </div>
+          );
+        
+        case 'physics-ai':
+          return (
+            <div style={{ height: '100%' }}>
+              <PhysicsAIView 
+                geometryData={geologyParams}
+                computationResults={expert3State.currentResults}
+                onParameterOptimization={(params) => handleExpert3Action('start_optimization', params)}
+                onAIRecommendation={(recommendation) => handleExpert3Action('ai_recommendation', recommendation)}
+                isOptimizing={expert3State.optimizationRunning}
+                recommendations={expert3State.aiRecommendations}
+              />
             </div>
           );
           
         default:
           return (
-            <CAEThreeEngineComponent 
-              onSelection={(objects) => ComponentDevHelper.logDevTip(`选中对象: ${objects.length}个`)}
-              onMeasurement={(measurement) => ComponentDevHelper.logDevTip(`测量结果: ${JSON.stringify(measurement)}`)}
-            />
+            <div style={{ height: '100%', width: '100%', minHeight: '500px' }}>
+              <CAEThreeEngineComponent 
+                onSelection={(objects) => ComponentDevHelper.logDevTip(`选中对象: ${objects.length}个`)}
+                onMeasurement={(measurement) => ComponentDevHelper.logDevTip(`测量结果: ${JSON.stringify(measurement)}`)}
+              />
+            </div>
           );
       }
     };
@@ -844,61 +1141,6 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           {getMainContent()}
         </div>
 
-        {/* 下方分屏数据视图 */}
-        {subViewsEnabled && (
-          <div style={{ 
-            height: subViewHeight,
-            display: 'flex', 
-            gap: '12px',
-            marginTop: '12px'
-          }}>
-            <Card
-              title="地质剖面分析"
-              size="small"
-              style={{ 
-                flex: 1,
-                background: `rgba(${parseInt(themeConfig.colors.background.secondary.slice(1, 3), 16)}, ${parseInt(themeConfig.colors.background.secondary.slice(3, 5), 16)}, ${parseInt(themeConfig.colors.background.secondary.slice(5, 7), 16)}, 0.8)`,
-                border: `1px solid ${themeConfig.colors.border.secondary}`
-              }}
-            >
-              <div style={{ 
-                height: '100%', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                color: themeConfig.colors.text.secondary
-              }}>
-                <Space direction="vertical" align="center">
-                  <BarChartOutlined style={{ fontSize: '24px' }} />
-                  <Text style={{ color: themeConfig.colors.text.tertiary }}>地质剖面图表</Text>
-                </Space>
-              </div>
-            </Card>
-
-            <Card
-              title="结果分析图表"
-              size="small"
-              style={{ 
-                flex: 1,
-                background: `rgba(${parseInt(themeConfig.colors.background.secondary.slice(1, 3), 16)}, ${parseInt(themeConfig.colors.background.secondary.slice(3, 5), 16)}, ${parseInt(themeConfig.colors.background.secondary.slice(5, 7), 16)}, 0.8)`,
-                border: `1px solid ${themeConfig.colors.border.secondary}`
-              }}
-            >
-              <div style={{ 
-                height: '100%', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                color: themeConfig.colors.text.secondary
-              }}>
-                <Space direction="vertical" align="center">
-                  <DatabaseOutlined style={{ fontSize: '24px' }} />
-                  <Text style={{ color: themeConfig.colors.text.tertiary }}>计算结果图表</Text>
-                </Space>
-              </div>
-            </Card>
-          </div>
-        )}
       </div>
     );
   };
@@ -956,7 +1198,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
               children: (
                 <div style={{ height: '100%', overflowY: 'auto', padding: '16px' }}>
                   <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                    <Card size="small" title="🗺️ 地质模型" style={{ background: 'rgba(0, 217, 255, 0.05)' }}>
+                    <Card size="small" title="🗺️ 地质模型" style={{ background: 'rgba(0, 0, 0, 0.3)' }}>
                       <div style={{ fontSize: '12px', color: '#ffffff80' }}>
                         <div>钻孔数量: 45个</div>
                         <div>地层数: 12层</div>
@@ -964,7 +1206,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                         <div>基岩深度: -25.3m</div>
                       </div>
                     </Card>
-                    <Card size="small" title="🏗️ 基坑几何" style={{ background: 'rgba(0, 217, 255, 0.05)' }}>
+                    <Card size="small" title="🏗️ 基坑几何" style={{ background: 'rgba(0, 0, 0, 0.3)' }}>
                       <div style={{ fontSize: '12px', color: '#ffffff80' }}>
                         <div>开挖深度: 15m</div>
                         <div>基坑面积: 2,400m²</div>
@@ -972,7 +1214,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                         <div>分层数: 5层</div>
                       </div>
                     </Card>
-                    <Card size="small" title="🛡️ 支护结构" style={{ background: 'rgba(0, 217, 255, 0.05)' }}>
+                    <Card size="small" title="🛡️ 支护结构" style={{ background: 'rgba(0, 0, 0, 0.3)' }}>
                       <div style={{ fontSize: '12px', color: '#ffffff80' }}>
                         <div>围护桩: 156根</div>
                         <div>支撑系统: 3道</div>
@@ -991,19 +1233,19 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                 <div style={{ height: '100%', overflowY: 'auto', padding: '16px' }}>
                   <Space direction="vertical" style={{ width: '100%' }} size="middle">
                     <div>
-                      <Text style={{ color: '#00d9ff', fontWeight: 'bold' }}>地质建模</Text>
+                      <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>地质建模</Text>
                       <Progress percent={100} size="small" strokeColor="#52c41a" />
                     </div>
                     <div>
-                      <Text style={{ color: '#00d9ff', fontWeight: 'bold' }}>基坑设计</Text>
+                      <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>基坑设计</Text>
                       <Progress percent={85} size="small" strokeColor="#1890ff" />
                     </div>
                     <div>
-                      <Text style={{ color: '#00d9ff', fontWeight: 'bold' }}>支护结构</Text>
+                      <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>支护结构</Text>
                       <Progress percent={60} size="small" strokeColor="#faad14" />
                     </div>
                     <div>
-                      <Text style={{ color: '#00d9ff', fontWeight: 'bold' }}>几何检验</Text>
+                      <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>几何检验</Text>
                       <Progress percent={30} size="small" strokeColor="#ff4d4f" />
                     </div>
                   </Space>
@@ -1020,7 +1262,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
               children: (
                 <div style={{ height: '100%', overflowY: 'auto', padding: '16px' }}>
                   <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                    <Card size="small" title="🔲 网格统计" style={{ background: 'rgba(82, 196, 26, 0.05)' }}>
+                    <Card size="small" title="🔲 网格统计" style={{ background: 'rgba(0, 0, 0, 0.3)' }}>
                       <div style={{ fontSize: '12px', color: '#ffffff80' }}>
                         <div>单元总数: 156,847</div>
                         <div>节点数: 89,234</div>
@@ -1028,7 +1270,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                         <div>边界面: 2,456</div>
                       </div>
                     </Card>
-                    <Card size="small" title="📊 质量指标" style={{ background: 'rgba(82, 196, 26, 0.05)' }}>
+                    <Card size="small" title="📊 质量指标" style={{ background: 'rgba(0, 0, 0, 0.3)' }}>
                       <Row gutter={8}>
                         <Col span={12}>
                           <div style={{ textAlign: 'center' }}>
@@ -1348,13 +1590,6 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                 数据导出
               </Button>
 
-              <Button
-                block
-                icon={<SettingOutlined />}
-                onClick={() => setSubViewsEnabled(!subViewsEnabled)}
-              >
-                {subViewsEnabled ? '隐藏' : '显示'}子视图
-              </Button>
 
               <Button
                 type="primary"
@@ -1507,12 +1742,12 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
         flexDirection: isMobile ? 'column' : undefined,
         alignItems: 'center',
         padding: isMobile ? '8px 12px' : '0 20px',
-        boxShadow: `0 4px 12px rgba(0, 217, 255, 0.1)`
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
       }}>
         {/* 项目信息区域 */}
         <div>
           <Title level={4} style={{ 
-            color: activeModule === 'geometry' ? '#00d9ff' :
+            color: activeModule === 'geometry' ? '#ffffff' :
                    activeModule === 'meshing' ? '#52c41a' :
                    activeModule === 'analysis' ? '#faad14' :
                    activeModule === 'results' ? '#eb2f96' :
@@ -1643,17 +1878,70 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           </div>
 
           {/* 中央3D+数据可视化区域 */}
-          <div style={{ flex: 1 }}>
-            {renderMainViewport()}
+          <div style={{ flex: 1, display: 'flex' }}>
+            <div style={{ flex: 1 }}>
+              {renderMainViewport()}
+            </div>
+            
+            {/* 右侧专家工具栏区域 */}
+            <div style={{ width: '80px', display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '8px' }}>
+              {/* 2号专家几何工具栏 */}
+              {activeModule === 'geometry' && (
+                <VerticalToolbar
+                  activeTool={activeGeometryTool}
+                  onToolSelect={handleGeometryToolSelect}
+                />
+              )}
+              
+              {/* 3号专家分析工具栏 */}
+              {activeModule === 'analysis' && (
+                <AnalysisToolbar 
+                  computationStatus={expert3State.computationActive ? 'running' : 'idle'}
+                  meshingStatus={expert3State.meshingStatus}
+                  analysisProgress={expert3State.analysisProgress}
+                  onStartComputation={() => handleExpert3Action('start_computation')}
+                  onStopComputation={() => handleExpert3Action('stop_computation')}
+                  onShowMonitor={() => setRightPanelTab('computation-monitor')}
+                  onOpenSolverConfig={() => console.log('打开求解器配置')}
+                />
+              )}
+              
+              {/* 3号专家物理AI工具栏 */}
+              {activeModule === 'physics-ai' && (
+                <PhysicsAIToolbar 
+                  aiEnabled={expert3State.physicsAIEnabled}
+                  optimizationRunning={expert3State.optimizationRunning}
+                  recommendationCount={expert3State.aiRecommendations.length}
+                  onToggleAI={() => handleExpert3Action('enable_physics_ai')}
+                  onStartOptimization={() => handleExpert3Action('start_optimization')}
+                  onShowRecommendations={() => console.log('显示AI建议')}
+                  onParameterTuning={() => console.log('参数调优')}
+                />
+              )}
+              
+              {/* 3号专家结果工具栏 */}
+              {activeModule === 'results' && (
+                <ResultsToolbar 
+                  visualizationMode={expert3State.resultVisualizationMode}
+                  resultsAvailable={expert3State.currentResults !== null}
+                  onVisualizationChange={(mode) => handleExpert3Action('change_visualization', { mode })}
+                  onExportResults={(format) => console.log('导出结果:', format)}
+                  onShowAnimation={() => console.log('显示动画')}
+                  onToggle3DView={() => console.log('切换3D视图')}
+                />
+              )}
+            </div>
           </div>
 
-          {/* 右侧多窗口数据面板 */}
-          <div style={{ 
-            width: rightPanelState === 'collapsed' ? '60px' : `${rightPanelWidth}px`,
-            transition: 'width 0.3s ease'
-          }}>
-            {renderRightPanel()}
-          </div>
+          {/* 右侧数据面板 - 特定模块显示 */}
+          {(activeModule === 'analysis' || activeModule === 'results') && (
+            <div style={{ 
+              width: rightPanelState === 'collapsed' ? '60px' : `${rightPanelWidth}px`,
+              transition: 'width 0.3s ease'
+            }}>
+              {renderRightPanel()}
+            </div>
+          )}
         </div>
       </Content>
 

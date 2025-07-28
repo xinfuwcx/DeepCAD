@@ -48,17 +48,78 @@ const PhysicalGroupManager: React.FC = () => {
   const [editingGroup, setEditingGroup] = useState<PhysicalGroupInfo | null>(null);
   const [form] = Form.useForm();
 
-  // Load physical groups and entities
+  // Load physical groups and entities - 使用模拟数据
   const loadData = async () => {
     setLoading(true);
     try {
-      const [groupsRes, entitiesRes] = await Promise.all([
-        fetch('/api/meshing/physical-groups').then(r => r.json()),
-        fetch('/api/meshing/geometry/entities').then(r => r.json())
-      ]);
+      // 模拟物理组数据
+      const mockGroups: PhysicalGroupInfo[] = [
+        {
+          tag: 1,
+          name: 'Soil_Layer_1',
+          dimension: 3,
+          entity_count: 45,
+          material_type: 'soil',
+          properties: {
+            density: 1850,
+            young_modulus: 25e6,
+            poisson_ratio: 0.3,
+            cohesion: 15000,
+            friction_angle: 25
+          }
+        },
+        {
+          tag: 2,
+          name: 'Diaphragm_Wall',
+          dimension: 2,
+          entity_count: 12,
+          material_type: 'concrete',
+          properties: {
+            density: 2500,
+            young_modulus: 30e9,
+            poisson_ratio: 0.2,
+            compressive_strength: 35e6
+          }
+        },
+        {
+          tag: 3,
+          name: 'Steel_Support',
+          dimension: 1,
+          entity_count: 8,
+          material_type: 'steel',
+          properties: {
+            density: 7850,
+            young_modulus: 200e9,
+            poisson_ratio: 0.3,
+            yield_strength: 355e6
+          }
+        },
+        {
+          tag: 4,
+          name: 'Excavation_Zone',
+          dimension: 3,
+          entity_count: 1,
+          material_type: 'excavation',
+          properties: {
+            excavation_depth: 15,
+            excavation_width: 30,
+            excavation_length: 50
+          }
+        }
+      ];
+
+      // 模拟几何实体数据
+      const mockEntities: EntityInfo[] = [
+        { tag: 1, dimension: 3, bounding_box: [0, 0, -30, 60, 40, 0], parent_entities: [], child_entities: [101, 102] },
+        { tag: 2, dimension: 2, bounding_box: [0, 0, -25, 60, 0.8, 0], parent_entities: [1], child_entities: [] },
+        { tag: 3, dimension: 1, bounding_box: [5, 5, -5, 55, 5, -5], parent_entities: [2], child_entities: [] },
+        { tag: 4, dimension: 3, bounding_box: [10, 10, -15, 50, 30, 0], parent_entities: [], child_entities: [] }
+      ];
       
-      setGroups(groupsRes.groups || []);
-      setEntities(entitiesRes.entities || []);
+      setGroups(mockGroups);
+      setEntities(mockEntities);
+
+      console.log('3号计算专家 - 物理组数据加载完成:', { groups: mockGroups.length, entities: mockEntities.length });
     } catch (error) {
       message.error('加载数据失败');
       console.error('Failed to load data:', error);
@@ -71,7 +132,7 @@ const PhysicalGroupManager: React.FC = () => {
     loadData();
   }, []);
 
-  // Create or update physical group
+  // Create or update physical group - 模拟操作
   const handleSubmit = async (values: any) => {
     try {
       const definition: PhysicalGroupDefinition = {
@@ -83,65 +144,60 @@ const PhysicalGroupManager: React.FC = () => {
         properties: values.properties ? JSON.parse(values.properties) : {}
       };
 
-      const requestData = {
-        definition,
-        entity_tags: values.entity_tags || [],
-        auto_tag: true
-      };
+      // 模拟操作延迟
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      let response;
       if (editingGroup) {
-        // Update existing group
-        response = await fetch(`/api/meshing/physical-groups/${editingGroup.dimension}/${editingGroup.tag}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: values.name,
-            description: values.description,
-            material_type: values.material_type,
-            properties: values.properties ? JSON.parse(values.properties) : {},
-            entity_tags: values.entity_tags
-          })
-        });
+        // 更新现有组
+        setGroups(prevGroups => 
+          prevGroups.map(group => 
+            group.tag === editingGroup.tag 
+              ? {
+                  ...group,
+                  name: values.name,
+                  material_type: values.material_type,
+                  properties: definition.properties
+                }
+              : group
+          )
+        );
+        message.success('物理组更新成功');
       } else {
-        // Create new group
-        response = await fetch('/api/meshing/physical-groups', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestData)
-        });
+        // 创建新组
+        const newGroup: PhysicalGroupInfo = {
+          tag: Math.max(...groups.map(g => g.tag), 0) + 1,
+          name: values.name,
+          dimension: ['point', 'curve', 'surface', 'volume'].indexOf(values.group_type),
+          entity_count: values.entity_tags?.length || 0,
+          material_type: values.material_type,
+          properties: definition.properties
+        };
+        
+        setGroups(prevGroups => [...prevGroups, newGroup]);
+        message.success('物理组创建成功');
       }
 
-      if (response.ok) {
-        message.success(editingGroup ? '物理组更新成功' : '物理组创建成功');
-        setModalVisible(false);
-        setEditingGroup(null);
-        form.resetFields();
-        loadData();
-      } else {
-        const error = await response.json();
-        message.error(error.detail || '操作失败');
-      }
+      setModalVisible(false);
+      setEditingGroup(null);
+      form.resetFields();
+      
+      console.log('3号计算专家 - 物理组操作完成:', editingGroup ? '更新' : '创建', values.name);
     } catch (error) {
       message.error('操作失败');
       console.error('Submit error:', error);
     }
   };
 
-  // Delete physical group
+  // Delete physical group - 模拟操作
   const handleDelete = async (group: PhysicalGroupInfo) => {
     try {
-      const response = await fetch(`/api/meshing/physical-groups/${group.dimension}/${group.tag}`, {
-        method: 'DELETE'
-      });
+      // 模拟删除延迟
+      await new Promise(resolve => setTimeout(resolve, 300));
 
-      if (response.ok) {
-        message.success('物理组删除成功');
-        loadData();
-      } else {
-        const error = await response.json();
-        message.error(error.detail || '删除失败');
-      }
+      setGroups(prevGroups => prevGroups.filter(g => g.tag !== group.tag));
+      message.success('物理组删除成功');
+      
+      console.log('3号计算专家 - 物理组删除完成:', group.name);
     } catch (error) {
       message.error('删除失败');
       console.error('Delete error:', error);

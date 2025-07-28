@@ -27,6 +27,7 @@ import MaterialLibraryView from '../../views/MaterialLibraryView';
 import SettingsView from '../../views/SettingsView';
 import { ComponentExampleShowcase } from '../../examples/ComponentExamples';
 import AIAssistantFloating from '../AIAssistantFloating';
+import ComputationExpertView from '../../views/ComputationExpertView';
 import { ArchitectZeroUIController } from '../control/ArchitectZeroUIController';
 import { createArchitectZeroUIInterface } from '../../services/ArchitectZeroUIInterface';
 import type { MapStyle } from '../../services/GeoThreeController';
@@ -55,47 +56,47 @@ const MainLayout: React.FC = () => {
 
   const menuItems = [
     {
-      key: '/dashboard',
+      key: 'dashboard',
       icon: <TechIcon icon={DashboardOutlined} type="analysis" effects={{ halo: true }} />,
       label: '控制中心',
     },
     {
-      key: '/geometry',
+      key: 'geometry',
       icon: <TechGeologyIcon icon={AppstoreOutlined} effects={{ dataFlow: true }} />,
       label: '几何建模',
     },
     {
-      key: '/meshing',
+      key: 'meshing',
       icon: <TechSupportIcon icon={BuildOutlined} effects={{ energyBar: true }} />,
       label: '网格生成',
     },
     {
-      key: '/analysis',
+      key: 'analysis',
       icon: <ComputingIcon icon={CalculatorOutlined} type="analysis" />,
       label: '计算分析',
     },
     {
-      key: '/results',
+      key: 'results',
       icon: <TechIcon icon={BarChartOutlined} type="success" effects={{ pulse: true }} />,
       label: '结果查看',
     },
     {
-      key: '/physics-ai',
+      key: 'physics-ai',
       icon: <TechIcon icon={ExperimentOutlined} type="warning" effects={{ halo: true }} />,
       label: '物理AI',
     },
     {
-      key: '/materials',
+      key: 'materials',
       icon: <TechIcon icon={DatabaseOutlined} type="geology" />,
       label: '材料库',
     },
     {
-      key: '/examples',
+      key: 'examples',
       icon: <TechIcon icon={CodeOutlined} type="info" />,
       label: '开发示例',
     },
     {
-      key: '/settings',
+      key: 'settings',
       icon: <RotatingIcon icon={SettingOutlined} type="info" />,
       label: '系统设置',
     },
@@ -103,6 +104,15 @@ const MainLayout: React.FC = () => {
 
   const handleMenuClick = ({ key }: { key: string }) => {
     navigate(key);
+  };
+
+  // 根据当前路径获取对应的菜单key
+  const getCurrentMenuKey = () => {
+    const path = location.pathname;
+    if (path.startsWith('/workspace/')) {
+      return path.replace('/workspace/', '');
+    }
+    return path.replace('/', '') || 'dashboard';
   };
 
   return (
@@ -141,7 +151,7 @@ const MainLayout: React.FC = () => {
         {/* 导航菜单 */}
         <Menu
           theme="dark"
-          selectedKeys={[location.pathname]}
+          selectedKeys={[getCurrentMenuKey()]}
           mode="inline"
           items={menuItems}
           onClick={handleMenuClick}
@@ -197,20 +207,78 @@ const MainLayout: React.FC = () => {
                 onProjectSelect={(projectId) => console.log('项目选择:', projectId)}
               />
             } />
-            <Route path="/dashboard" element={
+            <Route path="dashboard" element={
               <ControlCenter 
                 onExit={() => navigate('/')}
                 onProjectSelect={(projectId) => console.log('项目选择:', projectId)}
               />
             } />
-            <Route path="/geometry" element={<EnhancedMainWorkspaceView activeModule="geometry" />} />
-            <Route path="/meshing" element={<EnhancedMainWorkspaceView activeModule="meshing" />} />
-            <Route path="/analysis" element={<EnhancedMainWorkspaceView activeModule="analysis" />} />
-            <Route path="/results" element={<EnhancedMainWorkspaceView activeModule="results" />} />
-            <Route path="/physics-ai" element={<PhysicsAIView />} />
-            <Route path="/materials" element={<MaterialLibraryView />} />
-            <Route path="/examples" element={<ComponentExampleShowcase />} />
-            <Route path="/settings" element={<SettingsView />} />
+            <Route path="geometry" element={<EnhancedMainWorkspaceView activeModule="geometry" />} />
+            <Route path="meshing" element={<EnhancedMainWorkspaceView activeModule="meshing" />} />
+            <Route path="analysis" element={<EnhancedMainWorkspaceView activeModule="analysis" />} />
+            <Route path="results" element={<EnhancedMainWorkspaceView activeModule="results" />} />
+            <Route path="physics-ai" element={<PhysicsAIView />} />
+            <Route path="materials" element={<MaterialLibraryView />} />
+            <Route path="examples" element={<ComponentExampleShowcase />} />
+            <Route path="settings" element={<SettingsView />} />
+            {/* 兼容性重定向：避免旧链接404 */}
+            <Route path="computation" element={
+              <div style={{ 
+                padding: '24px', 
+                textAlign: 'center',
+                background: '#001122',
+                minHeight: '100vh',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center'
+              }}>
+                <h2 style={{ color: '#00d9ff', marginBottom: '16px' }}>🔄 页面已重构</h2>
+                <p style={{ color: '#ffffff80', marginBottom: '24px' }}>
+                  计算功能已整合到对应的专业模块中
+                </p>
+                <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
+                  <button 
+                    onClick={() => navigate('meshing')}
+                    style={{ 
+                      padding: '8px 16px', 
+                      background: '#00d9ff', 
+                      color: '#000', 
+                      border: 'none', 
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    前往网格生成
+                  </button>
+                  <button 
+                    onClick={() => navigate('analysis')}
+                    style={{ 
+                      padding: '8px 16px', 
+                      background: '#00d9ff', 
+                      color: '#000', 
+                      border: 'none', 
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    前往计算分析
+                  </button>
+                  <button 
+                    onClick={() => navigate('physics-ai')}
+                    style={{ 
+                      padding: '8px 16px', 
+                      background: '#00d9ff', 
+                      color: '#000', 
+                      border: 'none', 
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    前往物理AI
+                  </button>
+                </div>
+              </div>
+            } />
           </Routes>
         </Content>
         
@@ -220,24 +288,6 @@ const MainLayout: React.FC = () => {
           defaultExpanded={false}
         />
         
-        {/* 0号架构师UI控制面板 - 右上角 */}
-        <div style={{
-          position: 'fixed',
-          top: '20px',
-          right: '20px',
-          zIndex: 9999,
-          background: 'rgba(0, 0, 0, 0.8)',
-          borderRadius: '12px',
-          border: '1px solid rgba(0, 212, 255, 0.3)',
-          backdropFilter: 'blur(10px)'
-        }}>
-          <ArchitectZeroUIController 
-            architectZero={architectZeroUI}
-            isVisible={true}
-            onClose={() => console.log('架构师面板关闭')}
-            position="right"
-          />
-        </div>
       </Layout>
     </Layout>
   );

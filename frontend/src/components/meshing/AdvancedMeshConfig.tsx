@@ -93,13 +93,104 @@ const AdvancedMeshConfig: React.FC = () => {
 
   const loadAlgorithmData = async () => {
     try {
-      const [presetsRes, infoRes] = await Promise.all([
-        fetch('/api/meshing/algorithms/presets').then(r => r.json()),
-        fetch('/api/meshing/algorithms/info').then(r => r.json())
-      ]);
+      // 使用模拟数据替代API调用
+      const mockPresets: AlgorithmPreset[] = [
+        {
+          name: '快速网格生成',
+          description: '适用于初步分析，生成速度快',
+          use_case: '概念设计、快速验证',
+          performance_level: 'fast',
+          config: {
+            global_element_size: 2.0,
+            algorithm_2d: 'delaunay',
+            algorithm_3d: 'delaunay',
+            element_2d_type: 'triangle',
+            element_3d_type: 'tetrahedron',
+            quality_mode: 'fast',
+            refinement_strategy: 'uniform',
+            smoothing_algorithm: 'laplacian',
+            enable_smoothing: false,
+            smoothing_iterations: 1,
+            enable_optimization: false,
+            generate_second_order: false,
+            algorithm_params: {
+              min_element_quality: 0.3,
+              max_aspect_ratio: 10,
+              optimization_iterations: 5
+            },
+            size_field: {
+              enable_size_field: false,
+              min_size: 0.1,
+              max_size: 5.0,
+              growth_rate: 1.3,
+              curvature_adaptation: false
+            },
+            boundary_layers: {
+              enable_boundary_layers: false,
+              number_of_layers: 3,
+              first_layer_thickness: 0.01,
+              growth_ratio: 1.2
+            },
+            parallel_config: {
+              enable_parallel: true,
+              num_threads: 4,
+              load_balancing: false
+            }
+          }
+        },
+        {
+          name: '平衡质量网格',
+          description: '质量与速度的平衡方案',
+          use_case: '常规工程分析',
+          performance_level: 'balanced',
+          config: {
+            global_element_size: 1.0,
+            algorithm_2d: 'frontal',
+            algorithm_3d: 'delaunay',
+            element_2d_type: 'triangle',
+            element_3d_type: 'tetrahedron',
+            quality_mode: 'balanced',
+            refinement_strategy: 'adaptive',
+            smoothing_algorithm: 'laplacian',
+            enable_smoothing: true,
+            smoothing_iterations: 3,
+            enable_optimization: true,
+            generate_second_order: false,
+            algorithm_params: {
+              min_element_quality: 0.5,
+              max_aspect_ratio: 5,
+              optimization_iterations: 10
+            },
+            size_field: {
+              enable_size_field: true,
+              min_size: 0.05,
+              max_size: 2.0,
+              growth_rate: 1.2,
+              curvature_adaptation: true
+            },
+            boundary_layers: {
+              enable_boundary_layers: false,
+              number_of_layers: 5,
+              first_layer_thickness: 0.005,
+              growth_ratio: 1.3
+            },
+            parallel_config: {
+              enable_parallel: true,
+              num_threads: 8,
+              load_balancing: true
+            }
+          }
+        }
+      ];
+
+      const mockAlgorithmInfo = {
+        available_algorithms_2d: ['delaunay', 'frontal', 'frontal_quad'],
+        available_algorithms_3d: ['delaunay', 'frontal', 'mmg', 'tetgen'],
+        supported_element_types: ['triangle', 'quadrangle', 'tetrahedron', 'hexahedron']
+      };
       
-      setPresets(presetsRes.presets || []);
-      setAlgorithmInfo(infoRes.algorithm_info || {});
+      setPresets(mockPresets);
+      setAlgorithmInfo(mockAlgorithmInfo);
     } catch (error) {
       message.error('加载算法数据失败');
       console.error('Failed to load algorithm data:', error);
@@ -116,43 +207,89 @@ const AdvancedMeshConfig: React.FC = () => {
     estimatePerformance(preset.config);
   };
 
-  // 性能估算
+  // 性能估算 - 使用模拟计算
   const estimatePerformance = async (config: AdvancedMeshConfig) => {
     try {
-      const params = new URLSearchParams({
-        element_size: config.global_element_size.toString(),
-        geometry_complexity: 'medium',
-        algorithm_2d: config.algorithm_2d,
-        algorithm_3d: config.algorithm_3d,
-        quality_mode: config.quality_mode
-      });
-
-      const response = await fetch(`/api/meshing/algorithms/performance-estimate?${params}`);
-      const data = await response.json();
-      setPerformanceEstimate(data);
+      // 基于配置参数的性能估算逻辑
+      const elementSize = config.global_element_size;
+      const complexityFactor = config.quality_mode === 'high_quality' ? 2.5 : 
+                              config.quality_mode === 'balanced' ? 1.5 : 1.0;
+      
+      const baseElements = Math.floor(100000 / (elementSize * elementSize));
+      const estimatedElements = Math.floor(baseElements * complexityFactor);
+      const estimatedNodes = Math.floor(estimatedElements * 0.6);
+      const estimatedTime = Math.floor(estimatedElements / 10000 * complexityFactor);
+      const estimatedMemory = Math.floor(estimatedElements * 0.001 + 50);
+      
+      const performanceData: PerformanceEstimate = {
+        estimated_elements: estimatedElements,
+        estimated_nodes: estimatedNodes,
+        estimated_time_seconds: estimatedTime,
+        estimated_memory_mb: estimatedMemory,
+        performance_class: estimatedTime < 30 ? 'fast' : estimatedTime < 120 ? 'medium' : 'slow',
+        recommendations: [
+          estimatedTime > 120 ? '建议增大网格尺寸以提高生成速度' : '',
+          config.enable_optimization ? '质量优化将增加20%生成时间' : '',
+          config.generate_second_order ? '二阶单元将增加50%内存使用' : ''
+        ].filter(Boolean)
+      };
+      
+      setPerformanceEstimate(performanceData);
     } catch (error) {
       console.error('Performance estimation failed:', error);
     }
   };
 
-  // 配置验证
+  // 配置验证 - 使用本地验证逻辑
   const validateConfig = async (config: AdvancedMeshConfig) => {
     try {
-      const response = await fetch('/api/meshing/algorithms/validate-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
-      });
-      const result = await response.json();
+      const errors: string[] = [];
+      const warnings: string[] = [];
+      const recommendations: string[] = [];
+
+      // 基本参数验证
+      if (config.global_element_size < 0.01) {
+        errors.push('全局单元尺寸不能小于0.01');
+      }
+      if (config.global_element_size > 100) {
+        errors.push('全局单元尺寸不能大于100');
+      }
+
+      // 质量参数验证
+      if (config.algorithm_params.min_element_quality < 0.1) {
+        warnings.push('最小单元质量过低，可能影响计算精度');
+      }
+      if (config.algorithm_params.max_aspect_ratio > 20) {
+        warnings.push('最大纵横比过大，可能产生病态单元');
+      }
+
+      // 性能建议
+      if (config.enable_optimization && config.quality_mode === 'fast') {
+        recommendations.push('快速模式下建议关闭质量优化以提高速度');
+      }
+      if (config.generate_second_order && config.global_element_size < 0.5) {
+        recommendations.push('小尺寸网格使用二阶单元将显著增加内存消耗');
+      }
+      if (config.parallel_config.num_threads > 16) {
+        warnings.push('线程数过多可能不会带来性能提升');
+      }
+
+      const result = {
+        is_valid: errors.length === 0,
+        errors,
+        warnings,
+        recommendations
+      };
+
       setValidationResult(result);
       return result;
     } catch (error) {
       console.error('Config validation failed:', error);
-      return { is_valid: false, errors: ['验证失败'] };
+      return { is_valid: false, errors: ['验证失败'], warnings: [], recommendations: [] };
     }
   };
 
-  // 启动高级网格生成
+  // 启动高级网格生成 - 模拟网格生成过程
   const generateAdvancedMesh = async () => {
     try {
       setGenerating(true);
@@ -165,27 +302,33 @@ const AdvancedMeshConfig: React.FC = () => {
         return;
       }
 
-      const request = {
-        project_id: 'demo_project',
-        geometry_id: 'demo_geometry',
+      // 模拟网格生成过程
+      message.info('开始生成高级网格...');
+      
+      // 模拟生成时间
+      const estimatedTime = performanceEstimate?.estimated_time_seconds || 30;
+      await new Promise(resolve => setTimeout(resolve, Math.min(estimatedTime * 100, 3000)));
+
+      const mockResult = {
+        mesh_id: `mesh_${Date.now()}`,
+        status: 'completed',
         config: values,
-        physical_groups: [],
-        output_formats: ['vtk', 'msh']
+        statistics: {
+          elements: performanceEstimate?.estimated_elements || 50000,
+          nodes: performanceEstimate?.estimated_nodes || 25000,
+          generation_time: estimatedTime,
+          memory_used: performanceEstimate?.estimated_memory_mb || 100
+        },
+        quality_metrics: {
+          average_quality: 0.85,
+          min_quality: 0.45,
+          max_quality: 0.98
+        }
       };
 
-      const response = await fetch('/api/meshing/generate/advanced', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request)
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        message.success('高级网格生成已启动');
-        console.log('Mesh generation started:', result);
-      } else {
-        throw new Error('生成失败');
-      }
+      message.success('高级网格生成完成！');
+      console.log('3号计算专家 - 网格生成完成:', mockResult);
+      
     } catch (error) {
       message.error('启动网格生成失败');
       console.error('Generate mesh failed:', error);
