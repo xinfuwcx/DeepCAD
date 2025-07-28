@@ -3,7 +3,7 @@
  * 1号架构师 - 融合当前布局+多窗口仪表板的深基坑专业方案
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Layout, Card, Tabs, Row, Col, Button, Space, Typography, Progress, Statistic } from 'antd';
 import useResponsiveLayout from '../hooks/useResponsiveLayout';
 import { TouchButton, GestureArea } from '../components/ui/TouchOptimizedControls';
@@ -43,6 +43,7 @@ import PhysicsAIDashboardPanel from '../components/PhysicsAIDashboardPanel';
 import PhysicsAIView from '../views/PhysicsAIView';
 
 // 3号专家工具栏组件
+import MeshingToolbar from '../components/toolbars/MeshingToolbar';
 import AnalysisToolbar from '../components/toolbars/AnalysisToolbar';
 import PhysicsAIToolbar from '../components/toolbars/PhysicsAIToolbar';
 import ResultsToolbar from '../components/toolbars/ResultsToolbar';
@@ -198,6 +199,12 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
   });
   
   const [threeScene, setThreeScene] = useState<any>(null);
+
+  // 添加通用选择处理函数
+  const onSelection = useCallback((objects: any[]) => {
+    console.log('🎯 主视口选择:', objects);
+    ComponentDevHelper.logDevTip(`选中对象: ${objects.length}个`);
+  }, []);
 
   // 几何工具栏处理函数
   const handleGeometryToolSelect = (tool: VerticalToolType) => {
@@ -1893,6 +1900,23 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                 />
               )}
               
+              {/* 3号专家网格工具栏 */}
+              {activeModule === 'meshing' && (
+                <MeshingToolbar 
+                  meshingStatus={expert3State.meshingStatus}
+                  meshQuality={expert3State.meshQuality}
+                  geometryLoaded={true}
+                  meshGenerated={expert3State.meshingStatus === 'completed'}
+                  onGenerateMesh={(preset) => handleExpert3Action('start_meshing', { preset })}
+                  onOpenAlgorithmConfig={() => console.log('打开算法配置')}
+                  onShowQualityAnalysis={() => console.log('显示质量分析')}
+                  onOpenPhysicalGroups={() => console.log('打开物理组')}
+                  onExportMesh={(format) => console.log('导出网格:', format)}
+                  onRefreshGeometry={() => console.log('刷新几何')}
+                  onShowMeshStatistics={() => console.log('显示网格统计')}
+                />
+              )}
+              
               {/* 3号专家分析工具栏 */}
               {activeModule === 'analysis' && (
                 <AnalysisToolbar 
@@ -1909,13 +1933,14 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
               {/* 3号专家物理AI工具栏 */}
               {activeModule === 'physics-ai' && (
                 <PhysicsAIToolbar 
-                  aiEnabled={expert3State.physicsAIEnabled}
-                  optimizationRunning={expert3State.optimizationRunning}
-                  recommendationCount={expert3State.aiRecommendations.length}
-                  onToggleAI={() => handleExpert3Action('enable_physics_ai')}
-                  onStartOptimization={() => handleExpert3Action('start_optimization')}
-                  onShowRecommendations={() => console.log('显示AI建议')}
-                  onParameterTuning={() => console.log('参数调优')}
+                  aiOptimizationActive={expert3State.physicsAIEnabled}
+                  aiAnalysisComplete={expert3State.optimizationRunning}
+                  currentRecommendations={expert3State.aiRecommendations}
+                  analysisDataReady={true}
+                  onStartAIOptimization={() => handleExpert3Action('start_optimization')}
+                  onShowAISuggestions={() => console.log('显示AI建议')}
+                  onOpenParameterTuning={() => console.log('参数调优')}
+                  onToggleAIAssistant={(enabled) => handleExpert3Action('enable_physics_ai', { enabled })}
                 />
               )}
               

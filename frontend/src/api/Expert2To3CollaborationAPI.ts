@@ -693,14 +693,15 @@ export class Expert2To3CollaborationAPI {
     return { targets: [], priority: 'medium' };
   }
 
-  private processOptimizationResponse(response: any): void {
+  private processOptimizationResponse(response: any): GeometryOptimizationResponse {
     // 处理优化响应的实现
     console.log('处理优化响应', response);
+    return response; // 返回处理后的响应
   }
 
-  private sendRealTimeOptimizationAlert(alert: any): void {
+  private sendRealTimeOptimizationAlert(meshId: string, processedResponse: any): void {
     // 发送实时优化警报的实现
-    console.log('发送优化警报', alert);
+    console.log('发送优化警报', { meshId, processedResponse });
   }
 
   private analyzeProblemAreas(data: any): any {
@@ -708,14 +709,17 @@ export class Expert2To3CollaborationAPI {
     return { problemAreas: [], severity: 'low' };
   }
 
-  private generateAdjustmentStrategy(analysis: any): any {
+  private generateAdjustmentStrategy(analysis: any, constraints: any): any {
     // 生成调整策略的实现
-    return { strategy: 'minor_adjustment', parameters: {} };
+    return { strategy: 'minor_adjustment', parameters: {}, constraints };
   }
 
-  private validateGeometryAdjustment(adjustment: any): boolean {
+  private validateGeometryAdjustment(adjustment: any): GeometryAdjustmentImplementationResponse {
     // 验证几何调整的实现
-    return true;
+    return {
+      ...adjustment,
+      success: true
+    };
   }
 
   private updateGeometryWithAdjustments(adjustments: any): void {

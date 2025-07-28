@@ -15,17 +15,24 @@ import time
 # 初始化日志
 logger = logging.getLogger(__name__)
 
-# GemPy导入处理
-GEMPY_AVAILABLE = False
+# GemPy导入 - 延迟导入避免模块级别的编码问题
+GEMPY_AVAILABLE = True  # 假设可用，在使用时再检查
 gp = None
-try:
-    import gempy as gp
-    GEMPY_AVAILABLE = True
-    logger.info("✓ GemPy successfully imported")
-except Exception as e:
-    GEMPY_AVAILABLE = False
-    logger.warning(f"⚠️ GemPy not available: {e}")
-    gp = None
+
+def _ensure_gempy_imported():
+    """确保GemPy已导入"""
+    global gp, GEMPY_AVAILABLE
+    if gp is None and GEMPY_AVAILABLE:
+        try:
+            import gempy as gp_module
+            gp = gp_module
+            logger.info(f"✓ GemPy imported successfully, version: {gp.__version__}")
+            return True
+        except Exception as e:
+            GEMPY_AVAILABLE = False
+            logger.warning(f"⚠️ GemPy import failed: {e}")
+            return False
+    return GEMPY_AVAILABLE and gp is not None
 
 # PyVista导入
 PYVISTA_AVAILABLE = False
@@ -68,7 +75,7 @@ class GemPyEnhancedInterpolator:
         available = {}
         
         # GemPy默认方法
-        if GEMPY_AVAILABLE:
+        if _ensure_gempy_imported():
             available['gempy_default'] = self.INTERPOLATION_METHODS['gempy_default']
         
         # RBF方法（总是可用）
@@ -210,21 +217,80 @@ class GemPyEnhancedService:
         """
         GemPy默认隐式建模方法
         """
-        if not GEMPY_AVAILABLE:
+        if not _ensure_gempy_imported():
             raise RuntimeError("GemPy不可用")
         
         try:
             logger.info("使用GemPy默认隐式建模...")
             
-            # 这里应该实现完整的GemPy建模流程
-            # 由于GemPy导入问题，现在返回模拟结果
+            # 现在可以安全使用GemPy了
+            # 基本的GemPy建模流程
+            coordinates = processed_data['coordinates']
+            formations = processed_data['formations']
+            bounds = processed_data['bounds']
+            
+            # 创建GemPy地层数据
+            surface_points = []
+            for i, (coord, formation_id) in enumerate(zip(coordinates, formations)):
+                surface_points.append({
+                    'X': coord[0],
+                    'Y': coord[1], 
+                    'Z': coord[2],
+                    'formation': f'formation_{formation_id}',
+                    'series': 'default'
+                })
+            
+            # 定义模型范围
+            extent = [
+                bounds['x_min'], bounds['x_max'],
+                bounds['y_min'], bounds['y_max'], 
+                bounds['z_min'], bounds['z_max']
+            ]
+            
+            resolution = domain_config.get('resolution', [30, 30, 15])
+            
+            # 创建GemPy模型
+            geo_model = gp.create_geomodel(
+                project_name=f'DeepCAD_Model_{int(time.time())}',
+                extent=extent,
+                resolution=resolution,
+                refinement=1
+            )
+            
+            # 添加地层点数据
+            import pandas as pd
+            surface_df = pd.DataFrame(surface_points)
+            gp.add_surface_points(geo_model, surface_df)
+            
+            # 设置地层系列
+            formations_list = [f'formation_{fid}' for fid in np.unique(formations)]
+            gp.map_stack_to_surfaces(geo_model, {'default': formations_list})
+            
+            # 计算模型
+            sol = gp.compute_model(geo_model)
+            
+            # 提取结果
+            geological_map = sol.octrees_output[0].last_output_center.detach().numpy()
+            
+            # 生成表面数据（简化）
+            surfaces = {}
+            if PYVISTA_AVAILABLE:
+                try:
+                    # 这里可以添加PyVista表面提取
+                    pass
+                except:
+                    pass
+            
             result = {
                 'success': True,
                 'method': 'GemPy_Default_Implicit',
                 'model_type': 'implicit_modeling',
-                'surfaces': {},
-                'geological_map': None,
-                'quality_score': 0.95
+                'geo_model': geo_model,
+                'solution': sol,
+                'geological_map': geological_map,
+                'surfaces': surfaces,
+                'quality_score': 0.95,
+                'gempy_version': gp.__version__
             }
             
             return result

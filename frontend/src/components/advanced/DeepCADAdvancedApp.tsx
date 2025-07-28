@@ -14,10 +14,8 @@ import { StatusIcons } from '../icons/StatusIcons';
 import { EarthRenderer } from '../visualization/EarthRenderer';
 import { EpicFlightDemo } from '../visualization/EpicFlightDemo';
 import { EnhancedEpicFlightDemo } from '../visualization/EnhancedEpicFlightDemo';
-import { EpicControlCenter } from '../visualization/EpicControlCenter';
-import { SimpleEpicControlCenter } from '../visualization/SimpleEpicControlCenter';
-import { UltraSimpleEpic } from '../visualization/UltraSimpleEpic';
-import { RealEpicControlCenter } from '../visualization/RealEpicControlCenter';
+// 已删除的过期EpicControlCenter组件，统一使用ControlCenter v3.0震撼3D地球系统
+// 所有EpicControlCenter相关组件已合并到ControlCenter.tsx
 import { RealMapEpicCenter } from '../visualization/RealMapEpicCenter';
 import { SelfContainedEpicCenter } from '../visualization/SelfContainedEpicCenter';
 import { ParticleTest } from '../visualization/ParticleTest';
@@ -490,7 +488,7 @@ export const DeepCADAdvancedApp: React.FC = () => {
 
   if (showEpicDemo) {
     return (
-      <RealEpicControlCenter 
+      <NewEpicControlCenter 
         width={window.innerWidth}
         height={window.innerHeight}
         onExit={() => setShowEpicDemo(false)}

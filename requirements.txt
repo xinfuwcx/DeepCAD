@@ -1,53 +1,53 @@
-# DeepCAD深基坑CAE平台 - 统一依赖需求
+# DeepCAD深基坑CAE平台 - 统一依赖需求 (Updated 2025-01-28)
 # 基于WebGPU + Three.js的世界级深基坑工程分析平台
 
 # ====================
 # 核心Web服务框架
 # ====================
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-pydantic>=2.5.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pydantic>=2.10.0
 
 # ====================
 # 数据库和ORM
 # ====================
-sqlalchemy>=2.0.27
-alembic>=1.13.1
-psycopg2-binary>=2.9.9
+sqlalchemy>=2.0.36
+alembic>=1.14.0
+psycopg2-binary>=2.9.10
 
 # ====================
 # 科学计算核心库
 # ====================
-numpy>=1.26.4
-scipy>=1.12.0
-matplotlib>=3.8.3
-pandas>=2.2.1
-h5py>=3.11.0
-sympy>=1.12
+numpy>=2.2.0
+scipy>=1.15.0
+matplotlib>=3.10.0
+pandas>=2.3.0
+h5py>=3.12.0
+sympy>=1.13.3
 
 # ====================
 # 几何建模和CAD
 # ====================
 # 使用Gmsh内置的OCC内核，不需要独立的OpenCASCADE
-gmsh>=4.11.1
-ezdxf>=1.1.4
-shapely>=2.0.2
+gmsh>=4.13.1
+ezdxf>=1.3.4
+shapely>=2.1.0
 
 # ====================
 # 网格生成和处理
 # ====================
-netgen-mesher>=6.2.2504
-meshio>=5.3.5
-pymeshfix>=0.16.2
-pyvista>=0.43.4
+netgen-mesher>=6.2.2506
+meshio>=5.3.7
+pymeshfix>=0.16.3
+pyvista>=0.45.0
 
 # ====================
 # 可视化和图形处理
 # ====================
-vtk>=9.3.0
-trame>=3.5.4
-plotly>=5.17.0
-pillow>=10.1.0
+vtk>=9.4.0
+trame>=3.8.0
+plotly>=5.25.0
+pillow>=11.0.0
 
 # ====================
 # 深度学习和GPU计算
@@ -58,9 +58,9 @@ torchvision==0.18.0+cu121 --index-url https://download.pytorch.org/whl/cu121
 torchaudio==2.7.0+cu121 --index-url https://download.pytorch.org/whl/cu121
 
 # 其他深度学习工具
-tensorflow>=2.15.0
-scikit-learn>=1.3.2
-transformers>=4.36.0
+tensorflow>=2.18.0
+scikit-learn>=1.6.0
+transformers>=4.48.0
 
 # ====================
 # Kratos多物理场求解器
@@ -76,101 +76,111 @@ KratosMultiphysics.MeshingApplication>=10.3.0
 # 地质和岩土工程专用库
 # ====================
 # GSTools for geostatistical modeling
-gstools>=1.4.1
+gstools>=1.5.2
 # Geotechnical analysis
-geopy>=2.4.1
-rasterio>=1.3.9
+geopy>=2.5.0
+
+# ====================
+# 地质建模专用库 (2号几何专家模块)
+# ====================
+# GemPy for implicit geological modeling (最新版本2024.2.0.2)
+gempy>=2024.2.0
+# 注意：
+# - RBF插值使用scipy.interpolate.RBFInterpolator，无需额外rbf库
+# - Kriging使用GemPy内置功能和sklearn.gaussian_process，无需pykrige
+# - PyMC和Aesara作为GemPy依赖会自动安装
+# - 移除了不必要的rasterio（遥感数据处理，与地质建模无关）
 
 # ====================
 # 数据处理和分析
 # ====================
-openpyxl>=3.1.2
-xlsxwriter>=3.1.9
-requests>=2.31.0
-httpx>=0.25.2
-aiofiles>=23.2.1
+openpyxl>=3.2.0
+xlsxwriter>=3.2.0
+requests>=2.32.3
+httpx>=0.28.1
+aiofiles>=24.2.0
 
 # ====================
 # 系统工具和日志
 # ====================
-python-dotenv>=1.0.0
-loguru>=0.7.2
-typer>=0.9.0
-rich>=13.7.0
-psutil>=5.9.6
+python-dotenv>=1.0.1
+loguru>=0.7.3
+typer>=0.15.0
+rich>=13.9.4
+psutil>=6.1.1
 
 # ====================
 # 开发和测试工具
 # ====================
-black>=23.12.0
-isort>=5.13.2
-mypy>=1.8.0
-pytest>=7.4.3
-pytest-asyncio>=0.21.1
-pytest-cov>=4.1.0
-pre-commit>=3.6.0
+black>=24.10.0
+isort>=5.15.0
+mypy>=1.14.0
+pytest>=8.3.4
+pytest-asyncio>=0.25.0
+pytest-cov>=6.0.0
+pre-commit>=4.0.1
 
 # ====================
 # 性能监控和调试
 # ====================
-prometheus-client>=0.19.0
-py-spy>=0.3.14
-memory-profiler>=0.61.0
+prometheus-client>=0.21.1
+py-spy>=0.4.0
+memory-profiler>=0.62.0
 
 # ====================
 # WebGPU和浏览器集成
 # ====================
 # 注意：WebGPU主要在前端，这里为后端数据处理支持
-selenium>=4.15.2
-webdriver-manager>=4.0.1
+selenium>=4.28.0
+webdriver-manager>=4.0.2
 
 # ====================
 # 安全和认证
 # ====================
-cryptography>=41.0.8
-pyjwt>=2.8.0
+cryptography>=44.0.0
+pyjwt>=2.10.1
 passlib[bcrypt]>=1.7.4
 
 # ====================
 # 消息队列和异步处理
 # ====================
-celery>=5.3.4
-redis>=5.0.1
-pika>=1.3.2
+celery>=5.4.0
+redis>=5.2.1
+pika>=1.4.0
 
 # ====================
 # 文件处理和存储
 # ====================
-minio>=7.2.0
-boto3>=1.34.0
+minio>=7.2.11
+boto3>=1.35.89
 
 # ====================
 # 3号WebGPU优化模块依赖
 # ====================
 # WebGPU计算优化相关
-wgpu>=0.15.0
-pywgpu>=0.15.0
-moderngl>=5.8.2
+wgpu>=0.18.0
+pywgpu>=0.18.0
+moderngl>=5.12.0
 
 # 高性能数值计算
-numba>=0.59.0
-cupy-cuda12x>=12.3.0
-cython>=3.0.6
+numba>=0.61.0
+cupy-cuda12x>=13.4.0
+cython>=3.0.11
 
 # 多物理场耦合专用
 fenics>=2019.1.0
-dolfinx>=0.7.0
-firedrake>=0.13.0
+dolfinx>=0.9.0
+firedrake>=0.15.0
 
 # 大数据处理和流式计算
-dask[complete]>=2023.12.0
-xarray>=2023.12.0
-zarr>=2.16.0
+dask[complete]>=2024.12.0
+xarray>=2024.11.0
+zarr>=2.18.3
 
 # GPU加速可视化
-mayavi>=4.8.1
-vispy>=0.14.1
-datashader>=0.16.0
+mayavi>=4.8.2
+vispy>=0.15.0
+datashader>=0.16.4
 
 # ====================
 # 重要说明
