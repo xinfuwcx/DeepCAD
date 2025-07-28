@@ -51,6 +51,14 @@ interface CAEThreeEngineProps {
   initialGeometry?: GeometryData[];
   materialZones?: MaterialZone[];
   className?: string;
+  
+  // 计算分析相关props
+  mode?: string;
+  onModelSelect?: (objects: any[]) => void;
+  showStressVisualization?: boolean;
+  showDeformationAnimation?: boolean;
+  computationResults?: any;
+  analysisProgress?: number;
 }
 
 export class CAEThreeEngine {

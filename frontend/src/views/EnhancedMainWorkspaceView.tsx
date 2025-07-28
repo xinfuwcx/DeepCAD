@@ -89,7 +89,9 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
     `;
     document.head.appendChild(style);
     
-    return () => document.head.removeChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
   }, []);
   const { themeConfig } = useDeepCADTheme();
   const { 
