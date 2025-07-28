@@ -561,5 +561,6 @@ class FreeWeatherService {
   }
 }
 
+export { FreeWeatherService };
 export const freeWeatherService = new FreeWeatherService();
 export default freeWeatherService;

@@ -4,7 +4,7 @@
  * 与CAE知识库深度融合，提供专业级AI问答
  */
 
-import { KnowledgeBaseAPI, KnowledgeEntry, KnowledgeCategory } from './caeKnowledgeBase';
+import { KnowledgeBaseAPI, KnowledgeEntry, KnowledgeCategory, initializeKnowledgeBase } from './caeKnowledgeBase';
 
 // ======================= 接口定义 =======================
 
@@ -352,8 +352,8 @@ export class AIAssistantWithRAG {
   public async initialize(): Promise<void> {
     console.log('🤖 正在初始化RAG增强AI助手...');
     
-    // KnowledgeBaseAPI是静态类，不需要初始化
-    // await this.knowledgeBase.initialize();
+    // 先初始化知识库
+    await initializeKnowledgeBase();
     await this.retriever.initializeCorpus();
     
     // 添加系统消息
