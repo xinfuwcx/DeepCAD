@@ -21,7 +21,7 @@ import { SelfContainedEpicCenter } from '../visualization/SelfContainedEpicCente
 import { ParticleTest } from '../visualization/ParticleTest';
 
 // 1号专家 - 新的Epic控制中心系统 
-import { ControlCenter as NewEpicControlCenter } from '../control/ControlCenter';
+import { ControlCenter as NewEpicControlCenter } from '../control/EpicControlCenter';
 import { GeoThreeMapController, ProjectMarkerData } from '../../services/GeoThreeMapController';
 import { designTokens } from '../../design/tokens';
 

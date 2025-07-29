@@ -71,22 +71,22 @@ const MainLayout: React.FC = () => {
     },
     {
       key: 'results',
-      icon: <TechIcon icon={BarChartOutlined} type="success" effects={{ pulse: true }} />,
+      icon: <BarChartOutlined />,
       label: '结果查看',
     },
     {
       key: 'physics-ai',
-      icon: <TechIcon icon={ExperimentOutlined} type="warning" effects={{ halo: true }} />,
+      icon: <ExperimentOutlined />,
       label: '物理AI',
     },
     {
       key: 'materials',
-      icon: <TechIcon icon={DatabaseOutlined} type="geology" />,
+      icon: <DatabaseOutlined />,
       label: '材料库',
     },
     {
       key: 'examples',
-      icon: <TechIcon icon={CodeOutlined} type="info" />,
+      icon: <CodeOutlined />,
       label: '开发示例',
     },
     {

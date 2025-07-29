@@ -555,8 +555,9 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
           <Row gutter={16}>
             <Col span={12}>
               {algorithm === 'rbf' ? (
-                <Card title="RBF核函数配置" size="small" style={{ marginBottom: '16px' }}>
-                <Form layout="vertical" size="small">
+                <>
+                  <Card title="RBF核函数配置" size="small" style={{ marginBottom: '16px' }}>
+                    <Form layout="vertical" size="small">
                   <Form.Item label="RBF核函数类型">
                     <Select
                       value={rbfConfig.kernelType}
@@ -626,8 +627,9 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                       marks={{ 0.3: '0.3', 0.65: '0.65', 1.0: '1.0' }}
                     />
                   </Form.Item>
-                </Form>
-              </Card>
+                  </Form>
+                </Card>
+                </>
               ) : (
                 <Card title="GemPy建模配置" size="small" style={{ marginBottom: '16px' }}>
                   <Form layout="vertical" size="small">
