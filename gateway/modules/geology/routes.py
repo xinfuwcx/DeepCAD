@@ -7,11 +7,9 @@ from .schemas import (
     InterpolationMethod, VariogramModel
 )
 from .services import SoilLayerGenerator
-from .simple_geology_service import get_simple_geology_service
 from .direct_geology_service import get_direct_geology_service
-from .geometry_modeling_service import get_geometry_modeling_service
+from .geometry_modeling_service import get_geometry_modeling_service  
 from .gempy_integration_service import get_gempy_integration_service
-from .gempy_enhanced_service import get_gempy_enhanced_service
 import os
 import logging
 
@@ -360,12 +358,7 @@ async def get_geology_model(filename: str):
 
 # === 新增：地质几何建模API ===
 
-from .gstools_geometry_service import (
-    GeologyGeometryService, 
-    ComputationDomain, 
-    ThreeZoneParams, 
-    GMSHParams
-)
+# GSTools服务已删除 - 功能由核心服务提供
 import uuid
 import threading
 from typing import Dict, Any
@@ -580,7 +573,7 @@ async def cleanup_geometry_task(task_id: str):
 async def test_geometry_service():
     """测试地质几何建模服务"""
     try:
-        from .gstools_geometry_service import test_geology_service
+        # GSTools服务已删除 - 测试功能移至核心服务
         
         # 运行测试
         logger.info("Running geometry service test...")
