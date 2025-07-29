@@ -8,11 +8,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
 import { designTokens } from '../../design/tokens';
 import { WeatherVisualization } from './WeatherVisualization';
-import { freeWeatherService, WeatherData } from '../../services/freeWeatherService';
+import { openMeteoService, WeatherData } from '../../services/OpenMeteoService';
 
 // ==================== 类型定义 ====================
 
-// WeatherData 现在从 freeWeatherService 导入
+// WeatherData 现在从 OpenMeteoService 导入
 
 export interface MapboxStyle {
   id: string;
@@ -314,7 +314,7 @@ export const EnhancedEpicFlightDemo: React.FC<{
 
   // 获取天气数据
   const fetchWeather = useCallback(async (project: ProjectLocation) => {
-    const weather = await freeWeatherService.getCurrentWeather(project.lat, project.lng);
+    const weather = await openMeteoService.getWeatherData(project.lat, project.lng);
     setWeatherData(weather);
   }, []);
 

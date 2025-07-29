@@ -14,7 +14,7 @@ import {
 } from '@ant-design/icons';
 import TechIcon from '../ui/TechIcon';
 import TechLogo from '../ui/TechLogo';
-import { ControlCenter } from '../control/ControlCenter';
+import { ControlCenter } from '../control/EpicControlCenter';
 import EnhancedMainWorkspaceView from '../../views/EnhancedMainWorkspaceView';
 import PhysicsAIView from '../../views/PhysicsAIView';
 import MaterialLibraryView from '../../views/MaterialLibraryView';

@@ -6,7 +6,25 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
-import { freeWeatherService, WeatherData, WeatherMapLayer, WindVector } from '../../services/freeWeatherService';
+// TODO: 重构此组件以使用 OpenMeteoService
+// import { freeWeatherService, WeatherData, WeatherMapLayer, WindVector } from '../../services/freeWeatherService';
+import { openMeteoService, WeatherData } from '../../services/OpenMeteoService';
+
+// 临时接口定义，待重构
+interface WeatherMapLayer {
+  id: string;
+  name: string;
+  type: 'temperature' | 'precipitation' | 'wind' | 'cloud' | 'radar';
+  visible: boolean;
+  opacity: number;
+}
+
+interface WindVector {
+  x: number;
+  y: number;
+  speed: number;
+  direction: number;
+}
 import { designTokens } from '../../design/tokens';
 
 interface WeatherVisualizationProps {
