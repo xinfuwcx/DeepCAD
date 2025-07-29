@@ -10,6 +10,7 @@ import { WeatherData } from '../types/weather';
 import { WeatherEffectsRenderer } from './WeatherEffectsRenderer';
 import { CloudRenderingSystem } from './CloudRenderingSystem';
 import { SimpleTileRenderer } from './SimpleTileRenderer';
+import { openMeteoService } from './OpenMeteoService';
 
 // ======================= 接口定义 =======================
 
