@@ -1091,12 +1091,23 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
             <motion.div
               key={project.id}
               initial={{ opacity: 0, x: -50, scale: 0.9 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
+              animate={{
+                opacity: 1, 
+                x: 0, 
+                scale: 1,
+                background: isSelected ? 
+                  'linear-gradient(135deg, rgba(0, 255, 255, 0.25), rgba(255, 0, 255, 0.15), rgba(0, 255, 255, 0.25))' : 
+                  'linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(0, 150, 255, 0.05), rgba(255, 255, 255, 0.08))',
+                borderColor: isSelected ? 
+                  '#00ffff' : 'rgba(255, 255, 255, 0.15)'
+              }}
               transition={{ 
                 delay: index * 0.15,
                 type: "spring",
                 stiffness: 120,
-                damping: 20
+                damping: 20,
+                background: { duration: isSelected ? 2.5 : 0.3, repeat: isSelected ? Infinity : 0 },
+                borderColor: { duration: isSelected ? 2.5 : 0.3, repeat: isSelected ? Infinity : 0 }
               }}
               whileHover={!isFlying ? {
                 scale: 1.05,
@@ -1109,17 +1120,6 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
               } : {}}
               whileTap={!isFlying ? { scale: 0.98 } : {}}
               onClick={() => !isFlying && handleProjectClick(project.id)}
-              animate={{
-                background: isSelected ? 
-                  'linear-gradient(135deg, rgba(0, 255, 255, 0.25), rgba(255, 0, 255, 0.15), rgba(0, 255, 255, 0.25))' : 
-                  'linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(0, 150, 255, 0.05), rgba(255, 255, 255, 0.08))',
-                borderColor: isSelected ? 
-                  '#00ffff' : 'rgba(255, 255, 255, 0.15)'
-              }}
-              transition={{
-                background: { duration: isSelected ? 2.5 : 0.3, repeat: isSelected ? Infinity : 0 },
-                borderColor: { duration: isSelected ? 2.5 : 0.3, repeat: isSelected ? Infinity : 0 }
-              }}
               style={{
                 border: '2px solid',
                 borderRadius: '12px',
