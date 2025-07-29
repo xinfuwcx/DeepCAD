@@ -56,17 +56,17 @@ const MainLayout: React.FC = () => {
     },
     {
       key: 'geometry',
-      icon: <TechGeologyIcon icon={AppstoreOutlined} effects={{ dataFlow: true }} />,
+      icon: <AppstoreOutlined />,
       label: '几何建模',
     },
     {
       key: 'meshing',
-      icon: <TechSupportIcon icon={BuildOutlined} effects={{ energyBar: true }} />,
+      icon: <BuildOutlined />,
       label: '网格生成',
     },
     {
       key: 'analysis',
-      icon: <ComputingIcon icon={CalculatorOutlined} type="analysis" />,
+      icon: <CalculatorOutlined />,
       label: '计算分析',
     },
     {
@@ -91,7 +91,7 @@ const MainLayout: React.FC = () => {
     },
     {
       key: 'settings',
-      icon: <RotatingIcon icon={SettingOutlined} type="info" />,
+      icon: <SettingOutlined />,
       label: '系统设置',
     },
   ];
