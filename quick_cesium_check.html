@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>快速Cesium检查</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .check-item {
+            background: #2a2a2a;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #666;
+        }
+        .check-item.ok { border-left-color: #00ff00; }
+        .check-item.error { border-left-color: #ff0000; }
+        .check-item.warning { border-left-color: #ffaa00; }
+        .test-button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .test-button:hover { background: #0088ff; }
+        .code-block {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin: 10px 0;
+            border: 1px solid #444;
+        }
+        .instructions {
+            background: #2a4a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #4a6a4a;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 快速Cesium问题检查指南</h1>
+        
+        <div class="instructions">
+            <h2>📋 检查步骤</h2>
+            <p>如果您看到Cesium地图显示为黑色，请按以下步骤进行检查：</p>
+            <ol>
+                <li><strong>打开浏览器开发者工具</strong> - 按F12键</li>
+                <li><strong>切换到Console标签</strong></li>
+                <li><strong>查找红色错误信息</strong></li>
+                <li><strong>检查Network标签</strong> - 看是否有失败的网络请求</li>
+                <li><strong>运行下面的诊断代码</strong></li>
+            </ol>
+        </div>
+        
+        <h2>🛠️ 浏览器控制台诊断代码</h2>
+        <p>复制下面的代码到浏览器控制台中运行：</p>
+        
+        <div class="code-block">
+// === Cesium快速诊断代码 ===
+console.log('🚀 开始Cesium快速诊断...');
+
+// 1. 检查Cesium库
+console.log('1️⃣ 检查Cesium库:');
+if (typeof Cesium !== 'undefined') {
+    console.log('✅ Cesium库已加载，版本:', Cesium.VERSION || 'Unknown');
+} else {
+    console.log('❌ Cesium库未加载');
+    console.log('解决方案:');
+    console.log('  - 检查网络连接');
+    console.log('  - 确认CDN地址可访问');
+    console.log('  - 检查防火墙设置');
+}
+
+// 2. 检查WebGL
+console.log('2️⃣ 检查WebGL:');
+const canvas = document.createElement('canvas');
+const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+if (gl) {
+    console.log('✅ WebGL可用，GPU:', gl.getParameter(gl.RENDERER));
+} else {
+    console.log('❌ WebGL不可用');
+    console.log('解决方案:');
+    console.log('  - 更新浏览器到最新版本');
+    console.log('  - 启用硬件加速');
+    console.log('  - 更新显卡驱动');
+}
+
+// 3. 检查地图容器
+console.log('3️⃣ 检查地图容器:');
+const containers = document.querySelectorAll('#cesiumContainer, [id*="cesium"], [class*="cesium"]');
+if (containers.length > 0) {
+    console.log(`✅ 找到${containers.length}个Cesium容器`);
+    containers.forEach((container, i) => {
+        const rect = container.getBoundingClientRect();
+        console.log(`  容器${i+1}: ${rect.width}x${rect.height}px`);
+        if (rect.width === 0 || rect.height === 0) {
+            console.log('  ⚠️ 容器尺寸为0，可能是CSS问题');
+        }
+    });
+} else {
+    console.log('❌ 未找到Cesium容器');
+}
+
+// 4. 检查网络请求
+console.log('4️⃣ 检查关键资源:');
+const scripts = document.querySelectorAll('script[src*="cesium"], link[href*="cesium"]');
+scripts.forEach((script, i) => {
+    const url = script.src || script.href;
+    console.log(`  资源${i+1}: ${url}`);
+    // 简单的可访问性测试
+    fetch(url, {method: 'HEAD', mode: 'no-cors'})
+        .then(() => console.log('  ✅ 可访问'))
+        .catch(e => console.log('  ❌ 访问失败:', e.message));
+});
+
+// 5. 检查Ion令牌
+console.log('5️⃣ 检查Ion令牌:');
+if (typeof Cesium !== 'undefined' && Cesium.Ion) {
+    if (Cesium.Ion.defaultAccessToken) {
+        console.log('✅ Ion访问令牌已设置');
+        console.log('  令牌:', Cesium.Ion.defaultAccessToken.substring(0, 20) + '...');
+    } else {
+        console.log('⚠️ Ion访问令牌未设置');
+    }
+} else {
+    console.log('❌ Cesium.Ion不可用');
+}
+
+// 6. 常见错误检查
+console.log('6️⃣ 常见问题检查:');
+const commonIssues = [
+    {
+        check: () => navigator.onLine,
+        message: '网络连接',
+        solution: '检查网络连接'
+    },
+    {
+        check: () => window.innerWidth > 0 && window.innerHeight > 0,
+        message: '窗口尺寸',
+        solution: '确保窗口有有效尺寸'
+    },
+    {
+        check: () => !document.hidden,
+        message: '页面可见性',
+        solution: '确保页面在前台'
+    }
+];
+
+commonIssues.forEach(issue => {
+    if (issue.check()) {
+        console.log(`  ✅ ${issue.message}: 正常`);
+    } else {
+        console.log(`  ❌ ${issue.message}: 异常`);
+        console.log(`     解决方案: ${issue.solution}`);
+    }
+});
+
+console.log('✅ 诊断完成！');
+console.log('如果仍有问题，请查看上述错误信息并按建议解决。');
+        </div>
+        
+        <button class="test-button" onclick="copyToClipboard()">📋 复制诊断代码</button>
+        <button class="test-button" onclick="openDevTools()">🔧 打开开发者工具说明</button>
+        
+        <h2>🔍 常见问题及解决方案</h2>
+        
+        <div class="check-item">
+            <h3>❌ 问题：Cesium库未加载</h3>
+            <p><strong>症状：</strong>控制台显示 "Cesium is not defined" 错误</p>
+            <p><strong>解决方案：</strong></p>
+            <ul>
+                <li>检查网络连接，确保能访问 cesium.com</li>
+                <li>检查防火墙设置，确保允许访问外部CDN</li>
+                <li>尝试使用VPN或更换网络环境</li>
+                <li>考虑下载Cesium库到本地使用</li>
+            </ul>
+        </div>
+        
+        <div class="check-item">
+            <h3>❌ 问题：WebGL不支持</h3>
+            <p><strong>症状：</strong>地图显示黑色，控制台显示WebGL相关错误</p>
+            <p><strong>解决方案：</strong></p>
+            <ul>
+                <li>更新浏览器到最新版本</li>
+                <li>启用浏览器硬件加速</li>
+                <li>更新显卡驱动程序</li>
+                <li>尝试不同的浏览器（Chrome、Firefox、Edge）</li>
+            </ul>
+        </div>
+        
+        <div class="check-item">
+            <h3>❌ 问题：Ion访问令牌无效</h3>
+            <p><strong>症状：</strong>地图显示但瓦片无法加载</p>
+            <p><strong>解决方案：</strong></p>
+            <ul>
+                <li>检查Cesium Ion令牌是否有效</li>
+                <li>使用OpenStreetMap等免费底图</li>
+                <li>注册新的Cesium Ion账户获取令牌</li>
+            </ul>
+        </div>
+        
+        <div class="check-item">
+            <h3>❌ 问题：容器尺寸为0</h3>
+            <p><strong>症状：</strong>地图容器存在但不显示内容</p>
+            <p><strong>解决方案：</strong></p>
+            <ul>
+                <li>检查CSS样式，确保容器有明确的width和height</li>
+                <li>确保父元素也有正确的尺寸</li>
+                <li>检查是否有CSS冲突</li>
+            </ul>
+        </div>
+        
+        <h2>🛠️ 快速修复建议</h2>
+        
+        <div class="code-block">
+// 如果Cesium库加载失败，可以尝试这个降级方案：
+const script = document.createElement('script');
+script.src = 'https://unpkg.com/cesium@1.110.0/Build/Cesium/Cesium.js';
+script.onload = () => console.log('✅ Cesium库通过unpkg CDN加载成功');
+script.onerror = () => console.log('❌ unpkg CDN也无法访问');
+document.head.appendChild(script);
+
+const link = document.createElement('link');
+link.rel = 'stylesheet';
+link.href = 'https://unpkg.com/cesium@1.110.0/Build/Cesium/Widgets/widgets.css';
+document.head.appendChild(link);
+        </div>
+        
+        <h2>📞 获取更多帮助</h2>
+        <p>如果以上步骤都无法解决问题，请：</p>
+        <ol>
+            <li>截图错误信息</li>
+            <li>记录浏览器版本和操作系统信息</li>
+            <li>提供网络环境描述（是否有防火墙、代理等）</li>
+            <li>联系技术支持</li>
+        </ol>
+    </div>
+    
+    <script>
+        function copyToClipboard() {
+            const code = document.querySelector('.code-block').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                alert('诊断代码已复制到剪贴板！\n\n请：\n1. 按F12打开开发者工具\n2. 点击Console标签\n3. 粘贴代码并按Enter运行');
+            }).catch(err => {
+                console.error('复制失败:', err);
+                // 降级方案：选中文本
+                const range = document.createRange();
+                range.selectNode(document.querySelector('.code-block'));
+                window.getSelection().removeAllRanges();
+                window.getSelection().addRange(range);
+                alert('请手动复制选中的代码');
+            });
+        }
+        
+        function openDevTools() {
+            alert('如何打开开发者工具：\n\n' +
+                  '方法1: 按F12键\n' +
+                  '方法2: 右键点击页面 → 检查/检查元素\n' +
+                  '方法3: Ctrl+Shift+I (Windows) 或 Cmd+Option+I (Mac)\n\n' +
+                  '打开后，点击Console标签查看错误信息');
+        }
+        
+        // 页面加载完成后的提示
+        window.addEventListener('load', () => {
+            console.log('🔍 Cesium问题检查页面已加载');
+            console.log('💡 提示：如果您正在查看这个页面，说明基本的HTML和JavaScript功能正常');
+            console.log('📋 复制上面的诊断代码到您的应用页面的控制台中运行');
+        });
+    </script>
+</body>
+</html>

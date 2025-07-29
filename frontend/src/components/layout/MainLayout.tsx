@@ -12,13 +12,7 @@ import {
   DatabaseOutlined,
   CodeOutlined
 } from '@ant-design/icons';
-import TechIcon, { 
-  TechGeologyIcon, 
-  TechSupportIcon, 
-  TechAnalysisIcon,
-  RotatingIcon,
-  ComputingIcon 
-} from '../ui/TechIcon';
+import TechIcon from '../ui/TechIcon';
 import TechLogo from '../ui/TechLogo';
 import { ControlCenter } from '../control/ControlCenter';
 import EnhancedMainWorkspaceView from '../../views/EnhancedMainWorkspaceView';
@@ -28,9 +22,9 @@ import SettingsView from '../../views/SettingsView';
 import { ComponentExampleShowcase } from '../../examples/ComponentExamples';
 import AIAssistantFloating from '../AIAssistantFloating';
 import ComputationExpertView from '../../views/ComputationExpertView';
-import { ArchitectZeroUIController } from '../control/ArchitectZeroUIController';
-import { createArchitectZeroUIInterface } from '../../services/ArchitectZeroUIInterface';
-import type { MapStyle } from '../../services/GeoThreeController';
+// import { ArchitectZeroUIController } from '../control/ArchitectZeroUIController';
+// import { createArchitectZeroUIInterface } from '../../services/ArchitectZeroUIInterface';
+import type { MapStyle } from '../../services/GeoThreeMapController';
 
 const { Sider, Content } = Layout;
 
@@ -40,24 +34,24 @@ const MainLayout: React.FC = () => {
   const location = useLocation();
   
   // 0号架构师UI控制接口初始化
-  const architectZeroUI = createArchitectZeroUIInterface(
-    {
-      enableAdvancedEffects: true,
-      performanceMode: 'high',
-      defaultMapStyle: 'street' as MapStyle,
-      weatherUpdateInterval: 300000,
-      projectSyncEnabled: true
-    },
-    {
-      onNavigate: navigate,
-      onLocationChange: (path) => console.log('架构师导航:', path)
-    }
-  );
+  // const architectZeroUI = createArchitectZeroUIInterface(
+  //   {
+  //     enableAdvancedEffects: true,
+  //     performanceMode: 'high',
+  //     defaultMapStyle: 'street' as MapStyle,
+  //     weatherUpdateInterval: 300000,
+  //     projectSyncEnabled: true
+  //   },
+  //   {
+  //     onNavigate: navigate,
+  //     onLocationChange: (path) => console.log('架构师导航:', path)
+  //   }
+  // );
 
   const menuItems = [
     {
       key: 'dashboard',
-      icon: <TechIcon icon={DashboardOutlined} type="analysis" effects={{ halo: true }} />,
+      icon: <DashboardOutlined />,
       label: '控制中心',
     },
     {

@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import type { RenderResult } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import DashboardView from '../DashboardView';
@@ -77,7 +78,7 @@ describe('DashboardView Component', () => {
     );
   });
 
-  const renderComponent = () => {
+  const renderComponent = (): RenderResult => {
     return render(
       <MemoryRouter>
         <DashboardView />

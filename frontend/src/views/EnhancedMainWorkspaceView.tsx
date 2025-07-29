@@ -44,12 +44,12 @@ import PhysicsAIView from '../views/PhysicsAIView';
 
 // 3号专家工具栏组件
 import MeshingToolbar from '../components/toolbars/MeshingToolbar';
-import AnalysisToolbar from '../components/toolbars/AnalysisToolbar';
-import PhysicsAIToolbar from '../components/toolbars/PhysicsAIToolbar';
-import ResultsToolbar from '../components/toolbars/ResultsToolbar';
-import { ModuleErrorBoundary } from '../core/ErrorBoundary';
+// import AnalysisToolbar from '../components/toolbars/AnalysisToolbar';
+// import PhysicsAIToolbar from '../components/toolbars/PhysicsAIToolbar';
+// import ResultsToolbar from '../components/toolbars/ResultsToolbar';
+// import { ModuleErrorBoundary } from '../core/ErrorBoundary';
 import { useDeepCADTheme } from '../components/ui/DeepCADTheme';
-import { ComponentDevHelper } from '../utils/developmentTools';
+// import { ComponentDevHelper } from '../utils/developmentTools';
 import { simplifiedComponentManager } from '../utils/SimplifiedComponentManager';
 
 const { Content } = Layout;

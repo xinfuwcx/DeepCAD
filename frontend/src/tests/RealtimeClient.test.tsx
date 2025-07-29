@@ -5,12 +5,13 @@
 
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import type { RenderResult } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { realtimeClient, useRealtimeConnection, useComputationProgress } from '../api/realtimeClient';
 import RealtimeProgressMonitor from '../components/computation/RealtimeProgressMonitor';
 
 // Mock WebSocket
-class MockWebSocket {
+class MockWebSocket implements Partial<WebSocket> {
   static CONNECTING = 0;
   static OPEN = 1;
   static CLOSING = 2;
@@ -21,6 +22,15 @@ class MockWebSocket {
   onclose: ((event: CloseEvent) => void) | null = null;
   onmessage: ((event: MessageEvent) => void) | null = null;
   onerror: ((event: Event) => void) | null = null;
+  
+  // WebSocket interface properties
+  binaryType: BinaryType = 'blob';
+  bufferedAmount = 0;
+  extensions = '';
+  protocol = '';
+  addEventListener = vi.fn();
+  removeEventListener = vi.fn();
+  dispatchEvent = vi.fn();
 
   constructor(public url: string) {
     // 模拟异步连接
@@ -32,12 +42,12 @@ class MockWebSocket {
     }, 10);
   }
 
-  send(data: string) {
+  send(data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
     // 模拟发送数据
     console.log('MockWebSocket send:', data);
   }
 
-  close(code?: number, reason?: string) {
+  close(code?: number, reason?: string): void {
     this.readyState = MockWebSocket.CLOSED;
     if (this.onclose) {
       this.onclose(new CloseEvent('close', { code, reason, wasClean: true }));

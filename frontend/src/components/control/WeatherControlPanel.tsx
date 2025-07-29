@@ -6,12 +6,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GeoThreeController } from '../../services/GeoThreeController';
+import { GeoThreeMapController } from '../../services/GeoThreeMapController';
 
 // ======================= 接口定义 =======================
 
 interface WeatherControlPanelProps {
-  mapController: GeoThreeController | null;
+  mapController: GeoThreeMapController | null;
   isVisible: boolean;
   onClose: () => void;
 }
