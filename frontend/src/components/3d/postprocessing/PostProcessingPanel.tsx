@@ -32,7 +32,6 @@ import { PostProcessingManager, PostProcessingSettings } from './PostProcessingM
 
 const { TabPane } = Tabs;
 const { Text, Title } = Typography;
-const { Panel } = Collapse;
 const { Option } = Select;
 
 interface PostProcessingPanelProps {
@@ -381,126 +380,138 @@ export const PostProcessingPanel: React.FC<PostProcessingPanelProps> = ({
   );
 
   // 渲染高级效果设置
-  const renderAdvancedEffects = () => (
-    <Collapse>
-      <Panel header="晕影效果" key="vignette">
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text>启用晕影</Text>
-            <Switch
-              checked={settings.vignette.enabled}
-              onChange={(enabled) => updateSettings({
-                vignette: { ...settings.vignette, enabled }
-              })}
-            />
-          </div>
-          
-          {settings.vignette.enabled && (
-            <>
-              <div>
-                <Text>强度: {settings.vignette.intensity}</Text>
-                <Slider
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={settings.vignette.intensity}
-                  onChange={(intensity) => updateSettings({
-                    vignette: { ...settings.vignette, intensity }
-                  })}
-                />
-              </div>
-              
-              <div>
-                <Text>平滑度: {settings.vignette.smoothness}</Text>
-                <Slider
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={settings.vignette.smoothness}
-                  onChange={(smoothness) => updateSettings({
-                    vignette: { ...settings.vignette, smoothness }
-                  })}
-                />
-              </div>
-            </>
-          )}
-        </Space>
-      </Panel>
-
-      <Panel header="色差效果" key="chromaticAberration">
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text>启用色差</Text>
-            <Switch
-              checked={settings.chromaticAberration.enabled}
-              onChange={(enabled) => updateSettings({
-                chromaticAberration: { ...settings.chromaticAberration, enabled }
-              })}
-            />
-          </div>
-          
-          {settings.chromaticAberration.enabled && (
-            <div>
-              <Text>强度: {settings.chromaticAberration.intensity}</Text>
-              <Slider
-                min={0}
-                max={0.1}
-                step={0.005}
-                value={settings.chromaticAberration.intensity}
-                onChange={(intensity) => updateSettings({
-                  chromaticAberration: { ...settings.chromaticAberration, intensity }
+  const renderAdvancedEffects = () => {
+    const collapseItems = [
+      {
+        key: 'vignette',
+        label: '晕影效果',
+        children: (
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text>启用晕影</Text>
+              <Switch
+                checked={settings.vignette.enabled}
+                onChange={(enabled) => updateSettings({
+                  vignette: { ...settings.vignette, enabled }
                 })}
               />
             </div>
-          )}
-        </Space>
-      </Panel>
-
-      <Panel header="胶片颗粒" key="filmGrain">
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text>启用胶片颗粒</Text>
-            <Switch
-              checked={settings.filmGrain.enabled}
-              onChange={(enabled) => updateSettings({
-                filmGrain: { ...settings.filmGrain, enabled }
-              })}
-            />
-          </div>
-          
-          {settings.filmGrain.enabled && (
-            <>
+            
+            {settings.vignette.enabled && (
+              <>
+                <div>
+                  <Text>强度: {settings.vignette.intensity}</Text>
+                  <Slider
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={settings.vignette.intensity}
+                    onChange={(intensity) => updateSettings({
+                      vignette: { ...settings.vignette, intensity }
+                    })}
+                  />
+                </div>
+                
+                <div>
+                  <Text>平滑度: {settings.vignette.smoothness}</Text>
+                  <Slider
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={settings.vignette.smoothness}
+                    onChange={(smoothness) => updateSettings({
+                      vignette: { ...settings.vignette, smoothness }
+                    })}
+                  />
+                </div>
+              </>
+            )}
+          </Space>
+        )
+      },
+      {
+        key: 'chromaticAberration',
+        label: '色差效果',
+        children: (
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text>启用色差</Text>
+              <Switch
+                checked={settings.chromaticAberration.enabled}
+                onChange={(enabled) => updateSettings({
+                  chromaticAberration: { ...settings.chromaticAberration, enabled }
+                })}
+              />
+            </div>
+            
+            {settings.chromaticAberration.enabled && (
               <div>
-                <Text>强度: {settings.filmGrain.intensity}</Text>
+                <Text>强度: {settings.chromaticAberration.intensity}</Text>
                 <Slider
                   min={0}
-                  max={0.5}
-                  step={0.01}
-                  value={settings.filmGrain.intensity}
+                  max={0.1}
+                  step={0.005}
+                  value={settings.chromaticAberration.intensity}
                   onChange={(intensity) => updateSettings({
-                    filmGrain: { ...settings.filmGrain, intensity }
+                    chromaticAberration: { ...settings.chromaticAberration, intensity }
                   })}
                 />
               </div>
-              
-              <div>
-                <Text>大小: {settings.filmGrain.size}</Text>
-                <Slider
-                  min={0.5}
-                  max={3}
-                  step={0.1}
-                  value={settings.filmGrain.size}
-                  onChange={(size) => updateSettings({
-                    filmGrain: { ...settings.filmGrain, size }
-                  })}
-                />
-              </div>
-            </>
-          )}
-        </Space>
-      </Panel>
-    </Collapse>
-  );
+            )}
+          </Space>
+        )
+      },
+      {
+        key: 'filmGrain',
+        label: '胶片颗粒',
+        children: (
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text>启用胶片颗粒</Text>
+              <Switch
+                checked={settings.filmGrain.enabled}
+                onChange={(enabled) => updateSettings({
+                  filmGrain: { ...settings.filmGrain, enabled }
+                })}
+              />
+            </div>
+            
+            {settings.filmGrain.enabled && (
+              <>
+                <div>
+                  <Text>强度: {settings.filmGrain.intensity}</Text>
+                  <Slider
+                    min={0}
+                    max={0.5}
+                    step={0.01}
+                    value={settings.filmGrain.intensity}
+                    onChange={(intensity) => updateSettings({
+                      filmGrain: { ...settings.filmGrain, intensity }
+                    })}
+                  />
+                </div>
+                
+                <div>
+                  <Text>大小: {settings.filmGrain.size}</Text>
+                  <Slider
+                    min={0.5}
+                    max={3}
+                    step={0.1}
+                    value={settings.filmGrain.size}
+                    onChange={(size) => updateSettings({
+                      filmGrain: { ...settings.filmGrain, size }
+                    })}
+                  />
+                </div>
+              </>
+            )}
+          </Space>
+        )
+      }
+    ];
+
+    return <Collapse items={collapseItems} />;
+  };
 
   return (
     <Modal

@@ -91,33 +91,56 @@ const HelpView: React.FC = () => {
             </ul>
             
             <Title level={3} className="text-primary">Quick Start Guide</Title>
-            <Collapse ghost>
-              <Panel header={<Text className="text-primary">1. New Project</Text>} key="1">
-                <Paragraph className="text-primary pl-5">
-                  Go to File {'>'} New Project.
-                </Paragraph>
-              </Panel>
-              <Panel header={<Text className="text-primary">2. Geometry</Text>} key="2">
-                <Paragraph className="text-primary pl-5">
-                  Navigate to the Geometry tab to create your model.
-                </Paragraph>
-              </Panel>
-              <Panel header={<Text className="text-primary">3. Meshing</Text>} key="3">
-                <Paragraph className="text-primary pl-5">
-                  Go to the Meshing tab to generate a mesh.
-                </Paragraph>
-              </Panel>
-              <Panel header={<Text className="text-primary">4. Analysis</Text>} key="4">
-                <Paragraph className="text-primary pl-5">
-                  In the Analysis tab, set up conditions and run the simulation.
-                </Paragraph>
-              </Panel>
-              <Panel header={<Text className="text-primary">5. Results</Text>} key="5">
-                <Paragraph className="text-primary pl-5">
-                  View results in the Results tab.
-                </Paragraph>
-              </Panel>
-            </Collapse>
+            <Collapse 
+              ghost
+              items={[
+                {
+                  key: '1',
+                  label: <Text className="text-primary">1. New Project</Text>,
+                  children: (
+                    <Paragraph className="text-primary pl-5">
+                      Go to File {'>'} New Project.
+                    </Paragraph>
+                  )
+                },
+                {
+                  key: '2', 
+                  label: <Text className="text-primary">2. Geometry</Text>,
+                  children: (
+                    <Paragraph className="text-primary pl-5">
+                      Navigate to the Geometry tab to create your model.
+                    </Paragraph>
+                  )
+                },
+                {
+                  key: '3',
+                  label: <Text className="text-primary">3. Meshing</Text>,
+                  children: (
+                    <Paragraph className="text-primary pl-5">
+                      Go to the Meshing tab to generate a mesh.
+                    </Paragraph>
+                  )
+                },
+                {
+                  key: '4',
+                  label: <Text className="text-primary">4. Analysis</Text>,
+                  children: (
+                    <Paragraph className="text-primary pl-5">
+                      In the Analysis tab, set up conditions and run the simulation.
+                    </Paragraph>
+                  )
+                },
+                {
+                  key: '5',
+                  label: <Text className="text-primary">5. Results</Text>,
+                  children: (
+                    <Paragraph className="text-primary pl-5">
+                      View results in the Results tab.
+                    </Paragraph>
+                  )
+                }
+              ]}
+            />
           </>
         );
       

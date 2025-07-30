@@ -61,7 +61,7 @@ const PileTypeSelector: React.FC<PileTypeSelectorProps> = ({
       typicalDiameter: '600-1500mm',
       applications: ['深基坑围护', '承载桩', '抗浮桩'],
       advantages: ['承载力高', '质量可控', '适应性强'],
-      icon: EngineeringIcons.BoredPile,
+      icon: EngineeringIcons.ConstructionProcess,
       color: '#3b82f6'
     },
     {
@@ -74,7 +74,7 @@ const PileTypeSelector: React.FC<PileTypeSelectorProps> = ({
       typicalDiameter: '1000-3000mm',
       applications: ['高层建筑', '桥梁基础', '重载结构'],
       advantages: ['大直径', '承载力高', '桩底清理彻底'],
-      icon: EngineeringIcons.HandDugPile,
+      icon: EngineeringIcons.ConstructionProcess,
       color: '#059669'
     },
     {
@@ -87,7 +87,7 @@ const PileTypeSelector: React.FC<PileTypeSelectorProps> = ({
       typicalDiameter: '300-800mm',
       applications: ['多层建筑', '工业厂房', '道路工程'],
       advantages: ['质量稳定', '施工快速', '成本经济'],
-      icon: EngineeringIcons.PrecastPile,
+      icon: EngineeringIcons.StrutSystem,
       color: '#dc2626'
     },
 
@@ -102,7 +102,7 @@ const PileTypeSelector: React.FC<PileTypeSelectorProps> = ({
       typicalDiameter: '500-2000mm',
       applications: ['软土地基处理', '深基坑止水', '地基加固'],
       advantages: ['环保无污染', '加固效果好', '施工简便'],
-      icon: EngineeringIcons.SWMPile,
+      icon: EngineeringIcons.SoilLayer,
       color: '#7c3aed'
     },
     {
@@ -115,7 +115,7 @@ const PileTypeSelector: React.FC<PileTypeSelectorProps> = ({
       typicalDiameter: '350-600mm',
       applications: ['复合地基', '高层建筑', '软土处理'],
       advantages: ['复合地基效应', '造价经济', '环境友好'],
-      icon: EngineeringIcons.CFGPile,
+      icon: EngineeringIcons.StabilityAnalysis,
       color: '#ea580c'
     },
     {
@@ -128,7 +128,7 @@ const PileTypeSelector: React.FC<PileTypeSelectorProps> = ({
       typicalDiameter: '600-2000mm',
       applications: ['防渗加固', '基坑支护', '地基处理'],
       advantages: ['加固范围可控', '适用土质广', '防渗效果好'],
-      icon: EngineeringIcons.JetGroutingPile,
+      icon: EngineeringIcons.SeepageAnalysis,
       color: '#0891b2'
     }
   ];

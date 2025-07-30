@@ -56,6 +56,191 @@ class GeotechnicalMaterial:
             "INITIAL_VOID_RATIO": initial_void_ratio,    # 初始孔隙比
             "COMPRESSION_INDEX": compression_index        # 压缩指数
         })
+    
+    def set_hardening_soil_parameters(self,
+                                    ref_shear_modulus: float,
+                                    ref_oedometer_modulus: float, 
+                                    ref_unloading_modulus: float,
+                                    power_stress: float = 0.5,
+                                    cohesion: float = 0.0,
+                                    friction_angle: float = 30.0,
+                                    dilatancy_angle: float = 0.0,
+                                    ref_stress: float = 100000.0):
+        """设置硬化土模型参数 (Hardening Soil Model)"""
+        self.properties.update({
+            "CONSTITUTIVE_LAW": "HardeningSoilModel",
+            "REF_SHEAR_MODULUS": ref_shear_modulus,      # 参考剪切模量 E50 (Pa)
+            "REF_OEDOMETER_MODULUS": ref_oedometer_modulus, # 参考压缩模量 Eoed (Pa)  
+            "REF_UNLOADING_MODULUS": ref_unloading_modulus, # 参考卸载模量 Eur (Pa)
+            "POWER_STRESS": power_stress,                 # 应力水平指数 m
+            "COHESION": cohesion,                        # 粘聚力 (Pa)
+            "FRICTION_ANGLE": friction_angle,            # 内摩擦角 (度)
+            "DILATANCY_ANGLE": dilatancy_angle,          # 剪胀角 (度)
+            "REF_STRESS": ref_stress,                    # 参考应力 pref (Pa)
+            "TENSILE_STRENGTH": 0.0                      # 抗拉强度 (Pa)
+        })
+        
+    def set_cam_clay_parameters(self,
+                               lambda_param: float,
+                               kappa_param: float,
+                               critical_state_friction: float,
+                               poisson_ratio: float = 0.25,
+                               initial_void_ratio: float = 1.0,
+                               preconsolidation_pressure: float = 100000.0):
+        """设置Cam-Clay模型参数"""
+        self.properties.update({
+            "CONSTITUTIVE_LAW": "CamClayModel",
+            "LAMBDA": lambda_param,                       # 压缩指数 λ
+            "KAPPA": kappa_param,                        # 回弹指数 κ
+            "CRITICAL_STATE_FRICTION": critical_state_friction, # 临界状态摩擦角 M
+            "POISSON_RATIO": poisson_ratio,              # 泊松比 ν
+            "INITIAL_VOID_RATIO": initial_void_ratio,    # 初始孔隙比 e0
+            "PRECONSOLIDATION_PRESSURE": preconsolidation_pressure, # 预固结压力 p'c (Pa)
+            "DENSITY": 2000.0                            # 默认密度 (kg/m³)
+        })
+        
+    def set_modified_cam_clay_parameters(self,
+                                       lambda_param: float,
+                                       kappa_param: float,
+                                       critical_state_friction: float,
+                                       poisson_ratio: float = 0.25,
+                                       initial_void_ratio: float = 1.0,
+                                       preconsolidation_pressure: float = 100000.0,
+                                       tensile_strength: float = 0.0):
+        """设置修正剑桥模型参数 (Modified Cam-Clay)"""
+        self.properties.update({
+            "CONSTITUTIVE_LAW": "ModifiedCamClayModel",
+            "LAMBDA": lambda_param,                       # 压缩指数 λ
+            "KAPPA": kappa_param,                        # 回弹指数 κ  
+            "CRITICAL_STATE_FRICTION": critical_state_friction, # 临界状态摩擦参数 M
+            "POISSON_RATIO": poisson_ratio,              # 泊松比 ν
+            "INITIAL_VOID_RATIO": initial_void_ratio,    # 初始孔隙比 e0
+            "PRECONSOLIDATION_PRESSURE": preconsolidation_pressure, # 预固结压力 p'c (Pa)
+            "TENSILE_STRENGTH": tensile_strength,        # 抗拉强度 (Pa)
+            "DENSITY": 2000.0                            # 默认密度 (kg/m³)
+        })
+        
+    def set_hypoplastic_parameters(self,
+                                 phi_c: float,           # 临界摩擦角
+                                 hs: float,              # 粒间刚度
+                                 n: float,               # 孔隙比函数指数
+                                 ed0: float,             # 最大孔隙比
+                                 ec0: float,             # 最小孔隙比
+                                 ei0: float,             # 初始孔隙比
+                                 alpha: float = 0.13,    # 形状参数
+                                 beta: float = 1.0):     # 形状参数
+        """设置次塑性模型参数 (Hypoplasticity)"""
+        self.properties.update({
+            "CONSTITUTIVE_LAW": "HypoplasticModel", 
+            "CRITICAL_FRICTION_ANGLE": phi_c,            # 临界摩擦角 (度)
+            "GRANULAR_HARDNESS": hs,                     # 粒间刚度 (Pa)
+            "VOID_RATIO_EXPONENT": n,                    # 孔隙比函数指数
+            "MAX_VOID_RATIO": ed0,                       # 最大孔隙比
+            "MIN_VOID_RATIO": ec0,                       # 最小孔隙比  
+            "INITIAL_VOID_RATIO": ei0,                   # 初始孔隙比
+            "SHAPE_PARAMETER_ALPHA": alpha,              # 形状参数 α
+            "SHAPE_PARAMETER_BETA": beta,                # 形状参数 β
+            "DENSITY": 2000.0                            # 默认密度 (kg/m³)
+        })
+
+class MaterialLibrary:
+    """高级岩土本构模型库"""
+    
+    @staticmethod
+    def create_soft_clay_hardening_soil(name: str = "软土层") -> GeotechnicalMaterial:
+        """创建软土的硬化土模型"""
+        material = GeotechnicalMaterial(name, "soil")
+        material.set_hardening_soil_parameters(
+            ref_shear_modulus=3000000,      # E50 = 3 MPa
+            ref_oedometer_modulus=2400000,  # Eoed = 2.4 MPa  
+            ref_unloading_modulus=12000000, # Eur = 12 MPa
+            power_stress=0.8,               # m = 0.8
+            cohesion=15000,                 # c = 15 kPa
+            friction_angle=25.0,            # φ = 25°
+            dilatancy_angle=0.0,            # ψ = 0°
+            ref_stress=100000               # pref = 100 kPa
+        )
+        material.set_soil_parameters(
+            permeability=1e-9,              # k = 1e-9 m/s
+            porosity=0.4,                   # n = 0.4
+            initial_void_ratio=1.2,         # e0 = 1.2
+            compression_index=0.3           # Cc = 0.3
+        )
+        return material
+    
+    @staticmethod 
+    def create_stiff_clay_cam_clay(name: str = "硬粘土层") -> GeotechnicalMaterial:
+        """创建硬粘土的修正剑桥模型"""
+        material = GeotechnicalMaterial(name, "soil")
+        material.set_modified_cam_clay_parameters(
+            lambda_param=0.15,              # λ = 0.15
+            kappa_param=0.025,              # κ = 0.025
+            critical_state_friction=1.2,    # M = 1.2
+            poisson_ratio=0.3,              # ν = 0.3
+            initial_void_ratio=0.8,         # e0 = 0.8
+            preconsolidation_pressure=400000, # p'c = 400 kPa
+            tensile_strength=0.0            # 无抗拉强度
+        )
+        material.set_soil_parameters(
+            permeability=5e-10,             # k = 5e-10 m/s
+            porosity=0.35,                  # n = 0.35
+            initial_void_ratio=0.8,         # e0 = 0.8
+            compression_index=0.15          # Cc = 0.15
+        )
+        return material
+        
+    @staticmethod
+    def create_sand_hypoplastic(name: str = "砂土层") -> GeotechnicalMaterial:
+        """创建砂土的次塑性模型"""
+        material = GeotechnicalMaterial(name, "soil")
+        material.set_hypoplastic_parameters(
+            phi_c=32.0,                     # φc = 32°
+            hs=5800000000,                  # hs = 5800 MPa
+            n=0.28,                         # n = 0.28
+            ed0=0.95,                       # ed0 = 0.95
+            ec0=0.55,                       # ec0 = 0.55
+            ei0=0.75,                       # ei0 = 0.75
+            alpha=0.13,                     # α = 0.13
+            beta=1.0                        # β = 1.0
+        )
+        material.set_soil_parameters(
+            permeability=1e-5,              # k = 1e-5 m/s (高渗透性)
+            porosity=0.35,                  # n = 0.35
+            initial_void_ratio=0.75,        # e0 = 0.75
+            compression_index=0.05          # Cc = 0.05 (低压缩性)
+        )
+        return material
+        
+    @staticmethod
+    def create_overconsolidated_clay_cam_clay(name: str = "超固结粘土") -> GeotechnicalMaterial:
+        """创建超固结粘土的Cam-Clay模型"""
+        material = GeotechnicalMaterial(name, "soil")
+        material.set_cam_clay_parameters(
+            lambda_param=0.12,              # λ = 0.12
+            kappa_param=0.02,               # κ = 0.02
+            critical_state_friction=1.0,    # M = 1.0
+            poisson_ratio=0.25,             # ν = 0.25
+            initial_void_ratio=0.7,         # e0 = 0.7
+            preconsolidation_pressure=800000 # p'c = 800 kPa (超固结)
+        )
+        material.set_soil_parameters(
+            permeability=1e-10,             # k = 1e-10 m/s (低渗透性)
+            porosity=0.3,                   # n = 0.3
+            initial_void_ratio=0.7,         # e0 = 0.7
+            compression_index=0.12          # Cc = 0.12
+        )
+        return material
+        
+    @staticmethod
+    def get_available_models() -> Dict[str, str]:
+        """获取可用的高级本构模型"""
+        return {
+            "mohr_coulomb": "摩尔-库伦模型",
+            "hardening_soil": "硬化土模型 (HSM)",
+            "cam_clay": "剑桥模型",
+            "modified_cam_clay": "修正剑桥模型 (MCC)",
+            "hypoplastic": "次塑性模型"
+        }
 
 class ExcavationStage:
     """开挖阶段定义"""

@@ -228,6 +228,9 @@ const ResultsView: React.FC = () => {
                     >
                         <div style={{ padding: '20px' }}>
                             <Upload.Dragger
+                                capture={false}
+                                hasControlInside={false}
+                                pastable={false}
                                 beforeUpload={handleFileUpload}
                                 showUploadList={false}
                                 accept=".res,.post,.vtk,.h5"

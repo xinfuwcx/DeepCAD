@@ -174,7 +174,12 @@ const MaterialsView: React.FC = () => {
                 width={600}
             >
                 {modalType === 'import' ? (
-                    <Upload.Dragger accept=".json,.csv,.xlsx">
+                    <Upload.Dragger 
+                        capture={false}
+                        hasControlInside={false}
+                        pastable={false}
+                        accept=".json,.csv,.xlsx"
+                    >
                         <p><UploadOutlined style={{ fontSize: 48 }} /></p>
                         <p>拖拽或点击上传材料库文件</p>
                         <p style={{ color: '#999' }}>支持 JSON, CSV, Excel 格式</p>

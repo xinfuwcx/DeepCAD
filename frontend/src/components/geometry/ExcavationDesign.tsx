@@ -412,7 +412,10 @@ const ExcavationDesign: React.FC = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h4 style={{ color: 'rgba(255,255,255,0.8)', margin: 0 }}>开挖方案</h4>
           <Space>
-            <Upload accept=".dxf,.dwg,.json">
+            <Upload capture={false}
+                    hasControlInside={false}
+                    pastable={false}
+                    accept=".dxf,.dwg,.json">
               <Button icon={<UploadOutlined />} style={{ color: '#ffffff', borderColor: 'rgba(0,217,255,0.5)' }}>
                 导入设计图纸
               </Button>

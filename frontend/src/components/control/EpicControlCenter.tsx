@@ -1,7 +1,7 @@
 /**
- * Epic控制中心 - 1号专家的核心界面组件
- * 集成geo-three地图、Open-Meteo气象、项目管理
- * 实现0号架构师设计的完整控制中心
+ * 深基坑项目控制中心
+ * 集成3D瓦片地图、天气数据、项目管理
+ * 基于3d-tiles-renderer + three-tile + OpenMeteo
  * 
  * 🚀 优化特性:
  * - 内存泄漏防护
@@ -26,7 +26,8 @@ import React, {
   Suspense 
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GeoThreeMapController, Coordinates, MapStyle, ProjectMarkerData } from '../../services/GeoThreeMapController';
+import { UnifiedMapRenderingService } from '../../services/UnifiedMapRenderingService';
+import { ThreeTileMapService } from '../../services/ThreeTileMapService';
 
 // 简化的天气数据接口，匹配我们的使用
 interface SimpleWeatherData {
@@ -115,7 +116,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
   
   // 引用
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapControllerRef = useRef<GeoThreeMapController | null>(null);
+  const mapServiceRef = useRef<UnifiedMapRenderingService | null>(null);
   const cleanupFunctionsRef = useRef<Array<() => void>>([]);
   
   // 状态管理（优化性能：拆分状态避免不必要的重渲染）
@@ -147,10 +148,10 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
     
     // 注册清理函数
     const cleanup = () => {
-      // 清理地图控制器
-      if (mapControllerRef.current) {
-        mapControllerRef.current.dispose();
-        mapControllerRef.current = null;
+      // 清理地图服务
+      if (mapServiceRef.current) {
+        mapServiceRef.current.dispose();
+        mapServiceRef.current = null;
       }
       
       // 执行所有注册的清理函数
@@ -181,25 +182,21 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
         setSystemStatus(prev => ({ ...prev, gisStatus: 'initializing' }));
         
         try {
-          console.log('🗺️ 开始初始化GeoThreeMapController...');
-          const mapController = new GeoThreeMapController(mapContainerRef.current);
-          mapControllerRef.current = mapController;
-          console.log('✅ GeoThreeMapController初始化成功');
+          console.log('🗺️ 开始初始化UnifiedMapRenderingService...');
+          const mapService = new UnifiedMapRenderingService(mapContainerRef.current);
+          await mapService.initialize();
+          mapServiceRef.current = mapService;
+          console.log('✅ UnifiedMapRenderingService初始化成功');
           
-          // 设置项目点击处理器
-          mapController.setProjectClickHandler(handleProjectClick);
+          // 设置项目点击处理器（如果mapService支持的话）
+          // mapService.setProjectClickHandler(handleProjectClick);
           
           // 延迟加载瓦片，确保WebGL上下文准备好
           setTimeout(async () => {
             try {
-              // 加载初始瓦片
-              console.log('🌍 开始加载初始瓦片...');
-              await mapController.loadVisibleTiles();
+              // 地图服务已经在initialize()中完成了初始化
               setSystemStatus(prev => ({ ...prev, gisStatus: 'ready', loadedTiles: 25 }));
-              console.log('🌍 瓦片加载完成');
-              
-              // 添加项目标记
-              await loadProjectMarkers(mapController);
+              console.log('🌍 地图服务准备完成');
               
               console.log('✅ 控制中心初始化完成');
             } catch (loadError) {
@@ -1061,7 +1058,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
               color: 'rgba(255, 255, 255, 0.8)'
             }}
           >
-            <span style={{ color: '#00ffff' }}>{projects.length}</span> 个活跃项目 • 
+            <span style={{ color: '#00ffff' }}>{projectsData?.length || 0}</span> 个活跃项目 • 
             <span style={{ color: '#ff00ff' }}>控制中心</span>
           </motion.div>
         </div>
@@ -1083,7 +1080,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {projects.map((project, index) => {
+        {(projectsData || []).map((project, index) => {
           const weather = weatherData[project.id];
           const isSelected = selectedProject?.id === project.id;
           
@@ -1221,12 +1218,12 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
                     }}
                     transition={{ duration: 3, repeat: Infinity }}
                   >
-                    📍 {project.location.lat.toFixed(3)}°N, {project.location.lng.toFixed(3)}°E
+                    📍 {project.location?.lat?.toFixed(3) || '0.000'}°N, {project.location?.lng?.toFixed(3) || '0.000'}°E
                   </motion.div>
                   
                   <div style={{ marginTop: '4px' }}>
-                    🕳️ 深度: <span style={{ color: '#ffaa00', fontWeight: 'bold' }}>{project.depth}m</span> | 
-                    📊 进度: <span style={{ color: '#00ff88', fontWeight: 'bold' }}>{project.progress}%</span>
+                    🕳️ 深度: <span style={{ color: '#ffaa00', fontWeight: 'bold' }}>{project.depth || 0}m</span> | 
+                    📊 进度: <span style={{ color: '#00ff88', fontWeight: 'bold' }}>{project.progress || 0}%</span>
                   </div>
                   
                   {/* 进度条 - 梦幻效果 */}

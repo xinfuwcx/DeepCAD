@@ -21,6 +21,8 @@ class ErrorBoundary extends Component<
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('DeepCAD Error:', error, errorInfo);
+    console.error('Error stack:', error.stack);
+    console.error('Component stack:', errorInfo.componentStack);
   }
 
   render() {
@@ -59,9 +61,30 @@ class ErrorBoundary extends Component<
             <p style={{ fontSize: '18px', opacity: 0.8, marginBottom: '30px' }}>
               正在初始化世界级深基坑CAE平台组件系统
             </p>
-            <div style={{ fontSize: '14px', opacity: 0.6 }}>
+            <div style={{ fontSize: '14px', opacity: 0.6, marginBottom: '20px' }}>
               组件加载中，请稍候...
             </div>
+            {this.state.error && (
+              <div style={{ 
+                fontSize: '12px', 
+                opacity: 0.8, 
+                backgroundColor: 'rgba(255,0,0,0.1)', 
+                padding: '10px', 
+                borderRadius: '4px',
+                maxHeight: '200px',
+                overflow: 'auto',
+                marginBottom: '20px'
+              }}>
+                <strong>错误详情:</strong><br/>
+                {this.state.error.message}<br/>
+                <details style={{ marginTop: '10px' }}>
+                  <summary style={{ cursor: 'pointer' }}>查看详细信息</summary>
+                  <pre style={{ fontSize: '10px', marginTop: '5px' }}>
+                    {this.state.error.stack}
+                  </pre>
+                </details>
+              </div>
+            )}
             <button 
               onClick={() => window.location.reload()}
               style={{

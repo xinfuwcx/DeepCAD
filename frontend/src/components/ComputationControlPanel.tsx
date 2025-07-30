@@ -1258,15 +1258,103 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
       </div>
       
       <div className="control-content">
+        {/* 施工阶段可视化面板 */}
+        <div className="construction-stages-panel" style={{
+          background: 'linear-gradient(135deg, rgba(24, 144, 255, 0.1) 0%, rgba(82, 196, 26, 0.1) 100%)',
+          border: '1px solid rgba(24, 144, 255, 0.3)',
+          borderRadius: '12px',
+          padding: '16px',
+          marginBottom: '20px'
+        }}>
+          <h3 style={{ color: '#1890ff', marginBottom: '12px' }}>🏗️ 施工阶段模拟</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+            {config.construction.stages.map((stage, index) => (
+              <div key={index} style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '8px',
+                padding: '12px',
+                position: 'relative'
+              }}>
+                <div style={{ fontSize: '24px', marginBottom: '4px' }}>
+                  {index === 0 ? '🟫' : index === 1 ? '🔧' : index === 2 ? '🌊' : '✅'}
+                </div>
+                <div style={{ color: '#ffffff', fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>
+                  阶段 {index + 1}
+                </div>
+                <div style={{ color: '#ffffff80', fontSize: '12px', lineHeight: '1.4' }}>
+                  {stage.description || `深度: ${stage.excavationDepth}m`}
+                  <br />
+                  <span style={{ color: stage.supportType ? '#52c41a' : '#faad14' }}>
+                    {stage.supportType ? '✓ 支护就位' : '⚠ 无支护'}
+                  </span>
+                </div>
+                {index < config.construction.stages.length - 1 && (
+                  <div style={{
+                    position: 'absolute',
+                    right: '-8px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: '#1890ff',
+                    fontSize: '16px'
+                  }}>→</div>
+                )}
+              </div>
+            ))}
+          </div>
+          
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '12px' }}>
+            <div style={{ color: '#ffffff80', fontSize: '12px' }}>
+              总施工周期: {(config.construction.stages.length * 7).toFixed(0)} 天
+            </div>
+            <div style={{ color: '#ffffff80', fontSize: '12px' }}>
+              开挖速率: {config.construction.excavationRate} m/天
+            </div>
+            <div style={{ color: '#ffffff80', fontSize: '12px' }}>
+              安全系数: {controlState.results.safetyAssessment?.overallSafety || 'N/A'}
+            </div>
+          </div>
+        </div>
+
         {/* 任务控制区 */}
         <div className="task-controls">
-          <button onClick={() => startComputation('comprehensive_analysis')}>
+          <button onClick={() => startComputation('comprehensive_analysis')} style={{
+            background: 'linear-gradient(45deg, #722ed1, #eb2f96)',
+            border: 'none',
+            color: 'white',
+            padding: '12px 20px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            marginRight: '8px'
+          }}>
             🚀 开始综合分析
           </button>
-          <button onClick={() => startComputation('soil_structure_coupling')}>
+          <button onClick={() => startComputation('soil_structure_coupling')} style={{
+            background: 'linear-gradient(45deg, #1890ff, #52c41a)',
+            border: 'none',
+            color: 'white',
+            padding: '12px 20px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            marginRight: '8px'
+          }}>
             🏗️ 土结耦合分析
           </button>
-          <button onClick={() => startComputation('construction_stage_analysis')}>
+          <button onClick={() => startComputation('construction_stage_analysis')} style={{
+            background: 'linear-gradient(45deg, #faad14, #ff7a45)',
+            border: 'none',
+            color: 'white', 
+            padding: '12px 20px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            marginRight: '8px'
+          }}>
             🏗️ 施工阶段分析
           </button>
           <button onClick={pauseComputation} disabled={controlState.status !== 'running'}>

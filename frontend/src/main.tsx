@@ -2,7 +2,6 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
-import 'leaflet/dist/leaflet.css'
 import './styles/stunning-3d-earth.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

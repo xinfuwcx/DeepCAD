@@ -236,7 +236,8 @@ export const DiaphragmWallOffsetPanel: React.FC<DiaphragmWallOffsetPanelProps> =
         console.log(`🔍 数据验证完成，得分: ${validationResult.score}/100`);
         
         if (!validationResult.isValid) {
-          warnings.push(...validationResult.errors.map(e => `验证错误: ${e.message}`));
+          const warningsArray: string[] = [];
+          warningsArray.push(...validationResult.errors.map(e => `验证错误: ${e.message}`));
         }
       }
 
@@ -268,7 +269,7 @@ export const DiaphragmWallOffsetPanel: React.FC<DiaphragmWallOffsetPanelProps> =
         onOffsetProcessed(offsetResult);
       }
 
-      logger.success('地连墙偏移处理成功', {
+      logger.info('地连墙偏移处理成功', {
         processingTime,
         offsetDistance: offsetConfig.offsetDistance,
         qualityScore: offsetResult.qualityMetrics.averageElementQuality
@@ -337,7 +338,7 @@ export const DiaphragmWallOffsetPanel: React.FC<DiaphragmWallOffsetPanelProps> =
       materials: [],
       offsetInstructions: offsetInstruction,
       solverConfiguration: {
-        solverType: 'KRATOS_STRUCTURAL',
+        solverType: 'TERRA_STRUCTURAL',
         analysisType: 'STATIC',
         convergenceCriteria: {
           solutionRelativeTolerance: 1e-6,
@@ -437,8 +438,8 @@ export const DiaphragmWallOffsetPanel: React.FC<DiaphragmWallOffsetPanelProps> =
             </label>
             <Input
               type="number"
-              step="0.01"
-              value={offsetConfig.offsetDistance}
+              step={0.01}
+              value={offsetConfig.offsetDistance.toString()}
               onChange={(e) => setOffsetConfig(prev => ({
                 ...prev,
                 offsetDistance: parseFloat(e.target.value) || -0.1
@@ -502,10 +503,10 @@ export const DiaphragmWallOffsetPanel: React.FC<DiaphragmWallOffsetPanelProps> =
                   </label>
                   <Input
                     type="number"
-                    step="0.1"
-                    min="0.1"
-                    max="1.0"
-                    value={offsetConfig.qualityControl.minElementQuality}
+                    step={0.1}
+                    min={0.1}
+                    max={1.0}
+                    value={offsetConfig.qualityControl.minElementQuality.toString()}
                     onChange={(e) => setOffsetConfig(prev => ({
                       ...prev,
                       qualityControl: {
@@ -523,9 +524,9 @@ export const DiaphragmWallOffsetPanel: React.FC<DiaphragmWallOffsetPanelProps> =
                   </label>
                   <Input
                     type="number"
-                    step="1"
-                    min="1"
-                    max="50"
+                    step={1}
+                    min={1}
+                    max={50}
                     value={offsetConfig.qualityControl.maxAspectRatio}
                     onChange={(e) => setOffsetConfig(prev => ({
                       ...prev,
@@ -740,7 +741,7 @@ export const DiaphragmWallOffsetPanel: React.FC<DiaphragmWallOffsetPanelProps> =
               )}
 
               {/* Kratos传输状态 */}
-              {processingState.kratosValidation && (
+              {processingState.terraValidation && (
                 <div className="mt-4 p-3 bg-purple-900/20 border border-purple-600/30 rounded-lg">
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 bg-purple-400 rounded-full animate-pulse"></div>

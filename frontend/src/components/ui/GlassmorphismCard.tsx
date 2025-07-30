@@ -14,8 +14,9 @@ interface GlassmorphismCardProps extends Omit<CardProps, 'variant'> {
   glowEffect?: boolean;
   hoverEffect?: boolean;
   interactive?: boolean;
-  variant?: 'primary' | 'secondary' | 'accent' | 'neutral' | 'quantum';
+  variant?: 'primary' | 'secondary' | 'accent' | 'neutral' | 'quantum' | 'pro' | 'ultra';
   intensity?: 'subtle' | 'medium' | 'strong';
+  glowColor?: string;
   children?: React.ReactNode;
 }
 
@@ -29,6 +30,7 @@ const GlassmorphismCard = forwardRef<HTMLDivElement, GlassmorphismCardProps>(
     interactive = true,
     variant = 'primary',
     intensity = 'medium',
+    glowColor,
     className,
     style,
     children,
@@ -45,7 +47,9 @@ const GlassmorphismCard = forwardRef<HTMLDivElement, GlassmorphismCardProps>(
       secondary: themeConfig?.secondaryColor || '#0066cc',
       accent: themeConfig?.accentColor || '#ff6b35',
       neutral: '#ffffff',
-      quantum: '#9d4edd'
+      quantum: '#9d4edd',
+      pro: '#8b5cf6',
+      ultra: '#f59e0b'
     };
 
     // 强度配置
@@ -56,7 +60,7 @@ const GlassmorphismCard = forwardRef<HTMLDivElement, GlassmorphismCardProps>(
     };
 
     const config = intensityConfig[intensity];
-    const baseColor = variantColors[variant];
+    const baseColor = glowColor || variantColors[variant];
 
     // 鼠标移动处理
     const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {

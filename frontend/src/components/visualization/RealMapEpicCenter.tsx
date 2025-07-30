@@ -1,21 +1,14 @@
 /**
  * 真正集成地图、气象、项目定位的Epic控制中心
- * 包含：真实地图底图 + 气象数据 + 项目标记 + 飞行效果
+ * 基于Three.js + three-tile的3D地球渲染系统
+ * 包含：3D地球底图 + 气象数据 + 项目标记 + 飞行效果
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-
-// 修复leaflet图标问题
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+import * as THREE from 'three';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls, Text, Sphere, Html } from '@react-three/drei';
 
 interface RealMapEpicProps {
   width: number;
@@ -117,11 +110,10 @@ const MAP_STYLES = [
 
 // 气象服务
 class WeatherService {
-  private apiKey = 'demo'; // 使用免费API
+  private apiKey = 'demo';
 
   async getWeather(lat: number, lng: number): Promise<WeatherData> {
     try {
-      // 使用免费的Open-Meteo API
       const response = await fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,wind_speed_10m,relative_humidity_2m&timezone=auto`
       );
@@ -170,77 +162,171 @@ class WeatherService {
 
 const weatherService = new WeatherService();
 
-// 飞行相机控制组件
-const FlightController: React.FC<{
-  targetProject: Project | null;
-  onFlightComplete: () => void;
-}> = ({ targetProject, onFlightComplete }) => {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!targetProject) return;
-
-    console.log(`🚁 Flying to ${targetProject.name}`);
-
-    // 飞行到目标位置
-    map.flyTo([targetProject.lat, targetProject.lng], 12, {
-      duration: 2, // 2秒飞行时间
-      easeLinearity: 0.1
-    });
-
-    // 飞行完成后回调
-    const timer = setTimeout(() => {
-      onFlightComplete();
-    }, 2500);
-
-    return () => clearTimeout(timer);
-  }, [targetProject, map, onFlightComplete]);
-
-  return null;
+// 经纬度转换为3D球面坐标
+const latLngToVector3 = (lat: number, lng: number, radius: number = 5): THREE.Vector3 => {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lng + 180) * (Math.PI / 180);
+  
+  const x = -radius * Math.sin(phi) * Math.cos(theta);
+  const z = radius * Math.sin(phi) * Math.sin(theta);
+  const y = radius * Math.cos(phi);
+  
+  return new THREE.Vector3(x, y, z);
 };
 
-// 自定义项目标记图标
-const createProjectIcon = (project: Project) => {
+// 项目标记组件
+const ProjectMarker: React.FC<{
+  project: Project;
+  onClick: (project: Project) => void;
+  selected: boolean;
+}> = ({ project, onClick, selected }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const position = useMemo(() => latLngToVector3(project.lat, project.lng), [project.lat, project.lng]);
+  
   const color = project.status === 'completed' ? '#52c41a' : 
                project.status === 'active' ? '#faad14' : '#d9d9d9';
-  
-  return L.divIcon({
-    className: 'custom-project-marker',
-    html: `
-      <div style="
-        width: 40px;
-        height: 40px;
-        background: ${color};
-        border: 3px solid white;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        font-size: 18px;
-        color: white;
-        font-weight: bold;
-      ">
-        🏗️
-      </div>
-    `,
-    iconSize: [40, 40],
-    iconAnchor: [20, 20]
+
+  useFrame((state) => {
+    if (meshRef.current) {
+      meshRef.current.rotation.y = state.clock.elapsedTime;
+      meshRef.current.scale.setScalar(selected ? 1.5 : 1);
+    }
   });
+
+  return (
+    <group position={position}>
+      <mesh
+        ref={meshRef}
+        onClick={() => onClick(project)}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          document.body.style.cursor = 'pointer';
+        }}
+        onPointerOut={() => {
+          document.body.style.cursor = 'default';
+        }}
+      >
+        <sphereGeometry args={[0.05, 16, 16]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.3} />
+      </mesh>
+      
+      <Html distanceFactor={10}>
+        <div style={{
+          background: 'rgba(0,0,0,0.8)',
+          color: 'white',
+          padding: '4px 8px',
+          borderRadius: '4px',
+          fontSize: '10px',
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+          border: `1px solid ${color}`
+        }}>
+          🏗️ {project.name}
+        </div>
+      </Html>
+    </group>
+  );
 };
 
-// 气象层组件
-const WeatherLayer: React.FC<{
-  visible: boolean;
+// 3D地球组件
+const Earth: React.FC<{
+  textureUrl: string;
+}> = ({ textureUrl }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const texture = useMemo(() => {
+    const loader = new THREE.TextureLoader();
+    return loader.load(textureUrl);
+  }, [textureUrl]);
+
+  useFrame(() => {
+    if (meshRef.current) {
+      meshRef.current.rotation.y += 0.001; // 缓慢自转
+    }
+  });
+
+  return (
+    <mesh ref={meshRef}>
+      <sphereGeometry args={[5, 64, 64]} />
+      <meshStandardMaterial map={texture} />
+    </mesh>
+  );
+};
+
+// 气象标记组件
+const WeatherMarker: React.FC<{
+  project: Project;
+  weather: WeatherData;
+}> = ({ project, weather }) => {
+  const position = useMemo(() => {
+    const basePos = latLngToVector3(project.lat, project.lng);
+    return basePos.multiplyScalar(1.2); // 稍微远离地表
+  }, [project.lat, project.lng]);
+
+  return (
+    <group position={position}>
+      <Html distanceFactor={15}>
+        <div style={{
+          background: 'rgba(0,0,0,0.8)',
+          color: 'white',
+          padding: '6px',
+          borderRadius: '6px',
+          fontSize: '10px',
+          border: '1px solid #00ffff',
+          textAlign: 'center'
+        }}>
+          <div>{weather.icon} {weather.temperature}°C</div>
+          <div>💨 {weather.windSpeed}km/h</div>
+        </div>
+      </Html>
+    </group>
+  );
+};
+
+// 3D场景组件
+const Scene3D: React.FC<{
   projects: Project[];
-}> = ({ visible, projects }) => {
+  selectedProject: Project | null;
+  onProjectClick: (project: Project) => void;
+  showWeather: boolean;
+  currentMapStyle: typeof MAP_STYLES[0];
+  flightTarget: Project | null;
+}> = ({ projects, selectedProject, onProjectClick, showWeather, currentMapStyle, flightTarget }) => {
+  const { camera } = useThree();
   const [weatherData, setWeatherData] = useState<Record<string, WeatherData>>({});
-  const map = useMap();
 
+  // 飞行动画
   useEffect(() => {
-    if (!visible) return;
+    if (flightTarget) {
+      const targetPosition = latLngToVector3(flightTarget.lat, flightTarget.lng, 15);
+      
+      // 平滑飞行到目标位置
+      const startPosition = camera.position.clone();
+      const startTime = Date.now();
+      const duration = 2000; // 2秒
 
-    // 为每个项目获取天气数据
+      const animate = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // 使用缓动函数
+        const eased = 1 - Math.pow(1 - progress, 3);
+        
+        camera.position.lerpVectors(startPosition, targetPosition, eased);
+        camera.lookAt(0, 0, 0);
+        
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        }
+      };
+      
+      animate();
+    }
+  }, [flightTarget, camera]);
+
+  // 获取天气数据
+  useEffect(() => {
+    if (!showWeather) return;
+
     projects.forEach(async (project) => {
       try {
         const weather = await weatherService.getWeather(project.lat, project.lng);
@@ -252,42 +338,51 @@ const WeatherLayer: React.FC<{
         console.warn(`Failed to get weather for ${project.name}:`, error);
       }
     });
-  }, [visible, projects]);
-
-  if (!visible) return null;
+  }, [showWeather, projects]);
 
   return (
     <>
-      {projects.map(project => {
+      {/* 环境光 */}
+      <ambientLight intensity={0.4} />
+      
+      {/* 主光源 */}
+      <directionalLight position={[10, 10, 5]} intensity={1} />
+      
+      {/* 3D地球 */}
+      <Earth textureUrl="https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg" />
+      
+      {/* 项目标记 */}
+      {projects.map(project => (
+        <ProjectMarker
+          key={project.id}
+          project={project}
+          onClick={onProjectClick}
+          selected={selectedProject?.id === project.id}
+        />
+      ))}
+      
+      {/* 气象标记 */}
+      {showWeather && projects.map(project => {
         const weather = weatherData[project.id];
         if (!weather) return null;
-
+        
         return (
-          <Marker
+          <WeatherMarker
             key={`weather-${project.id}`}
-            position={[project.lat + 0.1, project.lng + 0.1]}
-            icon={L.divIcon({
-              className: 'weather-marker',
-              html: `
-                <div style="
-                  background: rgba(0,0,0,0.8);
-                  color: white;
-                  padding: 8px;
-                  border-radius: 8px;
-                  font-size: 12px;
-                  white-space: nowrap;
-                  border: 1px solid #00ffff;
-                ">
-                  ${weather.icon} ${weather.temperature}°C<br/>
-                  💨 ${weather.windSpeed}km/h
-                </div>
-              `,
-              iconSize: [80, 40],
-              iconAnchor: [40, 20]
-            })}
+            project={project}
+            weather={weather}
           />
         );
       })}
+      
+      {/* 轨道控制器 */}
+      <OrbitControls
+        enablePan={true}
+        enableZoom={true}
+        enableRotate={true}
+        minDistance={8}
+        maxDistance={50}
+      />
     </>
   );
 };
@@ -299,7 +394,6 @@ export const RealMapEpicCenter: React.FC<RealMapEpicProps> = ({ width, height, o
   const [flightTarget, setFlightTarget] = useState<Project | null>(null);
   const [currentMapStyle, setCurrentMapStyle] = useState(MAP_STYLES[0]);
   const [showWeather, setShowWeather] = useState(true);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([31.2304, 113.0000]); // 中国中心
 
   // 处理项目点击
   const handleProjectClick = useCallback((project: Project) => {
@@ -309,14 +403,13 @@ export const RealMapEpicCenter: React.FC<RealMapEpicProps> = ({ width, height, o
     setIsFlying(true);
     setFlightTarget(project);
     setSelectedProject(project);
+    
+    // 2.5秒后结束飞行状态
+    setTimeout(() => {
+      setIsFlying(false);
+      setFlightTarget(null);
+    }, 2500);
   }, [isFlying]);
-
-  // 飞行完成回调
-  const handleFlightComplete = useCallback(() => {
-    console.log('✈️ Flight completed');
-    setIsFlying(false);
-    setFlightTarget(null);
-  }, []);
 
   return (
     <div style={{
@@ -356,37 +449,15 @@ export const RealMapEpicCenter: React.FC<RealMapEpicProps> = ({ width, height, o
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '20px'
-            }}>🗺️</div>
+            }}>🌍</div>
             <div>
               <h1 style={{ color: '#ffffff', margin: 0, fontSize: '18px' }}>
-                Epic地图控制中心
+                Epic 3D地球控制中心
               </h1>
               <p style={{ color: 'rgba(255, 255, 255, 0.6)', margin: 0, fontSize: '10px' }}>
-                真实地图 + 实时气象 + 项目定位
+                Three.js 3D地球 + 实时气象 + 项目定位
               </p>
             </div>
-          </div>
-
-          {/* 地图样式切换 */}
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {MAP_STYLES.map(style => (
-              <button
-                key={style.id}
-                onClick={() => setCurrentMapStyle(style)}
-                style={{
-                  background: currentMapStyle.id === style.id ? 
-                    'rgba(0, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.1)',
-                  border: '1px solid rgba(0, 255, 255, 0.5)',
-                  borderRadius: '6px',
-                  color: '#ffffff',
-                  padding: '6px 12px',
-                  fontSize: '10px',
-                  cursor: 'pointer'
-                }}
-              >
-                {style.name}
-              </button>
-            ))}
           </div>
 
           {/* 气象控制 */}
@@ -422,80 +493,27 @@ export const RealMapEpicCenter: React.FC<RealMapEpicProps> = ({ width, height, o
         </button>
       </motion.div>
 
-      {/* 主地图容器 */}
+      {/* 3D Canvas */}
       <div style={{
         position: 'absolute',
         top: '60px',
         left: 0,
         right: 0,
-        bottom: 0,
-        zIndex: 1
+        bottom: 0
       }}>
-        <MapContainer
-          center={mapCenter}
-          zoom={6}
-          style={{ width: '100%', height: '100%' }}
-          zoomControl={true}
+        <Canvas
+          camera={{ position: [0, 0, 15], fov: 75 }}
+          style={{ background: 'radial-gradient(ellipse at center, #0c1445 0%, #000000 100%)' }}
         >
-          <TileLayer
-            url={currentMapStyle.url}
-            attribution={currentMapStyle.attribution}
+          <Scene3D
+            projects={PROJECTS}
+            selectedProject={selectedProject}
+            onProjectClick={handleProjectClick}
+            showWeather={showWeather}
+            currentMapStyle={currentMapStyle}
+            flightTarget={flightTarget}
           />
-
-          {/* 飞行控制器 */}
-          <FlightController
-            targetProject={flightTarget}
-            onFlightComplete={handleFlightComplete}
-          />
-
-          {/* 项目标记 */}
-          {PROJECTS.map(project => (
-            <Marker
-              key={project.id}
-              position={[project.lat, project.lng]}
-              icon={createProjectIcon(project)}
-              eventHandlers={{
-                click: () => handleProjectClick(project)
-              }}
-            >
-              <Popup>
-                <div style={{ minWidth: '200px' }}>
-                  <h3 style={{ margin: '0 0 8px 0', color: '#1890ff' }}>
-                    {project.name}
-                  </h3>
-                  <p style={{ margin: '4px 0', fontSize: '12px' }}>
-                    📍 {project.lat.toFixed(4)}°N, {project.lng.toFixed(4)}°E
-                  </p>
-                  <p style={{ margin: '4px 0', fontSize: '12px' }}>
-                    🕳️ 深度: {project.depth}m
-                  </p>
-                  <p style={{ margin: '4px 0', fontSize: '12px' }}>
-                    📊 进度: {project.progress}%
-                  </p>
-                  <p style={{ margin: '4px 0', fontSize: '12px' }}>
-                    📝 {project.description}
-                  </p>
-                  <div style={{
-                    marginTop: '8px',
-                    padding: '4px 8px',
-                    background: project.status === 'completed' ? '#f6ffed' : 
-                               project.status === 'active' ? '#fff7e6' : '#f5f5f5',
-                    borderRadius: '4px',
-                    fontSize: '11px',
-                    color: project.status === 'completed' ? '#52c41a' : 
-                           project.status === 'active' ? '#faad14' : '#999'
-                  }}>
-                    状态: {project.status === 'completed' ? '已完成' : 
-                           project.status === 'active' ? '施工中' : '规划中'}
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
-
-          {/* 气象层 */}
-          <WeatherLayer visible={showWeather} projects={PROJECTS} />
-        </MapContainer>
+        </Canvas>
       </div>
 
       {/* 左侧项目面板 */}
@@ -619,7 +637,7 @@ export const RealMapEpicCenter: React.FC<RealMapEpicProps> = ({ width, height, o
             }}
           >
             <div style={{ fontSize: '32px', marginBottom: '10px' }}>🚁</div>
-            <div style={{ fontSize: '16px', marginBottom: '5px' }}>地图飞行中...</div>
+            <div style={{ fontSize: '16px', marginBottom: '5px' }}>3D飞行中...</div>
             <div style={{ fontSize: '12px', opacity: 0.7 }}>
               飞往 {flightTarget?.name}
             </div>

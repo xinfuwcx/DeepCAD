@@ -526,7 +526,10 @@ const EnhancedGeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
         </div>
         
         <Dragger
-          accept=".json,.csv,.xlsx,.xls"
+          capture={false}
+                  hasControlInside={false}
+                  pastable={false}
+                  accept=".json,.csv,.xlsx,.xls"
           beforeUpload={(file) => {
             handleBoreholeUpload(file);
             return false;

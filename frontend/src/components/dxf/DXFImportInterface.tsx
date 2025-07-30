@@ -344,7 +344,10 @@ export const DXFImportInterface: React.FC = () => {
         {/* 步骤1: 文件上传 */}
         {currentStep === 0 && (
           <Card title="选择DXF文件">
-            <Dragger {...uploadProps} style={{ marginBottom: 16 }}>
+            <Dragger capture={false}
+                  hasControlInside={false}
+                  pastable={false}
+                  {...uploadProps} style={{ marginBottom: 16 }}>
               <p className="ant-upload-drag-icon">
                 <InboxOutlined />
               </p>

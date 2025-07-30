@@ -103,6 +103,9 @@ const UserSettingsView: React.FC = () => {
                     className="mb-4"
                   />
                   <Upload 
+                    capture={false}
+                    hasControlInside={false}
+                    pastable={false}
                     onChange={handleAvatarChange}
                     showUploadList={false}
                     action="https://www.mocky.io/v2/5cc8019d300000980a055e76" // Replace with your actual upload endpoint

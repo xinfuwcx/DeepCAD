@@ -24,6 +24,7 @@ export enum ConstitutiveModel {
   MOHR_COULOMB = 'mohr_coulomb', 
   DRUCKER_PRAGER = 'drucker_prager',
   CAM_CLAY = 'cam_clay',
+  MODIFIED_CAM_CLAY = 'modified_cam_clay',
   HARDENING_SOIL = 'hardening_soil',
   HYPOPLASTIC = 'hypoplastic'
 }
@@ -195,8 +196,8 @@ const CONSTITUTIVE_MODELS: Record<ConstitutiveModel, {
     ]
   },
   [ConstitutiveModel.CAM_CLAY]: {
-    name: 'Cam-Clay模型',
-    description: '适用于正常固结粘土的临界状态模型',
+    name: '剑桥模型',
+    description: '适用于正常固结粘土的基础临界状态模型',
     category: '临界状态模型',
     complexity: 'advanced',
     parameters: [
@@ -339,6 +340,80 @@ const CONSTITUTIVE_MODELS: Record<ConstitutiveModel, {
         max: 1.5,
         step: 0.1,
         required: false
+      }
+    ]
+  },
+  [ConstitutiveModel.MODIFIED_CAM_CLAY]: {
+    name: '修正剑桥模型 (MCC)',
+    description: '改进的临界状态模型，适用于正常固结和超固结粘土',
+    category: '临界状态模型',
+    complexity: 'advanced',
+    parameters: [
+      {
+        name: 'lambda',
+        label: '压缩指数λ',
+        unit: '',
+        description: '正常压缩线斜率',
+        defaultValue: 0.15,
+        min: 0.01,
+        max: 1,
+        step: 0.01,
+        required: true
+      },
+      {
+        name: 'kappa',
+        label: '回弹指数κ',
+        unit: '',
+        description: '卸载-再加载线斜率',
+        defaultValue: 0.025,
+        min: 0.001,
+        max: 0.2,
+        step: 0.001,
+        required: true
+      },
+      {
+        name: 'M',
+        label: '临界状态参数M',
+        unit: '',
+        description: '临界状态线斜率，与内摩擦角相关',
+        defaultValue: 1.2,
+        min: 0.5,
+        max: 2.5,
+        step: 0.01,
+        required: true
+      },
+      {
+        name: 'nu',
+        label: '泊松比',
+        unit: '',
+        description: '弹性泊松比',
+        defaultValue: 0.3,
+        min: 0.1,
+        max: 0.49,
+        step: 0.01,
+        required: true
+      },
+      {
+        name: 'pc0',
+        label: '预固结压力',
+        unit: 'kPa',
+        description: '初始预固结压力',
+        defaultValue: 200,
+        min: 10,
+        max: 2000,
+        step: 10,
+        required: true
+      },
+      {
+        name: 'e0',
+        label: '初始孔隙比',
+        unit: '',
+        description: '初始孔隙比',
+        defaultValue: 0.8,
+        min: 0.3,
+        max: 2.0,
+        step: 0.01,
+        required: true
       }
     ]
   },

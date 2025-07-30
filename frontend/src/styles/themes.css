@@ -194,7 +194,7 @@
 }
 
 /* 量子文本 - 仅在Fusion模式下激活 */
-.fusion-mode .quantum-text {
+.fusion-mode .quantum-text:not(.emoji):not([role="img"]) {
   position: relative;
   background: var(--gradient-quantum);
   -webkit-background-clip: text;
@@ -202,6 +202,15 @@
   -webkit-text-fill-color: transparent;
   text-fill-color: transparent;
   animation: quantum-shift 8s infinite linear;
+}
+
+/* 确保emoji不受quantum-shift影响 */
+.fusion-mode .quantum-text .emoji,
+.fusion-mode .quantum-text [role="img"],
+.fusion-mode .emoji,
+.fusion-mode [role="img"] {
+  filter: none !important;
+  animation: none !important;
 }
 
 .fusion-mode .quantum-text::after {

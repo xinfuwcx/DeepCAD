@@ -191,11 +191,13 @@ const MeshQualityPage: React.FC = () => {
               <div>
                 <Text strong>选择网格文件:</Text>
                 <Upload
-                  accept=".msh,.vtk,.vtu,.unv"
+                  capture={false}
+                    hasControlInside={false}
+                    pastable={false}
+                    accept=".msh,.vtk,.vtu,.unv"
                   beforeUpload={handleFileUpload}
                   showUploadList={false}
-                  style={{ marginTop: 8 }}
-                >
+                  style={{ marginTop: 8 }}>
                   <Button icon={<UploadOutlined />} block>
                     选择网格文件
                   </Button>

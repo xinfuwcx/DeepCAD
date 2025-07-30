@@ -6,7 +6,7 @@
  */
 
 import * as THREE from 'three';
-import { WeatherData } from '../types/weather';
+import { WeatherData } from './OpenMeteoService';
 import { WeatherEffectsRenderer } from './WeatherEffectsRenderer';
 import { CloudRenderingSystem } from './CloudRenderingSystem';
 import { SimpleTileRenderer } from './SimpleTileRenderer';
@@ -351,10 +351,10 @@ class ProjectMarker3D {
     const weatherMaterial = new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0.0 },
-        uTemperature: { value: weather.temperature },
-        uWindSpeed: { value: weather.windSpeed },
-        uHumidity: { value: weather.humidity / 100.0 },
-        uWeatherType: { value: this.getWeatherTypeIndex(weather.description) },
+        uTemperature: { value: weather.current.temperature },
+        uWindSpeed: { value: weather.current.windSpeed },
+        uHumidity: { value: weather.current.humidity / 100.0 },
+        uWeatherType: { value: this.getWeatherTypeIndex(weather.current.description) },
         uResolution: { value: new THREE.Vector2(200, 80) }
       },
       vertexShader: `
@@ -438,10 +438,12 @@ class ProjectMarker3D {
     this.group.userData.weatherMaterial = weatherMaterial;
   }
   
-  private getWeatherTypeIndex(description: string): number {
-    if (description.includes('rain') || description.includes('雨')) return 1.0;
-    if (description.includes('snow') || description.includes('雪')) return 2.0;
-    if (description.includes('cloud') || description.includes('云')) return 0.5;
+  private getWeatherTypeIndex(description: string | undefined): number {
+    if (!description) return 0.0; // 默认晴天
+    const desc = description.toLowerCase();
+    if (desc.includes('rain') || desc.includes('雨')) return 1.0;
+    if (desc.includes('snow') || desc.includes('雪')) return 2.0;
+    if (desc.includes('cloud') || desc.includes('云')) return 0.5;
     return 0.0; // 晴天
   }
 
@@ -530,13 +532,18 @@ export class GeoThreeMapController {
     // 初始化简单瓦片渲染器
     this.simpleTileRenderer = new SimpleTileRenderer(this.scene, this.camera, this.renderer);
     
+    // 延迟创建3D地形，确保所有方法都已初始化
+    setTimeout(() => {
+      this.create3DTerrain();
+    }, 100);
+    
     this.startRenderLoop();
     
-    // 立即加载初始瓦片 - 使用新的可靠渲染器
-    setTimeout(() => {
-      console.log('🚀 使用SimpleTileRenderer加载瓦片...');
-      this.loadVisibleTilesWithSimpleRenderer();
-    }, 100);
+    // 禁用2D瓦片加载 - 只显示3D地形
+    // setTimeout(() => {
+    //   console.log('🚀 使用SimpleTileRenderer加载瓦片...');
+    //   this.loadVisibleTilesWithSimpleRenderer();
+    // }, 100);
   }
 
   private initializeThreeJS(container: HTMLElement): void {
@@ -780,6 +787,134 @@ export class GeoThreeMapController {
     }
   }
 
+  // ======================= 3D地形创建 ======================
+  
+  private create3DTerrain(): void {
+    console.log('🏔️ 创建真正的3D地形...');
+    
+    // 清除之前的地形
+    const existingTerrain = this.scene.getObjectByName('terrain');
+    if (existingTerrain) {
+      this.scene.remove(existingTerrain);
+    }
+    
+    // 清除所有2D瓦片
+    this.clearAllTiles();
+    
+    // 清除SimpleTileRenderer的瓦片
+    if (this.simpleTileRenderer) {
+      this.simpleTileRenderer.dispose();
+    }
+    
+    // 创建高精度地形网格
+    const terrainSize = 500;
+    const segments = 256; // 高分辨率
+    const geometry = new THREE.PlaneGeometry(terrainSize, terrainSize, segments, segments);
+    
+    // 生成真实的地形高度数据
+    const vertices = geometry.attributes.position.array as Float32Array;
+    const heightScale = 30; // 地形高度缩放
+    
+    for (let i = 0; i < vertices.length; i += 3) {
+      const x = vertices[i];
+      const y = vertices[i + 1];
+      
+      // 使用多层噪声生成真实地形
+      let height = 0;
+      
+      // 大尺度地形特征
+      height += Math.sin(x * 0.01) * Math.cos(y * 0.01) * 15;
+      
+      // 中等尺度起伏
+      height += Math.sin(x * 0.05) * Math.cos(y * 0.03) * 8;
+      
+      // 小尺度细节
+      height += Math.sin(x * 0.1) * Math.cos(y * 0.08) * 3;
+      
+      // 随机噪声
+      height += (Math.random() - 0.5) * 2;
+      
+      vertices[i + 2] = height;
+    }
+    
+    geometry.attributes.position.needsUpdate = true;
+    geometry.computeVertexNormals();
+    
+    // 创建地形材质 - 使用高质量渐变
+    const material = new THREE.MeshLambertMaterial({
+      vertexColors: true,
+      wireframe: false
+    });
+    
+    // 根据高度为顶点着色
+    const colors = new Float32Array(vertices.length);
+    for (let i = 0; i < vertices.length; i += 3) {
+      const height = vertices[i + 2];
+      
+      if (height < 0) {
+        // 水面 - 蓝色
+        colors[i] = 0.2;
+        colors[i + 1] = 0.4;
+        colors[i + 2] = 0.8;
+      } else if (height < 5) {
+        // 低地 - 绿色
+        colors[i] = 0.3;
+        colors[i + 1] = 0.6;
+        colors[i + 2] = 0.2;
+      } else if (height < 15) {
+        // 丘陵 - 黄绿色
+        colors[i] = 0.5;
+        colors[i + 1] = 0.6;
+        colors[i + 2] = 0.3;
+      } else {
+        // 山峰 - 灰褐色
+        colors[i] = 0.6;
+        colors[i + 1] = 0.5;
+        colors[i + 2] = 0.4;
+      }
+    }
+    
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    
+    const terrainMesh = new THREE.Mesh(geometry, material);
+    terrainMesh.rotation.x = -Math.PI / 2;
+    terrainMesh.name = 'terrain';
+    
+    this.scene.add(terrainMesh);
+    
+    // 添加合适的光照
+    this.setupTerrainLighting();
+    
+    // 调整相机位置以获得更好的3D视角
+    this.camera.position.set(0, 50, 100);
+    this.camera.lookAt(0, 0, 0);
+    
+    console.log('✅ 3D地形创建完成');
+  }
+  
+  private setupTerrainLighting(): void {
+    // 清除旧光源
+    const lights = this.scene.children.filter(child => child.type.includes('Light'));
+    lights.forEach(light => this.scene.remove(light));
+    
+    // 环境光
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+    this.scene.add(ambientLight);
+    
+    // 主要方向光 - 模拟太阳
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(100, 100, 50);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+    this.scene.add(directionalLight);
+    
+    // 辅助光源 - 增加层次感
+    const fillLight = new THREE.DirectionalLight(0x87ceeb, 0.3);
+    fillLight.position.set(-50, 30, -50);
+    this.scene.add(fillLight);
+  }
+
   // ======================= 新的简单瓦片方法 =======================
 
   /**
@@ -898,7 +1033,7 @@ export class GeoThreeMapController {
 
   private async loadProjectWeather(projectData: ProjectMarkerData, marker: ProjectMarker3D): Promise<void> {
     try {
-      const weather = await openMeteoService.getWeather(
+      const weather = await openMeteoService.getWeatherData(
         projectData.location.lat,
         projectData.location.lng
       );
@@ -1166,7 +1301,7 @@ export class GeoThreeMapController {
 
   public async loadWeatherForLocation(lat: number, lng: number): Promise<void> {
     try {
-      const weather = await openMeteoService.getWeather(lat, lng);
+      const weather = await openMeteoService.getWeatherData(lat, lng);
       this.updateGlobalWeatherEffects(weather);
       console.log(`🌤️ 位置天气加载完成: (${lat.toFixed(3)}, ${lng.toFixed(3)})`);
     } catch (error) {

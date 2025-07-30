@@ -495,7 +495,10 @@ const GeologyView: React.FC = () => {
                                     <div style={{ padding: '16px 0', background: '#1a1a2e' }}>
                                         <Space direction="vertical" style={{ width: '100%' }}>
                                             <Dragger 
-                                                name="file"
+                                                capture={false}
+                  hasControlInside={false}
+                  pastable={false}
+                  name="file"
                                                 multiple={false}
                                                 beforeUpload={() => false}
                                                 onChange={handleUploadChange}

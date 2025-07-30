@@ -6,7 +6,7 @@
  */
 
 import * as THREE from 'three';
-import { WeatherData } from '../types/weather';
+import { WeatherData } from './OpenMeteoService';
 
 // ======================= 接口定义 =======================
 
@@ -494,7 +494,7 @@ export class CloudRenderingSystem {
 
   public updateFromWeatherData(weatherData: WeatherData): void {
     // 根据天气数据更新云层
-    const condition = weatherData.description.toLowerCase();
+    const condition = weatherData.current?.description?.toLowerCase() || '';
     
     if (condition.includes('晴') || condition.includes('clear')) {
       this.config.coverage = 0.2;

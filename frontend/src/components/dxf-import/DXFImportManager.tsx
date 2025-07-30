@@ -301,12 +301,14 @@ export const DXFImportManager: React.FC = () => {
           
           <Col span={24}>
             <Dragger
-              name="file"
+              capture={false}
+                  hasControlInside={false}
+                  pastable={false}
+                  name="file"
               multiple={false}
               accept=".dxf"
               customRequest={handleUpload}
-              showUploadList={false}
-            >
+              showUploadList={false}>
               <p className="ant-upload-drag-icon">
                 <InboxOutlined />
               </p>

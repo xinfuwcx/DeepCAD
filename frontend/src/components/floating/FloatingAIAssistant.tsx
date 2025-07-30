@@ -165,6 +165,9 @@ export const FloatingAIAssistant: React.FC<FloatingAIAssistantProps> = ({
                   animate={{ rotate: 360 }}
                   transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
                   style={{ fontSize: '20px' }}
+                  className="emoji"
+                  role="img"
+                  aria-label="brain"
                 >
                   🧠
                 </motion.div>
@@ -295,7 +298,7 @@ export const FloatingAIAssistant: React.FC<FloatingAIAssistantProps> = ({
                   border: '1px solid rgba(0, 255, 255, 0.3)',
                   marginBottom: '8px'
                 }}>
-                  <div style={{ fontSize: '14px' }}>🧠</div>
+                  <div style={{ fontSize: '14px' }} className="emoji" role="img" aria-label="brain">🧠</div>
                   <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
                     <span style={{ color: '#00ffff', fontSize: '11px' }}>思考中</span>
                     {[0, 1, 2].map((i) => (
@@ -443,6 +446,9 @@ export const FloatingAIAssistant: React.FC<FloatingAIAssistantProps> = ({
             repeat: Infinity, 
             ease: "easeInOut" 
           }}
+          className="emoji"
+          role="img"
+          aria-label="brain"
         >
           🧠
         </motion.div>

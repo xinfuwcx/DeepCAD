@@ -349,6 +349,9 @@ export const MaterialEditor: React.FC<MaterialEditorProps> = ({
 
   // 纹理上传
   const handleTextureUpload = (textureType: string) => ({
+    capture: false,
+    hasControlInside: false,
+    pastable: false,
     beforeUpload: (file: File) => {
       const isImage = file.type.startsWith('image/');
       if (!isImage) {

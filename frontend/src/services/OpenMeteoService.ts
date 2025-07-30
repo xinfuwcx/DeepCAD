@@ -1,7 +1,10 @@
 /**
- * Open-Meteo天气服务接口
- * 1号架构师 - 实时天气数据集成
+ * OpenMeteo天气服务
+ * 免费、高精度、无API密钥的天气数据服务
+ * 响应时间<10ms，1km分辨率，每小时更新
  */
+
+import { fetchWeatherApi } from 'openmeteo';
 
 export interface WeatherData {
   location: {
@@ -30,32 +33,15 @@ export interface WeatherData {
   lastUpdated: Date;
 }
 
-export interface WeatherServiceConfig {
-  apiKey?: string;
-  updateInterval: number;
-  units: 'metric' | 'imperial';
-  language: string;
-}
-
 class OpenMeteoService {
-  private config: WeatherServiceConfig;
   private cache: Map<string, { data: WeatherData; timestamp: number }> = new Map();
   private readonly CACHE_DURATION = 10 * 60 * 1000; // 10分钟缓存
-
-  constructor(config: Partial<WeatherServiceConfig> = {}) {
-    this.config = {
-      updateInterval: 300000, // 5分钟
-      units: 'metric',
-      language: 'zh',
-      ...config
-    };
-  }
 
   /**
    * 获取指定位置的天气数据
    */
   async getWeatherData(latitude: number, longitude: number): Promise<WeatherData> {
-    const cacheKey = `${latitude},${longitude}`;
+    const cacheKey = `${latitude.toFixed(4)},${longitude.toFixed(4)}`;
     const cached = this.cache.get(cacheKey);
     
     // 检查缓存
@@ -64,23 +50,28 @@ class OpenMeteoService {
     }
 
     try {
-      // 构建API请求URL
-      const url = new URL('https://api.open-meteo.com/v1/forecast');
-      url.searchParams.set('latitude', latitude.toString());
-      url.searchParams.set('longitude', longitude.toString());
-      url.searchParams.set('current', 'temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,surface_pressure,weather_code');
-      url.searchParams.set('daily', 'temperature_2m_max,temperature_2m_min,weather_code');
-      url.searchParams.set('timezone', 'auto');
-      url.searchParams.set('forecast_days', '7');
+      // 使用OpenMeteo API获取天气数据
+      const params = {
+        latitude: [latitude],
+        longitude: [longitude],
+        current: [
+          'temperature_2m',
+          'relative_humidity_2m', 
+          'wind_speed_10m',
+          'wind_direction_10m',
+          'pressure_msl',
+          'weather_code'
+        ],
+        forecast_days: 1,
+        timezone: 'auto'
+      };
 
-      const response = await fetch(url.toString());
+      const responses = await fetchWeatherApi('https://api.open-meteo.com/v1/forecast', params);
+      const response = responses[0];
       
-      if (!response.ok) {
-        throw new Error(`Weather API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const weatherData = this.parseWeatherData(data, latitude, longitude);
+      // 解析响应数据
+      const current = response.current();
+      const weatherData = this.parseOpenMeteoData(current, latitude, longitude);
       
       // 更新缓存
       this.cache.set(cacheKey, {
@@ -90,7 +81,7 @@ class OpenMeteoService {
 
       return weatherData;
     } catch (error) {
-      console.error('获取天气数据失败:', error);
+      console.error('OpenMeteo API调用失败:', error);
       
       // 返回默认数据
       return this.getDefaultWeatherData(latitude, longitude);
@@ -98,127 +89,79 @@ class OpenMeteoService {
   }
 
   /**
-   * 解析API响应数据
+   * 解析OpenMeteo响应数据
    */
-  private parseWeatherData(apiData: any, latitude: number, longitude: number): WeatherData {
-    const current = apiData.current;
-    const daily = apiData.daily;
+  private parseOpenMeteoData(current: any, latitude: number, longitude: number): WeatherData {
+    // 天气代码映射
+    const weatherCode = current.variables(5)?.value() || 0;
+    const description = this.getWeatherDescription(weatherCode);
+    const icon = this.getWeatherIcon(weatherCode);
 
     return {
       location: {
         latitude,
         longitude,
-        city: this.getCityName(latitude, longitude)
+        city: `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`
       },
       current: {
-        temperature: Math.round(current.temperature_2m || 20),
-        humidity: Math.round(current.relative_humidity_2m || 60),
-        windSpeed: Math.round(current.wind_speed_10m || 5),
-        windDirection: Math.round(current.wind_direction_10m || 180),
-        pressure: Math.round(current.surface_pressure || 1013),
-        weatherCode: current.weather_code || 0,
-        description: this.getWeatherDescription(current.weather_code || 0),
-        icon: this.getWeatherIcon(current.weather_code || 0)
+        temperature: Math.round(current.variables(0)?.value() || 20),
+        humidity: Math.round(current.variables(1)?.value() || 60),
+        windSpeed: Math.round((current.variables(2)?.value() || 5) * 3.6), // m/s转km/h
+        windDirection: Math.round(current.variables(3)?.value() || 180),
+        pressure: Math.round(current.variables(4)?.value() || 1013),
+        weatherCode,
+        description,
+        icon
       },
-      forecast: daily ? this.parseForecastData(daily) : undefined,
       lastUpdated: new Date()
     };
   }
 
   /**
-   * 解析预报数据
-   */
-  private parseForecastData(daily: any): WeatherData['forecast'] {
-    const forecast = [];
-    const dates = daily.time || [];
-    const maxTemps = daily.temperature_2m_max || [];
-    const minTemps = daily.temperature_2m_min || [];
-    const weatherCodes = daily.weather_code || [];
-
-    for (let i = 0; i < Math.min(dates.length, 7); i++) {
-      forecast.push({
-        date: dates[i],
-        maxTemp: Math.round(maxTemps[i] || 25),
-        minTemp: Math.round(minTemps[i] || 15),
-        weatherCode: weatherCodes[i] || 0,
-        description: this.getWeatherDescription(weatherCodes[i] || 0),
-        icon: this.getWeatherIcon(weatherCodes[i] || 0)
-      });
-    }
-
-    return forecast;
-  }
-
-  /**
-   * 根据坐标获取城市名称
-   */
-  private getCityName(latitude: number, longitude: number): string {
-    // 简单的坐标到城市映射
-    const cities = [
-      { lat: 31.2304, lng: 121.4737, name: '上海' },
-      { lat: 39.9042, lng: 116.4074, name: '北京' },
-      { lat: 22.5431, lng: 113.9339, name: '深圳' },
-      { lat: 23.1291, lng: 113.3240, name: '广州' }
-    ];
-
-    for (const city of cities) {
-      const distance = Math.sqrt(
-        Math.pow(latitude - city.lat, 2) + Math.pow(longitude - city.lng, 2)
-      );
-      if (distance < 0.5) {
-        return city.name;
-      }
-    }
-
-    return `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
-  }
-
-  /**
    * 获取天气描述
    */
-  private getWeatherDescription(weatherCode: number): string {
-    const descriptions: Record<number, string> = {
+  private getWeatherDescription(code: number): string {
+    const weatherCodes: Record<number, string> = {
       0: '晴朗',
-      1: '主要晴朗',
+      1: '大部分晴朗',
       2: '部分多云',
       3: '阴天',
       45: '雾',
-      48: '结霜雾',
+      48: '雾凇',
       51: '小雨',
       53: '中雨',
       55: '大雨',
       61: '小雨',
       63: '中雨',
       65: '大雨',
+      71: '小雪',
+      73: '中雪',
+      75: '大雪',
       80: '阵雨',
-      95: '雷暴'
+      81: '阵雨',
+      82: '暴雨',
+      95: '雷暴',
+      96: '雷暴伴冰雹',
+      99: '强雷暴伴冰雹'
     };
-
-    return descriptions[weatherCode] || '未知';
+    
+    return weatherCodes[code] || '未知';
   }
 
   /**
    * 获取天气图标
    */
-  private getWeatherIcon(weatherCode: number): string {
-    const icons: Record<number, string> = {
-      0: '☀️',
-      1: '🌤️',
-      2: '⛅',
-      3: '☁️',
-      45: '🌫️',
-      48: '🌫️',
-      51: '🌦️',
-      53: '🌧️',
-      55: '🌧️',
-      61: '🌦️',
-      63: '🌧️',
-      65: '🌧️',
-      80: '🌦️',
-      95: '⛈️'
-    };
-
-    return icons[weatherCode] || '🌤️';
+  private getWeatherIcon(code: number): string {
+    // 简化的图标映射
+    if (code === 0) return '☀️';
+    if (code <= 3) return '⛅';
+    if (code >= 45 && code <= 48) return '🌫️';
+    if (code >= 51 && code <= 65) return '🌧️';
+    if (code >= 71 && code <= 75) return '❄️';
+    if (code >= 80 && code <= 82) return '🌦️';
+    if (code >= 95) return '⛈️';
+    
+    return '🌤️';
   }
 
   /**
@@ -229,7 +172,7 @@ class OpenMeteoService {
       location: {
         latitude,
         longitude,
-        city: this.getCityName(latitude, longitude)
+        city: `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`
       },
       current: {
         temperature: 22,
@@ -238,8 +181,8 @@ class OpenMeteoService {
         windDirection: 180,
         pressure: 1013,
         weatherCode: 1,
-        description: '主要晴朗',
-        icon: '🌤️'
+        description: '大部分晴朗',
+        icon: '⛅'
       },
       lastUpdated: new Date()
     };
@@ -253,10 +196,13 @@ class OpenMeteoService {
   }
 
   /**
-   * 更新配置
+   * 获取缓存统计
    */
-  updateConfig(newConfig: Partial<WeatherServiceConfig>): void {
-    this.config = { ...this.config, ...newConfig };
+  getCacheStats() {
+    return {
+      size: this.cache.size,
+      entries: Array.from(this.cache.keys())
+    };
   }
 }
 

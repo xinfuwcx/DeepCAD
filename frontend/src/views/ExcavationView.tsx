@@ -303,12 +303,14 @@ const ExcavationView: React.FC = () => {
                                     >
                                         <Form.Item label="基坑轮廓 DXF 文件">
                                             <Dragger 
-                                                name="file" 
+                                                capture={false}
+                  hasControlInside={false}
+                  pastable={false}
+                  name="file" 
                                                 multiple={false} 
                                                 beforeUpload={handleDxfUpload} 
                                                 showUploadList={false}
-                                                style={{ marginBottom: '16px' }}
-                                            >
+                                                style={{ marginBottom: '16px' }}>
                                                 <p className="ant-upload-drag-icon"><UploadOutlined /></p>
                                                 <p className="ant-upload-text">
                                                     {dxfFile ? `文件: ${dxfFile.name}` : '点击或拖拽 DXF 文件'}

@@ -391,7 +391,10 @@ export const PyVistaViewer: React.FC<PyVistaViewerProps> = ({
         <TabPane tab={<span><EyeOutlined />网格</span>} key="mesh">
           <Space direction="vertical" style={{ width: '100%' }}>
             <Upload
-              beforeUpload={() => false}
+              capture={false}
+                    hasControlInside={false}
+                    pastable={false}
+                    beforeUpload={() => false}
               onChange={(info) => {
                 if (info.file) {
                   loadMeshFile(info.file.name);
@@ -502,7 +505,10 @@ export const PyVistaViewer: React.FC<PyVistaViewerProps> = ({
         <TabPane tab={<span><PlayCircleOutlined />动画</span>} key="animation">
           <Space direction="vertical" style={{ width: '100%' }}>
             <Upload
-              multiple
+              capture={false}
+                    hasControlInside={false}
+                    pastable={false}
+                    multiple
               beforeUpload={() => false}
               onChange={(info) => {
                 const files = info.fileList.map(file => file.name);

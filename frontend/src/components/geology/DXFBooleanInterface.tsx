@@ -486,12 +486,14 @@ const DXFBooleanInterface: React.FC<DXFBooleanInterfaceProps> = ({
             style={{ marginBottom: '16px' }}
           >
             <Upload.Dragger
-              accept=".dxf,.dwg"
+              capture={false}
+                                hasControlInside={false}
+                                pastable={false}
+                                accept=".dxf,.dwg"
               multiple
               showUploadList={false}
               beforeUpload={handleDXFUpload}
-              disabled={isProcessing}
-            >
+              disabled={isProcessing}>
               <p className="ant-upload-drag-icon">
                 <FolderOpenOutlined />
               </p>

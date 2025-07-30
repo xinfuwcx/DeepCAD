@@ -6,7 +6,7 @@
  */
 
 import * as THREE from 'three';
-import { WeatherData } from '../types/weather';
+import { WeatherData } from './OpenMeteoService';
 
 // ======================= 接口定义 =======================
 
@@ -481,7 +481,7 @@ export class WeatherEffectsRenderer {
 
   public updateFromWeatherData(weatherData: WeatherData): void {
     // 根据天气数据自动设置效果
-    const condition = weatherData.description.toLowerCase();
+    const condition = weatherData.current?.description?.toLowerCase() || '';
     
     // 重置所有效果
     this.setRainEnabled(false);
@@ -501,10 +501,12 @@ export class WeatherEffectsRenderer {
     }
     
     // 设置风力
+    const windSpeed = weatherData.current?.windSpeed || 0;
+    const windDirection = weatherData.current?.windDirection || 0;
     this.windForce.set(
-      weatherData.windSpeed * Math.cos(weatherData.windDirection || 0) * 0.1,
+      windSpeed * Math.cos(windDirection) * 0.1,
       0,
-      weatherData.windSpeed * Math.sin(weatherData.windDirection || 0) * 0.1
+      windSpeed * Math.sin(windDirection) * 0.1
     );
     
     console.log(`🌤️ 根据天气数据更新效果: ${condition}, 强度: ${this.config.intensity}`);
