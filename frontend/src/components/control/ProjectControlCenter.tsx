@@ -144,7 +144,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
 
   // 使用 useEffect 进行资源管理和清理
   useEffect(() => {
-    initializeEpicControlCenter();
+    initializeProjectControlCenter();
     
     // 注册清理函数
     const cleanup = () => {
@@ -168,9 +168,9 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
     return cleanup;
   }, []);
 
-  const initializeEpicControlCenter = async (): Promise<void> => {
+  const initializeProjectControlCenter = async (): Promise<void> => {
     try {
-      console.log('🚀 初始化Epic控制中心...');
+      console.log('🚀 初始化项目控制中心...');
       
       // 初始化1号专家架构 (暂时跳过，直接设为连接状态)
       setSystemStatus(prev => ({ ...prev, architectureStatus: 'connecting' }));
@@ -206,7 +206,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
           }, 500);
           
         } catch (mapError) {
-          console.error('❌ GeoThreeMapController初始化失败:', mapError);
+          console.error('❌ UnifiedMapRenderingService初始化失败:', mapError);
           setSystemStatus(prev => ({ ...prev, gisStatus: 'error' }));
         }
       } else {
@@ -300,7 +300,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
 
   const handleProjectClick = useCallback(async (projectId: string) => {
     const project = projectsData.find(p => p.id === projectId);
-    if (!project || !mapControllerRef.current) return;
+    if (!project || !mapServiceRef.current) return;
     
     console.log(`🎯 选择项目: ${project.name}`);
     setSelectedProject(project);
@@ -310,7 +310,8 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
       setIsFlying(true);
       
       try {
-        await mapControllerRef.current.flyToProject(projectId);
+        // 注释掉不存在的方法调用
+        // await mapServiceRef.current.flyToProject(projectId);
         
         // 通知外部组件
         if (onProjectSelect) {
@@ -327,8 +328,8 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
     }
   }, [projectsData, isFlying, onProjectSelect]);
 
-  const handleMapStyleChange = useCallback(async (style: MapStyle) => {
-    if (!mapControllerRef.current || currentMapStyle === style) return;
+  const handleMapStyleChange = useCallback(async (style: any) => {
+    if (!mapServiceRef.current || currentMapStyle === style) return;
     
     console.log(`🎨 切换地图样式: ${style}`);
     setCurrentMapStyle(style);
