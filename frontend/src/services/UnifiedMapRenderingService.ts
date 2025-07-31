@@ -124,18 +124,20 @@ export class UnifiedMapRenderingService {
       this.simpleTileRenderer.setZoom(12);
       await this.simpleTileRenderer.loadVisibleTiles();
       
-      // 设置相机到合适的位置查看SimpleTileRenderer的瓦片
-      if (this.camera instanceof THREE.PerspectiveCamera) {
-        this.camera.position.set(0, 150, 150);
-        this.camera.lookAt(0, 0, 0);
-        this.camera.updateProjectionMatrix();
-        console.log('📹 相机设置为查看SimpleTileRenderer瓦片:', this.camera.position);
-      }
-      
-      // 诊断场景中的对象
-      this.diagnoseSceneObjects();
+      // 注释掉相机设置，让three-tile的相机设置生效
+      // if (this.camera instanceof THREE.PerspectiveCamera) {
+      //   this.camera.position.set(0, 150, 150);
+      //   this.camera.lookAt(0, 0, 0);
+      //   this.camera.updateProjectionMatrix();
+      //   console.log('📹 相机设置为查看SimpleTileRenderer瓦片:', this.camera.position);
+      // }
       
       console.log('✅ SimpleTileRenderer初始化成功');
+      
+      // 诊断场景中的对象（延迟执行）
+      setTimeout(() => {
+        this.diagnoseSceneObjects();
+      }, 1000);
       
       // 2. 并行初始化three-tile（调试模式）
       console.log('🔧 并行初始化three-tile（调试模式）...');
@@ -849,15 +851,18 @@ export class UnifiedMapRenderingService {
    */
   switchMapLayer(layerType: 'satellite' | 'terrain' | 'street'): void {
     // 使用SimpleTileRenderer切换图层
-    const styleMap = {
+    const styleMap: Record<string, string> = {
       'street': 'osm',
       'satellite': 'google_satellite', 
       'terrain': 'cartodb_dark'
     };
     
-    const style = styleMap[layerType] as keyof typeof this.simpleTileRenderer['TILE_URLS'];
-    if (style) {
-      this.simpleTileRenderer.setMapStyle(style);
+    const style = styleMap[layerType];
+    const availableStyles = this.simpleTileRenderer.getAvailableStyles();
+    
+    if (style && availableStyles.includes(style)) {
+      this.simpleTileRenderer.setMapStyle(style as any);
+      console.log(`🎨 切换SimpleTileRenderer地图样式: ${layerType} -> ${style}`);
     }
     
     // 同时更新three-tile

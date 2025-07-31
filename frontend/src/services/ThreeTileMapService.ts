@@ -113,8 +113,9 @@ export class ThreeTileMapService {
       
       // 修复相机设置 - 使用适合地图瓦片的缩放比例
       if (this.camera instanceof THREE.PerspectiveCamera) {
-        // three-tile的地图瓦片通常在较小的坐标范围内，所以调整相机位置
-        this.camera.position.set(0, 100, 100); // 降低高度，更接近地图
+        // 从日志看到相机在(129.58, 200, 198.52)，瓦片可能在原点附近
+        // 让相机更接近原点查看瓦片
+        this.camera.position.set(0, 50, 50); // 更接近地图
         this.camera.near = 0.1;
         this.camera.far = 2000;
         this.camera.updateProjectionMatrix();

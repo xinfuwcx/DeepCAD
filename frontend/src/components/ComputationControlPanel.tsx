@@ -636,7 +636,7 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
         const safetyStandards = createSafetyStandards(config);
         
         solverRef.current = new DeepExcavationSolver(excavationParams as any);
-        stageAnalyzerRef.current = new ConstructionStageAnalyzer(constructionStages, config as any);
+        stageAnalyzerRef.current = new ConstructionStageAnalyzer(constructionStages, config as any) as any;
         safetySystemRef.current = new SafetyAssessmentSystem(safetyStandards as any, config as any, {});
         
         // 创建可视化引擎
@@ -648,7 +648,7 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
           visualEffects: { streamlines: false },
           performance: { updateFrequency: 60 }
         };
-        stressRendererRef.current = new StressCloudGPURenderer(scene, (scene.getObjectByName('camera') as THREE.Camera) || new THREE.PerspectiveCamera(), config.visualization?.stressVisualization || {});
+        stressRendererRef.current = new StressCloudGPURenderer(scene, renderer || new THREE.WebGLRenderer(), config.visualization?.stressVisualization || {});
         flowVisualizerRef.current = new FlowFieldVisualizationGPU(scene, {
           webgpu: { 
             workgroupSize: [8, 8, 1] as [number, number, number],
@@ -662,7 +662,7 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
           visualEffects: { streamlines: false },
           performance: { updateFrequency: 60 }
         });
-        deformationSystemRef.current = new DeformationAnimationSystem(scene, (scene.getObjectByName('camera') as THREE.Camera) || new THREE.PerspectiveCamera(), config.visualization?.deformationAnimation || {});
+        deformationSystemRef.current = new DeformationAnimationSystem(scene, renderer || new THREE.WebGLRenderer(), config.visualization?.deformationAnimation || {});
         
         // 初始化WebGPU系统
         await stressRendererRef.current.initialize();
