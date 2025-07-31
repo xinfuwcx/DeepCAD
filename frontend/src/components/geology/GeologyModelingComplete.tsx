@@ -371,7 +371,7 @@ const GeologyModelingComplete: React.FC = () => {
                 <Col span={12}>
                   <Form.Item label="变异函数模型">
                     <Select 
-                      value={gsToolsParams.variogramModel}
+                      value={rbfParams.variogramModel}
                       onChange={(value) => setRbfParams({...rbfParams, variogramModel: value})}
                     >
                       <Option value="gaussian">高斯模型</Option>
@@ -383,7 +383,7 @@ const GeologyModelingComplete: React.FC = () => {
                 <Col span={12}>
                   <Form.Item label="插值方法">
                     <Select 
-                      value={gsToolsParams.interpolationMethod}
+                      value={rbfParams.interpolationMethod}
                       onChange={(value) => setRbfParams({...rbfParams, interpolationMethod: value})}
                     >
                       <Option value="ordinary">普通克里金</Option>
@@ -399,7 +399,7 @@ const GeologyModelingComplete: React.FC = () => {
                   <Form.Item label="变程 (Range)">
                     <InputNumber
                       style={{ width: '100%' }}
-                      value={gsToolsParams.range}
+                      value={rbfParams.range}
                       onChange={(value) => setRbfParams({...rbfParams, range: value || 100})}
                       min={10}
                       max={500}
@@ -411,7 +411,7 @@ const GeologyModelingComplete: React.FC = () => {
                   <Form.Item label="基台值 (Sill)">
                     <InputNumber
                       style={{ width: '100%' }}
-                      value={gsToolsParams.sill}
+                      value={rbfParams.sill}
                       onChange={(value) => setRbfParams({...rbfParams, sill: value || 1.0})}
                       min={0.1}
                       max={10}
@@ -423,7 +423,7 @@ const GeologyModelingComplete: React.FC = () => {
                   <Form.Item label="块金值 (Nugget)">
                     <InputNumber
                       style={{ width: '100%' }}
-                      value={gsToolsParams.nugget}
+                      value={rbfParams.nugget}
                       onChange={(value) => setRbfParams({...rbfParams, nugget: value || 0.1})}
                       min={0}
                       max={1}
@@ -437,7 +437,7 @@ const GeologyModelingComplete: React.FC = () => {
                 <Col span={12}>
                   <Form.Item label="搜索半径 (m)">
                     <Slider
-                      value={gsToolsParams.searchRadius}
+                      value={rbfParams.searchRadius}
                       onChange={(value) => setRbfParams({...rbfParams, searchRadius: value})}
                       min={50}
                       max={300}
@@ -449,14 +449,14 @@ const GeologyModelingComplete: React.FC = () => {
                   <Form.Item label="样本数量 (最小-最大)">
                     <Space>
                       <InputNumber
-                        value={gsToolsParams.minSamples}
+                        value={rbfParams.minSamples}
                         onChange={(value) => setRbfParams({...rbfParams, minSamples: value || 3})}
                         min={1}
                         max={20}
                       />
                       <Text>-</Text>
                       <InputNumber
-                        value={gsToolsParams.maxSamples}
+                        value={rbfParams.maxSamples}
                         onChange={(value) => setRbfParams({...rbfParams, maxSamples: value || 10})}
                         min={5}
                         max={50}

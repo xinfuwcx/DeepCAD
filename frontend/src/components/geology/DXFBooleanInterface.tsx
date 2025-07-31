@@ -9,7 +9,7 @@ import {
   Card, Upload, Button, Space, Typography, Row, Col, 
   Select, Switch, Progress, Alert, Table, Tag, Tooltip,
   Modal, Form, InputNumber, Divider, Tree, Checkbox,
-  message, Steps, List, Timeline
+  message, Steps, List, Timeline, Tabs
 } from 'antd';
 import { 
   UploadOutlined, FolderOpenOutlined, ScissorOutlined,

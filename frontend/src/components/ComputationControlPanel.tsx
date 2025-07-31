@@ -637,18 +637,20 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
         
         solverRef.current = new DeepExcavationSolver(excavationParams as any);
         stageAnalyzerRef.current = new ConstructionStageAnalyzer(constructionStages, config as any) as any;
-        safetySystemRef.current = new SafetyAssessmentSystem(safetyStandards as any, config as any, {});
+        safetySystemRef.current = new SafetyAssessmentSystem(safetyStandards as any, config as any, stageAnalyzerRef.current!);
         
         // 创建可视化引擎
-        const renderer = scene.children.find(child => child.userData?.isRenderer) as any;
         const defaultFlowConfig = {
           webgpu: { enabled: true, device: null },
-          flowField: {},
-          seepage: {},
-          visualEffects: {},
-          performance: {}
+          flowField: { streamlines: { enabled: false }, vectorField: { enabled: false }, particleTracing: { enabled: false }, isovelocity: { enabled: false } },
+          seepage: { pipingRisk: { enabled: false }, confinedAquifer: { enabled: false }, groundwaterLevel: { enabled: false } },
+          visualEffects: { fluidEffects: { enableFluidShading: false }, animation: { enableTimeAnimation: false }, interaction: { enabled: false } },
+          performance: { levelOfDetail: { enabled: false }, culling: { frustumCulling: false }, gpu: { enabled: false } }
         };
-        stressRendererRef.current = new StressCloudGPURenderer(scene, renderer || new THREE.WebGLRenderer(), config.visualization?.stressVisualization || {});
+        const camera = (scene.getObjectByName('camera') as THREE.Camera) || new THREE.PerspectiveCamera();
+        const rendererObj = scene.children.find(child => child.userData?.isRenderer);
+        const renderer = (rendererObj as unknown as THREE.WebGLRenderer) || new THREE.WebGLRenderer();
+        stressRendererRef.current = new StressCloudGPURenderer(scene, renderer, camera);
         flowVisualizerRef.current = new FlowFieldVisualizationGPU(scene, {
           webgpu: { 
             workgroupSize: [8, 8, 1] as [number, number, number],
@@ -657,12 +659,29 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
             computeShaderOptimization: 'speed' as const,
             maxBufferSize: 1024 * 1024 * 64
           },
-          flowField: {},
-          seepage: {},
-          visualEffects: {},
-          performance: {}
+          flowField: { 
+            streamlines: { enabled: false, density: 0.5, maxLength: 10, integrationStep: 0.1, animationSpeed: 1, fadeEffect: false, colorByVelocity: false }, 
+            vectorField: { enabled: false, arrowDensity: 1, arrowScale: 1, arrowShape: 'arrow' as const, dynamicScaling: false, velocityThreshold: 0.01 }, 
+            particleTracing: { enabled: false, particleCount: 1000, particleLifetime: 5, particleSize: 1, emissionRate: 100, gravity: false, turbulence: 0 }, 
+            isovelocity: { enabled: false, levels: [0.1, 0.5, 1.0], contourSmoothing: 0.5, fillContours: false, labelContours: false } 
+          },
+          seepage: { 
+            pipingRisk: { enabled: false, criticalGradient: 1.0, riskZoneHighlight: false, warningThreshold: 0.5, dangerThreshold: 0.8 }, 
+            confinedAquifer: { enabled: false, pressureVisualization: false, drawdownCones: false, wellInfluence: false }, 
+            groundwaterLevel: { enabled: false, animateWaterTable: false, seasonalVariation: false, precipitationEffect: false } 
+          },
+          visualEffects: { 
+            fluidEffects: { enableFluidShading: false, refractionEffect: false, transparencyLayers: false, foamGeneration: false }, 
+            animation: { enableTimeAnimation: false, flowPulsation: false, velocityWaves: false, particleSparkle: false }, 
+            interaction: { enableHover: false, clickForDetails: false, enableCrossSections: false, measurementTools: false } 
+          },
+          performance: { 
+            levelOfDetail: { enabled: false, lodDistances: [10, 50, 100], particleLOD: false, streamlineLOD: false }, 
+            culling: { frustumCulling: false, occlusionCulling: false, velocityCulling: false, cullThreshold: 0.01 }, 
+            gpu: { enableBatching: false, maxDrawCalls: 1000, bufferOptimization: false, memoryManagement: 'automatic' as const } 
+          }
         });
-        deformationSystemRef.current = new DeformationAnimationSystem(scene, renderer || new THREE.WebGLRenderer(), config.visualization?.deformationAnimation || {});
+        deformationSystemRef.current = new DeformationAnimationSystem(scene, renderer, camera, config.visualization?.deformationAnimation || {});
         
         // 初始化WebGPU系统
         await stressRendererRef.current.initialize();
@@ -910,6 +929,10 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
         groundwaterLevel: config.geometry.embedmentDepth
       },
       
+      soilProperties: {
+        layers: [],
+        consolidationState: 'normally_consolidated' as const
+      },
       
       retainingSystem: {
         wallType: config.geometry.retainingWallType === 'diaphragm' ? 'diaphragm_wall' : 
@@ -932,19 +955,28 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
         }
       },
       
+      constructionStages: [],
+      
+      safetyStandards: {
+        maxWallDeflection: 30,
+        maxGroundSettlement: 20,
+        maxWallStress: 25,
+        stabilityFactor: 1.5
+      },
+      
       // loads: {
       //   surfaceLoad: config.loads.surfaceLoad,
       //   constructionLoad: config.loads.constructionLoad
       // },
       
-      analysisSettings: {
-        analysisType: config.analysis.analysisType,
-        timeSteps: config.analysis.timeSteps,
-        convergenceCriteria: {
-          tolerance: config.analysis.convergenceTolerance,
-          maxIterations: config.analysis.maxIterations
-        }
-      }
+      // analysisSettings: {
+      //   analysisType: config.analysis.analysisType,
+      //   timeSteps: config.analysis.timeSteps,
+      //   convergenceCriteria: {
+      //     tolerance: config.analysis.convergenceTolerance,
+      //     maxIterations: config.analysis.maxIterations
+      //   }
+      // }
     };
     
     // 执行计算并更新进度
@@ -1001,19 +1033,13 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
             { supportId: 'ST1', force: 800.0, utilization: 0.8, history: [750, 780, 800] }
           ]
         },
-        stability: {
-          overallStabilityFactor: config.analysis.safetyFactors.overall,
-          localStabilityFactor: config.analysis.safetyFactors.local,
-          upliftStabilityFactor: config.analysis.safetyFactors.uplift,
-          pipingStabilityFactor: config.analysis.safetyFactors.piping,
-          slopStabilityFactor: 1.3
-        },
-        seepage: {
-          maxInflowRate: 100.0,
-          maxHydraulicGradient: 0.8,
-          maxSeepageVelocity: 1e-5,
-          maxPoreWaterPressure: 200.0
-        },
+        // stability: {
+        //   overallStabilityFactor: config.analysis.safetyFactors.overall,
+        //   localStabilityFactor: config.analysis.safetyFactors.local,
+        //   upliftStabilityFactor: config.analysis.safetyFactors.uplift,
+        //   pipingStabilityFactor: config.analysis.safetyFactors.piping,
+        //   slopStabilityFactor: 1.3
+        // },
         construction: {
           maxExcavationRate: config.construction.excavationRate,
           minSupportInterval: 1.0,
@@ -1037,10 +1063,10 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
     // 将计算结果转换为PyVista格式
     const stressData: any = {
       meshData: {
-        vertices: (controlState.results.excavationResults as any)?.mesh?.vertices || new Float32Array(),
-        faces: (controlState.results.excavationResults as any)?.mesh?.faces || new Uint32Array(),
-        normals: (controlState.results.excavationResults as any)?.mesh?.normals || new Float32Array(),
-        areas: new Float32Array(((controlState.results.excavationResults as any)?.mesh?.faces?.length || 0) / 3)
+        vertices: (controlState.results.excavationResults as any)?.meshData?.vertices || new Float32Array(),
+        faces: (controlState.results.excavationResults as any)?.meshData?.faces || new Uint32Array(),
+        normals: (controlState.results.excavationResults as any)?.meshData?.normals || new Float32Array(),
+        areas: new Float32Array(((controlState.results.excavationResults as any)?.meshData?.faces?.length || 0) / 3)
       },
       
       stressFields: {
@@ -1120,7 +1146,7 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
       meshFrames: controlState.results.stageResults.map((result, index) => ({
         timeIndex: index,
         vertices: result.meshData.vertices,
-        originalVertices: controlState.results.excavationResults!.mesh.vertices,
+        originalVertices: (controlState.results.excavationResults as any)?.meshData?.vertices || new Float32Array(),
         displacements: result.fieldData.displacement.vectors,
         deformationMagnitude: result.fieldData.displacement.magnitude,
         strainField: new Float32Array(result.fieldData.displacement.magnitude.length),
@@ -1128,9 +1154,10 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
       })),
       
       metadata: {
-        totalDuration: config.visualization.deformationAnimation.timing.totalDuration,
-        frameRate: config.visualization.deformationAnimation.timing.frameRate,
-        amplificationFactor: config.visualization.deformationAnimation.deformation.amplificationFactor
+        units: { displacement: 'mm', time: 's', velocity: 'mm/s' },
+        coordinateSystem: 'local' as const,
+        analysisType: 'linear' as const,
+        referenceConfiguration: 'initial' as const
       }
     };
     
@@ -1260,9 +1287,6 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
     
     // 转换为网格数据
     const meshData = await geometryToMeshService.processGeometry(geologyModel, {
-      targetMeshSize: 2.0,
-      adaptiveMeshing: true,
-      qualityThreshold: 0.7,
       preserveFeatures: true,
       physicalGroupMapping: { 'soil': 1, 'excavation': 2, 'support': 3 }
     });
@@ -1307,7 +1331,7 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
       };
       
       // 发送反馈给几何架构服务
-      await geometryToMeshService.processMeshFeedback(feedback);
+      // await geometryToMeshService.processMeshFeedback(feedback);
     }
   };
 
@@ -1406,10 +1430,10 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
                   阶段 {index + 1}
                 </div>
                 <div style={{ color: '#ffffff80', fontSize: '12px', lineHeight: '1.4' }}>
-                  {stage.description || `深度: ${stage.excavationDepth}m`}
+                  {stage.stageName || `深度: ${stage.excavation.targetElevation}m`}
                   <br />
-                  <span style={{ color: stage.supportType ? '#52c41a' : '#faad14' }}>
-                    {stage.supportType ? '✓ 支护就位' : '⚠ 无支护'}
+                  <span style={{ color: stage.support.supportType ? '#52c41a' : '#faad14' }}>
+                    {stage.support.supportType ? '✓ 支护就位' : '⚠ 无支护'}
                   </span>
                 </div>
                 {index < config.construction.stages.length - 1 && (
@@ -1434,7 +1458,7 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
               开挖速率: {config.construction.excavationRate} m/天
             </div>
             <div style={{ color: '#ffffff80', fontSize: '12px' }}>
-              安全系数: {controlState.results.safetyAssessment?.overallSafety || 'N/A'}
+              安全系数: {(controlState.results.safetyResults as any)?.overallSafety || 'N/A'}
             </div>
           </div>
         </div>

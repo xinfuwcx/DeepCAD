@@ -59,7 +59,7 @@ const GeometryViewSimple: React.FC = () => {
       mesh_quality: 0.8
     }
   });
-  const [geologyStatus, setGeologyStatus] = useState<'wait' | 'process' | 'finish' | 'error'>('wait');
+  const [geologyStatus, setGeologyStatus] = useState<'wait' | 'process' | 'completed'>('wait');
 
   const handleToolbarToolSelect = (tool: ToolType) => {
     setActiveToolbarTool(tool);

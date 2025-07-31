@@ -550,7 +550,7 @@ const DashboardView: React.FC = () => {
             <Button 
               type="primary" 
               icon={<PlusOutlined />} 
-              onClick={() => navigate('/geometry')}
+              onClick={() => navigate('/workspace/geometry')}
               style={{ 
                 background: '#00d9ff', 
                 borderColor: '#00d9ff',

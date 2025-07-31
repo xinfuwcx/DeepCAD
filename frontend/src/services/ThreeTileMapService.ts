@@ -4,11 +4,10 @@
  * 与3d-tiles-renderer和OpenMeteo完美集成
  */
 
+// 这个文件已被GeoThreeMapService替代
+// 保留作为兼容性存根，实际功能迁移到GeoThreeMapService
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-// 正确的 three-tile 导入方式
-import { TileMap, TileSource } from 'three-tile';
-import { testThreeTile } from '../test-three-tile';
+import { GeoThreeMapService } from './GeoThreeMapService';
 
 export interface TileMapConfig {
   center: [number, number]; // [lat, lng]
@@ -80,7 +79,7 @@ export class ThreeTileMapService {
         attribution: '© OpenStreetMap contributors',
         minLevel: this.config.minZoom,
         maxLevel: this.config.maxZoom,
-        projectionID: '3857', // Web Mercator投影
+        projectionID: "3857", // Web Mercator投影 - 必须是字符串格式
         opacity: 1.0,
         transparent: false
       });
@@ -89,12 +88,12 @@ export class ThreeTileMapService {
 
       // 创建瓦片地图 - 使用正确的静态方法和参数结构
       this.tileMap = TileMap.create({
-        imgSource: osmSource, // 影像数据源
+        imgSource: osmSource, // 影像数据源 - 注意：可以是单个source，不需要数组
         minLevel: this.config.minZoom, // 最小缩放级别
         maxLevel: this.config.maxZoom, // 最大缩放级别
         backgroundColor: 0x4169E1, // 背景色
-        bounds: [110, 30, 130, 50], // 中国东部区域 [西, 南, 东, 北]
         debug: 1 // 调试模式
+        // 注意：去掉bounds参数，three-tile没有这个参数
       });
       
       console.log('🗺️ TileMap已创建:', this.tileMap);
@@ -111,16 +110,15 @@ export class ThreeTileMapService {
       this.tileMap.autoUpdate = true; // 启用自动更新
       this.tileMap.LODThreshold = 1.0; // 使用默认LOD阈值
       
-      // 修复相机设置 - 使用适合地图瓦片的缩放比例
+      // 根据three-tile文档，使用更合适的相机设置
       if (this.camera instanceof THREE.PerspectiveCamera) {
-        // 从日志看到相机在(129.58, 200, 198.52)，瓦片可能在原点附近
-        // 让相机更接近原点查看瓦片
-        this.camera.position.set(0, 50, 50); // 更接近地图
-        this.camera.near = 0.1;
-        this.camera.far = 2000;
+        // 使用简单的相机配置，参考官方示例
+        this.camera.position.set(0, 200, 200); // 简单的俯视位置
+        this.camera.near = 1;
+        this.camera.far = 10000;
         this.camera.updateProjectionMatrix();
         this.camera.lookAt(0, 0, 0);
-        console.log('📹 相机设置为地图视角:', this.camera.position);
+        console.log('📹 three-tile相机设置:', this.camera.position);
       }
 
       // 创建地图控制器（仅在没有现有控制器时创建）
@@ -129,9 +127,12 @@ export class ThreeTileMapService {
         this.mapControls.enableDamping = true;
         this.mapControls.dampingFactor = 0.05;
         // 调整控制器限制，适合查看地图瓦片
-        this.mapControls.minDistance = 1;
-        this.mapControls.maxDistance = 500;
-        this.mapControls.maxPolarAngle = Math.PI / 2;
+        this.mapControls.minDistance = 1000; // 最小距离1公里
+        this.mapControls.maxDistance = 200000; // 最大距离200公里，适应大世界坐标
+        this.mapControls.maxPolarAngle = Math.PI / 2.1; // 稍微限制俯仰角，防止过度倾斜
+        this.mapControls.enablePan = true; // 启用平移
+        this.mapControls.enableZoom = true; // 启用缩放
+        this.mapControls.enableRotate = true; // 启用旋转
       }
 
       // 添加环境光照（检查是否已存在）
@@ -149,8 +150,10 @@ export class ThreeTileMapService {
       // 添加地图状态诊断
       this.diagnoseTileMapState();
       
-      // 设置地图初始中心点和缩放
-      await this.setMapInitialView();
+      // 延迟设置地图初始中心点和缩放，等待地图完全加载
+      setTimeout(async () => {
+        await this.setMapInitialView();
+      }, 1000); // 延迟1秒确保地图完全初始化
       
       console.log('✅ ThreeTileMapService初始化完成');
       
@@ -168,6 +171,17 @@ export class ThreeTileMapService {
       
       // 强制设置地图可见和材质属性
       this.tileMap.visible = true;
+      
+      // 添加详细的调试信息
+      console.log('🔍 详细调试信息:');
+      console.log('- 地图autoUpdate:', this.tileMap.autoUpdate);
+      console.log('- 地图LODThreshold:', this.tileMap.LODThreshold);
+      console.log('- 地图minLevel:', this.tileMap.minLevel);
+      console.log('- 地图maxLevel:', this.tileMap.maxLevel);
+      console.log('- 影像数据源:', this.tileMap.imgSource);
+      console.log('- 地图类型:', this.tileMap.constructor.name);
+      console.log('- 场景children数量:', this.scene.children.length);
+      console.log('- TileMap在场景中的位置:', this.scene.children.indexOf(this.tileMap));
       
       // 遍历子对象检查材质
       this.tileMap.traverse((child: any) => {
@@ -277,40 +291,27 @@ export class ThreeTileMapService {
   private async setMapInitialView(): Promise<void> {
     if (!this.tileMap) return;
     
+    console.log('🎯 设置地图初始视图（简化版）');
+    
     try {
-      // 设置地图到北京中心
-      const [lat, lng] = this.config.center;
-      console.log(`🎯 设置地图初始视图: ${lat}, ${lng}, zoom: ${this.config.zoom}`);
+      // 简化：直接设置相机到合适位置，不做复杂坐标转换
+      this.camera.position.set(0, 500, 500);
+      this.camera.lookAt(0, 0, 0);
       
-      // 等待地图完全初始化
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // 设置地图级别
-      this.tileMap.minLevel = this.config.minZoom;
-      this.tileMap.maxLevel = this.config.maxZoom;
-      
-      // 设置LOD阈值以优化性能
-      this.tileMap.LODThreshold = 1.0; // 默认值，可调整
-      
-      // 设置地图中心（通过地理坐标转换）
-      const centerGeo = new THREE.Vector3(lng, lat, 0);
-      const centerWorld = this.tileMap.geo2world(centerGeo);
-      
-      // 调整相机位置到地图中心上方
-      this.camera.position.set(centerWorld.x, 1000, centerWorld.z + 500);
-      this.camera.lookAt(centerWorld.x, 0, centerWorld.z);
-      
-      // 强制触发地图更新
-      if (typeof this.tileMap.update === 'function') {
-        this.tileMap.update(this.camera);
+      // 更新控制器
+      if (this.mapControls) {
+        this.mapControls.target.set(0, 0, 0);
+        this.mapControls.update();
       }
       
-      console.log('✅ 地图初始视图设置完成 - 中心世界坐标:', centerWorld);
+      // 简单更新地图
+      this.camera.updateMatrixWorld();
+      this.tileMap.update(this.camera);
+      
+      console.log('✅ 简化版地图初始视图设置完成');
+      
     } catch (error) {
       console.error('❌ 设置地图初始视图失败:', error);
-      // 备用方案：使用默认位置
-      this.camera.position.set(0, 1000, 500);
-      this.camera.lookAt(0, 0, 0);
     }
   }
 
@@ -321,31 +322,32 @@ export class ThreeTileMapService {
     if (!this.isInitialized || !this.tileMap) return;
 
     try {
-      // 简化的相机定位方式，避免复杂的坐标转换
-      // 使用相对于地图中心的偏移量来设置相机位置
-      const centerOffset = {
-        x: (lng - 116.4074) * 100, // 相对于北京的偏移
-        z: (lat - 39.9042) * 100
-      };
+      // 使用three-tile的标准坐标转换
+      const centerGeo = new THREE.Vector3(lng, lat, 0);
+      const centerWorld = this.tileMap.geo2world(centerGeo);
       
-      // 保持相机在合适的高度，移动到新的中心位置上方
+      // 保持当前相机高度，只移动到新的中心位置上方
       const currentHeight = this.camera.position.y;
-      this.camera.position.set(centerOffset.x, Math.max(currentHeight, 300), centerOffset.z);
-      this.camera.lookAt(centerOffset.x, 0, centerOffset.z);
-      this.camera.updateProjectionMatrix();
+      const targetHeight = Math.max(currentHeight, 1000); // 最低1000米高度
+      
+      this.camera.position.set(centerWorld.x, targetHeight, centerWorld.z);
+      this.camera.lookAt(centerWorld.x, 0, centerWorld.z);
       
       // 更新地图控制器的目标
       if (this.mapControls) {
-        this.mapControls.target.set(centerOffset.x, 0, centerOffset.z);
+        this.mapControls.target.copy(centerWorld);
         this.mapControls.update();
       }
       
       // 强制更新地图
       this.tileMap.update(this.camera);
       
-      console.log(`🗺️ 地图中心设置为: ${lat}, ${lng}`);
+      console.log(`🗺️ 地图中心设置为: ${lat}, ${lng} -> 世界坐标:`, centerWorld);
     } catch (error) {
       console.error('设置地图中心失败:', error);
+      // 备用方案
+      this.camera.position.set(0, 3000, 0);
+      this.camera.lookAt(0, 0, 0);
     }
   }
 
@@ -358,12 +360,27 @@ export class ThreeTileMapService {
     try {
       const clampedZoom = Math.max(this.config.minZoom, Math.min(this.config.maxZoom, zoom));
       
-      // 根据缩放级别计算相机高度 - 修复高度计算
-      const height = Math.max(500, 20000 / Math.pow(2, clampedZoom - 8));
-      const currentPos = this.camera.position.clone();
-      this.camera.position.setY(height);
+      // 基于标准的地图缩放公式计算相机高度，适应大世界坐标
+      // zoom级别越高，相机越低（更接近地面）
+      const baseHeight = 500000; // 大幅增加基础高度，适应大世界坐标
+      const height = baseHeight / Math.pow(2, clampedZoom - 10); // 调整公式
+      const minHeight = 5000; // 最小高度5公里，确保LOD能工作
+      const maxHeight = 200000; // 最大高度200公里
       
-      console.log(`🔍 地图缩放设置为: ${clampedZoom}, 相机高度: ${height}`);
+      const finalHeight = Math.max(minHeight, Math.min(maxHeight, height));
+      
+      // 保持当前的X和Z位置，只调整高度
+      this.camera.position.setY(finalHeight);
+      
+      // 更新控制器
+      if (this.mapControls) {
+        this.mapControls.update();
+      }
+      
+      // 强制更新地图
+      this.tileMap.update(this.camera);
+      
+      console.log(`🔍 地图缩放设置为: ${clampedZoom}, 相机高度: ${finalHeight.toFixed(0)}m`);
     } catch (error) {
       console.error('设置地图缩放失败:', error);
     }
@@ -389,7 +406,7 @@ export class ThreeTileMapService {
         attribution: '© Map contributors',
         minLevel: this.config.minZoom,
         maxLevel: this.config.maxZoom,
-        projectionID: '3857',
+        projectionID: "3857", // 必须是字符串格式
         opacity: 1.0,
         transparent: false
       });

@@ -177,6 +177,37 @@ export const InterfaceDesignIcon: React.FC<IconProps> = ({ size, ...props }) => 
   </SimpleIcon>
 );
 
+export const AnalysisSetupIcon: React.FC<IconProps> = ({ size, ...props }) => (
+  <SimpleIcon size={size || 24} {...props}>
+    <g stroke="currentColor" strokeWidth="1.5" fill="none">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M12 8v8" />
+      <path d="M8 12h8" />
+    </g>
+  </SimpleIcon>
+);
+
+export const ComputationRunningIcon: React.FC<IconProps> = ({ size, ...props }) => (
+  <SimpleIcon size={size || 24} {...props}>
+    <g stroke="currentColor" strokeWidth="1.5" fill="none">
+      <polygon points="5,3 19,12 5,21" />
+    </g>
+  </SimpleIcon>
+);
+
+export const ResultsAnalysisIcon: React.FC<IconProps> = ({ size, ...props }) => (
+  <SimpleIcon size={size || 24} {...props}>
+    <g stroke="currentColor" strokeWidth="1.5" fill="none">
+      <path d="M3 3v18h18" />
+      <path d="M7 16l4-4 4 4 4-4" />
+      <circle cx="7" cy="16" r="1" />
+      <circle cx="11" cy="12" r="1" />
+      <circle cx="15" cy="16" r="1" />
+      <circle cx="19" cy="12" r="1" />
+    </g>
+  </SimpleIcon>
+);
+
 // 导出图标集合对象
 export const FunctionalIcons = {
   GeologyModeling: GeologyModelingIcon,
@@ -189,7 +220,10 @@ export const FunctionalIcons = {
   MaterialProperties: MaterialPropertiesIcon,
   MaterialLibrary: MaterialLibraryIcon,
   StructuralAnalysis: StructuralAnalysisIcon,
-  InterfaceDesign: InterfaceDesignIcon
+  InterfaceDesign: InterfaceDesignIcon,
+  AnalysisSetup: AnalysisSetupIcon,
+  ComputationRunning: ComputationRunningIcon,
+  ResultsAnalysis: ResultsAnalysisIcon
 };
 
 export default FunctionalIcons;

@@ -9,9 +9,11 @@ import {
   SettingOutlined
 } from '@ant-design/icons';
 import GeometryViewport3D from '../components/geometry/GeometryViewport3D';
-import GeologyModelingSimple from '../components/geology/GeologyModelingSimple';
-import ExcavationModule from '../components/excavation/ExcavationModule';
-import SupportModule from '../components/support/SupportModule';
+import { 
+  SimpleGeologyModule, 
+  SimpleExcavationModule, 
+  SimpleSupportModule 
+} from '../components/geometry/GeometryPlaceholderModules';
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
@@ -87,20 +89,16 @@ const GeometryView: React.FC = () => {
                     key="geology"
                   >
                     <div style={{ height: '600px', overflowY: 'auto' }}>
-                      <GeologyModelingSimple 
+                      <SimpleGeologyModule 
                         onParamsChange={(params) => {
                           console.log('地质建模参数更新:', params);
                         }}
+                        onGenerate={(data) => {
+                          console.log('生成地质模型:', data);
+                          handleModuleComplete('geology');
+                        }}
+                        status={modelingProgress.geology ? 'finish' : 'wait'}
                       />
-                      <div style={{ padding: '16px', textAlign: 'center' }}>
-                        <Button 
-                          type="primary" 
-                          onClick={() => handleModuleComplete('geology')}
-                          style={{ width: '100%' }}
-                        >
-                          完成地质建模
-                        </Button>
-                      </div>
                     </div>
                   </TabPane>
                   
@@ -115,21 +113,13 @@ const GeometryView: React.FC = () => {
                     key="excavation"
                   >
                     <div style={{ height: '600px', overflowY: 'auto' }}>
-                      <ExcavationModule 
-                        params={{
-                          depth: 15,
-                          layerHeight: 3,
-                          slopeRatio: 1.5,
-                          slopeAngle: 90,
-                          cornerRadius: 2,
-                          constructionMethod: 'open_cut'
-                        }}
+                      <SimpleExcavationModule 
                         onParamsChange={(key, value) => console.log('Excavation params:', key, value)}
                         onGenerate={(data) => {
                           console.log('Generate excavation:', data);
                           handleModuleComplete('excavation');
                         }}
-                        status="wait"
+                        status={modelingProgress.excavation ? 'finish' : 'wait'}
                         disabled={!modelingProgress.geology}
                       />
                     </div>
@@ -146,27 +136,13 @@ const GeometryView: React.FC = () => {
                     key="support"
                   >
                     <div style={{ height: '600px', overflowY: 'auto' }}>
-                      <SupportModule 
-                        params={{
-                          diaphragmWall: {
-                            enabled: true,
-                            thickness: 800,
-                            depth: 25
-                          },
-                          anchor: { enabled: false, length: 15, angle: 15, hSpacing: 3, vSpacing: 3 },
-                          struts: [],
-                          monitoring: {
-                            inclinometers: true,
-                            pressureCells: true,
-                            surveyPoints: true
-                          }
-                        }}
+                      <SimpleSupportModule 
                         onParamsChange={(category, key, value) => console.log('Support params:', category, key, value)}
                         onGenerate={(data) => {
                           console.log('Generate support:', data);
                           handleModuleComplete('support');
                         }}
-                        status="wait"
+                        status={modelingProgress.support ? 'finish' : 'wait'}
                         disabled={!modelingProgress.excavation}
                       />
                     </div>

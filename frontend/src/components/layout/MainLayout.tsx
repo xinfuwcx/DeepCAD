@@ -1,3 +1,4 @@
+/* eslint-disable react/jsx-no-inline-styles */
 import React, { useState } from 'react';
 import { Layout, Menu } from 'antd';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
@@ -97,7 +98,7 @@ const MainLayout: React.FC = () => {
   ];
 
   const handleMenuClick = ({ key }: { key: string }) => {
-    navigate(key);
+    navigate(`/workspace/${key}`);
   };
 
   // 根据当前路径获取对应的菜单key
@@ -110,7 +111,7 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <Layout style={{ minHeight: '100vh', background: '#000011' }}>
+    <Layout style={{ height: '100vh', background: '#000011' }}>
       {/* 左侧导航面板 */}
       <Sider
         collapsible
@@ -191,7 +192,7 @@ const MainLayout: React.FC = () => {
       <Layout>
         <Content style={{
           background: '#001122',
-          minHeight: '100vh',
+          height: '100%',
           position: 'relative'
         }}>
           <Routes>

@@ -27,7 +27,7 @@ import React, {
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { UnifiedMapRenderingService } from '../../services/UnifiedMapRenderingService';
 import { ThreeTileMapService } from '../../services/ThreeTileMapService';
 import { GeoThreeMapController, ProjectMarkerData, MapStyle } from '../../services/GeoThreeMapController';

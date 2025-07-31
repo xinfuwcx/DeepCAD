@@ -6,6 +6,7 @@
 
 import React from 'react';
 import * as THREE from 'three';
+import type { ComputationStatus, ComputationTask } from './computation/ComputationInterfaceTypes';
 
 // 主要组件导出
 export { default as ComputationControlPanel } from './ComputationControlPanel';

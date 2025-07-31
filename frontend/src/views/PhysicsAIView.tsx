@@ -63,9 +63,22 @@ interface OptimizationResult {
 interface PhysicsAIViewProps {
   systemIntegration?: any;
   onBack?: () => void;
+  results?: any;
+  onParameterOptimization?: (params: any) => void;
+  onAIRecommendation?: (recommendation: any) => void;
+  isOptimizing?: boolean;
+  recommendations?: any[];
 }
 
-const PhysicsAIView: React.FC<PhysicsAIViewProps> = ({ systemIntegration, onBack }) => {
+const PhysicsAIView: React.FC<PhysicsAIViewProps> = ({ 
+  systemIntegration, 
+  onBack, 
+  results, 
+  onParameterOptimization, 
+  onAIRecommendation, 
+  isOptimizing, 
+  recommendations 
+}) => {
   const [activeTab, setActiveTab] = useState('design-variables');
   const [physicsAIStatus, setPhysicsAIStatus] = useState<PhysicsAIStatus>('idle');
   const [progress, setProgress] = useState(0);

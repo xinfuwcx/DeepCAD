@@ -51,6 +51,7 @@ interface CAEThreeEngineProps {
   initialGeometry?: GeometryData[];
   materialZones?: MaterialZone[];
   className?: string;
+  style?: React.CSSProperties;
   
   // 计算分析相关props
   mode?: string;
@@ -117,6 +118,8 @@ export class CAEThreeEngine {
       10000
     );
     this.camera.position.set(10, 10, 10);
+    this.camera.lookAt(0, 0, 0);
+    console.log('📷 相机已设置 - 位置:', this.camera.position, '目标: (0,0,0)');
 
     // 初始化渲染器 - CAE优化配置
     this.renderer = new THREE.WebGLRenderer({
@@ -179,6 +182,25 @@ export class CAEThreeEngine {
     this.setInteractionMode(CAEInteractionMode.ORBIT);
 
     ComponentDevHelper.logDevTip('CAE Three.js引擎初始化完成 - 控制器已启用');
+    
+    // 立即启动渲染循环
+    this.startRenderLoop();
+  }
+
+  // 启动渲染循环
+  public startRenderLoop(): void {
+    let frameCount = 0;
+    const animate = () => {
+      this.render();
+      frameCount++;
+      // 每300帧（5秒）打印一次调试信息，减少性能开销
+      if (frameCount % 300 === 0) {
+        console.log(`🎬 渲染帧 #${frameCount}, 场景子对象数量: ${this.scene.children.length}`);
+      }
+      requestAnimationFrame(animate);
+    };
+    animate();
+    console.log('🎬 CAE引擎渲染循环已启动');
   }
 
   // 设置控制器
@@ -226,7 +248,15 @@ export class CAEThreeEngine {
     this.transformControls.addEventListener('dragging-changed', (event) => {
       this.orbitControls.enabled = !event.value;
     });
-    this.scene.add(this.transformControls as any);
+    
+    // 确保TransformControls正确添加到场景
+    try {
+      this.scene.add(this.transformControls);
+      console.log('✅ TransformControls已成功添加到场景');
+    } catch (error) {
+      console.warn('⚠️ TransformControls添加失败，将跳过:', error);
+      // 如果添加失败，我们仍然可以继续，只是没有变换控制功能
+    }
     
     console.log('✅ 3D控制器已设置 - 支持鼠标旋转、缩放、平移');
   }
@@ -466,14 +496,18 @@ export class CAEThreeEngine {
     switch (mode) {
       case CAEInteractionMode.ORBIT:
         this.orbitControls.enabled = true;
-        this.transformControls.detach();
+        if (this.transformControls && this.transformControls.detach) {
+          this.transformControls.detach();
+        }
         break;
       case CAEInteractionMode.SELECT:
         this.orbitControls.enabled = true;
-        this.transformControls.detach();
+        if (this.transformControls && this.transformControls.detach) {
+          this.transformControls.detach();
+        }
         break;
       case CAEInteractionMode.TRANSFORM:
-        if (this.selectedObjects.length > 0) {
+        if (this.transformControls && this.transformControls.attach && this.selectedObjects.length > 0) {
           this.transformControls.attach(this.selectedObjects[0]);
         }
         break;
@@ -653,6 +687,13 @@ export class CAEThreeEngine {
   public render(): void {
     const startTime = performance.now();
     
+    // 场景安全检查（仅在必要时重建）
+    if (this.scene.children.length === 0) {
+      console.warn('⚠️ 场景为空，重新初始化基础元素');
+      this.addTestGeometry();
+      this.addSceneHelpers();
+    }
+    
     // 确保控制器已启用并更新
     if (this.orbitControls) {
       this.orbitControls.update();
@@ -663,15 +704,10 @@ export class CAEThreeEngine {
       this.lodManager.update();
     }
     
-    // 性能监控
-    const renderInfo = this.renderer.info;
-    this.performanceStats.triangles = renderInfo.render.triangles;
-    this.performanceStats.drawCalls = renderInfo.render.calls;
-    
     // 渲染场景
     this.renderer.render(this.scene, this.camera);
     
-    // 计算帧时间和FPS
+    // 性能监控（减少频率）
     const endTime = performance.now();
     this.performanceStats.frameTime = endTime - startTime;
     this.performanceStats.fps = 1000 / this.performanceStats.frameTime;
@@ -680,6 +716,11 @@ export class CAEThreeEngine {
     if (this.lodManager) {
       this.lodManager.setFrameTime(this.performanceStats.frameTime);
     }
+    
+    // 更新渲染统计（减少频率以提升性能）
+    const renderInfo = this.renderer.info;
+    this.performanceStats.triangles = renderInfo.render.triangles;
+    this.performanceStats.drawCalls = renderInfo.render.calls;
   }
 
   // 添加几何体到场景（自动启用LOD）
@@ -709,10 +750,13 @@ export class CAEThreeEngine {
 
   // 清理资源
   public dispose(): void {
+    console.log('🗑️ CAE引擎开始清理资源...');
     this.lodManager.dispose();
     this.renderer.dispose();
     this.materials.forEach(material => material.dispose());
+    console.log('🚨 正在清空场景...');
     this.scene.clear();
+    console.log('✅ CAE引擎资源清理完成');
   }
 }
 
@@ -722,6 +766,7 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
   const engineRef = useRef<CAEThreeEngine | null>(null);
   const animationIdRef = useRef<number>(0);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
 
   const animate = useCallback(() => {
     if (engineRef.current) {
@@ -735,10 +780,21 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
     if (!containerRef.current || isInitialized) return;
 
     try {
-      console.log('🚀 初始化CAE Three.js引擎...');
-      console.log('容器尺寸:', containerRef.current.offsetWidth, 'x', containerRef.current.offsetHeight);
+      const container = containerRef.current;
+      const width = container.offsetWidth;
+      const height = container.offsetHeight;
       
-      engineRef.current = new CAEThreeEngine(containerRef.current, props);
+      console.log('🚀 初始化CAE Three.js引擎...');
+      console.log('容器尺寸:', width, 'x', height);
+      
+      // 确保容器有合理的尺寸
+      if (width < 100 || height < 100) {
+        console.warn('⚠️ 容器尺寸过小，使用最小尺寸');
+        container.style.minWidth = '400px';
+        container.style.minHeight = '300px';
+      }
+      
+      engineRef.current = new CAEThreeEngine(container, props);
       setIsInitialized(true);
 
       console.log('✅ CAE Three.js引擎组件初始化完成');
@@ -746,34 +802,13 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
     } catch (error) {
       console.error('❌ CAE Three.js引擎初始化失败:', error);
       ComponentDevHelper.logError(error as Error, 'CAEThreeEngineComponent', '1号架构师');
-      
-      // 在容器中显示错误信息
-      if (containerRef.current) {
-        containerRef.current.innerHTML = `
-          <div style="
-            width: 100%; 
-            height: 100%; 
-            display: flex; 
-            flex-direction: column;
-            justify-content: center; 
-            align-items: center; 
-            background: #1a1a1a;
-            color: #ff6666;
-            font-family: monospace;
-          ">
-            <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
-            <div style="font-size: 18px; margin-bottom: 10px;">3D引擎初始化失败</div>
-            <div style="font-size: 12px; color: #999999; text-align: center; max-width: 400px;">
-              ${error.message}<br/>
-              请检查WebGL支持或刷新页面重试
-            </div>
-          </div>
-        `;
-      }
+      setInitError((error as Error).message);
     }
 
     return () => {
+      console.log('🧹 CAE组件清理函数被调用');
       if (engineRef.current) {
+        console.log('⚠️ 注意：清理函数调用了dispose()，这会清空场景');
         engineRef.current.dispose();
         engineRef.current = null;
       }
@@ -783,11 +818,10 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
     };
   }, [props]);
 
-  // 启动动画循环
+  // 动画循环现在由引擎内部管理，不需要在React组件中重复启动
   useEffect(() => {
     if (isInitialized && engineRef.current) {
-      console.log('🎬 启动3D渲染动画循环');
-      animate();
+      console.log('✅ CAE引擎已初始化，动画循环由引擎内部管理');
     }
     
     return () => {
@@ -795,7 +829,7 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
         cancelAnimationFrame(animationIdRef.current);
       }
     };
-  }, [isInitialized, animate]);
+  }, [isInitialized]);
 
   return (
     <div 
@@ -806,10 +840,11 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
         height: '100%',
         background: '#0a0a0a',
         overflow: 'hidden',
-        position: 'relative'
+        position: 'relative',
+        ...props.style
       }}
     >
-      {!isInitialized && (
+      {!isInitialized && !initError && (
         <div style={{
           position: 'absolute',
           top: 0,
@@ -828,7 +863,7 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
           <div style={{ fontSize: '48px', marginBottom: '20px', animation: 'spin 2s linear infinite' }}>🔄</div>
           <div>正在初始化3D引擎...</div>
           <div style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
-            首次加载可能需要几秒钟
+            正在加载几何建模工作区
           </div>
           <style>{`
             @keyframes spin { 
@@ -836,6 +871,32 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
               100% { transform: rotate(360deg); } 
             }
           `}</style>
+        </div>
+      )}
+      
+      {initError && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          background: '#1a1a1a',
+          color: '#ff6666',
+          fontSize: '16px',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '20px' }}>⚠️</div>
+          <div style={{ fontSize: '18px', marginBottom: '10px' }}>3D引擎初始化失败</div>
+          <div style={{ fontSize: '12px', color: '#999999', textAlign: 'center', maxWidth: '400px' }}>
+            {initError}<br/>
+            请检查WebGL支持或刷新页面重试
+          </div>
         </div>
       )}
     </div>

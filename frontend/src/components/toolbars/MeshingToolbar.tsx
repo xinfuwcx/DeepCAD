@@ -25,6 +25,14 @@ interface MeshingToolbarProps {
   onMeshReset?: () => void;
   disabled?: boolean;
   className?: string;
+  geometryLoaded?: boolean;
+  meshGenerated?: boolean;
+  onOpenAlgorithmConfig?: () => void;
+  onShowQualityAnalysis?: () => void;
+  onOpenPhysicalGroups?: () => void;
+  onExportMesh?: (format: any) => void;
+  onRefreshGeometry?: () => void;
+  onShowMeshStatistics?: () => void;
 }
 
 export const MeshingToolbar: React.FC<MeshingToolbarProps> = ({

@@ -218,7 +218,7 @@ const EnhancedGeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
       setProcessingProgress(60);
       setProcessingStage('正在评估数据质量...');
       
-      const qualityAssessment = await assessDataQuality(result.geometryData);
+      const qualityAssessment = await assessDataQuality(result.cadGeometry);
       
       // 阶段4: 生成智能建议
       setProcessingProgress(80);
@@ -432,7 +432,7 @@ const EnhancedGeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
         rbfConfig,
         {
           priorityLevel: rbfConfig.performanceMode,
-          complexityLevel: boreholeData.boreholes > 15 ? 'high' : 'medium',
+          complexityLevel: boreholeData.length > 15 ? 'high' : 'medium',
           resourceConstraints: rbfConfig.resourceLimits
         }
       );
@@ -474,13 +474,13 @@ const EnhancedGeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
     
     try {
       // 模拟钻孔点数据
-      const boreholePoints = Array.from({ length: boreholeData.boreholes }, (_, i) => ({
+      const boreholePoints = Array.from({ length: boreholeData.length }, (_, i) => ({
         x: Math.random() * 100,
         y: Math.random() * 100,
         z: Math.random() * -30
       }));
       
-      const densityValues = Array.from({ length: boreholeData.boreholes }, () => 
+      const densityValues = Array.from({ length: boreholeData.length }, () => 
         1800 + Math.random() * 400
       );
       
@@ -527,7 +527,7 @@ const EnhancedGeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
    * 渲染数据导入界面
    */
   const renderDataImport = () => (
-    <Space direction="vertical" style={{ width: '100%' }} size="large">
+    <Space direction="vertical" style={{ width: '100%' }} size="lg">
       {/* 上传区域 */}
       <div style={{ background: 'rgba(0,217,255,0.1)', padding: '24px', borderRadius: '12px', border: '1px solid rgba(0,217,255,0.3)' }}>
         <div style={{ textAlign: 'center', marginBottom: '16px' }}>
@@ -591,7 +591,7 @@ const EnhancedGeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
             <Col span={6}>
               <Statistic 
                 title="钻孔数量" 
-                value={boreholeData.boreholes} 
+                value={boreholeData.length} 
                 suffix="个"
                 valueStyle={{ color: '#fff', fontSize: '20px' }}
                 title={<span style={{ color: '#ffffff80' }}>钻孔数量</span>}
@@ -655,7 +655,7 @@ const EnhancedGeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
    * 渲染RBF配置界面
    */
   const renderRBFConfig = () => (
-    <Space direction="vertical" style={{ width: '100%' }} size="large">
+    <Space direction="vertical" style={{ width: '100%' }} size="lg">
       {/* 智能优化控制 */}
       <div style={{ background: 'rgba(255,193,7,0.1)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(255,193,7,0.3)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -844,12 +844,12 @@ const EnhancedGeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
    * 渲染执行和监控界面
    */
   const renderExecutionMonitor = () => (
-    <Space direction="vertical" style={{ width: '100%' }} size="large">
+    <Space direction="vertical" style={{ width: '100%' }} size="lg">
       {/* 执行控制 */}
       <div style={{ textAlign: 'center', padding: '24px', background: 'rgba(0,217,255,0.1)', borderRadius: '12px' }}>
         <GlassButton
           variant="primary"
-          size="large"
+          size="lg"
           onClick={handleRBFInterpolation}
           disabled={!boreholeData || processingStatus === 'processing'}
           loading={processingStatus === 'processing'}
@@ -987,7 +987,7 @@ const EnhancedGeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
   );
 
   return (
-    <GlassCard variant="prominent" className="enhanced-geology-module">
+    <GlassCard variant="default" className="enhanced-geology-module">
       <div style={{ padding: '24px' }}>
         {/* 模块标题 */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
@@ -1005,7 +1005,7 @@ const EnhancedGeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
           activeKey={activeTab}
           onChange={setActiveTab}
           type="card"
-          size="large"
+          size="lg"
           tabBarStyle={{ 
             background: 'rgba(255,255,255,0.05)', 
             borderRadius: '8px',

@@ -4,9 +4,11 @@ import CAE3DViewport from '../components/3d/CAE3DViewport';
 import OptimizedCAE3DViewport from '../components/3d/OptimizedCAE3DViewport';
 import CAEThreeEngineComponent from '../components/3d/CAEThreeEngine';
 import UnifiedToolbar from '../components/layout/UnifiedToolbar';
-import GeologyModule from '../components/geology/GeologyModule';
-import ExcavationModule from '../components/excavation/ExcavationModule';
-import SupportModule from '../components/support/SupportModule';
+import { 
+  SimpleGeologyModule, 
+  SimpleExcavationModule, 
+  SimpleSupportModule 
+} from '../components/geometry/GeometryPlaceholderModules';
 import MaterialLibrary from '../components/MaterialLibrary';
 import PropertyEditor from '../components/PropertyEditor';
 import SceneTree from '../components/SceneTree';
@@ -137,18 +139,10 @@ const MainWorkspaceView: React.FC<MainWorkspaceViewProps> = ({
       case 'geology':
         return (
           <ModuleErrorBoundary moduleName="地质建模">
-            <GeologyModule 
-              interpolationMethod={geologyParams.interpolationMethod}
-              gridResolution={geologyParams.gridResolution}
-              xExtend={geologyParams.xExtend}
-              yExtend={geologyParams.yExtend}
-              bottomElevation={geologyParams.bottomElevation}
-              onParamsChange={(key, value) => handleParamsChange('geology', key, value)}
+            <SimpleGeologyModule 
+              onParamsChange={(params) => console.log('地质建模参数更新:', params)}
               onGenerate={(data) => handleGenerate('geology', data)}
               status={geologyStatus}
-              onGeologyGenerated={(result: any) => console.log('Geology generated:', result)}
-              onQualityReport={(report: any) => console.log('Quality report:', report)}
-              onPerformanceStats={(stats: any) => console.log('Performance stats:', stats)}
             />
           </ModuleErrorBoundary>
         );
@@ -158,18 +152,10 @@ const MainWorkspaceView: React.FC<MainWorkspaceViewProps> = ({
             <Tabs defaultActiveKey="geology" size="small">
               <Tabs.TabPane tab="地质建模" key="geology">
                 <div style={{ marginBottom: '16px' }}>
-                  <GeologyModule 
-                    interpolationMethod={geologyParams.interpolationMethod}
-                    gridResolution={geologyParams.gridResolution}
-                    xExtend={geologyParams.xExtend}
-                    yExtend={geologyParams.yExtend}
-                    bottomElevation={geologyParams.bottomElevation}
-                    onParamsChange={(key, value) => handleParamsChange('geology', key, value)}
+                  <SimpleGeologyModule 
+                    onParamsChange={(params) => console.log('地质建模参数更新:', params)}
                     onGenerate={(data) => handleGenerate('geology', data)}
                     status={geologyStatus}
-                    onGeologyGenerated={(result: any) => console.log('Geology generated:', result)}
-                    onQualityReport={(report: any) => console.log('Quality report:', report)}
-                    onPerformanceStats={(stats: any) => console.log('Performance stats:', stats)}
                   />
                 </div>
                 <div style={{ marginTop: '16px', padding: '12px', background: '#1a2332', borderRadius: '8px', border: '1px solid #00d9ff30' }}>
@@ -181,8 +167,7 @@ const MainWorkspaceView: React.FC<MainWorkspaceViewProps> = ({
                 </div>
               </Tabs.TabPane>
               <Tabs.TabPane tab="基坑设计" key="excavation">
-                <ExcavationModule 
-                  params={excavationParams}
+                <SimpleExcavationModule 
                   onParamsChange={(key, value) => handleParamsChange('excavation', key, value)}
                   onGenerate={(data) => handleGenerate('excavation', data)}
                   status={excavationStatus}
@@ -190,9 +175,8 @@ const MainWorkspaceView: React.FC<MainWorkspaceViewProps> = ({
                 />
               </Tabs.TabPane>
               <Tabs.TabPane tab="支护结构" key="support">
-                <SupportModule 
-                  params={supportParams}
-                  onParamsChange={(key, value) => handleParamsChange('support', key, value)}
+                <SimpleSupportModule 
+                  onParamsChange={(category, key, value) => handleParamsChange('support', key, value)}
                   onGenerate={(data) => handleGenerate('support', data)}
                   status={supportStatus}
                   disabled={excavationStatus !== 'finish'}
@@ -333,18 +317,10 @@ const MainWorkspaceView: React.FC<MainWorkspaceViewProps> = ({
         );
       default:
         return (
-          <GeologyModule 
-            interpolationMethod={geologyParams.interpolationMethod}
-            gridResolution={geologyParams.gridResolution}
-            xExtend={geologyParams.xExtend}
-            yExtend={geologyParams.yExtend}
-            bottomElevation={geologyParams.bottomElevation}
-            onParamsChange={(key, value) => handleParamsChange('geology', key, value)}
+          <SimpleGeologyModule 
+            onParamsChange={(params) => console.log('地质建模参数更新:', params)}
             onGenerate={(data) => handleGenerate('geology', data)}
             status={geologyStatus}
-            onGeologyGenerated={(result: any) => console.log('Geology generated:', result)}
-            onQualityReport={(report: any) => console.log('Quality report:', report)}
-            onPerformanceStats={(stats: any) => console.log('Performance stats:', stats)}
           />
         );
     }

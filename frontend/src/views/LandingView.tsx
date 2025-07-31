@@ -206,7 +206,7 @@ const LandingView: React.FC = () => {
               type="primary" 
               size="large"
               icon={<RocketOutlined />}
-              onClick={() => navigate('/geometry')}
+              onClick={() => navigate('/workspace/geometry')}
               className="theme-btn-primary"
               style={{ 
                 height: '50px',

@@ -16,7 +16,8 @@ import {
   EyeOutlined, CalculatorOutlined, SettingOutlined, SaveOutlined,
   ThunderboltOutlined, BarsOutlined, EnvironmentOutlined,
   ClockCircleOutlined, WarningOutlined, CheckCircleOutlined,
-  LineChartOutlined, BuildOutlined, RocketOutlined, CopyOutlined
+  LineChartOutlined, BuildOutlined, RocketOutlined, CopyOutlined,
+  BulbOutlined
 } from '@ant-design/icons';
 
 const { Title, Text, Paragraph } = Typography;

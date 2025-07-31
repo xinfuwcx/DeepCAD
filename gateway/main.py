@@ -1,17 +1,29 @@
 """
-DeepCAD Gateway - 主要API网关服务
+DeepCAD深基坑CAE平台 - 主服务入口
+统一API网关和服务协调器
 """
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 import os
+import sys
+from pathlib import Path
+
+# 添加项目根目录到Python路径
+ROOT_DIR = Path(__file__).parent.parent
+sys.path.insert(0, str(ROOT_DIR))
+
+from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+import uvicorn
 
 # 创建FastAPI应用
 app = FastAPI(
-    title="DeepCAD Gateway API",
-    description="DeepCAD地质建模和岩土工程分析平台API网关",
-    version="1.0.0"
+    title="DeepCAD深基坑CAE平台",
+    description="基于WebGPU + Three.js的世界级深基坑工程分析平台",
+    version="3.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
 
 # 配置CORS
@@ -23,56 +35,91 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 导入路由模块
-try:
-    from .modules.geology.routes import router as geology_router
-    app.include_router(geology_router, prefix="/api/geology", tags=["地质建模"])
-except ImportError:
-    print("Warning: Geology module not found")
+# 静态文件服务
+frontend_dist = ROOT_DIR / "frontend" / "dist"
+if frontend_dist.exists():
+    app.mount("/static", StaticFiles(directory=str(frontend_dist)), name="static")
 
-try:
-    from .modules.geometry.routes import router as geometry_router
-    app.include_router(geometry_router, prefix="/api/geometry", tags=["几何建模"])
-except ImportError:
-    print("Warning: Geometry module not found")
-
-try:
-    from .modules.excavation.routes import router as excavation_router
-    app.include_router(excavation_router, prefix="/api/excavation", tags=["开挖设计"])
-except ImportError:
-    print("Warning: Excavation module not found")
-
-try:
-    from .modules.meshing.routes import router as meshing_router
-    app.include_router(meshing_router, prefix="/api/meshing", tags=["网格生成"])
-except ImportError:
-    print("Warning: Meshing module not found")
-
-try:
-    from .modules.computation.routes import router as computation_router
-    app.include_router(computation_router, prefix="/api/computation", tags=["计算分析"])
-except ImportError:
-    print("Warning: Computation module not found")
-
-try:
-    from .modules.visualization.routes import router as visualization_router
-    app.include_router(visualization_router, prefix="/api/visualization", tags=["可视化"])
-except ImportError:
-    print("Warning: Visualization module not found")
-
-# 健康检查端点
 @app.get("/")
 async def root():
-    return {"message": "DeepCAD Gateway API is running", "version": "1.0.0"}
+    """根路径重定向到前端"""
+    if frontend_dist.exists():
+        return RedirectResponse(url="/static/index.html")
+    return {"message": "DeepCAD深基坑CAE平台后端服务", "status": "运行中", "version": "3.0.0"}
 
-@app.get("/health")
+@app.get("/api/health")
 async def health_check():
-    return {"status": "healthy", "service": "DeepCAD Gateway"}
+    """健康检查接口"""
+    return {
+        "status": "healthy",
+        "service": "DeepCAD Gateway",
+        "version": "3.0.0",
+        "modules": {
+            "geometry": "available",
+            "meshing": "available", 
+            "computation": "available",
+            "visualization": "available"
+        }
+    }
 
-# 静态文件服务（如果需要）
-if os.path.exists("static"):
-    app.mount("/static", StaticFiles(directory="static"), name="static")
+@app.get("/api/info")
+async def system_info():
+    """系统信息接口"""
+    try:
+        import numpy as np
+        import pyvista as pv
+        import gmsh
+        
+        return {
+            "system": "DeepCAD深基坑CAE平台",
+            "version": "3.0.0",
+            "python_version": sys.version,
+            "dependencies": {
+                "numpy": np.__version__,
+                "pyvista": pv.__version__,
+                "gmsh": "available"
+            },
+            "root_dir": str(ROOT_DIR),
+            "status": "ready"
+        }
+    except ImportError as e:
+        raise HTTPException(status_code=500, detail=f"依赖包缺失: {e}")
+
+# 导入各模块路由
+try:
+    from gateway.modules.geometry import router as geometry_router
+    app.include_router(geometry_router, prefix="/api/geometry", tags=["几何建模"])
+except ImportError:
+    print("⚠️ 几何建模模块未找到")
+
+try:
+    from gateway.modules.meshing import router as meshing_router  
+    app.include_router(meshing_router, prefix="/api/meshing", tags=["网格生成"])
+except ImportError:
+    print("⚠️ 网格生成模块未找到")
+
+try:
+    from gateway.modules.computation import router as computation_router
+    app.include_router(computation_router, prefix="/api/computation", tags=["数值计算"])
+except ImportError:
+    print("⚠️ 数值计算模块未找到")
+
+try:
+    from gateway.modules.visualization import router as visualization_router
+    app.include_router(visualization_router, prefix="/api/visualization", tags=["可视化"])
+except ImportError:
+    print("⚠️ 可视化模块未找到")
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8087)
+    print("🚀 启动DeepCAD深基坑CAE平台")
+    print(f"📁 项目根目录: {ROOT_DIR}")
+    print(f"🌐 前端文件: {frontend_dist}")
+    print("=" * 50)
+    
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )

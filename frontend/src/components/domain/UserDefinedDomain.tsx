@@ -17,7 +17,8 @@ import {
   ThunderboltOutlined, BorderOutlined, EnvironmentOutlined,
   BgColorsOutlined, NodeIndexOutlined, FileSearchOutlined,
   ExperimentOutlined, DashboardOutlined, LineChartOutlined,
-  BulbOutlined, CheckCircleOutlined, WarningOutlined, CopyOutlined
+  BulbOutlined, CheckCircleOutlined, WarningOutlined, CopyOutlined,
+  ExclamationCircleOutlined
 } from '@ant-design/icons';
 import type { TreeDataNode } from 'antd';
 

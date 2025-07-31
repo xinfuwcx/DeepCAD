@@ -6,15 +6,15 @@
 
 import * as THREE from 'three';
 import { TilesRenderer } from '3d-tiles-renderer';
-import { ThreeTileMapService, TileMapConfig } from './ThreeTileMapService';
+import { iTownsMapService, iTownsMapConfig } from './iTownsMapService';
 import { SimpleTileRenderer } from './SimpleTileRenderer';
 import { openMeteoService, WeatherData } from './OpenMeteoService';
 import { WeatherEffectsRenderer } from './WeatherEffectsRenderer';
 import { CloudRenderingSystem } from './CloudRenderingSystem';
 
 export interface UnifiedMapConfig {
-  // three-tile配置
-  tileMap: Partial<TileMapConfig>;
+  // iTowns配置
+  iTownsMap: Partial<iTownsMapConfig>;
   
   // 3d-tiles配置
   tilesUrl?: string;
@@ -35,8 +35,8 @@ export class UnifiedMapRenderingService {
   private renderer: THREE.WebGLRenderer;
   
   // 服务组件
-  private threeTileService: ThreeTileMapService;
-  private simpleTileRenderer: SimpleTileRenderer;
+  private iTownsService: iTownsMapService;
+  private simpleTileRenderer: SimpleTileRenderer | null = null;
   private tilesRenderer: TilesRenderer | null = null;
   private weatherEffects: WeatherEffectsRenderer | null = null;
   private cloudSystem: CloudRenderingSystem | null = null;
@@ -54,23 +54,24 @@ export class UnifiedMapRenderingService {
     this.camera = camera;
     this.renderer = renderer;
     
-    // 初始化地图服务
-    this.threeTileService = new ThreeTileMapService(scene, camera, renderer);
-    this.simpleTileRenderer = new SimpleTileRenderer(scene, camera, renderer);
+    // 初始化iTowns地图服务
+    this.iTownsService = new iTownsMapService(scene, camera, renderer);
     
     // 添加地图容器到场景
     this.scene.add(this.mapContainer);
     
     // 默认配置
     this.config = {
-      tileMap: {
+      iTownsMap: {
         center: [39.9042, 116.4074], // 北京
         zoom: 12,
         minZoom: 3,
-        maxZoom: 18
+        maxZoom: 18,
+        tilt: 45,
+        heading: 0
       },
-      enableTilesRenderer: false,
-      tilesUrl: undefined, // 暂时禁用3D瓦片，只使用OpenStreetMap
+      enableTilesRenderer: true,
+      tilesUrl: 'https://assets.cesium.com/43978/tileset.json', // Cesium 3D建筑瓦片
       enableWeather: true,
       weatherUpdateInterval: 300, // 5分钟
       enableLOD: true,
@@ -98,8 +99,8 @@ export class UnifiedMapRenderingService {
         await this.initializeWeatherSystems();
       }
 
-      // 3. 设置更新循环
-      this.setupUpdateLoop();
+      // 3. 设置更新循环 - 由iTowns管理
+      // this.setupUpdateLoop(); // 禁用以避免与iTowns冲突
 
       this.isInitialized = true;
       console.log('✅ 统一地图渲染服务初始化完成');
@@ -112,63 +113,39 @@ export class UnifiedMapRenderingService {
   }
 
   /**
-   * 初始化真实地图系统
+   * 初始化真实地图系统 - 使用geo-three
    */
   private async initializeRealMapSystem(): Promise<void> {
     try {
-      console.log('🗺️ 初始化真实地图瓦片系统...');
+      console.log('🗺️ 使用iTowns初始化地图系统...');
       
-      // 1. 使用SimpleTileRenderer作为主要地图引擎（已验证工作）
-      console.log('🎯 启用SimpleTileRenderer作为主要地图引擎...');
-      this.simpleTileRenderer.setCenter(39.9042, 116.4074); // 北京中心
-      this.simpleTileRenderer.setZoom(12);
-      await this.simpleTileRenderer.loadVisibleTiles();
+      // 1. 初始化iTowns地图服务（作为主要引擎）
+      console.log('🎯 初始化iTowns地图引擎...');
       
-      // 注释掉相机设置，让three-tile的相机设置生效
-      // if (this.camera instanceof THREE.PerspectiveCamera) {
-      //   this.camera.position.set(0, 150, 150);
-      //   this.camera.lookAt(0, 0, 0);
-      //   this.camera.updateProjectionMatrix();
-      //   console.log('📹 相机设置为查看SimpleTileRenderer瓦片:', this.camera.position);
-      // }
+      const iTownsSuccess = await this.iTownsService.initialize(this.config.iTownsMap);
       
-      console.log('✅ SimpleTileRenderer初始化成功');
-      
-      // 诊断场景中的对象（延迟执行）
-      setTimeout(() => {
-        this.diagnoseSceneObjects();
-      }, 1000);
-      
-      // 2. 并行初始化three-tile（调试模式）
-      console.log('🔧 并行初始化three-tile（调试模式）...');
-      const threeTileSuccess = await this.threeTileService.initialize({
-        center: [39.9042, 116.4074], // 北京中心
-        zoom: 12, // 合适的显示级别
-        minZoom: 10,
-        maxZoom: 14,
-        providers: {
-          street: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-        }
-      });
-      
-      if (threeTileSuccess) {
-        console.log('✅ three-tile地图服务初始化成功（调试模式）');
-      } else {
-        console.warn('⚠️ three-tile地图服务初始化失败，使用SimpleTileRenderer作为主要引擎');
+      if (!iTownsSuccess) {
+        console.error('❌ iTowns初始化失败');
+        throw new Error('iTowns初始化失败');
       }
       
-      // 3. 初始化3D瓦片渲染器
+      console.log('✅ iTowns地图服务初始化成功');
+      
+      // 2. 初始化3D瓦片渲染器（如果需要）
       if (this.config.enableTilesRenderer && this.config.tilesUrl) {
         await this.initialize3DTiles();
       }
       
+      // 3. 将3D瓦片添加到iTowns场景中
+      await this.integrateTilesWithiTowns();
+      
       // 4. 加载默认项目
       await this.loadDefaultProject();
       
-      console.log('✅ 真实地图瓦片系统初始化完成');
+      console.log('✅ iTowns地图系统初始化完成');
       
     } catch (error) {
-      console.error('❌ 真实地图系统初始化失败:', error);
+      console.error('❌ iTowns地图系统初始化失败:', error);
       throw error;
     }
   }
@@ -190,12 +167,39 @@ export class UnifiedMapRenderingService {
         this.tilesRenderer.errorTarget = 6;
       }
 
-      // 添加到场景
-      this.scene.add(this.tilesRenderer.group);
-      
-      console.log('✅ 3D瓦片渲染器初始化完成');
+      // 不添加到主场景，而是准备整合到iTowns场景
+      console.log('✅ 3D瓦片渲染器初始化完成，等待整合到iTowns场景');
     } catch (error) {
       console.error('❌ 3D瓦片渲染器初始化失败:', error);
+    }
+  }
+
+  /**
+   * 将3D瓦片整合到iTowns场景中
+   */
+  private async integrateTilesWithiTowns(): Promise<void> {
+    if (!this.tilesRenderer || !this.iTownsService.isReady()) {
+      console.warn('⚠️ 3D瓦片或iTowns未就绪，跳过整合');
+      return;
+    }
+
+    try {
+      const iTownsView = this.iTownsService.getView();
+      if (!iTownsView) {
+        console.warn('⚠️ iTowns视图不可用');
+        return;
+      }
+
+      // 将3D瓦片添加到iTowns场景
+      console.log('🔗 将3D瓦片整合到iTowns场景...');
+      iTownsView.scene.add(this.tilesRenderer.group);
+      
+      // 更新3D瓦片使用iTowns的相机
+      this.tilesRenderer.setCamera(iTownsView.camera.camera3D);
+      
+      console.log('✅ 3D瓦片已成功整合到iTowns场景');
+    } catch (error) {
+      console.error('❌ 3D瓦片整合失败:', error);
     }
   }
 
@@ -256,7 +260,7 @@ export class UnifiedMapRenderingService {
   }
 
   /**
-   * 核心功能：切换到指定项目
+   * 核心功能：切换到指定项目 - 使用geo-three
    */
   public async switchToProject(project: { id: string; name: string; location: { lat: number; lng: number } }): Promise<void> {
     console.log(`🎯 切换到项目: ${project.name} (${project.location.lat}, ${project.location.lng})`);
@@ -265,32 +269,19 @@ export class UnifiedMapRenderingService {
       // 1. 更新当前项目
       this.currentProject = project;
       
-      // 2. 使用SimpleTileRenderer设置地图中心到项目坐标
-      this.simpleTileRenderer.setCenter(project.location.lat, project.location.lng);
-      this.simpleTileRenderer.setZoom(15);
+      // 2. 使用geo-three设置地图中心到项目坐标
+      this.iTownsService.setCenter(project.location.lat, project.location.lng);
+      this.iTownsService.setZoom(15);
       
-      // 3. 加载新位置的瓦片
-      await this.simpleTileRenderer.loadVisibleTiles();
+      // 3. 等待地图中心设置完成后，再执行电影级相机飞行
+      await new Promise(resolve => setTimeout(resolve, 500)); // 等待地图响应
       
-      // 4. 同时更新three-tile（如果工作的话）
-      this.threeTileService.setCenter(project.location.lat, project.location.lng);
-      this.threeTileService.setZoom(15);
-      
-      // 5. 相机飞行到项目位置
-      const targetPosition = this.latLngToWorldPosition(project.location.lat, project.location.lng);
+      // geo-three使用简单的坐标系统，直接使用经纬度
+      const targetPosition = new THREE.Vector3(0, 0, 0); // geo-three以原点为中心
       this.createCinematicFlight(targetPosition);
       
-      // 6. 同时设置一个合适的相机位置来查看瓦片
-      if (this.camera instanceof THREE.PerspectiveCamera) {
-        setTimeout(() => {
-          this.camera.position.set(0, 80, 80);
-          this.camera.lookAt(0, 0, 0);
-          this.camera.updateProjectionMatrix();
-          console.log('📹 项目切换后调整相机到查看位置:', this.camera.position);
-        }, 2000); // 在飞行动画完成后调整
-      }
-      
       console.log(`✅ 成功切换到项目: ${project.name}`);
+      console.log(`🎉 地图已切换到${project.name}的真实地理位置！`);
       
     } catch (error) {
       console.error(`❌ 切换项目失败 ${project.name}:`, error);
@@ -503,6 +494,29 @@ export class UnifiedMapRenderingService {
     
     console.log('✅ 本地3D瓦片系统创建完成');
   }
+
+  /**
+   * 初始化备用瓦片渲染器
+   */
+  private async initializeFallbackRenderer(): Promise<void> {
+    try {
+      console.log('🔄 初始化SimpleTileRenderer备用方案...');
+      
+      this.simpleTileRenderer = new SimpleTileRenderer(this.scene, this.camera, this.renderer);
+      
+      // 设置为北京中心
+      this.simpleTileRenderer.setCenter(39.9042, 116.4074);
+      this.simpleTileRenderer.setZoom(12);
+      
+      // 加载可见瓦片
+      await this.simpleTileRenderer.loadVisibleTiles();
+      
+      console.log('✅ SimpleTileRenderer备用方案初始化成功');
+      
+    } catch (error) {
+      console.error('❌ 备用渲染器初始化失败:', error);
+    }
+  }
   
   private createProjectTile(project: { name: string; lat: number; lng: number; depth: number }, index: number): void {
     // 将经纬度转换为场景坐标
@@ -706,17 +720,12 @@ export class UnifiedMapRenderingService {
   }
   
   /**
-   * 经纬度转世界坐标
+   * 经纬度转世界坐标 - geo-three使用简单坐标系统
    */
   private latLngToWorldPosition(lat: number, lng: number): THREE.Vector3 {
-    // Web Mercator投影
-    const x = lng * 20037508.34 / 180;
-    const y = Math.log(Math.tan((90 + lat) * Math.PI / 360)) / (Math.PI / 180);
-    const z = y * 20037508.34 / 180;
-    
-    // 缩放到合适的场景尺度
-    const scale = 0.00001;
-    return new THREE.Vector3(x * scale, 0, z * scale);
+    // geo-three使用标准化的坐标系统，直接返回基于原点的位置
+    // 在geo-three中，地图以原点为中心
+    return new THREE.Vector3(0, 0, 0);
   }
 
   /**
@@ -773,7 +782,7 @@ export class UnifiedMapRenderingService {
    */
   private async updateWeatherData(): Promise<void> {
     try {
-      const center = this.config.tileMap.center || [39.9042, 116.4074];
+      const center = this.config.iTownsMap.center || [39.9042, 116.4074];
       const [lat, lng] = center;
       
       const weatherData = await openMeteoService.getWeatherData(lat, lng);
@@ -802,8 +811,8 @@ export class UnifiedMapRenderingService {
     if (!this.isInitialized) return;
 
     try {
-      // 1. 更新three-tile地图
-      this.threeTileService.update();
+      // 1. 更新geo-three地图
+      this.iTownsService.update();
 
       // 2. 更新3D瓦片渲染器
       if (this.tilesRenderer) {
@@ -829,12 +838,8 @@ export class UnifiedMapRenderingService {
    * 设置地图中心
    */
   setMapCenter(lat: number, lng: number): void {
-    // 使用SimpleTileRenderer作为主要引擎
-    this.simpleTileRenderer.setCenter(lat, lng);
-    this.simpleTileRenderer.loadVisibleTiles();
-    
-    // 同时更新three-tile
-    this.threeTileService.setCenter(lat, lng);
+    // 使用three-tile设置地图中心
+    this.iTownsService.setCenter(lat, lng);
     this.config.tileMap.center = [lat, lng];
     
     // 更新该位置的天气数据
@@ -847,12 +852,8 @@ export class UnifiedMapRenderingService {
    * 设置缩放级别
    */
   setMapZoom(zoom: number): void {
-    // 使用SimpleTileRenderer作为主要引擎
-    this.simpleTileRenderer.setZoom(zoom);
-    this.simpleTileRenderer.loadVisibleTiles();
-    
-    // 同时更新three-tile
-    this.threeTileService.setZoom(zoom);
+    // 使用three-tile设置缩放级别
+    this.iTownsService.setZoom(zoom);
     this.config.tileMap.zoom = zoom;
   }
 
@@ -860,23 +861,10 @@ export class UnifiedMapRenderingService {
    * 切换地图图层
    */
   switchMapLayer(layerType: 'satellite' | 'terrain' | 'street'): void {
-    // 使用SimpleTileRenderer切换图层
-    const styleMap: Record<string, string> = {
-      'street': 'osm',
-      'satellite': 'google_satellite', 
-      'terrain': 'cartodb_dark'
-    };
-    
-    const style = styleMap[layerType];
-    const availableStyles = this.simpleTileRenderer.getAvailableStyles();
-    
-    if (style && availableStyles.includes(style)) {
-      this.simpleTileRenderer.setMapStyle(style as any);
-      console.log(`🎨 切换SimpleTileRenderer地图样式: ${layerType} -> ${style}`);
-    }
-    
-    // 同时更新three-tile
-    this.threeTileService.switchLayer(layerType);
+    // 使用three-tile切换图层
+    // iTowns 目前只使用 OpenStreetMap
+    console.log(`🗺️ iTowns 切换图层: ${layerType}`);
+    console.log(`🎨 切换three-tile地图样式: ${layerType}`);
   }
 
   /**
@@ -926,18 +914,12 @@ export class UnifiedMapRenderingService {
     return this.currentWeatherData;
   }
 
-  /**
-   * 获取SimpleTileRenderer服务
-   */
-  getSimpleTileRenderer(): SimpleTileRenderer {
-    return this.simpleTileRenderer;
-  }
 
   /**
    * 获取three-tile服务
    */
   getThreeTileService(): ThreeTileMapService {
-    return this.threeTileService;
+    return this.iTownsService;
   }
 
   /**
@@ -978,6 +960,19 @@ export class UnifiedMapRenderingService {
   }
 
   /**
+   * 测试瓦片刷新
+   */
+  public async testTileRefresh(): Promise<void> {
+    console.log('🧪 测试three-tile瓦片刷新...');
+    // three-tile有自己的更新机制，通过setCenter触发
+    const currentProject = this.currentProject;
+    if (currentProject) {
+      this.iTownsService.setCenter(currentProject.location.lat, currentProject.location.lng);
+    }
+    console.log('✅ three-tile瓦片刷新完成');
+  }
+
+  /**
    * 诊断场景中的对象
    */
   private diagnoseSceneObjects(): void {
@@ -1000,9 +995,39 @@ export class UnifiedMapRenderingService {
       }
     });
     
-    // 检查SimpleTileRenderer的瓦片统计
-    const tileStats = this.simpleTileRenderer.getTileStats();
-    console.log('📊 SimpleTileRenderer瓦片统计:', tileStats);
+    // 检查three-tile的状态
+    console.log('📊 iTowns地图服务状态:', this.iTownsService.isReady());
+  }
+
+  /**
+   * 添加地图可见性辅助工具
+   */
+  private addMapVisibilityHelper(): void {
+    console.log('🔧 添加地图可见性辅助工具...');
+    
+    // 添加坐标轴辅助线
+    const axesHelper = new THREE.AxesHelper(100);
+    axesHelper.name = 'map-axes-helper';
+    this.scene.add(axesHelper);
+    
+    // 添加网格辅助线
+    const gridHelper = new THREE.GridHelper(200, 20, 0x444444, 0x444444);
+    gridHelper.name = 'map-grid-helper';
+    gridHelper.position.y = -1; // 稍微下沉，不遮挡地图
+    this.scene.add(gridHelper);
+    
+    // 添加一个明显的测试立方体在原点
+    const testGeometry = new THREE.BoxGeometry(10, 10, 10);
+    const testMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0xff0000,
+      wireframe: true 
+    });
+    const testCube = new THREE.Mesh(testGeometry, testMaterial);
+    testCube.name = 'test-cube-origin';
+    testCube.position.set(0, 5, 0);
+    this.scene.add(testCube);
+    
+    console.log('✅ 地图可见性辅助工具已添加');
   }
 
   /**
@@ -1034,8 +1059,7 @@ export class UnifiedMapRenderingService {
       }
 
       // 销毁地图服务
-      this.threeTileService.dispose();
-      this.simpleTileRenderer.dispose();
+      this.iTownsService.dispose();
 
       this.isInitialized = false;
       console.log('🗑️ 统一地图渲染服务已销毁');

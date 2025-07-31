@@ -26,9 +26,9 @@ export class SimpleTileRenderer {
   
   // 瓦片配置
   private readonly TILE_SIZE = 256;
-  private readonly WORLD_SCALE = 10; // 世界坐标缩放
-  private currentZoom = 8;
-  private centerCoord: GeographicCoordinate = { lat: 31.2304, lng: 121.4737 };
+  private readonly WORLD_SCALE = 100; // 增加世界坐标缩放，让地图更大
+  private currentZoom = 12;
+  private centerCoord: GeographicCoordinate = { lat: 39.9042, lng: 116.4074 }; // 默认北京
   
   // 瓦片服务URL (优先使用最稳定的，增加备用选项)
   private readonly TILE_URLS = {
@@ -92,7 +92,7 @@ export class SimpleTileRenderer {
   private createTileMesh(worldPos: THREE.Vector3): THREE.Mesh {
     const geometry = new THREE.PlaneGeometry(this.WORLD_SCALE, this.WORLD_SCALE);
     const material = new THREE.MeshBasicMaterial({
-      color: 0x4488bb, // 默认蓝色
+      color: 0x88cc88, // 改为绿色，便于区分是否加载了纹理
       side: THREE.DoubleSide,
       transparent: false
     });
@@ -110,9 +110,10 @@ export class SimpleTileRenderer {
   private async loadTileTexture(mesh: THREE.Mesh, x: number, y: number, z: number): Promise<boolean> {
     const urls = [
       this.getTileUrl(x, y, z),
-      // 备用URL
+      // 更快的备用URL
       `https://a.tile.openstreetmap.org/${z}/${x}/${y}.png`,
-      `https://maps.wikimedia.org/osm-intl/${z}/${x}/${y}.png`
+      `https://b.tile.openstreetmap.org/${z}/${x}/${y}.png`,
+      `https://c.tile.openstreetmap.org/${z}/${x}/${y}.png`
     ];
     
     // 尝试每个URL
@@ -124,7 +125,7 @@ export class SimpleTileRenderer {
         const timeoutId = setTimeout(() => {
           console.warn(`⏰ 瓦片加载超时: ${z}/${x}/${y} - ${url}`);
           resolve(false);
-        }, 8000); // 8秒超时
+        }, 5000); // 减少到5秒超时
         
         this.loader.load(
           url,
@@ -143,8 +144,11 @@ export class SimpleTileRenderer {
             material.map = texture;
             material.color.setHex(0xffffff); // 白色以显示真实纹理
             material.needsUpdate = true;
+            
+            // 添加视觉反馈 - 成功加载的瓦片会有轻微的边框
+            mesh.userData.textureLoaded = true;
 
-            console.log(`✅ 瓦片加载成功: ${z}/${x}/${y} (尝试 ${i + 1})`);
+            console.log(`✅ 瓦片纹理加载成功: ${z}/${x}/${y} (尝试 ${i + 1}) - 纹理尺寸: ${texture.image.width}x${texture.image.height}`);
             resolve(true);
           },
           undefined, // progress callback
@@ -419,6 +423,16 @@ export class SimpleTileRenderer {
       total: this.tiles.size,
       loaded
     };
+  }
+
+  /**
+   * 强制刷新所有瓦片
+   */
+  public async forceRefreshTiles(): Promise<void> {
+    console.log('🔄 强制刷新所有瓦片...');
+    
+    // 重新加载当前位置的瓦片
+    await this.loadVisibleTiles();
   }
 
   /**

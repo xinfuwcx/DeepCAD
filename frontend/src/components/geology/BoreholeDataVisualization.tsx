@@ -92,11 +92,13 @@ interface BoreholeStatistics {
 
 interface BoreholeDataVisualizationProps {
   csvData?: CSVBoreholeRecord[];
+  boreholes?: ProcessedBorehole[];
   loading?: boolean;
   onDataProcessed?: (boreholes: ProcessedBorehole[]) => void;
   onStatisticsUpdated?: (stats: BoreholeStatistics) => void;
   onExportRequest?: (format: 'json' | 'csv' | 'dxf') => void;
   show3DControls?: boolean;
+  onBoreholeSelect?: (borehole: any) => void;
 }
 
 const BoreholeDataVisualization: React.FC<BoreholeDataVisualizationProps> = ({

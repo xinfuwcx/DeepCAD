@@ -591,7 +591,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
 
     const moduleConfigs = {
       geometry: {
-        title: '几何建模控制 (2号专家)',
+        title: '几何建模控制',
         tabs: [
           { 
             key: 'geology', 
@@ -669,7 +669,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
         ]
       },
       analysis: {
-        title: '计算分析控制 (3号专家)',
+        title: '计算分析控制',
         tabs: [
           { 
             key: 'boundary', 
@@ -691,7 +691,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
               onError={(error) => console.error('计算错误:', error)}
             /> : (
               <div style={{ padding: '20px', color: '#fff', textAlign: 'center' }}>
-                <div style={{ marginBottom: '16px' }}>🔧 3号计算专家控制中心</div>
+                <div style={{ marginBottom: '16px' }}>🔧 计算控制中心</div>
                 <div style={{ color: '#faad14' }}>等待3D场景初始化...</div>
               </div>
             )
@@ -710,7 +710,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                 <div style={{ color: '#1890ff', marginBottom: '12px' }}>🔧 多物理耦合: 活跃</div>
                 <div style={{ color: '#52c41a', marginBottom: '12px' }}>⚡ GPU加速: 运行中</div>
                 <div style={{ color: '#ff7a45', marginBottom: '12px' }}>📊 实时结果: 156,847 节点</div>
-                <div style={{ color: '#13c2c2' }}>🎯 3号计算专家核心模块</div>
+                <div style={{ color: '#13c2c2' }}>🎯 计算核心模块</div>
                 
                 <div style={{ marginTop: '16px', padding: '12px', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: '1px solid #ef4444' }}>
                   <div style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: '8px' }}>🚀 计算控制快捷操作</div>
@@ -970,10 +970,18 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
               display: 'flex'
             }}>
               {/* 主3D视口 */}
-              <div style={{ flex: 1, height: '100%' }}>
+              <div style={{ 
+                flex: 1, 
+                height: '100%',
+                minHeight: '500px',
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
                 <CAEThreeEngineComponent 
                   onSelection={(objects) => ComponentDevHelper.logDevTip(`几何选中: ${objects.length}个`)}
                   onMeasurement={(measurement) => ComponentDevHelper.logDevTip(`几何测量: ${JSON.stringify(measurement)}`)}
+                  style={{ flex: 1, minHeight: '400px' }}
                 />
               </div>
               
@@ -1159,10 +1167,18 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           
         default:
           return (
-            <div style={{ height: '100%', width: '100%', minHeight: '500px' }}>
+            <div style={{ 
+              height: '100%', 
+              width: '100%', 
+              minHeight: '500px',
+              position: 'relative',
+              display: 'flex',
+              flexDirection: 'column'
+            }}>
               <CAEThreeEngineComponent 
                 onSelection={(objects) => ComponentDevHelper.logDevTip(`选中对象: ${objects.length}个`)}
                 onMeasurement={(measurement) => ComponentDevHelper.logDevTip(`测量结果: ${JSON.stringify(measurement)}`)}
+                style={{ flex: 1, minHeight: '400px' }}
               />
             </div>
           );
@@ -1801,10 +1817,10 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
              '深基坑工程项目'}
           </Title>
           <Text style={{ color: themeConfig.colors.text.secondary, fontSize: '12px' }}>
-            {activeModule === 'geometry' ? '2号几何专家 - 地质建模 • 基坑设计 • 支护结构' :
-             activeModule === 'meshing' ? '2号&3号协作 - GMSH Fragment • 自适应细化 • 质量分析' :
-             activeModule === 'analysis' ? '3号计算专家 - Terra求解器 • 多物理耦合 • 伴随方法' :
-             activeModule === 'results' ? '1号&3号协作 - 3D可视化 • 数据导出 • 后处理分析' :
+            {activeModule === 'geometry' ? '地质建模 • 基坑设计 • 支护结构' :
+             activeModule === 'meshing' ? '网格生成 • 自适应细化 • 质量分析' :
+             activeModule === 'analysis' ? 'Terra求解器 • 多物理耦合 • 计算分析' :
+             activeModule === 'results' ? '3D可视化 • 数据导出 • 后处理分析' :
              '选择左侧模块开始工作'}
           </Text>
         </div>
