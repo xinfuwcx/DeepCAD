@@ -280,6 +280,16 @@ export class UnifiedMapRenderingService {
       const targetPosition = this.latLngToWorldPosition(project.location.lat, project.location.lng);
       this.createCinematicFlight(targetPosition);
       
+      // 6. 同时设置一个合适的相机位置来查看瓦片
+      if (this.camera instanceof THREE.PerspectiveCamera) {
+        setTimeout(() => {
+          this.camera.position.set(0, 80, 80);
+          this.camera.lookAt(0, 0, 0);
+          this.camera.updateProjectionMatrix();
+          console.log('📹 项目切换后调整相机到查看位置:', this.camera.position);
+        }, 2000); // 在飞行动画完成后调整
+      }
+      
       console.log(`✅ 成功切换到项目: ${project.name}`);
       
     } catch (error) {

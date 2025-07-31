@@ -643,10 +643,10 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
         const renderer = scene.children.find(child => child.userData?.isRenderer) as any;
         const defaultFlowConfig = {
           webgpu: { enabled: true, device: null },
-          flowField: { density: 100 },
-          seepage: { velocityScale: 1.0 },
-          visualEffects: { streamlines: false },
-          performance: { updateFrequency: 60 }
+          flowField: {},
+          seepage: {},
+          visualEffects: {},
+          performance: {}
         };
         stressRendererRef.current = new StressCloudGPURenderer(scene, renderer || new THREE.WebGLRenderer(), config.visualization?.stressVisualization || {});
         flowVisualizerRef.current = new FlowFieldVisualizationGPU(scene, {
@@ -657,10 +657,10 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
             computeShaderOptimization: 'speed' as const,
             maxBufferSize: 1024 * 1024 * 64
           },
-          flowField: { density: 100 },
-          seepage: { velocityScale: 1.0 },
-          visualEffects: { streamlines: false },
-          performance: { updateFrequency: 60 }
+          flowField: {},
+          seepage: {},
+          visualEffects: {},
+          performance: {}
         });
         deformationSystemRef.current = new DeformationAnimationSystem(scene, renderer || new THREE.WebGLRenderer(), config.visualization?.deformationAnimation || {});
         
