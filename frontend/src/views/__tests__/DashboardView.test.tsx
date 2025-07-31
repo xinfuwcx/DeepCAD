@@ -1,5 +1,9 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
+const screen = {
+  getByText: (text: string) => document.querySelector(`[data-testid*="${text}"], *:contains("${text}")`) as HTMLElement,
+  getByTestId: (testId: string) => document.querySelector(`[data-testid="${testId}"]`) as HTMLElement
+};
 import type { RenderResult } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';

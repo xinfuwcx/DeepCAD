@@ -12,7 +12,7 @@ import {
   BorderOutlined,
   GatewayOutlined,
   ToolOutlined,
-  LayersOutlined,
+  BarsOutlined,
   SettingOutlined,
   SaveOutlined,
   FolderOpenOutlined,
@@ -86,34 +86,34 @@ interface ModelingTool {
 
 const MODELING_TOOLS: ModelingTool[] = [
   // 草图工具
-  { id: 'point', name: '点', icon: '📍', category: 'sketch', description: '创建参考点', shortcut: 'P' },
-  { id: 'line', name: '直线', icon: '📏', category: 'sketch', description: '绘制直线段', shortcut: 'L' },
-  { id: 'arc', name: '圆弧', icon: '🌙', category: 'sketch', description: '绘制圆弧', shortcut: 'A' },
-  { id: 'circle', name: '圆', icon: '⭕', category: 'sketch', description: '绘制圆形', shortcut: 'C' },
-  { id: 'rectangle', name: '矩形', icon: '⬛', category: 'sketch', description: '绘制矩形', shortcut: 'R' },
-  { id: 'polygon', name: '多边形', icon: '🔷', category: 'sketch', description: '绘制多边形', shortcut: 'G' },
+  { id: 'point', name: '点', icon: '📍', category: 'sketch', description: '创建参考点', shortcut: 'P', active: false },
+  { id: 'line', name: '直线', icon: '📏', category: 'sketch', description: '绘制直线段', shortcut: 'L', active: false },
+  { id: 'arc', name: '圆弧', icon: '🌙', category: 'sketch', description: '绘制圆弧', shortcut: 'A', active: false },
+  { id: 'circle', name: '圆', icon: '⭕', category: 'sketch', description: '绘制圆形', shortcut: 'C', active: false },
+  { id: 'rectangle', name: '矩形', icon: '⬛', category: 'sketch', description: '绘制矩形', shortcut: 'R', active: false },
+  { id: 'polygon', name: '多边形', icon: '🔷', category: 'sketch', description: '绘制多边形', shortcut: 'G', active: false },
   
   // 特征工具
-  { id: 'extrude', name: '拉伸', icon: '⬆️', category: 'feature', description: '拉伸成实体', shortcut: 'E' },
-  { id: 'revolve', name: '旋转', icon: '🌀', category: 'feature', description: '旋转成实体', shortcut: 'V' },
-  { id: 'sweep', name: '扫描', icon: '🧹', category: 'feature', description: '沿路径扫描', shortcut: 'W' },
-  { id: 'loft', name: '放样', icon: '🎗️', category: 'feature', description: '多截面放样', shortcut: 'O' },
+  { id: 'extrude', name: '拉伸', icon: '⬆️', category: 'feature', description: '拉伸成实体', shortcut: 'E', active: false },
+  { id: 'revolve', name: '旋转', icon: '🌀', category: 'feature', description: '旋转成实体', shortcut: 'V', active: false },
+  { id: 'sweep', name: '扫描', icon: '🧹', category: 'feature', description: '沿路径扫描', shortcut: 'W', active: false },
+  { id: 'loft', name: '放样', icon: '🎗️', category: 'feature', description: '多截面放样', shortcut: 'O', active: false },
   
   // 修改工具
-  { id: 'fillet', name: '倒圆角', icon: '🔄', category: 'modify', description: '边缘倒圆角', shortcut: 'F' },
-  { id: 'chamfer', name: '倒角', icon: '✂️', category: 'modify', description: '边缘倒角', shortcut: 'H' },
-  { id: 'shell', name: '抽壳', icon: '🥚', category: 'modify', description: '实体抽壳', shortcut: 'S' },
-  { id: 'mirror', name: '镜像', icon: '🪞', category: 'modify', description: '对称镜像', shortcut: 'M' },
+  { id: 'fillet', name: '倒圆角', icon: '🔄', category: 'modify', description: '边缘倒圆角', shortcut: 'F', active: false },
+  { id: 'chamfer', name: '倒角', icon: '✂️', category: 'modify', description: '边缘倒角', shortcut: 'H', active: false },
+  { id: 'shell', name: '抽壳', icon: '🥚', category: 'modify', description: '实体抽壳', shortcut: 'S', active: false },
+  { id: 'mirror', name: '镜像', icon: '🪞', category: 'modify', description: '对称镜像', shortcut: 'M', active: false },
   
   // 测量工具
-  { id: 'distance', name: '距离', icon: '📐', category: 'measure', description: '测量距离', shortcut: 'D' },
-  { id: 'angle', name: '角度', icon: '📊', category: 'measure', description: '测量角度', shortcut: 'N' },
-  { id: 'area', name: '面积', icon: '📋', category: 'measure', description: '计算面积', shortcut: 'T' },
+  { id: 'distance', name: '距离', icon: '📐', category: 'measure', description: '测量距离', shortcut: 'D', active: false },
+  { id: 'angle', name: '角度', icon: '📊', category: 'measure', description: '测量角度', shortcut: 'N', active: false },
+  { id: 'area', name: '面积', icon: '📋', category: 'measure', description: '计算面积', shortcut: 'T', active: false },
   
   // 分析工具
-  { id: 'section', name: '剖面', icon: '🔪', category: 'analysis', description: '创建剖面', shortcut: 'X' },
-  { id: 'mass', name: '质量属性', icon: '⚖️', category: 'analysis', description: '计算质量属性', shortcut: 'I' }
-].map(tool => ({ ...tool, active: false }));
+  { id: 'section', name: '剖面', icon: '🔪', category: 'analysis', description: '创建剖面', shortcut: 'X', active: false },
+  { id: 'mass', name: '质量属性', icon: '⚖️', category: 'analysis', description: '计算质量属性', shortcut: 'I', active: false }
+];
 
 // ==================== 主组件 ====================
 

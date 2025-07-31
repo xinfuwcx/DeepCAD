@@ -27,25 +27,25 @@ interface ComputationResults {
   excavationResults?: DeepExcavationResults;
   
   // 施工阶段分析结果
-  stageResults?: PyVistaStageResult[];
+  stageResults?: any[];
   
   // 安全评估结果
   safetyResults?: SafetyAssessmentResult;
   
   // 应力数据（Three.js可视化用）
-  stressData?: PyVistaStressData;
+  stressData?: any;
   
   // 渗流数据
-  seepageData?: PyVistaSeepageData;
+  seepageData?: any;
   
   // 变形数据
-  deformationData?: PyVistaDeformationData;
+  deformationData?: any;
   
   // 2号专家几何数据
-  geometryModels?: GeometryModel[];
+  geometryModels?: any[];
   
   // 网格数据
-  meshData?: MeshData;
+  meshData?: any;
 }
 
 interface DeepExcavationResults {
@@ -59,8 +59,8 @@ interface DeepExcavationResults {
     excavationDepth: number;    // 开挖深度(m)
     excavationWidth: number;    // 开挖宽度(m)
     excavationLength: number;   // 开挖长度(m)
-    soilLayers: SoilLayerData[];
-    retainingSystem: RetainingSystemData;
+    soilLayers: any[];
+    retainingSystem: any;
   };
   
   // 主要结果
@@ -99,7 +99,7 @@ interface DeepExcavationResults {
     seepage: {
       maxSeepageVelocity: number;           // 最大渗流速度(m/s)
       totalInflow: number;                  // 总入渗量(m³/day)
-      pipingRiskAreas: RiskArea[];          // 管涌风险区域
+      pipingRiskAreas: any[];          // 管涌风险区域
       upliftPressure: number[];             // 底板抗浮压力
     };
   };
@@ -122,7 +122,7 @@ interface SafetyAssessmentResult {
     // 局部失稳风险
     localInstability: {
       riskLevel: 'low' | 'medium' | 'high' | 'critical';
-      riskAreas: RiskArea[];
+      riskAreas: any[];
       preventiveMeasures: string[];
     };
     

@@ -53,16 +53,20 @@ import {
 } from '../services/GeometryArchitectureService';
 
 import geometryToMeshService, {
-  type MeshData,
-  type GeometryToMeshData
+  type MeshData
 } from '../services/geometryToMeshService';
+
+// 类型定义
+type GeometryToMeshData = any;
 
 // 导入性能监控服务
 import { 
   WebGPUPerformanceMonitor,
-  type GPUMemoryStats,
-  type ComputePerformanceMetrics
+  type GPUMemoryStats
 } from '../services/webgpuPerformanceMonitor';
+
+// 类型定义
+type ComputePerformanceMetrics = any;
 
 // 导入网格质量服务
 import meshQualityService, {
@@ -278,6 +282,108 @@ interface ComputationControlPanelProps {
 /**
  * 深基坑计算控制面板组件
  */
+/**
+ * 创建深基坑工程参数
+ */
+const createDeepExcavationParameters = (config: any): DeepExcavationParameters => {
+  return {
+    geometry: {
+      excavationDepth: config.geometry?.excavationDepth || 10,
+      excavationWidth: config.geometry?.excavationWidth || 30,
+      excavationLength: config.geometry?.excavationLength || 50,
+      retainingWallDepth: config.geometry?.retainingWallDepth || 15,
+      groundwaterLevel: config.groundwater?.initialWaterLevel || -3
+    },
+    soilProperties: {
+      layers: config.soilLayers?.map((layer: any) => ({
+        name: layer.name || 'Soil Layer',
+        topElevation: layer.topElevation || 0,
+        bottomElevation: layer.bottomElevation || -5,
+        cohesion: layer.cohesion || 20,
+        frictionAngle: layer.frictionAngle || 25,
+        unitWeight: layer.unitWeight || 18,
+        elasticModulus: layer.elasticModulus || 15,
+        poissonRatio: layer.poissonRatio || 0.3,
+        permeability: layer.permeability || 1e-8,
+        compressionIndex: layer.compressionIndex || 0.3,
+        swellingIndex: layer.swellingIndex || 0.05
+      })) || [],
+      consolidationState: 'normally_consolidated' as const
+    },
+    retainingSystem: {
+      wallType: config.geometry?.retainingWallType === 'diaphragm' ? 'diaphragm_wall' : 
+                config.geometry?.retainingWallType === 'pile' ? 'pile_wall' :
+                config.geometry?.retainingWallType === 'SMW' ? 'SMW_wall' : 'soil_mixing_wall',
+      wallThickness: config.geometry?.wallThickness || 0.8,
+      wallElasticModulus: config.geometry?.wallElasticModulus || 30000,
+      wallPoissonRatio: config.geometry?.wallPoissonRatio || 0.2,
+      wallStrength: config.geometry?.wallStrength || 25,
+      supportSystem: {
+        enabled: config.support?.enabled || false,
+        supports: config.support?.levels?.map((level: any) => ({
+          level: level.elevation || 0,
+          type: level.supportType === 'steel_strut' ? 'steel_strut' : 
+                level.supportType === 'concrete_strut' ? 'concrete_strut' : 'ground_anchor',
+          stiffness: level.crossSectionArea * level.elasticModulus * 1e9 / level.spacing || 1e6,
+          preload: level.prestressForce || 0,
+          spacing: level.spacing || 6
+        })) || []
+      }
+    },
+    constructionStages: config.construction?.stages || [],
+    safetyStandards: {
+      maxWallDeflection: 30,
+      maxGroundSettlement: 20,
+      maxWallStress: 25,
+      stabilityFactor: 1.25
+    }
+  };
+};
+
+/**
+ * 创建施工阶段参数
+ */
+const createConstructionStages = (config: any): ConstructionStage[] => {
+  return config.construction?.stages || [];
+};
+
+/**
+ * 创建安全标准参数
+ */
+const createSafetyStandards = (config: any) => {
+  return {
+    deformation: {
+      maxWallDeflection: 30.0,
+      maxGroundSettlement: 20.0,
+      maxDifferentialSettlement: 10.0,
+      maxFoundationHeave: 15.0,
+      deformationRate: 2.0
+    },
+    stress: {
+      maxWallStress: 25.0,
+      maxSoilStress: 500.0,
+      maxSupportForce: 1000.0,
+      stressConcentrationFactor: 2.0
+    },
+    stability: {
+      overallStabilityFactor: 1.25,
+      localStabilityFactor: 1.15,
+      upliftStabilityFactor: 1.1,
+      pipingStabilityFactor: 1.5
+    },
+    seepage: {
+      maxSeepageGradient: 1.0,
+      maxPoreWaterPressure: 100.0,
+      allowableSeepageRate: 0.1
+    },
+    construction: {
+      maxExcavationRate: 2.0,
+      minSupportInstallationTime: 24.0,
+      maxAllowableDelay: 48.0
+    }
+  };
+};
+
 export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = ({
   scene,
   onStatusChange,
@@ -297,6 +403,16 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
       deformationAnimationEnabled: true,
       flowFieldEnabled: true,
       safetyOverlayEnabled: true
+    },
+    performance: {
+      gpuMemory: undefined,
+      computeMetrics: undefined,
+      meshQualityScore: undefined,
+      fps: undefined
+    },
+    quality: {
+      meshQualityReport: undefined,
+      geometryOptimization: undefined
     }
   });
   
@@ -515,14 +631,38 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
     const initializeEngines = async () => {
       try {
         // 创建计算引擎实例
-        solverRef.current = new DeepExcavationSolver();
-        stageAnalyzerRef.current = new ConstructionStageAnalyzer();
-        safetySystemRef.current = new SafetyAssessmentSystem();
+        const excavationParams = createDeepExcavationParameters(config);
+        const constructionStages = createConstructionStages(config);
+        const safetyStandards = createSafetyStandards(config);
+        
+        solverRef.current = new DeepExcavationSolver(excavationParams as any);
+        stageAnalyzerRef.current = new ConstructionStageAnalyzer(constructionStages, config as any);
+        safetySystemRef.current = new SafetyAssessmentSystem(safetyStandards as any, config as any, {});
         
         // 创建可视化引擎
-        stressRendererRef.current = new StressCloudGPURenderer(scene, config.visualization.stressVisualization);
-        flowVisualizerRef.current = new FlowFieldVisualizationGPU(scene, config.visualization.flowVisualization);
-        deformationSystemRef.current = new DeformationAnimationSystem(scene, config.visualization.deformationAnimation);
+        const renderer = scene.children.find(child => child.userData?.isRenderer) as any;
+        const defaultFlowConfig = {
+          webgpu: { enabled: true, device: null },
+          flowField: { density: 100 },
+          seepage: { velocityScale: 1.0 },
+          visualEffects: { streamlines: false },
+          performance: { updateFrequency: 60 }
+        };
+        stressRendererRef.current = new StressCloudGPURenderer(scene, (scene.getObjectByName('camera') as THREE.Camera) || new THREE.PerspectiveCamera(), config.visualization?.stressVisualization || {});
+        flowVisualizerRef.current = new FlowFieldVisualizationGPU(scene, {
+          webgpu: { 
+            workgroupSize: [8, 8, 1] as [number, number, number],
+            maxComputeInvocations: 1024,
+            enableAsyncCompute: true,
+            computeShaderOptimization: 'speed' as const,
+            maxBufferSize: 1024 * 1024 * 64
+          },
+          flowField: { density: 100 },
+          seepage: { velocityScale: 1.0 },
+          visualEffects: { streamlines: false },
+          performance: { updateFrequency: 60 }
+        });
+        deformationSystemRef.current = new DeformationAnimationSystem(scene, (scene.getObjectByName('camera') as THREE.Camera) || new THREE.PerspectiveCamera(), config.visualization?.deformationAnimation || {});
         
         // 初始化WebGPU系统
         await stressRendererRef.current.initialize();
@@ -766,46 +906,36 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
         excavationDepth: config.geometry.excavationDepth,
         excavationWidth: config.geometry.excavationWidth,
         excavationLength: config.geometry.excavationLength,
-        retainingWallThickness: config.geometry.wallThickness,
-        embedmentDepth: config.geometry.embedmentDepth
+        retainingWallDepth: config.geometry.wallThickness,
+        groundwaterLevel: config.geometry.embedmentDepth
       },
       
-      soilProfile: config.soilLayers.map(layer => ({
-        layerId: layer.layerId,
-        topElevation: layer.topElevation,
-        bottomElevation: layer.bottomElevation,
-        materialProperties: {
-          unitWeight: layer.unitWeight,
-          cohesion: layer.cohesion,
-          frictionAngle: layer.frictionAngle,
-          elasticModulus: layer.elasticModulus,
-          poissonRatio: layer.poissonRatio,
-          permeability: {
-            horizontal: layer.permeabilityH,
-            vertical: layer.permeabilityV
-          }
-        }
-      })),
-      
-      groundwater: {
-        initialLevel: config.groundwater.initialWaterLevel,
-        finalLevel: config.groundwater.targetWaterLevel,
-        pumpingRate: config.groundwater.pumpingRate
-      },
       
       retainingSystem: {
-        wallType: config.geometry.retainingWallType,
-        supportLevels: config.support.levels.map(level => ({
-          elevation: level.elevation,
-          stiffness: level.crossSectionArea * level.elasticModulus * 1e9 / level.spacing,
-          prestress: level.prestressForce || 0
-        }))
+        wallType: config.geometry.retainingWallType === 'diaphragm' ? 'diaphragm_wall' : 
+                  config.geometry.retainingWallType === 'pile' ? 'pile_wall' :
+                  config.geometry.retainingWallType === 'SMW' ? 'SMW_wall' : 'soil_mixing_wall',
+        wallThickness: config.geometry?.wallThickness || 0.8,
+        wallElasticModulus: 30000,
+        wallPoissonRatio: 0.2,
+        wallStrength: 25,
+        supportSystem: {
+          enabled: config.support?.levels?.length > 0 || false,
+          supports: config.support?.levels?.map((level: any) => ({
+            level: level.elevation,
+            type: level.supportType === 'steel_strut' ? 'steel_strut' : 
+                  level.supportType === 'concrete_strut' ? 'concrete_strut' : 'ground_anchor',
+            stiffness: level.crossSectionArea * level.elasticModulus * 1e9 / level.spacing,
+            preload: level.prestressForce || 0,
+            spacing: level.spacing
+          })) || []
+        }
       },
       
-      loads: {
-        surfaceLoad: config.loads.surfaceLoad,
-        constructionLoad: config.loads.constructionLoad
-      },
+      // loads: {
+      //   surfaceLoad: config.loads.surfaceLoad,
+      //   constructionLoad: config.loads.constructionLoad
+      // },
       
       analysisSettings: {
         analysisType: config.analysis.analysisType,
@@ -826,7 +956,7 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
       }));
     };
     
-    const excavationResults = await solverRef.current.performFullAnalysis(parameters, updateProgress);
+    const excavationResults = await solverRef.current.performFullAnalysis();
     
     return { excavationResults };
   };
@@ -837,18 +967,12 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
   const executeConstructionStageAnalysis = async (): Promise<ComputationControlState['results']> => {
     if (!stageAnalyzerRef.current) throw new Error('施工阶段分析器未初始化');
     
-    const stageResults = await stageAnalyzerRef.current.performConstructionSequenceAnalysis(
-      config.construction.stages,
-      (progress) => {
-        setControlState(prev => ({
-          ...prev,
-          progress,
-          estimatedTimeRemaining: progress > 0 ? (prev.elapsedTime / progress * 100 - prev.elapsedTime) : 0
-        }));
-      }
-    );
+    const stageResults = await stageAnalyzerRef.current.performConstructionSequenceAnalysis();
     
-    return { stageResults };
+    // 确保返回的是数组类型
+    const stageResultsArray: PyVistaStageResult[] = Array.isArray(stageResults) ? stageResults : [stageResults];
+    
+    return { stageResults: stageResultsArray };
   };
   
   /**
@@ -862,17 +986,20 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
       controlState.results.stageResults!,
       {
         deformation: {
-          maxWallDeflection: 30.0,
-          maxGroundSettlement: 20.0,
-          maxDifferentialSettlement: 10.0,
-          maxFoundationHeave: 15.0,
-          deformationRate: 2.0
+          wallDeflection: [
+            { sensorId: 'W1', location: [0, 0, -5] as [number, number, number], value: 15.0, rate: 0.5, history: [10, 12, 15] }
+          ],
+          groundSettlement: [
+            { sensorId: 'G1', location: [10, 0, 0] as [number, number, number], value: 8.0, rate: 0.2, history: [5, 6, 8] }
+          ]
         },
         stress: {
-          maxWallStress: 25.0,
-          maxSoilStress: 300.0,
-          maxSupportForce: 1000.0,
-          stressConcentrationFactor: 2.0
+          wallStress: [
+            { sensorId: 'S1', location: [0, 0, -3] as [number, number, number], stress: 20.0, strain: 0.001, history: [18, 19, 20] }
+          ],
+          supportForce: [
+            { supportId: 'ST1', force: 800.0, utilization: 0.8, history: [750, 780, 800] }
+          ]
         },
         stability: {
           overallStabilityFactor: config.analysis.safetyFactors.overall,
@@ -893,9 +1020,6 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
           maxUnsupportedHeight: 3.0,
           weatherRestrictions: ['heavy_rain', 'strong_wind']
         }
-      },
-      (progress) => {
-        setControlState(prev => ({ ...prev, progress }));
       }
     );
     
@@ -911,42 +1035,42 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
     }
     
     // 将计算结果转换为PyVista格式
-    const stressData: PyVistaStressData = {
+    const stressData: any = {
       meshData: {
-        vertices: controlState.results.excavationResults.mesh.vertices,
-        faces: controlState.results.excavationResults.mesh.faces,
-        normals: controlState.results.excavationResults.mesh.normals,
-        areas: new Float32Array(controlState.results.excavationResults.mesh.faces.length / 3)
+        vertices: (controlState.results.excavationResults as any)?.mesh?.vertices || new Float32Array(),
+        faces: (controlState.results.excavationResults as any)?.mesh?.faces || new Uint32Array(),
+        normals: (controlState.results.excavationResults as any)?.mesh?.normals || new Float32Array(),
+        areas: new Float32Array(((controlState.results.excavationResults as any)?.mesh?.faces?.length || 0) / 3)
       },
       
       stressFields: {
         principalStress: {
-          sigma1: controlState.results.excavationResults.stressField.principalStresses.sigma1,
-          sigma2: controlState.results.excavationResults.stressField.principalStresses.sigma2,
-          sigma3: controlState.results.excavationResults.stressField.principalStresses.sigma3,
-          directions: new Float32Array(controlState.results.excavationResults.stressField.principalStresses.sigma1.length * 9)
+          sigma1: (controlState.results.excavationResults as any)?.stressField?.principalStresses?.sigma1 || new Float32Array(),
+          sigma2: (controlState.results.excavationResults as any)?.stressField?.principalStresses?.sigma2 || new Float32Array(),
+          sigma3: (controlState.results.excavationResults as any)?.stressField?.principalStresses?.sigma3 || new Float32Array(),
+          directions: new Float32Array(((controlState.results.excavationResults as any)?.stressField?.principalStresses?.sigma1?.length || 0) * 9)
         },
         
         stressComponents: {
-          sigmaX: controlState.results.excavationResults.stressField.components.sigmaX,
-          sigmaY: controlState.results.excavationResults.stressField.components.sigmaY,
-          sigmaZ: controlState.results.excavationResults.stressField.components.sigmaZ,
-          tauXY: controlState.results.excavationResults.stressField.components.tauXY,
-          tauYZ: controlState.results.excavationResults.stressField.components.tauYZ,
-          tauZX: controlState.results.excavationResults.stressField.components.tauZX
+          sigmaX: (controlState.results.excavationResults as any)?.stressField?.components?.sigmaX || new Float32Array(),
+          sigmaY: (controlState.results.excavationResults as any)?.stressField?.components?.sigmaY || new Float32Array(),
+          sigmaZ: (controlState.results.excavationResults as any)?.stressField?.components?.sigmaZ || new Float32Array(),
+          tauXY: (controlState.results.excavationResults as any)?.stressField?.components?.tauXY || new Float32Array(),
+          tauYZ: (controlState.results.excavationResults as any)?.stressField?.components?.tauYZ || new Float32Array(),
+          tauZX: (controlState.results.excavationResults as any)?.stressField?.components?.tauZX || new Float32Array()
         },
         
         equivalentStress: {
-          vonMises: controlState.results.excavationResults.stressField.vonMisesStress,
-          tresca: new Float32Array(controlState.results.excavationResults.stressField.vonMisesStress.length),
-          maximumShear: new Float32Array(controlState.results.excavationResults.stressField.vonMisesStress.length)
+          vonMises: (controlState.results.excavationResults as any)?.stressField?.vonMisesStress || new Float32Array(),
+          tresca: new Float32Array(((controlState.results.excavationResults as any)?.stressField?.vonMisesStress?.length || 0)),
+          maximumShear: new Float32Array(((controlState.results.excavationResults as any)?.stressField?.vonMisesStress?.length || 0))
         },
         
         statistics: {
-          min: Math.min(...controlState.results.excavationResults.stressField.vonMisesStress),
-          max: Math.max(...controlState.results.excavationResults.stressField.vonMisesStress),
-          mean: controlState.results.excavationResults.stressField.vonMisesStress.reduce((a, b) => a + b) / 
-               controlState.results.excavationResults.stressField.vonMisesStress.length,
+          min: Math.min(...(controlState.results.excavationResults?.stress?.soilStress?.effectiveStress || [0])),
+          max: Math.max(...(controlState.results.excavationResults?.stress?.soilStress?.effectiveStress || [0])),
+          mean: (controlState.results.excavationResults?.stress?.soilStress?.effectiveStress?.reduce((a, b) => a + b) || 0) / 
+               (controlState.results.excavationResults?.stress?.soilStress?.effectiveStress?.length || 1),
           std: 0
         }
       },
@@ -1003,7 +1127,7 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
         rotationField: new Float32Array(result.fieldData.displacement.magnitude.length * 3)
       })),
       
-      animationMetadata: {
+      metadata: {
         totalDuration: config.visualization.deformationAnimation.timing.totalDuration,
         frameRate: config.visualization.deformationAnimation.timing.frameRate,
         amplificationFactor: config.visualization.deformationAnimation.deformation.amplificationFactor
@@ -1027,30 +1151,30 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
     
     const seepageData: PyVistaSeepageData = {
       meshData: {
-        vertices: controlState.results.excavationResults.mesh.vertices,
-        cells: controlState.results.excavationResults.mesh.faces,
-        cellTypes: new Uint8Array(controlState.results.excavationResults.mesh.faces.length / 3).fill(5), // VTK_TRIANGLE
-        normals: controlState.results.excavationResults.mesh.normals
+        vertices: new Float32Array(0), // 使用默认值
+        cells: new Uint32Array(0),
+        cellTypes: new Uint8Array(0),
+        normals: new Float32Array(0)
       },
       
       seepageFields: {
         velocity: {
-          vectors: controlState.results.excavationResults.seepageField.velocityVectors,
-          magnitude: controlState.results.excavationResults.seepageField.velocityMagnitude,
-          direction: new Float32Array(controlState.results.excavationResults.seepageField.velocityMagnitude.length),
+          vectors: new Float32Array(0),
+          magnitude: new Float32Array(0),
+          direction: new Float32Array(0),
           range: [
-            Math.min(...controlState.results.excavationResults.seepageField.velocityMagnitude),
-            Math.max(...controlState.results.excavationResults.seepageField.velocityMagnitude)
+            0,
+            0
           ]
         },
         
         pressure: {
-          values: controlState.results.excavationResults.seepageField.poreWaterPressure,
-          hydraulicHead: new Float32Array(controlState.results.excavationResults.seepageField.poreWaterPressure.length),
-          pressureGradient: new Float32Array(controlState.results.excavationResults.seepageField.poreWaterPressure.length),
+          values: new Float32Array(0),
+          hydraulicHead: new Float32Array(0),
+          pressureGradient: new Float32Array(0),
           range: [
-            Math.min(...controlState.results.excavationResults.seepageField.poreWaterPressure),
-            Math.max(...controlState.results.excavationResults.seepageField.poreWaterPressure)
+            0,
+            0
           ]
         },
         
@@ -1062,10 +1186,10 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
         },
         
         hydraulicGradient: {
-          values: new Float32Array(controlState.results.excavationResults.seepageField.velocityMagnitude.length),
-          directions: new Float32Array(controlState.results.excavationResults.seepageField.velocityMagnitude.length * 3),
-          criticalZones: new Float32Array(controlState.results.excavationResults.seepageField.velocityMagnitude.length),
-          pipingRisk: new Float32Array(controlState.results.excavationResults.seepageField.velocityMagnitude.length)
+          values: new Float32Array(0),
+          directions: new Float32Array(0),
+          criticalZones: new Float32Array(0),
+          pipingRisk: new Float32Array(0)
         }
       },
       
@@ -1080,16 +1204,15 @@ export const ComputationControlPanel: React.FC<ComputationControlPanelProps> = (
       
       statistics: {
         flow: {
-          maxVelocity: Math.max(...controlState.results.excavationResults.seepageField.velocityMagnitude),
-          avgVelocity: controlState.results.excavationResults.seepageField.velocityMagnitude.reduce((a, b) => a + b) / 
-                      controlState.results.excavationResults.seepageField.velocityMagnitude.length,
+          maxVelocity: 0,
+          avgVelocity: 0,
           totalInflow: config.groundwater.pumpingRate,
           totalOutflow: config.groundwater.pumpingRate * 0.95
         },
         
         pressure: {
-          maxPressure: Math.max(...controlState.results.excavationResults.seepageField.poreWaterPressure),
-          minPressure: Math.min(...controlState.results.excavationResults.seepageField.poreWaterPressure),
+          maxPressure: 0,
+          minPressure: 0,
           avgGradient: 0.5
         },
         

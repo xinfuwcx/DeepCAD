@@ -138,10 +138,17 @@ const MainWorkspaceView: React.FC<MainWorkspaceViewProps> = ({
         return (
           <ModuleErrorBoundary moduleName="地质建模">
             <GeologyModule 
-              params={geologyParams}
+              interpolationMethod={geologyParams.interpolationMethod}
+              gridResolution={geologyParams.gridResolution}
+              xExtend={geologyParams.xExtend}
+              yExtend={geologyParams.yExtend}
+              bottomElevation={geologyParams.bottomElevation}
               onParamsChange={(key, value) => handleParamsChange('geology', key, value)}
               onGenerate={(data) => handleGenerate('geology', data)}
               status={geologyStatus}
+              onGeologyGenerated={(result: any) => console.log('Geology generated:', result)}
+              onQualityReport={(report: any) => console.log('Quality report:', report)}
+              onPerformanceStats={(stats: any) => console.log('Performance stats:', stats)}
             />
           </ModuleErrorBoundary>
         );
@@ -152,16 +159,23 @@ const MainWorkspaceView: React.FC<MainWorkspaceViewProps> = ({
               <Tabs.TabPane tab="地质建模" key="geology">
                 <div style={{ marginBottom: '16px' }}>
                   <GeologyModule 
-                    params={geologyParams}
+                    interpolationMethod={geologyParams.interpolationMethod}
+                    gridResolution={geologyParams.gridResolution}
+                    xExtend={geologyParams.xExtend}
+                    yExtend={geologyParams.yExtend}
+                    bottomElevation={geologyParams.bottomElevation}
                     onParamsChange={(key, value) => handleParamsChange('geology', key, value)}
                     onGenerate={(data) => handleGenerate('geology', data)}
                     status={geologyStatus}
+                    onGeologyGenerated={(result: any) => console.log('Geology generated:', result)}
+                    onQualityReport={(report: any) => console.log('Quality report:', report)}
+                    onPerformanceStats={(stats: any) => console.log('Performance stats:', stats)}
                   />
                 </div>
                 <div style={{ marginTop: '16px', padding: '12px', background: '#1a2332', borderRadius: '8px', border: '1px solid #00d9ff30' }}>
                   <h4 style={{ color: '#00d9ff', margin: '0 0 12px 0', fontSize: '14px' }}>📊 钻孔数据可视化</h4>
                   <BoreholeDataVisualization 
-                    boreholes={[]} // 这里可以传入实际的钻孔数据
+                    boreholes={[]} // 修正属性名
                     onBoreholeSelect={(borehole) => console.log('选中钻孔:', borehole)}
                   />
                 </div>
@@ -320,10 +334,17 @@ const MainWorkspaceView: React.FC<MainWorkspaceViewProps> = ({
       default:
         return (
           <GeologyModule 
-            params={geologyParams}
+            interpolationMethod={geologyParams.interpolationMethod}
+            gridResolution={geologyParams.gridResolution}
+            xExtend={geologyParams.xExtend}
+            yExtend={geologyParams.yExtend}
+            bottomElevation={geologyParams.bottomElevation}
             onParamsChange={(key, value) => handleParamsChange('geology', key, value)}
             onGenerate={(data) => handleGenerate('geology', data)}
             status={geologyStatus}
+            onGeologyGenerated={(result: any) => console.log('Geology generated:', result)}
+            onQualityReport={(report: any) => console.log('Quality report:', report)}
+            onPerformanceStats={(stats: any) => console.log('Performance stats:', stats)}
           />
         );
     }
@@ -450,7 +471,7 @@ const MainWorkspaceView: React.FC<MainWorkspaceViewProps> = ({
             console.log('🔧 地连墙偏移处理完成:', result);
             // 可以在这里更新场景或执行其他操作
           }}
-          onDataTransferToKratos={(dataPackage) => {
+          onDataTransferToTerra={(dataPackage) => {
             console.log('📤 数据传递给3号计算专家:', dataPackage);
             // 这里可以集成实际的Kratos求解器接口
           }}

@@ -525,7 +525,7 @@ export const usePerformanceMetrics = () => {
 
 // React Hook for enhanced performance data
 export const useEnhancedPerformanceMetrics = () => {
-  const [metrics, setMetrics] = React.useState<PerformanceMetrics | null>(null);
+  const [metrics, setMetrics] = React.useState<LocalPerformanceMetrics | null>(null);
   const [networkMetrics, setNetworkMetrics] = React.useState<Record<string, any>>({});
   const [interactionMetrics, setInteractionMetrics] = React.useState({ avgResponseTime: 0, slowInteractions: 0 });
   const [suggestions, setSuggestions] = React.useState<string[]>([]);

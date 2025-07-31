@@ -117,9 +117,9 @@ const GeometryView: React.FC = () => {
                     <div style={{ height: '600px', overflowY: 'auto' }}>
                       <ExcavationModule 
                         params={{
-                          length: 50,
-                          width: 30,
                           depth: 15,
+                          layerHeight: 3,
+                          slopeRatio: 1.5,
                           slopeAngle: 90,
                           cornerRadius: 2,
                           constructionMethod: 'open_cut'
@@ -151,11 +151,9 @@ const GeometryView: React.FC = () => {
                           diaphragmWall: {
                             enabled: true,
                             thickness: 800,
-                            depth: 25,
-                            concreteGrade: 'C35',
-                            reinforcement: 'HRB400'
+                            depth: 25
                           },
-                          anchors: [],
+                          anchor: { enabled: false, length: 15, angle: 15, hSpacing: 3, vSpacing: 3 },
                           struts: [],
                           monitoring: {
                             inclinometers: true,

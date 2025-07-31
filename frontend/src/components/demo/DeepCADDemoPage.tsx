@@ -574,22 +574,20 @@ export const DeepCADDemoPage: React.FC<DeepCADDemoPageProps> = ({
                   <Button
                     variant={isPlaying ? 'outline' : 'primary'}
                     size="lg"
-                    leftIcon={isPlaying ? '⏸️' : '▶️'}
                     onClick={isPlaying ? stopDemo : startDemo}
                   >
-                    {isPlaying ? '暂停' : '开始'}演示
+                    {isPlaying ? '⏸️ 暂停' : '▶️ 开始'}演示
                   </Button>
                   
                   <Button
                     variant="ghost"
                     size="md"
-                    leftIcon="🔄"
                     onClick={() => {
                       stopDemo();
                       setTimeout(startDemo, 500);
                     }}
                   >
-                    重新开始
+                    🔄 重新开始
                   </Button>
                 </div>
 
@@ -604,10 +602,9 @@ export const DeepCADDemoPage: React.FC<DeepCADDemoPageProps> = ({
                       key={section.id}
                       variant={currentSection === section.id ? 'primary' : 'ghost'}
                       size="sm"
-                      leftIcon={section.icon}
                       onClick={() => switchSection(section.id)}
                     >
-                      {section.name}
+                      {section.icon} {section.name}
                     </Button>
                   ))}
                 </div>
@@ -621,19 +618,17 @@ export const DeepCADDemoPage: React.FC<DeepCADDemoPageProps> = ({
                   <Button
                     variant="ghost"
                     size="md"
-                    leftIcon="🖥️"
                     onClick={toggleFullscreen}
                   >
-                    全屏
+                    🖥️ 全屏
                   </Button>
                   
                   <Button
                     variant="ghost"
                     size="md"
-                    leftIcon="⚙️"
                     onClick={() => setShowSystemModal(true)}
                   >
-                    系统
+                    ⚙️ 系统
                   </Button>
                 </div>
               </div>
@@ -752,7 +747,7 @@ const ComponentShowcase: React.FC = () => {
           
           <Input
             label="几何参数输入"
-            caeType="coordinate"
+            caeType="geometry"
             type="number"
             placeholder="输入坐标值"
             unit="mm"

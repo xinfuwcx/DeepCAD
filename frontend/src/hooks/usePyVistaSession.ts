@@ -62,7 +62,7 @@ export const usePyVistaSession = (options: PyVistaSessionOptions = {}) => {
   // WebSocket连接管理
   useEffect(() => {
     if (autoConnect && !isConnected && clientId) {
-      connect('ws://localhost:8000/ws');
+      connect();
     }
     
     return () => {

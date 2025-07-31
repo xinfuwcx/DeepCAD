@@ -831,7 +831,7 @@ export default function ArchitectOptimizationDashboard() {
       </motion.footer>
 
       {/* 自定义滚动条样式 */}
-      <style jsx>{`
+      <style>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
         }

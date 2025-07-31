@@ -6,7 +6,7 @@
 
 // ==================== 主要组件导出 ====================
 
-export { default as EpicControlCenter } from './EpicControlCenter';
+export { default as ProjectControlCenter } from '../control/ProjectControlCenter';
 export { default as ProjectMarkerManager } from './ProjectMarkerManager';
 export { default as SystemMonitoringPanel } from './SystemMonitoringPanel';
 export { default as WeatherControlPanel } from './WeatherControlPanel';

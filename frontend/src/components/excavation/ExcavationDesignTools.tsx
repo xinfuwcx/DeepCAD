@@ -14,7 +14,7 @@ import {
 import { 
   AppstoreOutlined, PlusOutlined, EditOutlined, DeleteOutlined,
   EyeOutlined, CalculatorOutlined, SettingOutlined, SaveOutlined,
-  ThunderboltOutlined, LayersOutlined, EnvironmentOutlined,
+  ThunderboltOutlined, BarsOutlined, EnvironmentOutlined,
   ClockCircleOutlined, WarningOutlined, CheckCircleOutlined,
   LineChartOutlined, BuildOutlined, RocketOutlined, CopyOutlined
 } from '@ant-design/icons';
@@ -873,7 +873,7 @@ const ExcavationDesignTools: React.FC<ExcavationDesignToolsProps> = ({
           <Card 
             title={
               <Space>
-                <LayersOutlined />
+                <BarsOutlined />
                 <span>施工阶段规划</span>
                 <Tag color="blue">{geometry.stages.length}个阶段</Tag>
               </Space>

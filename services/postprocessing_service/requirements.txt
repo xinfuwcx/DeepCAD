@@ -1,3 +1,8 @@
-pyvista[all]
-fastapi
-uvicorn[standard] 
+# 后处理服务 - 精简依赖 (2025-07-30)
+pyvista>=0.45.3
+fastapi>=0.115.0
+uvicorn[standard]>=0.35.0
+pydantic>=2.10.0
+pydantic-settings>=2.10.1
+numpy>=2.3.2
+matplotlib>=3.10.0

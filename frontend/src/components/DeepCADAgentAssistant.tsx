@@ -476,7 +476,7 @@ optimized_mesh = mesh_optimizer.optimize(
         
         // 执行动作
         const result = await executeAgentAction(action);
-        updatedAction.status = 'completed';
+        (updatedAction as any).status = 'completed';
         updatedAction.result = result;
       }
 

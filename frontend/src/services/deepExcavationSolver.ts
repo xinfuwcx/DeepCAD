@@ -168,7 +168,70 @@ export class DeepExcavationSolver {
     console.log(`   施工阶段: ${parameters.constructionStages.length}个阶段`);
     
     // 初始化多物理场求解器
-    this.multiphysicsSolver = new MultiphysicsSolver();
+    const couplingParams: SeepageStressCouplingParams = {
+      fluid: {
+        density: 1000, // kg/m³
+        viscosity: 0.001, // Pa·s
+        kinematicViscosity: 1e-6, // m²/s
+        compressibility: 4.5e-10, // 1/Pa
+        bulkModulus: 2.2e9, // Pa
+        flowType: 'laminar',
+        turbulenceModel: 'none',
+        reynoldsNumber: 1000
+      },
+      solid: {
+        density: 2000, // kg/m³
+        elasticModulus: 30e9, // Pa
+        poissonRatio: 0.25,
+        yieldStrength: 25e6, // Pa
+        tensileStrength: 3e6, // Pa
+        frictionAngle: 30, // degrees
+        cohesion: 50e3, // Pa
+        dilatancyAngle: 0 // degrees
+      },
+      interface: {
+        porosity: 0.3,
+        permeability: 1e-12, // m²
+        tortuosity: 1.5,
+        specificSurface: 1000, // m²/m³
+        couplingStrength: 1.0,
+        dragCoefficient: 150,
+        inertialCoefficient: 1.75
+      }
+    };
+    
+    const solverConfig: MultiphysicsSolverConfig = {
+      timeSteppingScheme: 'adaptive',
+      initialTimeStep: 0.01,
+      minTimeStep: 1e-6,
+      maxTimeStep: 1.0,
+      totalTime: 86400, // 24 hours
+      adaptiveCriteria: {
+        errorTolerance: 1e-6,
+        maxTimestepGrowth: 1.5,
+        timestepShrinkFactor: 0.5
+      },
+      convergenceCriteria: {
+        maxIterations: 100,
+        velocityTolerance: 1e-6,
+        pressureTolerance: 1e-6,
+        displacementTolerance: 1e-8
+      },
+      linearSolver: {
+        type: 'gmres',
+        preconditioner: 'ilu',
+        maxIterations: 1000,
+        tolerance: 1e-8
+      },
+      nonlinearSolver: {
+        type: 'newton-raphson',
+        maxIterations: 50,
+        tolerance: 1e-6,
+        dampingFactor: 1.0
+      }
+    };
+    
+    this.multiphysicsSolver = new MultiphysicsSolver(couplingParams, solverConfig);
     
     // 初始化GPU后处理器
     this.gpuProcessor = createGPUEnhancedPostprocessor({

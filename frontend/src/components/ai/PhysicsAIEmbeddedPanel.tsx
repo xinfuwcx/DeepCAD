@@ -9,10 +9,10 @@ import {
   Card, Row, Col, Button, Space, Typography, Progress, 
   Tabs, Form, Select, InputNumber, Switch, Alert, 
   List, Tag, Timeline, Modal, Spin, Tooltip,
-  Badge, Statistic, Collapse, Radio, Slider
+  Badge, Statistic, Collapse, Radio, Slider, message
 } from 'antd';
 import { 
-  BrainOutlined, ThunderboltOutlined, NetworkOutlined, 
+  BankOutlined, ThunderboltOutlined, ForkOutlined, 
   ExperimentOutlined, RocketOutlined, EyeOutlined,
   SettingOutlined, PlayCircleOutlined, StopOutlined,
   DashboardOutlined, LineChartOutlined, SafetyOutlined,
@@ -352,7 +352,7 @@ const PhysicsAIEmbeddedPanel: React.FC<PhysicsAIEmbeddedPanelProps> = ({
         <Row gutter={16} align="middle">
           <Col span={8}>
             <Space>
-              <BrainOutlined style={{ color: '#1890ff', fontSize: '18px' }} />
+              <BankOutlined style={{ color: '#1890ff', fontSize: '18px' }} />
               <Title level={5} style={{ margin: 0, color: '#1890ff' }}>
                 物理AI分析系统
               </Title>
@@ -394,7 +394,7 @@ const PhysicsAIEmbeddedPanel: React.FC<PhysicsAIEmbeddedPanelProps> = ({
       <Card title="AI模块状态" size="small" style={{ marginBottom: '16px' }}>
         <Row gutter={16}>
           {renderModuleStatus('pinn', 'PINN', <ExperimentOutlined />)}
-          {renderModuleStatus('deeponet', 'DeepONet', <NetworkOutlined />)}
+          {renderModuleStatus('deeponet', 'DeepONet', <ForkOutlined />)}
           {renderModuleStatus('gnn', 'GNN', <ApiOutlined />)}
           {renderModuleStatus('terra', 'TERRA', <RocketOutlined />)}
         </Row>
@@ -419,7 +419,6 @@ const PhysicsAIEmbeddedPanel: React.FC<PhysicsAIEmbeddedPanelProps> = ({
               />
               <div style={{ marginTop: '8px' }}>
                 <Timeline
-                  size="small"
                   items={[
                     { 
                       children: 'PINN物理约束分析',
@@ -662,7 +661,7 @@ const PhysicsAIEmbeddedPanel: React.FC<PhysicsAIEmbeddedPanelProps> = ({
             </Row>
           ) : (
             <div style={{ textAlign: 'center', padding: '40px' }}>
-              <BrainOutlined style={{ fontSize: '48px', color: '#d9d9d9', marginBottom: '16px' }} />
+              <BankOutlined style={{ fontSize: '48px', color: '#d9d9d9', marginBottom: '16px' }} />
               <Text style={{ color: '#999' }}>暂无分析结果，请先执行物理AI分析</Text>
             </div>
           )}

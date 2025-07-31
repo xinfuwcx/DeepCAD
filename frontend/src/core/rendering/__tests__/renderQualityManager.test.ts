@@ -115,7 +115,7 @@ describe('RenderQualityManager', () => {
         }
       };
 
-      const customManager = new RenderQualityManager(mockRenderer, mockContainer, customConfig);
+      const customManager = new RenderQualityManager(mockRenderer, mockContainer);
       
       expect(customManager.getQualityConfiguration()).toEqual(customConfig);
     });

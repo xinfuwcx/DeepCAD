@@ -1050,13 +1050,13 @@ export class DeepCADSystemIntegration {
       // 第一步：深基坑耦合分析
       console.log('📊 执行深基坑土-结构耦合分析...');
       this.state.runtime.activeComputations.add('excavation_analysis');
-      const excavationResults = await this.excavationSolver.performFullAnalysis(parameters);
+      const excavationResults = await this.excavationSolver.performFullAnalysis();
       this.state.runtime.activeComputations.delete('excavation_analysis');
       
       // 第二步：施工阶段分析
       console.log('🏗️ 执行施工阶段分析...');
       this.state.runtime.activeComputations.add('stage_analysis');
-      const stageResults = await this.stageAnalyzer.performConstructionSequenceAnalysis(stages);
+      const stageResults = await this.stageAnalyzer.performConstructionSequenceAnalysis();
       this.state.runtime.activeComputations.delete('stage_analysis');
       
       // 第三步：安全评估

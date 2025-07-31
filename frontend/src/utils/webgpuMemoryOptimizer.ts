@@ -48,7 +48,7 @@ class BufferBucket {
   }
 
   release(buffer: GPUBuffer) {
-    if (this.buffers.length < this.maxCount && !buffer.destroyed) {
+    if (this.buffers.length < this.maxCount && buffer.mapState === 'unmapped') {
       this.buffers.push(buffer);
     } else {
       buffer.destroy();
@@ -326,9 +326,15 @@ export class WebGPUMemoryOptimizer {
   }
 
   private estimateTextureMemory(descriptor: GPUTextureDescriptor): number {
-    const width = descriptor.size.width || 1;
-    const height = descriptor.size.height || 1;
-    const depth = descriptor.size.depthOrArrayLayers || 1;
+    let width = 1, height = 1, depth = 1;
+    
+    if (typeof descriptor.size === 'object' && 'width' in descriptor.size) {
+      width = descriptor.size.width || 1;
+      height = descriptor.size.height || 1;
+      depth = descriptor.size.depthOrArrayLayers || 1;
+    } else if (Array.isArray(descriptor.size)) {
+      [width, height = 1, depth = 1] = descriptor.size;
+    }
     
     // 简化的内存估算（根据格式和大小）
     let bytesPerPixel = 4; // 假设RGBA8

@@ -52,6 +52,31 @@ import { useDeepCADTheme } from '../components/ui/DeepCADTheme';
 // import { ComponentDevHelper } from '../utils/developmentTools';
 import { simplifiedComponentManager } from '../utils/SimplifiedComponentManager';
 
+// 占位符组件和工具
+const ModuleErrorBoundary: React.FC<{ moduleName: string; children: React.ReactNode }> = ({ children }) => <>{children}</>;
+const ComponentDevHelper = {
+  logDevTip: (message: string) => console.log('DevTip:', message)
+};
+
+// 占位符工具栏组件
+const AnalysisToolbar: React.FC<any> = () => (
+  <div style={{ padding: '10px', background: 'rgba(0,0,0,0.6)', borderRadius: '8px' }}>
+    <div style={{ color: '#fff', fontSize: '12px' }}>计算工具栏</div>
+  </div>
+);
+
+const PhysicsAIToolbar: React.FC<any> = () => (
+  <div style={{ padding: '10px', background: 'rgba(0,0,0,0.6)', borderRadius: '8px' }}>
+    <div style={{ color: '#fff', fontSize: '12px' }}>物理AI工具栏</div>
+  </div>
+);
+
+const ResultsToolbar: React.FC<any> = () => (
+  <div style={{ padding: '10px', background: 'rgba(0,0,0,0.6)', borderRadius: '8px' }}>
+    <div style={{ color: '#fff', fontSize: '12px' }}>结果工具栏</div>
+  </div>
+);
+
 const { Content } = Layout;
 const { Title, Text } = Typography;
 
@@ -543,7 +568,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
   const renderLeftPanel = () => {
     // 实时活动指示器
     const getActivityBadge = (status: string) => {
-      const badges = {
+      const badges: { [key: string]: { color: string; text: string; pulse?: boolean } } = {
         'wait': { color: '#8c8c8c', text: '待机' },
         'process': { color: '#1890ff', text: '处理中', pulse: true },
         'finish': { color: '#52c41a', text: '完成' },
@@ -572,10 +597,17 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
             key: 'geology', 
             label: <span>{getActivityBadge(geologyStatus)}地质建模</span>, 
             component: <GeologyModule 
-              params={geologyParams}
+              interpolationMethod={geologyParams.interpolationMethod}
+              gridResolution={geologyParams.gridResolution}
+              xExtend={geologyParams.xExtend}
+              yExtend={geologyParams.yExtend}
+              bottomElevation={geologyParams.bottomElevation}
               onParamsChange={(key, value) => handleParamsChange('geology', key, value)}
               onGenerate={(data) => handleGenerate('geology', data)}
               status={geologyStatus}
+              onGeologyGenerated={(result: any) => console.log('Geology generated:', result)}
+              onQualityReport={(report: any) => console.log('Quality report:', report)}
+              onPerformanceStats={(stats: any) => console.log('Performance stats:', stats)}
             /> 
           },
           { 
@@ -1116,8 +1148,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           return (
             <div style={{ height: '100%' }}>
               <PhysicsAIView 
-                geometryData={geologyParams}
-                computationResults={expert3State.currentResults}
+                results={expert3State.currentResults}
                 onParameterOptimization={(params) => handleExpert3Action('start_optimization', params)}
                 onAIRecommendation={(recommendation) => handleExpert3Action('ai_recommendation', recommendation)}
                 isOptimizing={expert3State.optimizationRunning}
@@ -1905,11 +1936,9 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
               {/* 3号专家网格工具栏 */}
               {activeModule === 'meshing' && (
                 <MeshingToolbar 
-                  meshingStatus={expert3State.meshingStatus}
-                  meshQuality={expert3State.meshQuality}
                   geometryLoaded={true}
                   meshGenerated={expert3State.meshingStatus === 'completed'}
-                  onGenerateMesh={(preset) => handleExpert3Action('start_meshing', { preset })}
+                  onGenerateMesh={() => handleExpert3Action('start_meshing', {})}
                   onOpenAlgorithmConfig={() => console.log('打开算法配置')}
                   onShowQualityAnalysis={() => console.log('显示质量分析')}
                   onOpenPhysicalGroups={() => console.log('打开物理组')}

@@ -465,7 +465,7 @@ const ProjectAnalysisPanel: React.FC<ProjectAnalysisPanelProps> = ({ isVisible, 
                             </div>
                             <div className="p-3 bg-blue-50 rounded-lg">
                               <div className="flex items-center space-x-2">
-                                <StatusIcons.Processing size={16} color="#3b82f6" />
+                                <StatusIcons.Loading size={16} color="#3b82f6" />
                                 <span className="text-sm font-medium text-blue-800">经济性评估合理</span>
                               </div>
                             </div>

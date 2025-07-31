@@ -532,9 +532,10 @@ export class GeoThreeMapController {
     // 初始化简单瓦片渲染器
     this.simpleTileRenderer = new SimpleTileRenderer(this.scene, this.camera, this.renderer);
     
-    // 延迟创建3D地形，确保所有方法都已初始化
+    // 优先使用真实地图瓦片，只在瓦片加载失败时才创建3D地形
     setTimeout(() => {
-      this.create3DTerrain();
+      console.log('🚀 使用SimpleTileRenderer加载瓦片...');
+      this.loadVisibleTilesWithSimpleRenderer();
     }, 100);
     
     this.startRenderLoop();

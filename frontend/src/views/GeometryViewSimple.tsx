@@ -17,7 +17,7 @@ import {
 import ProfessionalViewport3D from '../components/ProfessionalViewport3D';
 import StatusBar from '../components/layout/StatusBar';
 import Toolbar, { ToolType } from '../components/geometry/Toolbar';
-import GeologyModuleAdvanced from '../components/geology/GeologyModuleAdvanced';
+import EnhancedGeologyModule from '../components/EnhancedGeologyModule';
 import { GeologyParamsAdvanced } from '../schemas';
 
 const { Title, Text } = Typography;
@@ -871,7 +871,10 @@ const GeometryViewSimple: React.FC = () => {
           overflowY: 'auto',
           maxHeight: 'calc(100vh - 140px)'
         }}>
-          <GeologyModuleAdvanced
+          <EnhancedGeologyModule
+            onGeologyGenerated={(result: any) => console.log('Geology generated:', result)}
+            onQualityReport={(report: any) => console.log('Quality report:', report)}
+            onPerformanceStats={(stats: any) => console.log('Performance stats:', stats)}
             params={geologyParams}
             onParamsChange={handleGeologyParamsChange}
             onGenerate={handleGeologyGenerate}

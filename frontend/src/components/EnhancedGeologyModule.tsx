@@ -33,6 +33,17 @@ interface EnhancedGeologyModuleProps {
     presetConfig?: Partial<RBFAdvancedConfig>;
     projectConstraints?: ProjectConstraints;
   };
+  // 新增属性以兼容现有调用
+  interpolationMethod?: string;
+  gridResolution?: number;
+  xExtend?: number;
+  yExtend?: number;
+  bottomElevation?: number;
+  onParamsChange?: (key: any, value: any) => void;
+  onGenerate?: (data: any) => void;
+  status?: "wait" | "process" | "completed";
+  params?: any;
+  data?: any;
 }
 
 interface BoreholeDataPoint {
@@ -476,7 +487,7 @@ const EnhancedGeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
       // 使用2号专家的增强型RBF插值
       const result = await geometryAlgorithmIntegration.enhancedRBFInterpolation(
         {
-          kernelType: rbfConfig.kernelType,
+          kernelType: rbfConfig.kernelType === 'thin_plate_spline' ? 'thinPlateSpline' : rbfConfig.kernelType,
           kernelParameter: rbfConfig.kernelParameter,
           smoothingFactor: rbfConfig.smoothingFactor,
           maxIterations: rbfConfig.maxIterations,

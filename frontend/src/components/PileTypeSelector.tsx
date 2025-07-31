@@ -6,12 +6,94 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  PileType, 
-  PileModelingStrategy, 
-  EnhancedPileClassification,
-  pileModelingService 
-} from '../services';
+// 类型定义
+enum PileType {
+  BORED_PILE = 'bored_pile',
+  DRIVEN_PILE = 'driven_pile',
+  CFG_PILE = 'cfg_pile',
+  CEMENT_SOIL_PILE = 'cement_soil_pile'
+}
+
+enum PileModelingStrategy {
+  BEAM_ELEMENT = 'beam_element',
+  SHELL_ELEMENT = 'shell_element'
+}
+
+interface EnhancedPileClassification {
+  type: PileType;
+  name: string;
+  icon: string;
+  description: string;
+  modelingStrategy: PileModelingStrategy;
+  technicalParameters: {
+    typicalDiameter: [number, number];
+    typicalLength: [number, number];
+    bearingCapacity: [number, number];
+    applicableDepth: [number, number];
+  };
+  advantages: string[];
+  disadvantages: string[];
+  applicableConditions: string[];
+  constructionMethod: string;
+  soilTreatment: string;
+  loadMechanism: string;
+}
+
+// 模拟服务
+const pileModelingService = {
+  groupPilesByStrategy: () => ({
+    [PileModelingStrategy.BEAM_ELEMENT]: [
+      {
+        type: PileType.BORED_PILE,
+        name: '钻孔灌注桩',
+        icon: '🔩',
+        description: '通过钻孔成孔，灌注混凝土形成的桩基',
+        modelingStrategy: PileModelingStrategy.BEAM_ELEMENT,
+        technicalParameters: {
+          typicalDiameter: [600, 1500],
+          typicalLength: [20, 60],
+          bearingCapacity: [2000, 8000],
+          applicableDepth: [15, 60]
+        },
+        advantages: ['承载力大', '适应性强', '无震动'],
+        disadvantages: ['成本高', '施工慢'],
+        applicableConditions: ['硬质土层', '深厚基础'],
+        constructionMethod: '钻孔灌注',
+        soilTreatment: 'displacement',
+        loadMechanism: 'friction_end_bearing'
+      }
+    ],
+    [PileModelingStrategy.SHELL_ELEMENT]: [
+      {
+        type: PileType.CFG_PILE,
+        name: 'CFG桩',
+        icon: '🏢',
+        description: '水泥粉煤灰碎石桩，形成复合地基',
+        modelingStrategy: PileModelingStrategy.SHELL_ELEMENT,
+        technicalParameters: {
+          typicalDiameter: [400, 800],
+          typicalLength: [8, 25],
+          bearingCapacity: [500, 2000],
+          applicableDepth: [5, 25]
+        },
+        advantages: ['成本低', '改良效果好'],
+        disadvantages: ['承载力低', '施工要求高'],
+        applicableConditions: ['软土地区', '复合地基'],
+        constructionMethod: '长螺旋钻孔',
+        soilTreatment: 'compaction',
+        loadMechanism: 'composite_foundation'
+      }
+    ]
+  }),
+  getPileClassification: (type: PileType): EnhancedPileClassification => {
+    const groups = pileModelingService.groupPilesByStrategy();
+    for (const classifications of Object.values(groups)) {
+      const found = classifications.find(c => c.type === type);
+      if (found) return found;
+    }
+    throw new Error(`Unknown pile type: ${type}`);
+  }
+};
 import { FunctionalIcons } from './icons/FunctionalIconsQuickFix';
 
 interface PileTypeSelectorProps {

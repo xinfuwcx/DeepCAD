@@ -908,7 +908,7 @@ const UserDefinedDomain: React.FC<UserDefinedDomainProps> = ({
                   title: '坐标系',
                   dataIndex: 'coordinateSystem',
                   render: (system: string) => (
-                    <Tag size="small">{system === 'global' ? '全局' : '局部'}</Tag>
+                    <Tag>{system === 'global' ? '全局' : '局部'}</Tag>
                   )
                 },
                 {

@@ -86,7 +86,7 @@ export const PyVistaViewer: React.FC<PyVistaViewerProps> = ({
   // WebSocket连接管理
   useEffect(() => {
     if (!isConnected && clientId) {
-      connect('ws://localhost:8000/ws');
+      connect();
     }
     
     return () => {

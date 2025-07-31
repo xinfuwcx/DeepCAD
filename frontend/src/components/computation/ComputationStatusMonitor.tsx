@@ -15,7 +15,7 @@ import {
   StopOutlined, ReloadOutlined, EyeOutlined, DownloadOutlined,
   CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined,
   FireOutlined, DashboardOutlined, BarChartOutlined,
-  MonitorOutlined, CpuOutlined, DatabaseOutlined
+  MonitorOutlined, DesktopOutlined as CpuOutlined, DatabaseOutlined
 } from '@ant-design/icons';
 import deepCADBackendService, { ComputationResult, ProjectConfiguration } from '../../services/DeepCADBackendService';
 import { useDeepCADTheme } from '../ui/DeepCADTheme';

@@ -14,7 +14,7 @@ import {
 } from '@ant-design/icons';
 import TechIcon from '../ui/TechIcon';
 import TechLogo from '../ui/TechLogo';
-import { ControlCenter } from '../control/EpicControlCenter';
+import { ProjectControlCenter } from '../control/ProjectControlCenter';
 import EnhancedMainWorkspaceView from '../../views/EnhancedMainWorkspaceView';
 import PhysicsAIView from '../../views/PhysicsAIView';
 import MaterialLibraryView from '../../views/MaterialLibraryView';
@@ -196,13 +196,13 @@ const MainLayout: React.FC = () => {
         }}>
           <Routes>
             <Route path="/" element={
-              <ControlCenter 
+              <ProjectControlCenter 
                 onExit={() => navigate('/')}
                 onProjectSelect={(projectId) => console.log('项目选择:', projectId)}
               />
             } />
             <Route path="dashboard" element={
-              <ControlCenter 
+              <ProjectControlCenter 
                 onExit={() => navigate('/')}
                 onProjectSelect={(projectId) => console.log('项目选择:', projectId)}
               />

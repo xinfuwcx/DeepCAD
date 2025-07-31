@@ -26,8 +26,11 @@ import React, {
   Suspense 
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { UnifiedMapRenderingService } from '../../services/UnifiedMapRenderingService';
 import { ThreeTileMapService } from '../../services/ThreeTileMapService';
+import { GeoThreeMapController, ProjectMarkerData, MapStyle } from '../../services/GeoThreeMapController';
 
 // 简化的天气数据接口，匹配我们的使用
 interface SimpleWeatherData {
@@ -102,7 +105,7 @@ const MAP_STYLES = [
 
 // ======================= 优化的主组件（使用 memo 防止不必要的重渲染）=======================
 
-export const ControlCenter: React.FC<ControlCenterProps> = memo(({
+export const ProjectControlCenter: React.FC<ControlCenterProps> = memo(({
   width = window.innerWidth,
   height = window.innerHeight,
   onExit,
@@ -183,13 +186,57 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
         
         try {
           console.log('🗺️ 开始初始化UnifiedMapRenderingService...');
-          const mapService = new UnifiedMapRenderingService(mapContainerRef.current);
+          
+          // 创建Three.js基础组件
+          const scene = new THREE.Scene();
+          const camera = new THREE.PerspectiveCamera(75, mapContainerRef.current.clientWidth / mapContainerRef.current.clientHeight, 0.1, 10000);
+          const renderer = new THREE.WebGLRenderer({ 
+            antialias: true,
+            alpha: true,
+            preserveDrawingBuffer: true
+          });
+          
+          // 初始相机位置将由UnifiedMapRenderingService设置
+          console.log('📹 相机将由地图服务设置初始位置');
+          
+          renderer.setSize(mapContainerRef.current.clientWidth, mapContainerRef.current.clientHeight);
+          renderer.setClearColor(0x87CEEB, 1); // 天蓝色背景便于观察
+          renderer.shadowMap.enabled = true;
+          renderer.outputColorSpace = THREE.SRGBColorSpace;
+          mapContainerRef.current.appendChild(renderer.domElement);
+          
+          console.log('📹 相机初始位置:', camera.position);
+          console.log('🎯 相机看向:', { x: 0, y: 0, z: 0 });
+          
+          // 初始化UnifiedMapRenderingService
+          const mapService = new UnifiedMapRenderingService(scene, camera, renderer);
           await mapService.initialize();
           mapServiceRef.current = mapService;
+          
+          // 添加3D控制器
+          const controls = new OrbitControls(camera, renderer.domElement);
+          controls.enableDamping = true;
+          controls.dampingFactor = 0.05;
+          controls.enableZoom = true;
+          controls.enableRotate = true;
+          controls.enablePan = true;
+          
+          // 启动渲染循环
+          const animate = () => {
+            requestAnimationFrame(animate);
+            controls.update();
+            mapService.update();
+            renderer.render(scene, camera);
+          };
+          animate();
+          
           console.log('✅ UnifiedMapRenderingService初始化成功');
           
-          // 设置项目点击处理器（如果mapService支持的话）
-          // mapService.setProjectClickHandler(handleProjectClick);
+          // 设置项目点击处理器
+          if (mapService.setProjectClickHandler) {
+            mapService.setProjectClickHandler(handleProjectClick);
+            console.log('✅ 项目点击处理器已设置');
+          }
           
           // 延迟加载瓦片，确保WebGL上下文准备好
           setTimeout(async () => {
@@ -224,7 +271,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
     }
   };
 
-  const loadProjectMarkers = async (mapController: GeoThreeMapController): Promise<void> => {
+  const loadProjectMarkers = async (mapService: UnifiedMapRenderingService): Promise<void> => {
     console.log('📌 加载项目标记...');
     
     try {
@@ -277,7 +324,11 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
           ...project,
           weather: weatherMap[project.id]
         };
-        return mapController.addProjectMarker(projectWithWeather);
+        // 注意：UnifiedMapRenderingService可能没有addProjectMarker方法
+        // 这里需要根据实际API进行调整
+        if (mapService.switchToProject) {
+          return mapService.switchToProject(projectWithWeather);
+        }
       });
       
       await Promise.all(markersPromises);
@@ -290,10 +341,23 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
       setSystemStatus(prev => ({ ...prev, weatherStatus: 'error' }));
       
       // 降级：不带天气数据的项目标记
-      projectsData.forEach(project => {
-        mapController.addProjectMarker(project);
-      });
+      if (mapService.switchToProject) {
+        projectsData.forEach(project => {
+          mapService.switchToProject?.(project);
+        });
+      }
     }
+  };
+
+  // ======================= 项目地图样式映射 ======================
+  
+  const getProjectMapStyle = (projectId: string) => {
+    const styleMap: Record<string, any> = {
+      'shanghai-center': 'satellite',    // 上海中心用卫星图
+      'beijing-airport': 'terrain',      // 北京机场用地形图  
+      'shenzhen-qianhai': 'street'       // 深圳前海用街道图
+    };
+    return styleMap[projectId] || 'street';
   };
 
   // ======================= 优化的事件处理（使用 useCallback 防止重渲染）=======================
@@ -303,6 +367,8 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
     if (!project || !mapServiceRef.current) return;
     
     console.log(`🎯 选择项目: ${project.name}`);
+    console.log(`📍 项目坐标: ${project.location.lat}, ${project.location.lng}`);
+    console.log(`🏗️ 基坑深度: ${project.depth}m`);
     setSelectedProject(project);
     
     // 执行飞行动画
@@ -310,23 +376,41 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
       setIsFlying(true);
       
       try {
-        // 注释掉不存在的方法调用
-        // await mapServiceRef.current.flyToProject(projectId);
+        // 切换到项目对应的地图样式
+        const projectMapStyle = getProjectMapStyle(projectId);
+        if (projectMapStyle !== currentMapStyle) {
+          setCurrentMapStyle(projectMapStyle);
+          console.log(`🗺️ 切换项目地图样式: ${project.name} -> ${projectMapStyle}`);
+        }
         
-        // 通知外部组件
+        // 切换到项目地理位置和真实地图
+        console.log(`🚀 开始飞往项目位置: ${project.location.lat}, ${project.location.lng}`);
+        await mapServiceRef.current.switchToProject?.(project);
+        
+        // 更新系统状态，表示成功加载了新位置的地图瓦片
+        setSystemStatus(prev => ({
+          ...prev,
+          gisStatus: 'ready',
+          loadedTiles: prev.loadedTiles + 9, // 3x3网格瓦片
+          activeProjects: prev.activeProjects
+        }));
+        
+        // 通知外部组件  
         if (onProjectSelect) {
           onProjectSelect(projectId);
         }
         
-        console.log('🎯 项目上下文已更新:', project.name);
+        console.log(`✅ 项目切换完成: ${project.name}`);
+        console.log(`🎉 地图已切换到${project.name}的真实地理位置！`);
         
       } catch (error) {
         console.error('❌ 项目飞行失败:', error);
       } finally {
-        setIsFlying(false);
+        // 给相机飞行动画留出2秒时间
+        setTimeout(() => setIsFlying(false), 2000);
       }
     }
-  }, [projectsData, isFlying, onProjectSelect]);
+  }, [projectsData, isFlying, onProjectSelect, currentMapStyle]);
 
   const handleMapStyleChange = useCallback(async (style: any) => {
     if (!mapServiceRef.current || currentMapStyle === style) return;
@@ -335,8 +419,13 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
     setCurrentMapStyle(style);
     
     try {
-      await mapControllerRef.current.switchMapStyle(style);
-      console.log('🎨 地图样式已切换:', style);
+      // 使用统一地图服务切换样式
+      if (mapServiceRef.current?.switchMapLayer) {
+        await mapServiceRef.current.switchMapLayer(style);
+        console.log('🎨 地图样式已切换:', style);
+      } else {
+        console.warn('⚠️ 地图样式切换功能暂不可用');
+      }
       
     } catch (error) {
       console.error('❌ 地图样式切换失败:', error);
@@ -349,7 +438,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
   }, [showWeatherLayer]);
 
   const handleEpicFlight = useCallback(() => {
-    if (!mapControllerRef.current || isFlying) return;
+    if (!mapServiceRef.current || isFlying) return;
     
     console.log('🎬 启动Epic飞行演示');
     
@@ -456,8 +545,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
             backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
             boxShadow: [
               '0 0 20px rgba(0, 255, 255, 0.5)',
-              '0 0 30px rgba(255, 0, 255, 0.7)',
-              '0 0 20px rgba(0, 255, 255, 0.5)'
+              '0 0 30px rgba(255, 0, 255, 0.7)'
             ]
           }}
           transition={{ 
@@ -1112,8 +1200,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
                 y: -3,
                 boxShadow: [
                   '0 5px 20px rgba(0, 255, 255, 0.3)',
-                  '0 8px 30px rgba(255, 0, 255, 0.4)',
-                  '0 5px 20px rgba(0, 255, 255, 0.3)'
+                  '0 8px 30px rgba(255, 0, 255, 0.4)'
                 ]
               } : {}}
               whileTap={!isFlying ? { scale: 0.98 } : {}}
@@ -1188,8 +1275,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
                       scale: [1, 1.2, 1],
                       boxShadow: [
                         `0 0 8px ${project.status === 'completed' ? '#52c41a' : project.status === 'active' ? '#faad14' : '#999'}`,
-                        `0 0 15px ${project.status === 'completed' ? '#52c41a' : project.status === 'active' ? '#faad14' : '#999'}`,
-                        `0 0 8px ${project.status === 'completed' ? '#52c41a' : project.status === 'active' ? '#faad14' : '#999'}`
+                        `0 0 15px ${project.status === 'completed' ? '#52c41a' : project.status === 'active' ? '#faad14' : '#999'}`
                       ]
                     }}
                     transition={{ duration: 1.5, repeat: Infinity }}
@@ -1602,11 +1688,8 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
   );
 });
 
-// 导出优化后的组件
-export default ControlCenter;
-
-// 为了兼容性，保留旧名称
-export { ControlCenter as EpicControlCenter };
+// 导出组件
+export default ProjectControlCenter;
 
 // 添加 displayName 以便调试
-ControlCenter.displayName = 'EpicControlCenter';
+ProjectControlCenter.displayName = 'ProjectControlCenter';

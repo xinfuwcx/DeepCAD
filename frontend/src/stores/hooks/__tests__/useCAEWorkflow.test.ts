@@ -88,7 +88,7 @@ describe('useCAEWorkflow', () => {
         }
       };
 
-      const { result } = renderHook(() => useCAEWorkflow(customConfig));
+      const { result } = renderHook(() => useCAEWorkflow());
       
       expect(result.current.stageConfig).toEqual(customConfig);
       expect(result.current.availableStages).toEqual(['geometry_input', 'mesh_generation']);

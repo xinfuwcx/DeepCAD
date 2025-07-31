@@ -21,8 +21,8 @@ import { RealMapEpicCenter } from '../visualization/RealMapEpicCenter';
 import { SelfContainedEpicCenter } from '../visualization/SelfContainedEpicCenter';
 import { ParticleTest } from '../visualization/ParticleTest';
 
-// 1号专家 - 新的Epic控制中心系统 
-import { ControlCenter as NewEpicControlCenter } from '../control/EpicControlCenter';
+// 1号专家 - 新的项目控制中心系统 
+import { ProjectControlCenter } from '../control/ProjectControlCenter';
 import { GeoThreeMapController, ProjectMarkerData } from '../../services/GeoThreeMapController';
 import { designTokens } from '../../design/tokens';
 
@@ -81,7 +81,7 @@ export const DeepCADAdvancedApp: React.FC = () => {
   const [showEpicDemo, setShowEpicDemo] = useState(false);
   const [showParticleTest, setShowParticleTest] = useState(false);
   const [showMapboxDebug, setShowMapboxDebug] = useState(false);
-  const [showNewEpicControlCenter, setShowNewEpicControlCenter] = useState(false);
+  const [showProjectControlCenter, setShowProjectControlCenter] = useState(false);
   const [isFlying, setIsFlying] = useState(false);
   const [flightTarget, setFlightTarget] = useState<string | null>(null);
   
@@ -338,7 +338,7 @@ export const DeepCADAdvancedApp: React.FC = () => {
     switch (moduleId) {
       case 'control-center':
         // 🎛️ 1号专家 - Epic控制中心与地理信息系统
-        setShowNewEpicControlCenter(true);
+        setShowProjectControlCenter(true);
         logger.info('Control Center launched', { 
           expert: '1号专家',
           features: ['geo-three地图系统', 'Open-Meteo气象', '项目管理', 'AI助手集成'],
@@ -522,7 +522,7 @@ export const DeepCADAdvancedApp: React.FC = () => {
 
   if (showEpicDemo) {
     return (
-      <NewEpicControlCenter 
+      <ProjectControlCenter 
         width={window.innerWidth}
         height={window.innerHeight}
         onExit={() => setShowEpicDemo(false)}
@@ -531,14 +531,14 @@ export const DeepCADAdvancedApp: React.FC = () => {
   }
 
   // 新的Epic控制中心 - 1号专家核心系统
-  if (showNewEpicControlCenter) {
+  if (showProjectControlCenter) {
     return (
-      <NewEpicControlCenter
+      <ProjectControlCenter
         width={window.innerWidth}
         height={window.innerHeight}
-        onExit={() => setShowNewEpicControlCenter(false)}
+        onExit={() => setShowProjectControlCenter(false)}
         onSwitchToControlCenter={() => {
-          setShowNewEpicControlCenter(false);
+          setShowProjectControlCenter(false);
           setCurrentView('epic-control-center');
         }}
         onProjectSelect={(projectId) => {
@@ -680,7 +680,7 @@ export const DeepCADAdvancedApp: React.FC = () => {
         {/* 1号专家 - Epic控制中心作为默认界面 */}
         {currentView === 'epic-control-center' && (
           <div style={{ position: 'absolute', inset: '0', top: '-80px' }}>
-            <NewEpicControlCenter
+            <ProjectControlCenter
               width={window.innerWidth}
               height={window.innerHeight}
               onExit={() => setCurrentView('launch')}

@@ -250,6 +250,59 @@ export class SimpleTileRenderer {
   }
 
   /**
+   * 创建彩色备用瓦片，确保用户能看到地图正在工作
+   */
+  private createFallbackTiles(centerTile: TileCoordinate): void {
+    console.log('🎨 创建彩色备用瓦片，确保地图可见...');
+    
+    // 创建3x3的彩色瓦片网格
+    const colors = [
+      0x4488bb, 0x66aacc, 0x88ccdd,
+      0x66aacc, 0x88ccdd, 0x4488bb,
+      0x88ccdd, 0x4488bb, 0x66aacc
+    ];
+    
+    let colorIndex = 0;
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const tileX = centerTile.x + dx;
+        const tileY = centerTile.y + dy;
+        const worldPos = this.tileToWorldPosition(tileX, tileY, centerTile);
+        
+        const geometry = new THREE.PlaneGeometry(this.WORLD_SCALE, this.WORLD_SCALE);
+        const material = new THREE.MeshBasicMaterial({
+          color: colors[colorIndex % colors.length],
+          side: THREE.DoubleSide,
+          transparent: false
+        });
+        
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.copy(worldPos);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.name = `fallback-tile-${tileX}-${tileY}`;
+        
+        this.scene.add(mesh);
+        colorIndex++;
+      }
+    }
+  }
+
+  /**
+   * 显示彩色fallback地图
+   */
+  private showColorfulFallback(): void {
+    console.log('🌈 显示彩色fallback地图');
+    this.tiles.forEach((mesh, key) => {
+      const material = mesh.material as THREE.MeshBasicMaterial;
+      // 设置为随机鲜艳颜色以确保可见
+      const hue = Math.random();
+      const color = new THREE.Color().setHSL(hue, 0.7, 0.6);
+      material.color.copy(color);
+      material.needsUpdate = true;
+    });
+  }
+
+  /**
    * 显示错误信息瓦片
    */
   private showErrorMessage(): void {
@@ -278,6 +331,13 @@ export class SimpleTileRenderer {
       material.color.setHex(0xffffff);
       material.needsUpdate = true;
     });
+  }
+
+  /**
+   * 获取可用的地图样式
+   */
+  public getAvailableStyles(): string[] {
+    return Object.keys(this.TILE_URLS);
   }
 
   /**

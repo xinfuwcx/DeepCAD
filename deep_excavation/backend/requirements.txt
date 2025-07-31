@@ -1,65 +1,37 @@
-# Deep Excavation CAE System - Unified Dependencies
+# Deep Excavation CAE System - 精简依赖 (2025-07-30)
 
-# --- Core Framework ---
-fastapi
-uvicorn[standard]
-pydantic
-requests
+# 核心Web框架
+fastapi>=0.115.0
+uvicorn[standard]>=0.35.0
+pydantic>=2.10.0
+pydantic-settings>=2.10.1
+starlette>=0.47.2
+requests>=2.32.3
 
-# --- Database ---
-sqlalchemy
-alembic
-psycopg2-binary
+# 数据库
+sqlalchemy>=2.0.42
+alembic>=1.14.0
+psycopg2-binary>=2.9.10
 
-# --- Authentication & Security ---
-python-jose[cryptography]
-passlib[bcrypt]
-python-multipart
+# 科学计算
+numpy>=2.3.2
+scipy>=1.16.1
+pandas>=2.3.1
+h5py>=3.12.0
+matplotlib>=3.10.0
 
-# --- Scientific Computing & Data ---
-numpy>=1.26.0
-scipy>=1.13.0
-pandas>=2.2.0
-h5py
-matplotlib
-vtk
+# 几何和网格
+pyvista>=0.45.3
+gmsh>=4.13.1
+meshio>=5.3.5
+ezdxf>=1.3.4
 
-# --- Geology & Meshing ---
-# PyVista for geometry processing and VTK I/O (VTK is a sub-dependency)
-pyvista
-# Gmsh for meshing
-pygmsh
-# 添加原生 Gmsh 支持
-gmsh>=4.11.0
-# Gmsh with OpenCASCADE support (如果可用)
-# gmsh[occ]>=4.11.0
-meshio
-# DXF support
-ezdxf
+# 机器学习
+scikit-learn>=1.6.0
 
-# --- Kratos Multiphysics Solver ---
-# These are not installed via pip but expected in the environment.
-# KratosMultiphysics
-# KratosMultiphysics.StructuralMechanicsApplication
-# Refer to project documentation for Kratos setup.
-# kratos-python
+# 工具
+python-dotenv>=1.1.1
+loguru>=0.7.3
 
-# --- Utilities ---
-python-dotenv
-loguru
-typer
-Jinja2
-xlsxwriter
-
-# --- Development & Testing ---
-black
-isort
-mypy
-pytest
-pytest-asyncio
-pytest-cov
-httpx
-
-# New additions from the code block
-openpyxl
-gunicorn
+# Kratos已预安装,请勿修改
+# KratosMultiphysics>=10.3.0

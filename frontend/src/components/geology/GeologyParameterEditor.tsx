@@ -1012,7 +1012,7 @@ const GeologyParameterEditor: React.FC<GeologyParameterEditorProps> = ({
         })()}
       </Modal>
 
-      <style jsx>{`
+      <style>{`
         .geology-parameter-editor .row-error {
           background-color: rgba(255, 107, 107, 0.1) !important;
         }

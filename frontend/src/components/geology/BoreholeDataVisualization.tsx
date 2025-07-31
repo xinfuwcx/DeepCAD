@@ -11,7 +11,7 @@ import {
   Empty, Spin, Modal, Upload, message, Form, InputNumber
 } from 'antd';
 import { 
-  EnvironmentOutlined, LayersOutlined, BarChartOutlined,
+  EnvironmentOutlined, BarsOutlined, BarChartOutlined,
   CheckCircleOutlined, ExclamationCircleOutlined, InfoCircleOutlined,
   EyeOutlined, DownloadOutlined, SettingOutlined, UploadOutlined,
   FileTextOutlined, TableOutlined
