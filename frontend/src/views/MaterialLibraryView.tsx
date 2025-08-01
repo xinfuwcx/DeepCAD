@@ -1,3 +1,34 @@
+/**
+ * MaterialLibraryView.tsx - 高级材料库管理系统
+ * 
+ * 功能描述:
+ * - 专业的材料库管理和材料定义系统
+ * - 支持复杂的材料本构模型和参数管理
+ * - 集成材料验证、测试和标准对比功能
+ * - 基于Schema的数据验证和类型安全保障
+ * 
+ * 高级功能:
+ * 1. 材料定义管理 - 基于Schema的材料数据结构定义
+ * 2. 本构模型支持 - 多种土体本构模型（线性、非线性、塑性等）
+ * 3. 参数验证 - 使用Zod和React Hook Form进行数据验证
+ * 4. 材料分类 - 按工程类别和材料类型分类管理
+ * 5. 批量操作 - 材料的批量导入、导出、复制、删除
+ * 6. 标准对比 - 与工程规范和标准材料库对比
+ * 
+ * 数据管理:
+ * - MaterialDefinitionSchema: 材料定义数据模式
+ * - SoilConstitutiveModel: 土体本构模型类型
+ * - MaterialParameters: 材料参数接口
+ * - 数据验证和类型安全
+ * 
+ * 技术栈:
+ * - React Hook Form: 表单管理和验证
+ * - Zod Resolver: Schema验证
+ * - TypeScript: 类型安全
+ * - Ant Design: 企业级UI组件
+ * 
+ * 适用场景: 复杂工程项目材料管理、科研数据库、标准化设计
+ */
 import React, { useState, useEffect } from 'react';
 import { 
   Table, Button, Modal, Form, Input, Select, InputNumber, Space, 

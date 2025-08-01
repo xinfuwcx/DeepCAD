@@ -1,3 +1,34 @@
+/**
+ * UISystemView.tsx - 用户界面系统管理
+ * 
+ * 功能描述:
+ * - 系统UI组件和主题的统一管理界面
+ * - 提供界面定制、主题切换和样式配置功能
+ * - 支持响应式设计和多设备适配设置
+ * - 集成Glass UI、主题切换和界面模式管理
+ * 
+ * UI管理功能:
+ * 1. 主题管理 - 深色/浅色主题切换和自定义主题
+ * 2. 界面模式 - 不同工作模式的界面布局切换
+ * 3. 组件配置 - UI组件的样式和行为参数设置
+ * 4. 颜色系统 - 品牌色、功能色的统一管理
+ * 5. 布局控制 - 网格系统、间距、字体大小设置
+ * 6. 动效配置 - 动画效果、过渡时间的调节
+ * 
+ * 核心组件:
+ * - ThemeToggle: 主题切换组件
+ * - UIModeSwitcher: 界面模式切换器
+ * - UISettingsPanel: UI设置面板
+ * - Glass: Glass UI毛玻璃效果组件
+ * 
+ * 设计系统:
+ * - 统一的设计语言
+ * - 组件库标准化
+ * - 可访问性支持
+ * - 多语言界面适配
+ * 
+ * 技术特色: 主题系统、组件化设计、响应式布局、用户个性化
+ */
 import React, { useState } from 'react';
 import { Layout, Card, Typography, Tabs, Row, Col, Space, Button, Switch, Select, Slider, ColorPicker, Divider } from 'antd';
 import { 

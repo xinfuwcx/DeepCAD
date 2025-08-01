@@ -5,18 +5,18 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { 
-  Card, Row, Col, Button, Space, Typography, Alert, Progress, 
-  Tabs, Form, Select, InputNumber, Switch, Slider, Upload, 
+import {
+  Card, Row, Col, Button, Space, Typography, Alert, Progress,
+  Tabs, Form, Select, InputNumber, Switch, Slider, Upload,
   Table, Tag, Timeline, List, Modal, message, Spin,
-  Steps, Collapse, Radio, Checkbox, Tooltip
+  Steps, Collapse, Radio, Checkbox, Tooltip,
 } from 'antd';
-import { 
+import {
   ThunderboltOutlined, DatabaseOutlined, SettingOutlined,
   PlayCircleOutlined, StopOutlined, EyeOutlined, DownloadOutlined,
   UploadOutlined, ExperimentOutlined, CheckCircleOutlined,
   CloudUploadOutlined, FileSearchOutlined, ReloadOutlined,
-  BulbOutlined, DashboardOutlined, LineChartOutlined
+  BulbOutlined, DashboardOutlined, LineChartOutlined,
 } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -50,8 +50,9 @@ interface EnhancedGeologyModuleProps {
         max: { x: number; y: number; z: number };
       };
     };
-  }) => void;
-  onStatusChange?: (status: 'idle' | 'processing' | 'completed' | 'error') => void;
+  }) => void,
+  onStatusChange?: (status: 'idle' | 'processing' | 'completed' | 'error') => void,
+  interpolationMethod?: string
 }
 
 interface RBFConfig {
@@ -109,15 +110,16 @@ interface QualityMetrics {
 // ==================== 主组件 ====================
 
 const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
-  onGeologyGenerated,
-  onStatusChange
-}) => {
+                                                               onGeologyGenerated,
+                                                               onStatusChange,
+                                                               interpolationMethod,
+                                                             }) => {
   // 状态管理
   const [processingStatus, setProcessingStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle');
   const [processingProgress, setProcessingProgress] = useState(0);
   const [activeTab, setActiveTab] = useState('data');
   const [algorithm, setAlgorithm] = useState<'rbf' | 'gempy'>('rbf');
-  
+
   // RBF配置状态
   const [rbfConfig, setRbfConfig] = useState<RBFConfig>({
     kernelType: 'multiquadric',
@@ -129,15 +131,15 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
     optimization: {
       useParallelProcessing: true,
       maxIterations: 1000,
-      convergenceTolerance: 1e-8
+      convergenceTolerance: 1e-8,
     },
     meshCompatibility: {
       targetMeshSize: 2.0,
       qualityThreshold: 0.65,
-      fragmentStandard: true
-    }
+      fragmentStandard: true,
+    },
   });
-  
+
   // GemPy配置状态
   const [gemPyConfig, setGemPyConfig] = useState<GemPyConfig>({
     interpolationMethod: 'kriging',
@@ -147,9 +149,9 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
     enableFaults: true,
     faultSmoothing: 0.5,
     gravityModel: false,
-    magneticModel: false
+    magneticModel: false,
   });
-  
+
   // 数据状态
   const [boreholeData, setBoreholeData] = useState<any>(null);
   const [boreholeFile, setBoreholeFile] = useState<File | null>(null);
@@ -158,14 +160,14 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
     dataPoints: 0,
     gridPoints: 0,
     memoryUsage: 0,
-    qualityScore: 0
+    qualityScore: 0,
   });
   const [qualityMetrics, setQualityMetrics] = useState<QualityMetrics | null>(null);
-  
+
   // 服务引用
   const reconstructionServiceRef = useRef<RBF3DReconstructionService | null>(null);
   const gemPyServiceRef = useRef<GeologyModelingService | null>(null);
-  
+
   // 初始化服务
   useEffect(() => {
     reconstructionServiceRef.current = new RBF3DReconstructionService();
@@ -177,14 +179,14 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
   // 处理钻孔文件上传
   const handleBoreholeUpload = useCallback((file: File) => {
     setBoreholeFile(file);
-    
+
     // 模拟解析钻孔数据
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const content = e.target?.result as string;
         let parsedData;
-        
+
         if (file.name.endsWith('.json')) {
           parsedData = JSON.parse(content);
         } else {
@@ -199,8 +201,8 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                 layers: [
                   { name: '填土', topDepth: 0, bottomDepth: 3, soilType: '填土' },
                   { name: '粘土', topDepth: 3, bottomDepth: 12, soilType: '粘土' },
-                  { name: '砂土', topDepth: 12, bottomDepth: 25, soilType: '砂土' }
-                ]
+                  { name: '砂土', topDepth: 12, bottomDepth: 25, soilType: '砂土' },
+                ],
               },
               {
                 id: 'BH002',
@@ -210,20 +212,20 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                 layers: [
                   { name: '填土', topDepth: 0, bottomDepth: 2.5, soilType: '填土' },
                   { name: '粘土', topDepth: 2.5, bottomDepth: 15, soilType: '粘土' },
-                  { name: '砂土', topDepth: 15, bottomDepth: 30, soilType: '砂土' }
-                ]
-              }
-            ]
+                  { name: '砂土', topDepth: 15, bottomDepth: 30, soilType: '砂土' },
+                ],
+              },
+            ],
           };
         }
-        
+
         setBoreholeData(parsedData);
         message.success(`成功加载 ${parsedData.holes?.length || 0} 个钻孔数据`);
       } catch (error) {
         message.error('钻孔文件格式错误，请检查文件内容');
       }
     };
-    
+
     reader.readAsText(file);
     return false; // 阻止自动上传
   }, []);
@@ -234,22 +236,22 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
       message.error('请先上传钻孔数据文件');
       return;
     }
-    
+
     setProcessingStatus('processing');
     setProcessingProgress(0);
     onStatusChange?.('processing');
-    
+
     try {
       let reconstructionResult;
-      
+
       if (algorithm === 'rbf') {
         console.log('🚀 开始RBF三维重建完整流程');
-        
+
         const reconstructionService = reconstructionServiceRef.current;
         if (!reconstructionService) {
           throw new Error('RBF重建服务未初始化');
         }
-        
+
         // 调用完整的RBF三维重建流程
         reconstructionResult = await reconstructionService.performComplete3DReconstruction(
           boreholeFile, // 用户上传的钻孔文件
@@ -258,17 +260,17 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
             targetMeshSize: rbfConfig.meshCompatibility.targetMeshSize,
             qualityLevel: rbfConfig.performanceMode as any,
             enableParallel: rbfConfig.optimization.useParallelProcessing,
-            autoOptimize: true
-          }
+            autoOptimize: true,
+          },
         );
       } else {
         console.log('🚀 开始GemPy地质建模流程');
-        
+
         const gemPyService = gemPyServiceRef.current;
         if (!gemPyService) {
           throw new Error('GemPy服务未初始化');
         }
-        
+
         // 调用GemPy建模流程
         reconstructionResult = await gemPyService.performGeologyModeling(
           boreholeData,
@@ -277,53 +279,53 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
             resolution: {
               x: gemPyConfig.resolutionX,
               y: gemPyConfig.resolutionY,
-              z: gemPyConfig.resolutionZ
+              z: gemPyConfig.resolutionZ,
             },
             enableFaults: gemPyConfig.enableFaults,
             faultSmoothing: gemPyConfig.faultSmoothing,
             enableGravity: gemPyConfig.gravityModel,
-            enableMagnetic: gemPyConfig.magneticModel
-          }
+            enableMagnetic: gemPyConfig.magneticModel,
+          },
         );
       }
-      
+
       setProcessingProgress(100);
       setProcessingStatus('completed');
       onStatusChange?.('completed');
-      
+
       // 更新结果数据
       setRealTimeStats({
         interpolationTime: reconstructionResult.statistics.totalProcessingTime,
         dataPoints: reconstructionResult.statistics.dataPoints,
         gridPoints: reconstructionResult.statistics.gridNodes,
         memoryUsage: reconstructionResult.statistics.memoryUsage,
-        qualityScore: reconstructionResult.quality.overall.score
+        qualityScore: reconstructionResult.quality.overall.score,
       });
-      
+
       setQualityMetrics({
         overall: reconstructionResult.quality.overall,
         meshGuidance: {
           recommendedMeshSize: reconstructionResult.configuration.usedParameters.meshCompatibility.targetMeshSize,
           estimatedElements: reconstructionResult.statistics.finalElements,
-          qualityThreshold: 0.65
-        }
+          qualityThreshold: 0.65,
+        },
       });
-      
+
       // 通知上层组件
       if (onGeologyGenerated) {
         onGeologyGenerated({
           interpolationResult: {
             values: reconstructionResult.grid.values,
             executionTime: reconstructionResult.statistics.totalProcessingTime,
-            memoryUsage: reconstructionResult.statistics.memoryUsage
+            memoryUsage: reconstructionResult.statistics.memoryUsage,
           },
           qualityReport: reconstructionResult.quality,
-          geometry: reconstructionResult.geometry
+          geometry: reconstructionResult.geometry,
         });
       }
-      
+
       message.success(`${algorithm === 'rbf' ? 'RBF' : 'GemPy'}地质建模完成！质量等级: ${reconstructionResult.quality.overall.grade}`);
-      
+
     } catch (error) {
       console.error(`${algorithm === 'rbf' ? 'RBF' : 'GemPy'}地质建模失败:`, error);
       setProcessingStatus('error');
@@ -352,7 +354,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
     multiple: false,
     accept: '.json,.csv,.xlsx',
     beforeUpload: handleBoreholeUpload,
-    showUploadList: false
+    showUploadList: false,
   };
 
   return (
@@ -404,9 +406,9 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
               </Col>
               <Col span={8}>
                 <Space style={{ float: 'right' }}>
-                  <Select 
-                    size="small" 
-                    value={algorithm} 
+                  <Select
+                    size="small"
+                    value={algorithm}
                     onChange={setAlgorithm}
                     disabled={processingStatus === 'processing'}
                     style={{ width: 100 }}
@@ -453,8 +455,8 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                   <Text strong>RBF重建进度:</Text>
                 </Col>
                 <Col span={16}>
-                  <Progress 
-                    percent={Math.round(processingProgress)} 
+                  <Progress
+                    percent={Math.round(processingProgress)}
                     status="active"
                     strokeColor={{
                       '0%': '#108ee9',
@@ -480,7 +482,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                     { title: '连续性检查' },
                     { title: '边界平滑' },
                     { title: '质量验证' },
-                    { title: '结果输出' }
+                    { title: '结果输出' },
                   ]}
                 />
               </div>
@@ -507,7 +509,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                     支持 JSON、CSV、Excel 格式
                   </p>
                 </Dragger>
-                
+
                 {boreholeData && (
                   <Alert
                     message={`成功加载 ${boreholeData.holes?.length || 0} 个钻孔数据`}
@@ -518,7 +520,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                 )}
               </Card>
             </Col>
-            
+
             <Col span={12}>
               <Card title="数据统计" size="small">
                 {boreholeData ? (
@@ -526,9 +528,12 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                     size="small"
                     dataSource={[
                       { label: '钻孔数量', value: `${boreholeData.holes?.length || 0} 个` },
-                      { label: '土层总数', value: `${boreholeData.holes?.reduce((sum: number, hole: any) => sum + (hole.layers?.length || 0), 0) || 0} 个` },
+                      {
+                        label: '土层总数',
+                        value: `${boreholeData.holes?.reduce((sum: number, hole: any) => sum + (hole.layers?.length || 0), 0) || 0} 个`,
+                      },
                       { label: '空间范围', value: '待计算' },
-                      { label: '数据质量', value: '良好' }
+                      { label: '数据质量', value: '良好' },
                     ]}
                     renderItem={item => (
                       <List.Item>
@@ -558,77 +563,77 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                 <>
                   <Card title="RBF核函数配置" size="small" style={{ marginBottom: '16px' }}>
                     <Form layout="vertical" size="small">
-                  <Form.Item label="RBF核函数类型">
-                    <Select
-                      value={rbfConfig.kernelType}
-                      onChange={(value) => setRbfConfig({...rbfConfig, kernelType: value})}
-                    >
-                      <Option value="gaussian">高斯函数 - 局部支撑，平滑性好</Option>
-                      <Option value="multiquadric">多二次函数 - 全局支撑，保形好</Option>
-                      <Option value="thin_plate_spline">薄板样条 - 无参数，最小曲率</Option>
-                      <Option value="cubic">三次函数 - 简单快速，局部特征</Option>
-                    </Select>
-                  </Form.Item>
-                  
-                  <Form.Item label="目标网格尺寸 (m)">
-                    <InputNumber
-                      value={rbfConfig.targetMeshSize}
-                      onChange={(value) => setRbfConfig({...rbfConfig, targetMeshSize: value || 2.0})}
-                      min={0.5}
-                      max={10}
-                      step={0.5}
-                      style={{ width: '100%' }}
-                    />
-                  </Form.Item>
-                  
-                  <Form.Item label="重建质量等级">
-                    <Radio.Group
-                      value={rbfConfig.qualityLevel}
-                      onChange={(e) => setRbfConfig({...rbfConfig, qualityLevel: e.target.value})}
-                    >
-                      <Radio value="draft">快速预览</Radio>
-                      <Radio value="standard">标准质量</Radio>
-                      <Radio value="precision">高精度</Radio>
-                    </Radio.Group>
-                  </Form.Item>
-                </Form>
-              </Card>
-              
-              <Card title="性能配置" size="small">
-                <Form layout="vertical" size="small">
-                  <Form.Item>
-                    <Checkbox
-                      checked={rbfConfig.enableParallel}
-                      onChange={(e) => setRbfConfig({...rbfConfig, enableParallel: e.target.checked})}
-                    >
-                      启用并行计算
-                    </Checkbox>
-                  </Form.Item>
-                  
-                  <Form.Item>
-                    <Checkbox
-                      checked={rbfConfig.autoOptimize}
-                      onChange={(e) => setRbfConfig({...rbfConfig, autoOptimize: e.target.checked})}
-                    >
-                      自动参数优化
-                    </Checkbox>
-                  </Form.Item>
-                  
-                  <Form.Item label="质量阈值">
-                    <Slider
-                      value={rbfConfig.meshCompatibility.qualityThreshold}
-                      onChange={(value) => setRbfConfig({
-                        ...rbfConfig,
-                        meshCompatibility: { ...rbfConfig.meshCompatibility, qualityThreshold: value }
-                      })}
-                      min={0.3}
-                      max={1.0}
-                      step={0.05}
-                      marks={{ 0.3: '0.3', 0.65: '0.65', 1.0: '1.0' }}
-                    />
-                  </Form.Item>
-                  </Form>
-                </Card>
+                      <Form.Item label="RBF核函数类型">
+                        <Select
+                          value={rbfConfig.kernelType}
+                          onChange={(value) => setRbfConfig({ ...rbfConfig, kernelType: value })}
+                        >
+                          <Option value="gaussian">高斯函数 - 局部支撑，平滑性好</Option>
+                          <Option value="multiquadric">多二次函数 - 全局支撑，保形好</Option>
+                          <Option value="thin_plate_spline">薄板样条 - 无参数，最小曲率</Option>
+                          <Option value="cubic">三次函数 - 简单快速，局部特征</Option>
+                        </Select>
+                      </Form.Item>
+
+                      <Form.Item label="目标网格尺寸 (m)">
+                        <InputNumber
+                          value={rbfConfig.targetMeshSize}
+                          onChange={(value) => setRbfConfig({ ...rbfConfig, targetMeshSize: value || 2.0 })}
+                          min={0.5}
+                          max={10}
+                          step={0.5}
+                          style={{ width: '100%' }}
+                        />
+                      </Form.Item>
+
+                      <Form.Item label="重建质量等级">
+                        <Radio.Group
+                          value={rbfConfig.qualityLevel}
+                          onChange={(e) => setRbfConfig({ ...rbfConfig, qualityLevel: e.target.value })}
+                        >
+                          <Radio value="draft">快速预览</Radio>
+                          <Radio value="standard">标准质量</Radio>
+                          <Radio value="precision">高精度</Radio>
+                        </Radio.Group>
+                      </Form.Item>
+                    </Form>
+                  </Card>
+
+                  <Card title="性能配置" size="small">
+                    <Form layout="vertical" size="small">
+                      <Form.Item>
+                        <Checkbox
+                          checked={rbfConfig.enableParallel}
+                          onChange={(e) => setRbfConfig({ ...rbfConfig, enableParallel: e.target.checked })}
+                        >
+                          启用并行计算
+                        </Checkbox>
+                      </Form.Item>
+
+                      <Form.Item>
+                        <Checkbox
+                          checked={rbfConfig.autoOptimize}
+                          onChange={(e) => setRbfConfig({ ...rbfConfig, autoOptimize: e.target.checked })}
+                        >
+                          自动参数优化
+                        </Checkbox>
+                      </Form.Item>
+
+                      <Form.Item label="质量阈值">
+                        <Slider
+                          value={rbfConfig.meshCompatibility.qualityThreshold}
+                          onChange={(value) => setRbfConfig({
+                            ...rbfConfig,
+                            meshCompatibility: { ...rbfConfig.meshCompatibility, qualityThreshold: value },
+                          })}
+                          min={0.3}
+                          max={1.0}
+                          step={0.05}
+                          marks={{ 0.3: '0.3', 0.65: '0.65', 1.0: '1.0' }}
+                        />
+                      </Form.Item>
+                    </Form>
+                  </Card>
                 </>
               ) : (
                 <Card title="GemPy建模配置" size="small" style={{ marginBottom: '16px' }}>
@@ -636,20 +641,20 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                     <Form.Item label="插值方法">
                       <Select
                         value={gemPyConfig.interpolationMethod}
-                        onChange={(value) => setGemPyConfig({...gemPyConfig, interpolationMethod: value})}
+                        onChange={(value) => setGemPyConfig({ ...gemPyConfig, interpolationMethod: value })}
                       >
                         <Option value="kriging">克里金插值 - 地统计学方法</Option>
                         <Option value="cubic_spline">三次样条 - 平滑插值</Option>
                         <Option value="rbf">径向基函数 - 局部插值</Option>
                       </Select>
                     </Form.Item>
-                    
+
                     <Row gutter={8}>
                       <Col span={8}>
                         <Form.Item label="X分辨率">
                           <InputNumber
                             value={gemPyConfig.resolutionX}
-                            onChange={(value) => setGemPyConfig({...gemPyConfig, resolutionX: value || 50})}
+                            onChange={(value) => setGemPyConfig({ ...gemPyConfig, resolutionX: value || 50 })}
                             min={20}
                             max={200}
                             style={{ width: '100%' }}
@@ -660,7 +665,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                         <Form.Item label="Y分辨率">
                           <InputNumber
                             value={gemPyConfig.resolutionY}
-                            onChange={(value) => setGemPyConfig({...gemPyConfig, resolutionY: value || 50})}
+                            onChange={(value) => setGemPyConfig({ ...gemPyConfig, resolutionY: value || 50 })}
                             min={20}
                             max={200}
                             style={{ width: '100%' }}
@@ -671,7 +676,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                         <Form.Item label="Z分辨率">
                           <InputNumber
                             value={gemPyConfig.resolutionZ}
-                            onChange={(value) => setGemPyConfig({...gemPyConfig, resolutionZ: value || 50})}
+                            onChange={(value) => setGemPyConfig({ ...gemPyConfig, resolutionZ: value || 50 })}
                             min={20}
                             max={200}
                             style={{ width: '100%' }}
@@ -679,33 +684,33 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                         </Form.Item>
                       </Col>
                     </Row>
-                    
+
                     <Form.Item>
                       <Checkbox
                         checked={gemPyConfig.enableFaults}
-                        onChange={(e) => setGemPyConfig({...gemPyConfig, enableFaults: e.target.checked})}
+                        onChange={(e) => setGemPyConfig({ ...gemPyConfig, enableFaults: e.target.checked })}
                       >
                         启用断层建模
                       </Checkbox>
                     </Form.Item>
-                    
+
                     <Form.Item label="断层平滑度">
                       <Slider
                         value={gemPyConfig.faultSmoothing}
-                        onChange={(value) => setGemPyConfig({...gemPyConfig, faultSmoothing: value})}
+                        onChange={(value) => setGemPyConfig({ ...gemPyConfig, faultSmoothing: value })}
                         min={0.1}
                         max={1.0}
                         step={0.1}
                         marks={{ 0.1: '0.1', 0.5: '0.5', 1.0: '1.0' }}
                       />
                     </Form.Item>
-                    
+
                     <Row gutter={16}>
                       <Col span={12}>
                         <Form.Item>
                           <Checkbox
                             checked={gemPyConfig.gravityModel}
-                            onChange={(e) => setGemPyConfig({...gemPyConfig, gravityModel: e.target.checked})}
+                            onChange={(e) => setGemPyConfig({ ...gemPyConfig, gravityModel: e.target.checked })}
                           >
                             重力建模
                           </Checkbox>
@@ -715,7 +720,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                         <Form.Item>
                           <Checkbox
                             checked={gemPyConfig.magneticModel}
-                            onChange={(e) => setGemPyConfig({...gemPyConfig, magneticModel: e.target.checked})}
+                            onChange={(e) => setGemPyConfig({ ...gemPyConfig, magneticModel: e.target.checked })}
                           >
                             磁法建模
                           </Checkbox>
@@ -726,67 +731,28 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                 </Card>
               )}
             </Col>
-            
+
             <Col span={12}>
               <Card title={algorithm === 'rbf' ? 'RBF算法说明' : 'GemPy算法说明'} size="small">
                 <Collapse size="small" ghost>
                   {algorithm === 'rbf' ? (
                     <>
                       <Panel header="RBF数学原理" key="1">
-                    <Paragraph style={{ fontSize: '12px', margin: 0 }}>
-                      RBF插值的核心数学表达式：<br/>
-                      <code>f(x) = Σ(i=1 to N) λi * φ(||x - xi||) + P(x)</code><br/>
-                      其中φ为径向基函数，λi为权重系数，P(x)为多项式项。
-                    </Paragraph>
-                  </Panel>
-                  
-                  <Panel header="核函数特性" key="2">
-                    <List
-                      size="small"
-                      dataSource={[
-                        { name: '高斯函数', desc: '数值稳定，收敛快，适合密集数据' },
-                        { name: '多二次函数', desc: '形状保持，适应性强，稳定性高' },
-                        { name: '薄板样条', desc: '无需调参，理论完备，平滑性优' },
-                        { name: '三次函数', desc: '计算快速，内存小，易实现' }
-                      ]}
-                      renderItem={item => (
-                        <List.Item>
-                          <Text strong style={{ fontSize: '11px' }}>{item.name}:</Text>
-                          <Text style={{ fontSize: '11px', marginLeft: '8px' }}>{item.desc}</Text>
-                        </List.Item>
-                      )}
-                    />
-                  </Panel>
-                  
-                  <Panel header="五阶段工作流程" key="3">
-                    <Timeline
-                      size="small"
-                      items={[
-                        { children: '数据预处理 - 标准化、校正、质量检查' },
-                        { children: 'RBF参数优化 - 交叉验证、多目标优化' },
-                        { children: '三维网格生成 - 并行插值、质量优化' },
-                        { children: '三维体生成 - Marching Cubes算法' },
-                        { children: '质量评估 - 完整评估报告生成' }
-                      ]}
-                    />
-                  </Panel>
-                    </>
-                  ) : (
-                    <>
-                      <Panel header="GemPy建模原理" key="1">
                         <Paragraph style={{ fontSize: '12px', margin: 0 }}>
-                          GemPy基于隐式建模方法，通过位势场理论构建三维地质模型。<br/>
-                          核心是通过插值技术将地质接触点和层序关系转换为连续的标量场。
+                          RBF插值的核心数学表达式：<br />
+                          <code>f(x) = Σ(i=1 to N) λi * φ(||x - xi||) + P(x)</code><br />
+                          其中φ为径向基函数，λi为权重系数，P(x)为多项式项。
                         </Paragraph>
                       </Panel>
-                      
-                      <Panel header="插值方法特性" key="2">
+
+                      <Panel header="核函数特性" key="2">
                         <List
                           size="small"
                           dataSource={[
-                            { name: '克里金插值', desc: '地统计学方法，考虑空间相关性' },
-                            { name: '三次样条', desc: '平滑插值，连续性好' },
-                            { name: '径向基函数', desc: '局部插值，适合复杂地质' }
+                            { name: '高斯函数', desc: '数值稳定，收敛快，适合密集数据' },
+                            { name: '多二次函数', desc: '形状保持，适应性强，稳定性高' },
+                            { name: '薄板样条', desc: '无需调参，理论完备，平滑性优' },
+                            { name: '三次函数', desc: '计算快速，内存小，易实现' },
                           ]}
                           renderItem={item => (
                             <List.Item>
@@ -796,7 +762,46 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                           )}
                         />
                       </Panel>
-                      
+
+                      <Panel header="五阶段工作流程" key="3">
+                        <Timeline
+                          size="small"
+                          items={[
+                            { children: '数据预处理 - 标准化、校正、质量检查' },
+                            { children: 'RBF参数优化 - 交叉验证、多目标优化' },
+                            { children: '三维网格生成 - 并行插值、质量优化' },
+                            { children: '三维体生成 - Marching Cubes算法' },
+                            { children: '质量评估 - 完整评估报告生成' },
+                          ]}
+                        />
+                      </Panel>
+                    </>
+                  ) : (
+                    <>
+                      <Panel header="GemPy建模原理" key="1">
+                        <Paragraph style={{ fontSize: '12px', margin: 0 }}>
+                          GemPy基于隐式建模方法，通过位势场理论构建三维地质模型。<br />
+                          核心是通过插值技术将地质接触点和层序关系转换为连续的标量场。
+                        </Paragraph>
+                      </Panel>
+
+                      <Panel header="插值方法特性" key="2">
+                        <List
+                          size="small"
+                          dataSource={[
+                            { name: '克里金插值', desc: '地统计学方法，考虑空间相关性' },
+                            { name: '三次样条', desc: '平滑插值，连续性好' },
+                            { name: '径向基函数', desc: '局部插值，适合复杂地质' },
+                          ]}
+                          renderItem={item => (
+                            <List.Item>
+                              <Text strong style={{ fontSize: '11px' }}>{item.name}:</Text>
+                              <Text style={{ fontSize: '11px', marginLeft: '8px' }}>{item.desc}</Text>
+                            </List.Item>
+                          )}
+                        />
+                      </Panel>
+
                       <Panel header="建模工作流程" key="3">
                         <Timeline
                           size="small"
@@ -805,7 +810,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                             { children: '几何设置 - 建模范围、分辨率配置' },
                             { children: '插值计算 - 位势场构建、地层边界' },
                             { children: '断层处理 - 断层面建模、位移计算' },
-                            { children: '物性建模 - 重力、磁法正演计算' }
+                            { children: '物性建模 - 重力、磁法正演计算' },
                           ]}
                         />
                       </Panel>
@@ -830,7 +835,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                       { label: '数据点数', value: `${realTimeStats.dataPoints.toLocaleString()} 个` },
                       { label: '网格节点', value: `${realTimeStats.gridPoints.toLocaleString()} 个` },
                       { label: '内存使用', value: `${realTimeStats.memoryUsage.toFixed(1)} MB` },
-                      { label: '质量分数', value: realTimeStats.qualityScore.toFixed(3) }
+                      { label: '质量分数', value: realTimeStats.qualityScore.toFixed(3) },
                     ]}
                     renderItem={item => (
                       <List.Item>
@@ -848,7 +853,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                   </div>
                 )}
               </Card>
-              
+
               {qualityMetrics && (
                 <Card title="质量指标" size="small">
                   <div style={{ marginBottom: '16px' }}>
@@ -856,22 +861,22 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                       <Text>整体评级:</Text>
                       <Tag color={
                         qualityMetrics.overall.grade === 'A' ? 'green' :
-                        qualityMetrics.overall.grade === 'B' ? 'blue' :
-                        qualityMetrics.overall.grade === 'C' ? 'orange' : 'red'
+                          qualityMetrics.overall.grade === 'B' ? 'blue' :
+                            qualityMetrics.overall.grade === 'C' ? 'orange' : 'red'
                       }>
                         {qualityMetrics.overall.grade}
                       </Tag>
                       <Text>分数: {qualityMetrics.overall.score.toFixed(3)}</Text>
                     </Space>
                   </div>
-                  
+
                   <div style={{ marginBottom: '16px' }}>
                     <Text>网格就绪: </Text>
                     <Tag color={qualityMetrics.overall.meshReadiness ? 'green' : 'red'}>
                       {qualityMetrics.overall.meshReadiness ? '是' : '否'}
                     </Tag>
                   </div>
-                  
+
                   {qualityMetrics.overall.recommendation.length > 0 && (
                     <div>
                       <Text strong>建议:</Text>
@@ -889,7 +894,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                 </Card>
               )}
             </Col>
-            
+
             <Col span={12}>
               <Card title="网格指导" size="small">
                 {qualityMetrics ? (
@@ -898,7 +903,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                     dataSource={[
                       { label: '推荐网格尺寸', value: `${qualityMetrics.meshGuidance.recommendedMeshSize} m` },
                       { label: '预估单元数', value: qualityMetrics.meshGuidance.estimatedElements.toLocaleString() },
-                      { label: '质量阈值', value: qualityMetrics.meshGuidance.qualityThreshold.toFixed(2) }
+                      { label: '质量阈值', value: qualityMetrics.meshGuidance.qualityThreshold.toFixed(2) },
                     ]}
                     renderItem={item => (
                       <List.Item>
@@ -941,7 +946,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
           }
         />
       )}
-      
+
       {processingStatus === 'error' && (
         <Alert
           message="RBF三维重建失败"

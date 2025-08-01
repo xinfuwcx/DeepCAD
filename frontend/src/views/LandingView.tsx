@@ -1,3 +1,29 @@
+/**
+ * LandingView.tsx - 系统欢迎页面
+ * 
+ * 功能描述:
+ * - DeepCAD系统的入口欢迎界面
+ * - 展示系统品牌信息和核心功能特性
+ * - 提供快速开始和文档查看入口
+ * - 集成3D粒子背景动画效果
+ * 
+ * 视觉特效:
+ * - Three.js 3D粒子系统背景
+ * - 动态粒子连接线效果
+ * - Framer Motion 页面动画
+ * - 响应式卡片布局
+ * 
+ * 功能特性展示:
+ * 1. 高级几何建模 - 参数化建模工具
+ * 2. 智能分析计算 - 有限元分析引擎
+ * 3. 数据驱动设计 - AI辅助优化决策
+ * 
+ * 导航功能:
+ * - "开始体验" 按钮跳转到几何建模工作台
+ * - "查看文档" 按钮跳转到帮助页面
+ * 
+ * 技术栈: React + Three.js + Framer Motion + Ant Design
+ */
 import React, { useRef, useEffect } from 'react';
 import { Button, Typography, Space, Row, Col } from 'antd';
 import { motion } from 'framer-motion';

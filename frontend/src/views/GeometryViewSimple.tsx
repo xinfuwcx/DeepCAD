@@ -1,3 +1,33 @@
+/**
+ * GeometryViewSimple.tsx - 简化版几何建模界面
+ * 
+ * 功能描述:
+ * - 精简版的几何建模工作台，专注核心功能
+ * - 提供简洁直观的用户界面和操作流程
+ * - 集成专业3D视口和增强地质模块
+ * - 适合快速建模和教学演示使用
+ * 
+ * 简化功能:
+ * 1. 核心建模工具 - 保留最常用的建模功能
+ * 2. 简洁界面设计 - 减少界面复杂度，提升易用性
+ * 3. 快速操作 - 优化操作流程，减少步骤
+ * 4. 专业3D渲染 - 高质量的3D可视化展示
+ * 5. 智能工具栏 - 自适应工具选择和状态管理
+ * 
+ * 核心组件:
+ * - ProfessionalViewport3D: 专业3D视口组件
+ * - EnhancedGeologyModule: 增强地质建模模块
+ * - Toolbar: 专业几何建模工具栏
+ * - StatusBar: 状态栏显示
+ * 
+ * 使用场景:
+ * - 快速原型建模
+ * - 教学培训
+ * - 概念设计验证
+ * - 移动端适配
+ * 
+ * 技术特点: 轻量化设计、快速响应、专业渲染、工具集成
+ */
 import React, { useState } from 'react';
 import { Button, Typography, Space, Switch, Progress, message } from 'antd';
 import { 

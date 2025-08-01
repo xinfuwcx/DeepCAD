@@ -1,3 +1,33 @@
+/**
+ * ResultsListView.tsx - 结果管理列表界面
+ * 
+ * 功能描述:
+ * - CAE分析结果的批量管理和展示界面
+ * - 提供结果文件的分类、搜索、筛选和批量操作
+ * - 支持结果状态管理和版本控制
+ * - 集成结果预览和快速访问功能
+ * 
+ * 管理功能:
+ * 1. 结果列表展示 - 表格形式展示所有分析结果
+ * 2. 多维度筛选 - 按日期、作者、状态、类型等筛选
+ * 3. 搜索功能 - 支持结果名称和描述的全文搜索
+ * 4. 状态管理 - 显示完成、失败、处理中等状态
+ * 5. 批量操作 - 支持批量删除、下载、导出
+ * 6. 快速预览 - 点击查看结果详情和预览
+ * 
+ * 数据结构:
+ * - ResultData接口定义
+ * - 状态类型: completed | failed | processing
+ * - 结果分类和元数据管理
+ * 
+ * 界面特性:
+ * - 响应式表格设计
+ * - 状态标签和图标
+ * - 操作按钮和工具提示
+ * - 日期范围选择器
+ * 
+ * 技术特点: 数据管理、批量操作、状态跟踪、用户体验优化
+ */
 import React, { useState, useEffect } from 'react';
 import { Typography, Row, Col, Card, Table, Tag, Button, Space, Input, Select, DatePicker, Tooltip } from 'antd';
 import { SearchOutlined, FilterOutlined, CaretUpOutlined as SortAscendingOutlined, EyeOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons';

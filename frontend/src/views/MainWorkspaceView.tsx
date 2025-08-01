@@ -1,3 +1,27 @@
+/**
+ * MainWorkspaceView.tsx - 主工作空间界面
+ * 
+ * 功能描述:
+ * - 集成化的CAE工作台，整合了建模、网格、计算、后处理等所有功能模块
+ * - 多标签页工作流管理，支持同时进行多个工程任务
+ * - 统一的工具栏和组件面板，提供一站式CAE解决方案
+ * - 专为深基坑工程CAE分析设计的综合工作环境
+ * 
+ * 核心组件:
+ * - CAE3DViewport: 高性能3D渲染视口
+ * - UnifiedToolbar: 统一工具栏系统
+ * - 地质建模模块 (SimpleGeologyModule)
+ * - 基坑设计模块 (SimpleExcavationModule)  
+ * - 支护结构模块 (SimpleSupportModule)
+ * - 材料库管理 (MaterialLibrary)
+ * - 属性编辑器 (PropertyEditor)
+ * - 场景树管理 (SceneTree)
+ * - 可视化控制面板 (VisualizationControlPanel)
+ * - 边界条件配置 (BoundaryConditionConfigPanel)
+ * 
+ * 工作流程: 几何建模 → 网格划分 → 边界条件 → 求解计算 → 后处理
+ * 技术特点: 模块化设计、组件复用、工作流集成
+ */
 import React, { useState } from 'react';
 import { Layout, Card, Tabs, Row, Col } from 'antd';
 import CAE3DViewport from '../components/3d/CAE3DViewport';

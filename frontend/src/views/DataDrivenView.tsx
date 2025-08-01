@@ -1,3 +1,27 @@
+/**
+ * DataDrivenView.tsx - 数据驱动分析模块
+ * 
+ * 功能描述:
+ * - 基于数据的智能分析和决策支持系统
+ * - 支持CSV数据文件上传和解析处理
+ * - 提供数据驱动的工程设计优化建议
+ * - 集成机器学习算法进行数据挖掘和模式识别
+ * 
+ * 数据处理能力:
+ * 1. 文件上传和解析 - 支持CSV格式数据导入
+ * 2. 数据预处理 - 数据清洗、格式转换、缺失值处理
+ * 3. 统计分析 - 描述性统计、相关性分析、趋势分析
+ * 4. 机器学习 - 预测建模、聚类分析、异常检测
+ * 5. 可视化展示 - 数据图表、分析结果可视化
+ * 
+ * 应用场景:
+ * - 历史工程数据分析
+ * - 施工参数优化
+ * - 风险预测评估
+ * - 设计方案比较
+ * 
+ * 技术栈: React + Papa Parse (CSV) + React Dropzone + 数据分析算法
+ */
 import React, { useState, useCallback } from 'react';
 import { Upload, Button, Card, Row, Col, Typography, Steps, message, Spin } from 'antd';
 import { InboxOutlined, RocketOutlined, CloudOutlined as CloudUploadOutlined } from '@ant-design/icons';

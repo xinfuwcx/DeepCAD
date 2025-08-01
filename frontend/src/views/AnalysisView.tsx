@@ -1,3 +1,24 @@
+/**
+ * AnalysisView.tsx - 计算分析模块
+ * 
+ * 功能描述:
+ * - CAE仿真分析的配置和启动界面
+ * - 支持多种分析类型：结构分析、流体分析、多物理场耦合分析
+ * - 提供分析参数设置和计算进度监控
+ * - 适用于深基坑工程的力学分析、渗流分析、变形分析等
+ * 
+ * 分析类型:
+ * 1. 结构分析 - 深基坑围护结构的应力应变分析
+ * 2. 流体分析 - 地下水渗流和基坑降水分析  
+ * 3. 多物理场耦合 - 流固耦合、渗流-变形耦合分析
+ * 
+ * 主要功能:
+ * - 分析类型选择和参数配置
+ * - 计算任务提交和进度监控
+ * - 分析结果预览和状态管理
+ * 
+ * 技术特点: 多物理场求解、进度可视化、任务管理
+ */
 import React, { useState } from 'react';
 import { Layout, Card, Typography, Button, Space, Row, Col, Progress } from 'antd';
 import { BarChartOutlined, ThunderboltOutlined, SettingOutlined } from '@ant-design/icons';

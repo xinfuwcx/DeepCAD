@@ -1,3 +1,29 @@
+/**
+ * GeologyModelingView.tsx - 地质建模专业工作台
+ * 
+ * 功能描述:
+ * - 专业的地质建模和土层结构建立界面
+ * - 提供完整的地质建模工作流和配置管理
+ * - 支持3D地质体建模和可视化展示
+ * - 集成地质插值算法和建模进度监控
+ * 
+ * 地质建模功能:
+ * 1. 地质建模配置 - 建模参数和算法选择
+ * 2. 建模范围设置 - 空间范围和边界条件定义
+ * 3. 插值参数配置 - 插值算法参数调节
+ * 4. 土层管理 - 土层分类、属性设置、颜色管理
+ * 5. 3D可视化 - 地质体三维展示和交互
+ * 6. 建模进度监控 - 实时显示建模计算进度
+ * 
+ * 核心组件:
+ * - GeologyModelingConfig: 地质建模配置面板
+ * - ModelingRangeConfig: 建模范围配置
+ * - InterpolationParamsConfig: 插值参数设置
+ * - ModelingProgressModal: 建模进度模态框
+ * - GeometryViewport3D: 3D几何视口
+ * 
+ * 技术特色: 专业算法集成、参数化配置、实时预览、进度可视化
+ */
 import React, { useState, useRef, useEffect } from 'react';
 import { Row, Col, Button, message, Space, Typography, Card } from 'antd';
 import { RocketOutlined, EyeOutlined } from '@ant-design/icons';

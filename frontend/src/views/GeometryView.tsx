@@ -1,3 +1,26 @@
+/**
+ * GeometryView.tsx - 几何建模工作台
+ * 
+ * 功能描述:
+ * - 深基坑工程几何建模系统的核心界面
+ * - 提供完整的建模工作流：地质建模 → 基坑设计 → 支护结构
+ * - 左侧控制面板包含三个建模模块的参数设置界面
+ * - 右侧3D视口实时预览建模结果
+ * - 建模进度跟踪和状态显示
+ * 
+ * 工作流程:
+ * 1. 地质建模 - 创建地质层结构和土体参数
+ * 2. 基坑设计 - 设计基坑开挖几何形状  
+ * 3. 支护结构 - 添加围护结构和支撑系统
+ * 
+ * 主要组件:
+ * - SimpleGeologyModule: 地质建模模块
+ * - SimpleExcavationModule: 基坑设计模块
+ * - SimpleSupportModule: 支护结构模块
+ * - GeometryViewport3D: 3D几何预览视口
+ * 
+ * 技术特点: 参数化建模、实时预览、工作流管理
+ */
 import React, { useState, useRef } from 'react';
 import { Layout, Card, Typography, Tabs, Row, Col, Space, Button, Badge, Alert } from 'antd';
 import { 

@@ -1,3 +1,34 @@
+/**
+ * ExcavationView.tsx - 基坑开挖设计模块
+ * 
+ * 功能描述:
+ * - 深基坑开挖工程的设计和建模界面
+ * - 支持复杂基坑几何形状的参数化设计
+ * - 提供DXF图纸导入和2D/3D建模工具
+ * - 集成基坑施工工艺和分步开挖模拟
+ * 
+ * 基坑设计功能:
+ * 1. 基坑几何设计 - 长度、宽度、深度、坡度等参数设置
+ * 2. DXF图纸导入 - 支持CAD设计图纸的直接导入
+ * 3. 复杂形状建模 - 不规则基坑、多级基坑、斜坡基坑
+ * 4. 施工阶段划分 - 分步开挖工艺和时序安排
+ * 5. 降水系统设计 - 降水井位置和降水方案配置
+ * 
+ * 可视化工具:
+ * - ExcavationCanvas2D: 2D基坑剖面设计
+ * - Three.js 3D渲染: 立体基坑形状预览
+ * - DXF解析器: CAD图纸格式支持
+ * - GLTF模型加载: 3D模型导入功能
+ * 
+ * 设计特色:
+ * - 参数化驱动设计
+ * - 实时几何更新
+ * - 多视角预览
+ * - 施工仿真
+ * 
+ * 输出格式: 几何模型可导出至网格生成和CAE分析模块
+ * 技术栈: React + Three.js + DXF-Parser + GLTF-Loader
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Layout, Form, InputNumber, Button, Upload, message, Spin, Alert, 

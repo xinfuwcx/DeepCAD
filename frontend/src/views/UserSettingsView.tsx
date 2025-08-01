@@ -1,3 +1,39 @@
+/**
+ * UserSettingsView.tsx - 用户个人设置管理
+ * 
+ * 功能描述:
+ * - 用户个人信息和偏好设置的管理界面
+ * - 提供用户档案、通知设置、安全配置等功能
+ * - 支持数据验证和实时保存功能
+ * - 集成Glass UI设计和响应式布局
+ * 
+ * 设置类别:
+ * 1. 个人档案 - 姓名、邮箱、职位、组织信息管理
+ * 2. 偏好设置 - 语言、时区、单位制、默认设置
+ * 3. 通知配置 - 邮件通知、桌面通知、推送设置
+ * 4. 安全设置 - 密码修改、双因素认证、登录日志
+ * 5. 数据管理 - 数据导出、账户删除、隐私设置
+ * 
+ * 数据验证:
+ * - userSettingsSchema: Zod数据验证模式
+ * - React Hook Form: 表单管理和验证
+ * - 实时数据验证和错误提示
+ * - 类型安全的数据处理
+ * 
+ * 界面特性:
+ * - GlassCard毛玻璃卡片设计
+ * - 分标签页管理不同设置类别
+ * - 头像上传和预览功能
+ * - 即时保存和状态反馈
+ * 
+ * 技术栈:
+ * - React Hook Form + Zod Resolver
+ * - Ant Design组件库
+ * - TypeScript类型安全
+ * - Glass UI设计系统
+ * 
+ * 用户体验: 直观易用、实时验证、个性化配置、数据安全
+ */
 import React, { useState } from 'react';
 import { Typography, Form, Input, Button, notification, Switch, Row, Col, Space, Divider, Card, Tabs, Upload, Avatar, Select } from 'antd';
 import { UserOutlined, UploadOutlined, SaveOutlined, LockOutlined, BellOutlined, GlobalOutlined } from '@ant-design/icons';

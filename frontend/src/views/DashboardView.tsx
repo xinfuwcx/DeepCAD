@@ -1,3 +1,21 @@
+/**
+ * DashboardView.tsx - 系统控制台主页面
+ * 
+ * 功能描述:
+ * - 系统控制中心主界面，提供项目概览和快速访问功能
+ * - 实时显示项目统计信息（项目数量、几何模型、仿真分析、组件总数）
+ * - 集成多个D3.js图表组件：项目状态饼图、模块使用环形图、系统资源柱状图、性能趋势线图
+ * - 快速导航按钮，可直接跳转到各个功能模块
+ * - 实时数据更新和动画效果展示
+ * 
+ * 主要组件:
+ * - ProjectStatusChart: 项目完成状态饼图
+ * - ModuleUsageChart: 模块使用情况环形图  
+ * - SystemResourceChart: CPU/内存/GPU/网络资源使用柱状图
+ * - PerformanceTrendChart: 系统性能趋势折线图
+ * 
+ * 技术栈: React + Ant Design + D3.js + Zustand状态管理
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Typography, 
