@@ -17,12 +17,11 @@ import {
   DatabaseOutlined
 } from '@ant-design/icons';
 import CAEThreeEngineComponent from '../components/3d/CAEThreeEngine';
-import DataStreamViz from '../components/ui/DataStreamViz';
-import ParticleBackground from '../components/ui/ParticleBackground';
-import GlassmorphismCard from '../components/ui/GlassmorphismCard';
+
 import GeologyModule from '../components/geology/GeologyModule';
 import ExcavationModule from '../components/excavation/ExcavationModule';
 import SupportModule from '../components/support/SupportModule';
+
 import AdvancedMeshConfig from '../components/meshing/AdvancedMeshConfig';
 import PhysicalGroupManager from '../components/meshing/PhysicalGroupManager';
 import IntegratedMeshControl from '../components/meshing/IntegratedMeshControl';
@@ -596,7 +595,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           { 
             key: 'geology', 
             label: <span>{getActivityBadge(geologyStatus)}地质建模</span>, 
-            component: <GeologyModule 
+            children: <GeologyModule 
               interpolationMethod={geologyParams.interpolationMethod}
               gridResolution={geologyParams.gridResolution}
               xExtend={geologyParams.xExtend}
@@ -613,12 +612,12 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           { 
             key: 'borehole', 
             label: <span>{getActivityBadge('process')}钻孔可视化</span>, 
-            component: <div style={{ padding: '20px', color: '#fff', textAlign: 'center' }}>🗺️ 钻孔数据可视化</div>
+            children: <div style={{ padding: '20px', color: '#fff', textAlign: 'center' }}>🗺️ 钻孔数据可视化</div>
           },
           { 
             key: 'excavation', 
             label: <span>{getActivityBadge(excavationStatus)}基坑设计</span>, 
-            component: <ExcavationModule 
+            children: <ExcavationModule 
               params={excavationParams}
               onParamsChange={(key, value) => handleParamsChange('excavation', key, value)}
               onGenerate={(data) => handleGenerate('excavation', data)}
@@ -629,13 +628,364 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           { 
             key: 'support', 
             label: <span>{getActivityBadge(supportStatus)}支护结构</span>, 
-            component: <SupportModule 
+            children: <SupportModule 
               params={supportParams}
               onParamsChange={(key, value) => handleParamsChange('support', key, value)}
               onGenerate={(data) => handleGenerate('support', data)}
               status={supportStatus}
               disabled={excavationStatus !== 'finish'}
             /> 
+          }
+        ]
+      },
+      'geology-environment': {
+        title: '地质环境控制',
+        tabs: [
+          { 
+            key: 'geology-reconstruction', 
+            label: <span>{getActivityBadge('finish')}三维地质重建</span>, 
+            children: (
+              <div style={{ padding: '20px', color: '#fff', height: '100%', overflow: 'auto' }}>
+                <div style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 'bold' }}>🌍 三维地质重建</div>
+                
+                {/* 地质图层信息 */}
+                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(82, 196, 26, 0.1)', borderRadius: '8px', border: '1px solid #52c41a' }}>
+                  <div style={{ color: '#52c41a', fontWeight: 'bold', marginBottom: '8px' }}>地质图层数据</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>填土层 (0-3.5m) - 已加载</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>粉质粘土 (3.5-8.2m) - 已加载</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>粉砂层 (8.2-15.6m) - 已加载</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>粘土层 (15.6-22.3m) - 已加载</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80' }}>基岩 (22.3-30.0m) - 已加载</div>
+                </div>
+
+                {/* 钻孔数据管理 */}
+                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(24, 144, 255, 0.1)', borderRadius: '8px', border: '1px solid #1890ff' }}>
+                  <div style={{ color: '#1890ff', fontWeight: 'bold', marginBottom: '8px' }}>钻孔数据管理</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '8px' }}>已导入钻孔: 45个 | 有效数据: 42个</div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button 
+                      onClick={() => {
+                        console.log('导入钻孔数据');
+                        // 实际功能：打开文件选择对话框，支持Excel/CSV格式
+                        // 数据验证：检查坐标、深度、地质描述等字段
+                        // 可视化：在3D视图中显示钻孔位置
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#1890ff',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      导入数据
+                    </button>
+                    <button 
+                      onClick={() => {
+                        console.log('数据质量检查');
+                        // 实际功能：检查数据完整性、坐标合理性、深度连续性
+                        // 生成质量报告：缺失数据、异常值、重复记录等
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: 'transparent',
+                        color: '#1890ff',
+                        border: '1px solid #1890ff',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      质量检查
+                    </button>
+                  </div>
+                </div>
+
+                {/* 三维重建控制 */}
+                <div style={{ padding: '12px', backgroundColor: 'rgba(82, 196, 26, 0.1)', borderRadius: '8px', border: '1px solid #52c41a' }}>
+                  <div style={{ color: '#52c41a', fontWeight: 'bold', marginBottom: '8px' }}>三维重建控制</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff90', marginBottom: '8px' }}>重建质量: 92% | 计算节点: 156,432个</div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button 
+                      onClick={() => {
+                        console.log('启动自动重建');
+                        // 实际功能：基于钻孔数据进行Kriging插值或RBF插值
+                        // 生成三维地质体模型，计算各地层分布
+                        // 质量评估：插值精度、边界光滑度等
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#52c41a',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      自动重建
+                    </button>
+                    <button 
+                      onClick={() => {
+                        console.log('参数优化');
+                        // 实际功能：调整插值参数、搜索半径、权重函数
+                        // 交叉验证优化，提高重建精度
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: 'transparent',
+                        color: '#52c41a',
+                        border: '1px solid #52c41a',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      参数优化
+                    </button>
+                    <button 
+                      onClick={() => {
+                        console.log('导出模型');
+                        // 实际功能：导出为STL/OBJ/PLY等3D格式
+                        // 支持按地层分别导出或整体导出
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: 'transparent',
+                        color: '#52c41a',
+                        border: '1px solid #52c41a',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      导出模型
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          },
+          { 
+            key: 'tunnel-modeling', 
+            label: <span>{getActivityBadge('process')}隧道建模</span>, 
+            children: (
+              <div style={{ padding: '20px', color: '#fff', height: '100%', overflow: 'auto' }}>
+                <div style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 'bold' }}>🚇 隧道建模</div>
+                
+                {/* 隧道工程信息 */}
+                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(24, 144, 255, 0.1)', borderRadius: '8px', border: '1px solid #1890ff' }}>
+                  <div style={{ color: '#1890ff', fontWeight: 'bold', marginBottom: '8px' }}>隧道工程信息</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>地铁1号线: 长度2800m, 直径6.2m, 深18.5m</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>排水隧道: 长度1200m, 直径3.0m, 深12.0m</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80' }}>共计156个盾构分段，已完成106个</div>
+                </div>
+
+                {/* 盾构施工参数 */}
+                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(114, 46, 209, 0.1)', borderRadius: '8px', border: '1px solid #722ed1' }}>
+                  <div style={{ color: '#722ed1', fontWeight: 'bold', marginBottom: '8px' }}>盾构施工参数</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>土压力: 2.5MPa | 推进速度: 8.5m/h</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>出土量: 12.3m³/h | 注浆量: 3.2m³/环</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80' }}>刀盘扭矩: 1250kN·m | 盾构姿态: 正常</div>
+                </div>
+
+                {/* 隧道建模控制 */}
+                <div style={{ padding: '12px', backgroundColor: 'rgba(24, 144, 255, 0.1)', borderRadius: '8px', border: '1px solid #1890ff' }}>
+                  <div style={{ color: '#1890ff', fontWeight: 'bold', marginBottom: '8px' }}>隧道建模控制</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff90', marginBottom: '8px' }}>建模进度: 68% | 精度等级: 高精度</div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button 
+                      onClick={() => {
+                        console.log('自动建模');
+                        // 实际功能：基于隧道轴线和截面参数生成三维模型
+                        // 考虑盾构机外形、管片分布、注浆层等
+                        // 支持不同隧道类型：单线、双线、盾构、明挖
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#1890ff',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      自动建模
+                    </button>
+                    <button 
+                      onClick={() => {
+                        console.log('轨迹设计');
+                        // 实际功能：输入起点、终点、中间控制点
+                        // 自动生成平面和纵断面线形
+                        // 支持曲线拟合、斜率控制等
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: 'transparent',
+                        color: '#1890ff',
+                        border: '1px solid #1890ff',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      轨迹设计
+                    </button>
+                    <button 
+                      onClick={() => {
+                        console.log('盾构仿真');
+                        // 实际功能：模拟盾构机推进过程
+                        // 分析土体变形、地表沉降、地下水变化
+                        // 优化施工参数：土压、推力、注浆压力等
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#722ed1',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      盾构仿真
+                    </button>
+                    <button 
+                      onClick={() => {
+                        console.log('实时监控');
+                        // 实际功能：连接盾构机传感器数据
+                        // 实时显示施工参数、故障报警
+                        // 生成日报、周报和效率分析
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: 'transparent',
+                        color: '#722ed1',
+                        border: '1px solid #722ed1',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      实时监控
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          },
+          { 
+            key: 'adjacent-buildings', 
+            label: <span>{getActivityBadge('wait')}相邻建筑</span>, 
+            children: (
+              <div style={{ padding: '20px', color: '#fff', height: '100%', overflow: 'auto' }}>
+                <div style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 'bold' }}>🏢 相邻建筑分析</div>
+                
+                {/* 建筑物信息 */}
+                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(255, 122, 69, 0.1)', borderRadius: '8px', border: '1px solid #ff7a45' }}>
+                  <div style={{ color: '#ff7a45', fontWeight: 'bold', marginBottom: '8px' }}>相邻建筑物信息</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>办公大楺A: 25层120m, 距离35m - 中风险</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>住宅楻B: 20层80m, 距离28m - 高风险</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>商业中心C: 30层150m, 距离45m - 低风险</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80' }}>停车场D: 3层15m, 距离22m - 高风险</div>
+                </div>
+
+                {/* 监测系统状态 */}
+                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(24, 144, 255, 0.1)', borderRadius: '8px', border: '1px solid #1890ff' }}>
+                  <div style={{ color: '#1890ff', fontWeight: 'bold', marginBottom: '8px' }}>监测系统状态</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>监测点: 24个在线 | 数据采集频率: 10min/次</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>传感器类型: 倾斜仪、沉降仪、裂缝仪</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80' }}>最近更新: 2分钟前 | 系统状态: 正常</div>
+                </div>
+
+                {/* 风险评估与预警 */}
+                <div style={{ padding: '12px', backgroundColor: 'rgba(255, 77, 79, 0.1)', borderRadius: '8px', border: '1px solid #ff4d4f' }}>
+                  <div style={{ color: '#ff4d4f', fontWeight: 'bold', marginBottom: '8px' }}>风险评估与预警</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff90', marginBottom: '8px' }}>当前预警: 3条 | 最高级别: 二级预警</div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button 
+                      onClick={() => {
+                        console.log('实时风险评估');
+                        // 实际功能：基于建筑物的结构特性、基础类型、建造年代
+                        // 结合施工进度、地质条件进行动态风险评估
+                        // 输出风险等级、可能影响程度、防护建议
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#ff4d4f',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      实时风险评估
+                    </button>
+                    <button 
+                      onClick={() => {
+                        console.log('监测站部署');
+                        // 实际功能：根据建筑物位置和风险等级自动规划监测点
+                        // 优化传感器布置，设置阐值和报警规则
+                        // 生成监测方案和安装指南
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: 'transparent',
+                        color: '#ff7a45',
+                        border: '1px solid #ff7a45',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      监测站部署
+                    </button>
+                    <button 
+                      onClick={() => {
+                        console.log('影响分析');
+                        // 实际功能：模拟施工对建筑物的影响
+                        // 计算地表沉降、水平位移、倾斜角度
+                        // 预测裂缝发展、结构损伤程度
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#fa8c16',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      影响分析
+                    </button>
+                    <button 
+                      onClick={() => {
+                        console.log('生成报告');
+                        // 实际功能：生成相邻建筑影响评估报告
+                        // 包含风险等级、监测数据、防护措施建议
+                        // 支持PDF/Word导出，符合行业规范
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: 'transparent',
+                        color: '#fa8c16',
+                        border: '1px solid #fa8c16',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      生成报告
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
           }
         ]
       },
@@ -755,12 +1105,12 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           {
             key: 'visualization',
             label: <span>{getActivityBadge('process')}3D可视化</span>,
-            component: <div style={{ padding: '20px', color: '#fff', textAlign: 'center' }}>📊 计算结果3D可视化</div>
+            children: <div style={{ padding: '20px', color: '#fff', textAlign: 'center' }}>📊 计算结果3D可视化</div>
           },
           {
             key: 'export',
             label: <span>{getActivityBadge('finish')}数据导出</span>,
-            component: <div style={{ padding: '20px', color: '#fff', textAlign: 'center' }}>💾 结果数据导出</div>
+            children: <div style={{ padding: '20px', color: '#fff', textAlign: 'center' }}>💾 结果数据导出</div>
           },
           {
             key: 'analysis',
@@ -962,6 +1312,48 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
 
     const getMainContent = () => {
       switch (activeModule) {
+        case 'geology-environment':
+          return (
+            <div style={{ 
+              height: '100%',
+              position: 'relative',
+              display: 'flex'
+            }}>
+              {/* 主3D视口 */}
+              <div style={{ 
+                flex: 1, 
+                height: '100%',
+                minHeight: '500px',
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                <CAEThreeEngineComponent 
+                  onSelection={(objects) => ComponentDevHelper.logDevTip(`地质环境选中: ${objects.length}个`)}
+                  onMeasurement={(measurement) => ComponentDevHelper.logDevTip(`地质环境测量: ${JSON.stringify(measurement)}`)}
+                  style={{ flex: 1, minHeight: '400px' }}
+                />
+                
+                {/* 地质环境信息面板 */}
+                <div style={{ 
+                  position: 'absolute',
+                  top: '16px',
+                  left: '16px',
+                  background: 'rgba(0, 0, 0, 0.7)',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  color: '#ffffff',
+                  fontSize: '12px',
+                  zIndex: 5
+                }}>
+                  <div style={{ color: '#52c41a', marginBottom: '4px' }}>🗺️ 地质图层: 5层</div>
+                  <div style={{ color: '#1890ff', marginBottom: '4px' }}>🕳️ 钻孔数据: 45个</div>
+                  <div style={{ color: '#faad14' }}>🏢 相邻建筑: 4栋</div>
+                </div>
+              </div>
+            </div>
+          );
+          
         case 'geometry':
           return (
             <div style={{ 
@@ -1804,13 +2196,15 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
         <div>
           <Title level={4} style={{ 
             color: activeModule === 'geometry' ? '#ffffff' :
-                   activeModule === 'meshing' ? '#52c41a' :
+                   activeModule === 'geology-environment' ? '#52c41a' :
+                   activeModule === 'meshing' ? '#1890ff' :
                    activeModule === 'analysis' ? '#faad14' :
                    activeModule === 'results' ? '#eb2f96' :
                    themeConfig.colors.primary, 
             margin: 0 
           }}>
             {activeModule === 'geometry' ? '🏗️ 几何建模工作区' :
+             activeModule === 'geology-environment' ? '🌍 地质环境工作区' :
              activeModule === 'meshing' ? '🔲 网格生成工作区' :
              activeModule === 'analysis' ? '⚡ 计算分析工作区' :
              activeModule === 'results' ? '📊 结果查看工作区' :
@@ -1818,6 +2212,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           </Title>
           <Text style={{ color: themeConfig.colors.text.secondary, fontSize: '12px' }}>
             {activeModule === 'geometry' ? '地质建模 • 基坑设计 • 支护结构' :
+             activeModule === 'geology-environment' ? '三维地质重建 • 隧道建模 • 相邻建筑分析' :
              activeModule === 'meshing' ? '网格生成 • 自适应细化 • 质量分析' :
              activeModule === 'analysis' ? 'Terra求解器 • 多物理耦合 • 计算分析' :
              activeModule === 'results' ? '3D可视化 • 数据导出 • 后处理分析' :
@@ -1948,6 +2343,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                   onToolSelect={handleGeometryToolSelect}
                 />
               )}
+              
               
               {/* 3号专家网格工具栏 */}
               {activeModule === 'meshing' && (

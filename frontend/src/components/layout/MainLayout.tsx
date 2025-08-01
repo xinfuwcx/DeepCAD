@@ -11,7 +11,8 @@ import {
   SettingOutlined,
   ExperimentOutlined,
   DatabaseOutlined,
-  CodeOutlined
+  CodeOutlined,
+  EnvironmentOutlined
 } from '@ant-design/icons';
 import TechIcon from '../ui/TechIcon';
 import TechLogo from '../ui/TechLogo';
@@ -59,6 +60,11 @@ const MainLayout: React.FC = () => {
       key: 'geometry',
       icon: <AppstoreOutlined />,
       label: '几何建模',
+    },
+    {
+      key: 'geology-environment',
+      icon: <EnvironmentOutlined />,
+      label: '地质环境',
     },
     {
       key: 'meshing',
@@ -209,6 +215,7 @@ const MainLayout: React.FC = () => {
               />
             } />
             <Route path="geometry" element={<EnhancedMainWorkspaceView activeModule="geometry" />} />
+            <Route path="geology-environment" element={<EnhancedMainWorkspaceView activeModule="geology-environment" />} />
             <Route path="meshing" element={<EnhancedMainWorkspaceView activeModule="meshing" />} />
             <Route path="analysis" element={<EnhancedMainWorkspaceView activeModule="analysis" />} />
             <Route path="results" element={<EnhancedMainWorkspaceView activeModule="results" />} />
