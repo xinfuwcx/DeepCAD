@@ -1,11 +1,18 @@
-import React, { useEffect, ErrorInfo, Component, ReactNode } from 'react';
+/**
+ * DeepCAD主应用组件
+ * 深基坑CAE平台的根组件
+ */
+import React, { useEffect, Component, ReactNode, ErrorInfo } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import DeepCADAdvancedApp from './components/advanced/DeepCADAdvancedApp';
 import MainLayout from './components/layout/MainLayout';
 import { DeepCADThemeProvider } from './components/ui/DeepCADTheme';
 import './index.css';
 
-// 错误边界组件
+/**
+ * 错误边界组件
+ * 捕获和处理应用运行时错误
+ */
 class ErrorBoundary extends Component<
   { children: ReactNode },
   { hasError: boolean; error?: Error }
@@ -15,14 +22,20 @@ class ErrorBoundary extends Component<
     this.state = { hasError: false };
   }
 
+  /**
+   * 捕获错误并更新状态
+   */
   static getDerivedStateFromError(error: Error) {
     return { hasError: true, error };
   }
 
+  /**
+   * 记录错误信息
+   */
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('DeepCAD Error:', error, errorInfo);
-    console.error('Error stack:', error.stack);
-    console.error('Component stack:', errorInfo.componentStack);
+    console.error('DeepCAD应用错误:', error);
+    console.error('错误堆栈:', error.stack);
+    console.error('组件堆栈:', errorInfo.componentStack);
   }
 
   render() {
@@ -56,13 +69,13 @@ class ErrorBoundary extends Component<
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent'
             }}>
-              🚀 DeepCAD Loading...
+              🚀 DeepCAD 加载中...
             </h1>
             <p style={{ fontSize: '18px', opacity: 0.8, marginBottom: '30px' }}>
-              正在初始化世界级深基坑CAE平台组件系统
+              正在初始化深基坑CAE平台
             </p>
             <div style={{ fontSize: '14px', opacity: 0.6, marginBottom: '20px' }}>
-              组件加载中，请稍候...
+              系统启动中，请稍候...
             </div>
             {this.state.error && (
               <div style={{ 
@@ -109,17 +122,17 @@ class ErrorBoundary extends Component<
   }
 }
 
+/**
+ * 主应用组件
+ */
 const App: React.FC = () => {
   useEffect(() => {
-    // 设置页面标题和主题
-    document.title = 'DeepCAD - 世界级深基坑CAE平台';
+    // 设置页面基本信息
+    document.title = 'DeepCAD - 深基坑CAE平台';
     document.body.style.margin = '0';
     document.body.style.padding = '0';
     document.body.style.backgroundColor = '#0a0a0a';
     document.body.style.overflow = 'hidden';
-    
-    // 添加加载日志
-    console.log('🚀 DeepCAD App Starting...');
   }, []);
 
   return (
@@ -127,11 +140,11 @@ const App: React.FC = () => {
       <DeepCADThemeProvider>
         <BrowserRouter>
           <Routes>
-            {/* 默认首页 - 欢迎界面 */}
+            {/* 欢迎页面路由 */}
             <Route path="/" element={<DeepCADAdvancedApp />} />
             <Route path="/welcome" element={<DeepCADAdvancedApp />} />
             <Route path="/landing" element={<DeepCADAdvancedApp />} />
-            {/* 主工作系统 - 包含所有workspace路由 */}
+            {/* 主工作区路由 */}
             <Route path="/workspace/*" element={<MainLayout />} />
           </Routes>
         </BrowserRouter>

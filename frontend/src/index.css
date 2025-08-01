@@ -1,18 +1,25 @@
-/* DeepCAD 深基坑CAE平台全局样式 */
+/**
+ * DeepCAD深基坑CAE平台全局样式
+ * 定义应用的基础样式和主题变量
+ */
 @import './styles/ai-assistant.css';
+
+/* CSS变量定义 */
 :root {
+  /* 字体配置 */
   font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color-scheme: dark;
   
-  /* 深空主题色彩 */
-  --deepcad-bg-primary: #0a0a0a;
-  --deepcad-bg-secondary: #111111;
-  --deepcad-primary: #3b82f6;
-  --deepcad-accent: #8b5cf6;
-  --deepcad-text: #ffffff;
+  /* 深空主题色彩变量 */
+  --deepcad-bg-primary: #0a0a0a;    /* 主背景色 */
+  --deepcad-bg-secondary: #111111;   /* 次背景色 */
+  --deepcad-primary: #3b82f6;        /* 主色调 */
+  --deepcad-accent: #8b5cf6;         /* 强调色 */
+  --deepcad-text: #ffffff;           /* 文本颜色 */
   
+  /* 字体渲染优化 */
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -21,35 +28,27 @@
   text-size-adjust: 100%;
 }
 
+/* 全局重置 */
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+/* 基础布局 */
 html, body, #root {
   height: 100%;
+  width: 100%;
   margin: 0;
   padding: 0;
-}
-
-html {
-  width: 100%;
-  overflow: hidden;
   background: #000000;
+  overflow: hidden;
 }
 
+/* 字体配置 */
 body {
-  width: 100vw;
-  background: #000000;
-  overflow: hidden;
   font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-}
-
-#root {
-  width: 100vw;
-  overflow: hidden;
-  background: #000000;
+  color: var(--deepcad-text);
 }
 
 /* 滚动条美化 */
@@ -66,20 +65,98 @@ body {
 ::-webkit-scrollbar-thumb {
   background: rgba(59, 130, 246, 0.6);
   border-radius: 4px;
+  transition: background 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(59, 130, 246, 0.8);
 }
 
-/* 选择文本样式 */
+/* 文本选择样式 */
 ::selection {
   background: rgba(59, 130, 246, 0.3);
   color: #ffffff;
 }
 
-/* 禁用默认链接样式 */
+/* 链接样式重置 */
 a {
   color: inherit;
   text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--deepcad-primary);
+}
+
+/* 按钮基础样式 */
+button {
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* 输入框基础样式 */
+input, textarea {
+  outline: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--deepcad-text);
+  border-radius: 4px;
+  padding: 8px 12px;
+  transition: border-color 0.2s ease;
+}
+
+input:focus, textarea:focus {
+  border-color: var(--deepcad-primary);
+}
+
+/* 几何建模控制面板样式优化 */
+.ant-tabs-content-holder {
+  flex: 1 1 auto;
+  overflow: hidden;
+  height: 100%;
+}
+
+.ant-tabs-tabpane {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 !important;
+}
+
+/* 地质建模内容优化 */
+.ant-tabs-tabpane-active {
+  display: block !important;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* 确保地质建模组件不被挤压 */
+.geology-module-container {
+  height: 100%;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 16px !important;
+}
+
+/* 地质建模头部状态栏优化 */
+.geology-module-container .ant-card {
+  margin-bottom: 12px;
+}
+
+/* 地质建模内容区域Tabs优化 */
+.geology-module-container .ant-tabs {
+  height: auto !important;
+}
+
+.geology-module-container .ant-tabs-content-holder {
+  overflow-y: auto;
+  max-height: calc(100vh - 400px);
 }

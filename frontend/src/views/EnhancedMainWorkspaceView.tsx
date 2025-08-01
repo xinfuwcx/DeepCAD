@@ -588,6 +588,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
       );
     };
 
+
     const moduleConfigs = {
       geometry: {
         title: '几何建模控制',
@@ -597,6 +598,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
             label: <span>{getActivityBadge(geologyStatus)}地质建模</span>, 
             children: <GeologyModule 
               interpolationMethod={geologyParams.interpolationMethod}
+              // @ts-ignore
               gridResolution={geologyParams.gridResolution}
               xExtend={geologyParams.xExtend}
               yExtend={geologyParams.yExtend}
@@ -1186,14 +1188,24 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           bodyStyle={{
             padding: '12px',
             height: 'calc(100% - 60px)',
-            overflowY: 'auto'
+            overflowY: 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
           }}
         >
           <Tabs
             items={currentConfig.tabs}
             size="small"
             tabPosition="top"
-            style={{ height: '100%' }}
+            style={{ 
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+            tabBarStyle={{
+              flex: '0 0 auto',
+              marginBottom: '8px'
+            }}
           />
         </Card>
       </ModuleErrorBoundary>

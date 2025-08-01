@@ -358,85 +358,98 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
   };
 
   return (
-    <div className="enhanced-geology-module" style={{ padding: '20px' }}>
+    <div className="enhanced-geology-module geology-module-container">
       {/* 头部状态栏 */}
-      <Card size="small" style={{ marginBottom: '16px' }}>
+      <Card size="small" style={{ 
+        marginBottom: '16px'
+      }}>
         <Row gutter={16} align="middle">
-          <Col span={6}>
-            <Space>
-              <ThunderboltOutlined style={{ color: '#1890ff', fontSize: '18px' }} />
-              <Title level={5} style={{ margin: 0, color: '#1890ff' }}>
-                {algorithm === 'rbf' ? 'RBF三维地质重建系统' : 'GemPy地质建模系统'}
-              </Title>
-            </Space>
+          <Col span={24}>
+            <div style={{ marginBottom: '12px' }}>
+              <Space>
+                <ThunderboltOutlined style={{ color: '#1890ff', fontSize: '18px' }} />
+                <Title level={5} style={{ 
+                  margin: 0, 
+                  color: '#1890ff',
+                  writingMode: 'horizontal-tb',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {algorithm === 'rbf' ? 'RBF三维地质重建系统' : 'GemPy地质建模系统'}
+                </Title>
+              </Space>
+            </div>
           </Col>
-          <Col span={18}>
-            <Row gutter={16}>
-              <Col span={4}>
-                <div style={{ textAlign: 'center' }}>
-                  <Text style={{ fontSize: '14px', fontWeight: 'bold', color: '#1890ff' }}>
-                    {realTimeStats.dataPoints}
-                  </Text>
-                  <div><Text style={{ fontSize: '11px', color: '#666' }}>数据点</Text></div>
-                </div>
-              </Col>
-              <Col span={4}>
-                <div style={{ textAlign: 'center' }}>
-                  <Text style={{ fontSize: '14px', fontWeight: 'bold', color: '#52c41a' }}>
-                    {realTimeStats.gridPoints}
-                  </Text>
-                  <div><Text style={{ fontSize: '11px', color: '#666' }}>网格点</Text></div>
-                </div>
-              </Col>
-              <Col span={4}>
-                <div style={{ textAlign: 'center' }}>
-                  <Text style={{ fontSize: '14px', fontWeight: 'bold', color: '#faad14' }}>
-                    {(realTimeStats.interpolationTime / 1000).toFixed(1)}s
-                  </Text>
-                  <div><Text style={{ fontSize: '11px', color: '#666' }}>处理时间</Text></div>
-                </div>
-              </Col>
-              <Col span={4}>
-                <div style={{ textAlign: 'center' }}>
-                  <Text style={{ fontSize: '14px', fontWeight: 'bold', color: '#722ed1' }}>
-                    {realTimeStats.qualityScore.toFixed(2)}
-                  </Text>
-                  <div><Text style={{ fontSize: '11px', color: '#666' }}>质量分数</Text></div>
-                </div>
-              </Col>
-              <Col span={8}>
-                <Space style={{ float: 'right' }}>
-                  <Select
-                    size="small"
-                    value={algorithm}
-                    onChange={setAlgorithm}
-                    disabled={processingStatus === 'processing'}
-                    style={{ width: 100 }}
-                  >
-                    <Option value="rbf">RBF算法</Option>
-                    <Option value="gempy">GemPy</Option>
-                  </Select>
-                  <Button
-                    size="small"
-                    icon={<EyeOutlined />}
-                    onClick={handlePreviewConfig}
-                    disabled={processingStatus === 'processing'}
-                  >
-                    预览配置
-                  </Button>
-                  <Button
-                    type="primary"
-                    size="small"
-                    icon={processingStatus === 'processing' ? <StopOutlined /> : <PlayCircleOutlined />}
-                    onClick={processingStatus === 'processing' ? handleStopReconstruction : handleGeologyModeling}
-                    disabled={!boreholeData}
-                    danger={processingStatus === 'processing'}
-                  >
-                    {processingStatus === 'processing' ? '停止建模' : '开始建模'}
-                  </Button>
-                </Space>
-              </Col>
-            </Row>
+        </Row>
+        <Row gutter={[8, 8]} align="middle">
+          <Col xs={6} sm={4} md={3}>
+            <div style={{ textAlign: 'center' }}>
+              <Text style={{ fontSize: '14px', fontWeight: 'bold', color: '#1890ff' }}>
+                {realTimeStats.dataPoints}
+              </Text>
+              <div><Text style={{ fontSize: '11px', color: '#666' }}>数据点</Text></div>
+            </div>
+          </Col>
+          <Col xs={6} sm={4} md={3}>
+            <div style={{ textAlign: 'center' }}>
+              <Text style={{ fontSize: '14px', fontWeight: 'bold', color: '#52c41a' }}>
+                {realTimeStats.gridPoints}
+              </Text>
+              <div><Text style={{ fontSize: '11px', color: '#666' }}>网格点</Text></div>
+            </div>
+          </Col>
+          <Col xs={6} sm={4} md={3}>
+            <div style={{ textAlign: 'center' }}>
+              <Text style={{ fontSize: '14px', fontWeight: 'bold', color: '#faad14' }}>
+                {(realTimeStats.interpolationTime / 1000).toFixed(1)}s
+              </Text>
+              <div><Text style={{ fontSize: '11px', color: '#666' }}>处理时间</Text></div>
+            </div>
+          </Col>
+          <Col xs={6} sm={4} md={3}>
+            <div style={{ textAlign: 'center' }}>
+              <Text style={{ fontSize: '14px', fontWeight: 'bold', color: '#722ed1' }}>
+                {realTimeStats.qualityScore.toFixed(2)}
+              </Text>
+              <div><Text style={{ fontSize: '11px', color: '#666' }}>质量分数</Text></div>
+            </div>
+          </Col>
+          <Col xs={24} sm={8} md={12}>
+            <div style={{ 
+              display: 'flex', 
+              flexWrap: 'wrap', 
+              gap: '8px',
+              justifyContent: 'flex-end',
+              alignItems: 'center'
+            }}>
+              <Select
+                size="small"
+                value={algorithm}
+                onChange={setAlgorithm}
+                disabled={processingStatus === 'processing'}
+                style={{ width: 100 }}
+              >
+                <Option value="rbf">RBF算法</Option>
+                <Option value="gempy">GemPy</Option>
+              </Select>
+              <Button
+                size="small"
+                icon={<EyeOutlined />}
+                onClick={handlePreviewConfig}
+                disabled={processingStatus === 'processing'}
+              >
+                预览配置
+              </Button>
+              <Button
+                type="primary"
+                size="small"
+                icon={processingStatus === 'processing' ? <StopOutlined /> : <PlayCircleOutlined />}
+                onClick={processingStatus === 'processing' ? handleStopReconstruction : handleGeologyModeling}
+                disabled={!boreholeData}
+                danger={processingStatus === 'processing'}
+              >
+                {processingStatus === 'processing' ? '停止建模' : '开始建模'}
+              </Button>
+            </div>
           </Col>
         </Row>
       </Card>
@@ -492,7 +505,11 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
       </AnimatePresence>
 
       {/* 主要内容区域 */}
-      <Tabs activeKey={activeTab} onChange={setActiveTab} size="small">
+      <Tabs 
+        activeKey={activeTab} 
+        onChange={setActiveTab} 
+        size="small"
+      >
         {/* 数据管理 */}
         <TabPane tab="钻孔数据" key="data">
           <Row gutter={16}>
