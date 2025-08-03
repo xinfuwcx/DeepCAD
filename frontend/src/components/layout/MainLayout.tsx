@@ -17,6 +17,7 @@ import {
 import TechIcon from '../ui/TechIcon';
 import TechLogo from '../ui/TechLogo';
 import { ProjectControlCenter } from '../control/ProjectControlCenter';
+import { EnhancedEpicControlCenter } from '../control/EnhancedEpicControlCenter';
 import EnhancedMainWorkspaceView from '../../views/EnhancedMainWorkspaceView';
 import PhysicsAIView from '../../views/PhysicsAIView';
 import MaterialLibraryView from '../../views/MaterialLibraryView';
@@ -203,16 +204,10 @@ const MainLayout: React.FC = () => {
         }}>
           <Routes>
             <Route path="/" element={
-              <ProjectControlCenter 
-                onExit={() => navigate('/')}
-                onProjectSelect={(projectId) => console.log('项目选择:', projectId)}
-              />
+              <EnhancedEpicControlCenter />
             } />
             <Route path="dashboard" element={
-              <ProjectControlCenter 
-                onExit={() => navigate('/')}
-                onProjectSelect={(projectId) => console.log('项目选择:', projectId)}
-              />
+              <EnhancedEpicControlCenter />
             } />
             <Route path="geometry" element={<EnhancedMainWorkspaceView activeModule="geometry" />} />
             <Route path="geology-environment" element={<EnhancedMainWorkspaceView activeModule="geology-environment" />} />
