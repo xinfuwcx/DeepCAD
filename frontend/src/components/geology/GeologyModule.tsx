@@ -577,22 +577,48 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
           <Row gutter={16}>
             <Col span={12}>
               {algorithm === 'rbf' ? (
-                <>
-                  <Card title="RBF核函数配置" size="small" style={{ marginBottom: '16px' }}>
-                    <Form layout="vertical" size="small">
-                      <Form.Item label="RBF核函数类型">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* RBF配置 - 合并为一个简洁的卡片 */}
+                  <Card 
+                    title={
+                      <Space>
+                        <ThunderboltOutlined style={{ color: '#1890ff', fontSize: '16px' }} />
+                        <span style={{ 
+                          color: '#1890ff',
+                          fontSize: '14px',
+                          fontWeight: '500'
+                        }}>
+                          RBF配置
+                        </span>
+                      </Space>
+                    }
+                    style={{ 
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      borderRadius: '8px'
+                    }}
+                  >
+                    {/* 第一行：核函数类型 */}
+                    <Row style={{ marginBottom: '16px' }}>
+                      <Col span={24}>
+                        <div style={{ marginBottom: '6px', color: '#ffffff', fontSize: '13px', fontWeight: '500' }}>核函数类型</div>
                         <Select
                           value={rbfConfig.kernelType}
                           onChange={(value) => setRbfConfig({ ...rbfConfig, kernelType: value })}
+                          style={{ width: '100%' }}
                         >
-                          <Option value="gaussian">高斯函数 - 局部支撑，平滑性好</Option>
-                          <Option value="multiquadric">多二次函数 - 全局支撑，保形好</Option>
-                          <Option value="thin_plate_spline">薄板样条 - 无参数，最小曲率</Option>
-                          <Option value="cubic">三次函数 - 简单快速，局部特征</Option>
+                          <Option value="gaussian">高斯函数</Option>
+                          <Option value="multiquadric">多二次函数</Option>
+                          <Option value="thin_plate_spline">薄板样条</Option>
+                          <Option value="cubic">三次函数</Option>
                         </Select>
-                      </Form.Item>
+                      </Col>
+                    </Row>
 
-                      <Form.Item label="目标网格尺寸 (m)">
+                    {/* 第二行：网格尺寸 */}
+                    <Row style={{ marginBottom: '16px' }}>
+                      <Col span={24}>
+                        <div style={{ marginBottom: '6px', color: '#ffffff', fontSize: '13px', fontWeight: '500' }}>网格尺寸 (m)</div>
                         <InputNumber
                           value={rbfConfig.targetMeshSize}
                           onChange={(value) => setRbfConfig({ ...rbfConfig, targetMeshSize: value || 2.0 })}
@@ -601,42 +627,57 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                           step={0.5}
                           style={{ width: '100%' }}
                         />
-                      </Form.Item>
+                      </Col>
+                    </Row>
 
-                      <Form.Item label="重建质量等级">
+                    {/* 第三行：质量等级 */}
+                    <Row style={{ marginBottom: '16px' }}>
+                      <Col span={24}>
+                        <div style={{ marginBottom: '6px', color: '#ffffff', fontSize: '13px', fontWeight: '500' }}>质量等级</div>
                         <Radio.Group
                           value={rbfConfig.qualityLevel}
                           onChange={(e) => setRbfConfig({ ...rbfConfig, qualityLevel: e.target.value })}
+                          style={{ width: '100%' }}
                         >
-                          <Radio value="draft">快速预览</Radio>
-                          <Radio value="standard">标准质量</Radio>
-                          <Radio value="precision">高精度</Radio>
+                          <Radio value="draft" style={{ color: '#ffffff', fontSize: '13px' }}>快速预览</Radio>
+                          <Radio value="standard" style={{ color: '#ffffff', fontSize: '13px' }}>标准质量</Radio>
+                          <Radio value="precision" style={{ color: '#ffffff', fontSize: '13px' }}>高精度</Radio>
                         </Radio.Group>
-                      </Form.Item>
-                    </Form>
-                  </Card>
+                      </Col>
+                    </Row>
 
-                  <Card title="性能配置" size="small">
-                    <Form layout="vertical" size="small">
-                      <Form.Item>
+                    {/* 第四行：启用并行计算 */}
+                    <Row style={{ marginBottom: '12px' }}>
+                      <Col span={24}>
                         <Checkbox
                           checked={rbfConfig.enableParallel}
                           onChange={(e) => setRbfConfig({ ...rbfConfig, enableParallel: e.target.checked })}
+                          style={{ color: '#ffffff', fontSize: '13px' }}
                         >
                           启用并行计算
                         </Checkbox>
-                      </Form.Item>
+                      </Col>
+                    </Row>
 
-                      <Form.Item>
+                    {/* 第五行：自动参数优化 */}
+                    <Row style={{ marginBottom: '12px' }}>
+                      <Col span={24}>
                         <Checkbox
                           checked={rbfConfig.autoOptimize}
                           onChange={(e) => setRbfConfig({ ...rbfConfig, autoOptimize: e.target.checked })}
+                          style={{ color: '#ffffff', fontSize: '13px' }}
                         >
                           自动参数优化
                         </Checkbox>
-                      </Form.Item>
+                      </Col>
+                    </Row>
 
-                      <Form.Item label="质量阈值">
+                    {/* 第六行：质量阈值 */}
+                    <Row>
+                      <Col span={24}>
+                        <div style={{ color: '#ffffff', fontSize: '12px', marginBottom: '6px', fontWeight: '500' }}>
+                          质量阈值: {rbfConfig.meshCompatibility.qualityThreshold.toFixed(2)}
+                        </div>
                         <Slider
                           value={rbfConfig.meshCompatibility.qualityThreshold}
                           onChange={(value) => setRbfConfig({
@@ -646,12 +687,11 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                           min={0.3}
                           max={1.0}
                           step={0.05}
-                          marks={{ 0.3: '0.3', 0.65: '0.65', 1.0: '1.0' }}
                         />
-                      </Form.Item>
-                    </Form>
+                      </Col>
+                    </Row>
                   </Card>
-                </>
+                </div>
               ) : (
                 <Card title="GemPy建模配置" size="small" style={{ marginBottom: '16px' }}>
                   <Form layout="vertical" size="small">
@@ -666,41 +706,142 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                       </Select>
                     </Form.Item>
 
-                    <Row gutter={8}>
-                      <Col span={8}>
-                        <Form.Item label="X分辨率">
-                          <InputNumber
-                            value={gemPyConfig.resolutionX}
-                            onChange={(value) => setGemPyConfig({ ...gemPyConfig, resolutionX: value || 50 })}
-                            min={20}
-                            max={200}
-                            style={{ width: '100%' }}
-                          />
-                        </Form.Item>
-                      </Col>
-                      <Col span={8}>
-                        <Form.Item label="Y分辨率">
-                          <InputNumber
-                            value={gemPyConfig.resolutionY}
-                            onChange={(value) => setGemPyConfig({ ...gemPyConfig, resolutionY: value || 50 })}
-                            min={20}
-                            max={200}
-                            style={{ width: '100%' }}
-                          />
-                        </Form.Item>
-                      </Col>
-                      <Col span={8}>
-                        <Form.Item label="Z分辨率">
-                          <InputNumber
-                            value={gemPyConfig.resolutionZ}
-                            onChange={(value) => setGemPyConfig({ ...gemPyConfig, resolutionZ: value || 50 })}
-                            min={20}
-                            max={200}
-                            style={{ width: '100%' }}
-                          />
-                        </Form.Item>
-                      </Col>
-                    </Row>
+                    <Card 
+                      title={
+                        <span style={{ color: '#00d9ff', fontSize: '14px', fontWeight: 'bold' }}>
+                          <SettingOutlined style={{ marginRight: '8px' }} />
+                          网格分辨率配置
+                        </span>
+                      }
+                      size="small"
+                      style={{ 
+                        marginBottom: '16px',
+                        background: 'rgba(0, 217, 255, 0.05)',
+                        border: '1px solid rgba(0, 217, 255, 0.2)'
+                      }}
+                    >
+                      <Row gutter={12}>
+                        <Col span={8}>
+                          <Form.Item 
+                            label={
+                              <span style={{ 
+                                color: '#ffffff', 
+                                fontSize: '13px', 
+                                fontWeight: '500',
+                                textShadow: '0 1px 2px rgba(0,0,0,0.5)'
+                              }}>
+                                X 分辨率
+                              </span>
+                            }
+                            style={{ marginBottom: '8px' }}
+                          >
+                            <InputNumber
+                              value={gemPyConfig.resolutionX}
+                              onChange={(value) => setGemPyConfig({ ...gemPyConfig, resolutionX: value || 50 })}
+                              min={20}
+                              max={200}
+                              size="large"
+                              style={{ 
+                                width: '100%',
+                                height: '40px',
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                                background: 'rgba(26, 26, 46, 0.8)',
+                                borderColor: 'rgba(0, 217, 255, 0.4)',
+                                color: '#ffffff'
+                              }}
+                              controls={{
+                                upIcon: <span style={{ color: '#00d9ff' }}>+</span>,
+                                downIcon: <span style={{ color: '#00d9ff' }}>-</span>
+                              }}
+                            />
+                          </Form.Item>
+                        </Col>
+                        <Col span={8}>
+                          <Form.Item 
+                            label={
+                              <span style={{ 
+                                color: '#ffffff', 
+                                fontSize: '13px', 
+                                fontWeight: '500',
+                                textShadow: '0 1px 2px rgba(0,0,0,0.5)'
+                              }}>
+                                Y 分辨率
+                              </span>
+                            }
+                            style={{ marginBottom: '8px' }}
+                          >
+                            <InputNumber
+                              value={gemPyConfig.resolutionY}
+                              onChange={(value) => setGemPyConfig({ ...gemPyConfig, resolutionY: value || 50 })}
+                              min={20}
+                              max={200}
+                              size="large"
+                              style={{ 
+                                width: '100%',
+                                height: '40px',
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                                background: 'rgba(26, 26, 46, 0.8)',
+                                borderColor: 'rgba(0, 217, 255, 0.4)',
+                                color: '#ffffff'
+                              }}
+                              controls={{
+                                upIcon: <span style={{ color: '#00d9ff' }}>+</span>,
+                                downIcon: <span style={{ color: '#00d9ff' }}>-</span>
+                              }}
+                            />
+                          </Form.Item>
+                        </Col>
+                        <Col span={8}>
+                          <Form.Item 
+                            label={
+                              <span style={{ 
+                                color: '#ffffff', 
+                                fontSize: '13px', 
+                                fontWeight: '500',
+                                textShadow: '0 1px 2px rgba(0,0,0,0.5)'
+                              }}>
+                                Z 分辨率
+                              </span>
+                            }
+                            style={{ marginBottom: '8px' }}
+                          >
+                            <InputNumber
+                              value={gemPyConfig.resolutionZ}
+                              onChange={(value) => setGemPyConfig({ ...gemPyConfig, resolutionZ: value || 50 })}
+                              min={20}
+                              max={200}
+                              size="large"
+                              style={{ 
+                                width: '100%',
+                                height: '40px',
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                                background: 'rgba(26, 26, 46, 0.8)',
+                                borderColor: 'rgba(0, 217, 255, 0.4)',
+                                color: '#ffffff'
+                              }}
+                              controls={{
+                                upIcon: <span style={{ color: '#00d9ff' }}>+</span>,
+                                downIcon: <span style={{ color: '#00d9ff' }}>-</span>
+                              }}
+                            />
+                          </Form.Item>
+                        </Col>
+                      </Row>
+                      <div style={{ 
+                        fontSize: '11px', 
+                        color: 'rgba(255,255,255,0.6)', 
+                        textAlign: 'center',
+                        marginTop: '8px',
+                        padding: '4px 8px',
+                        background: 'rgba(0, 217, 255, 0.1)',
+                        borderRadius: '4px'
+                      }}>
+                        💡 建议范围: 20-200，较高分辨率提供更精细的地质模型
+                      </div>
+                    </Card>
 
                     <Form.Item>
                       <Checkbox
@@ -711,39 +852,195 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                       </Checkbox>
                     </Form.Item>
 
-                    <Form.Item label="断层平滑度">
-                      <Slider
-                        value={gemPyConfig.faultSmoothing}
-                        onChange={(value) => setGemPyConfig({ ...gemPyConfig, faultSmoothing: value })}
-                        min={0.1}
-                        max={1.0}
-                        step={0.1}
-                        marks={{ 0.1: '0.1', 0.5: '0.5', 1.0: '1.0' }}
-                      />
-                    </Form.Item>
+                    <Card 
+                      title={
+                        <span style={{ color: '#00d9ff', fontSize: '14px', fontWeight: 'bold' }}>
+                          <SettingOutlined style={{ marginRight: '8px' }} />
+                          断层平滑度
+                        </span>
+                      }
+                      size="small"
+                      style={{ 
+                        marginBottom: '16px',
+                        background: 'rgba(255, 165, 0, 0.05)',
+                        border: '1px solid rgba(255, 165, 0, 0.2)'
+                      }}
+                    >
+                      <Form.Item style={{ marginBottom: '8px' }}>
+                        <div style={{ marginBottom: '12px' }}>
+                          <Text style={{ 
+                            color: '#ffffff', 
+                            fontSize: '13px', 
+                            fontWeight: '500',
+                            display: 'block',
+                            marginBottom: '8px'
+                          }}>
+                            当前值: <span style={{ color: '#ffa500', fontWeight: 'bold', fontSize: '15px' }}>{gemPyConfig.faultSmoothing.toFixed(1)}</span>
+                          </Text>
+                        </div>
+                        <Slider
+                          value={gemPyConfig.faultSmoothing}
+                          onChange={(value) => setGemPyConfig({ ...gemPyConfig, faultSmoothing: value })}
+                          min={0.1}
+                          max={1.0}
+                          step={0.1}
+                          marks={{ 
+                            0.1: { 
+                              style: { color: '#ffffff', fontSize: '12px', fontWeight: 'bold' }, 
+                              label: '0.1' 
+                            }, 
+                            0.5: { 
+                              style: { color: '#ffa500', fontSize: '12px', fontWeight: 'bold' }, 
+                              label: '0.5' 
+                            }, 
+                            1.0: { 
+                              style: { color: '#ffffff', fontSize: '12px', fontWeight: 'bold' }, 
+                              label: '1.0' 
+                            }
+                          }}
+                          trackStyle={{ 
+                            backgroundColor: '#ffa500',
+                            height: '6px'
+                          }}
+                          handleStyle={{
+                            borderColor: '#ffa500',
+                            backgroundColor: '#ffa500',
+                            width: '16px',
+                            height: '16px',
+                            marginTop: '-5px'
+                          }}
+                          railStyle={{
+                            backgroundColor: 'rgba(255, 165, 0, 0.2)',
+                            height: '6px'
+                          }}
+                        />
+                        <div style={{ 
+                          fontSize: '11px', 
+                          color: 'rgba(255,255,255,0.6)', 
+                          textAlign: 'center',
+                          marginTop: '8px',
+                          padding: '4px 8px',
+                          background: 'rgba(255, 165, 0, 0.1)',
+                          borderRadius: '4px'
+                        }}>
+                          <Row>
+                            <Col span={8} style={{ textAlign: 'left' }}>
+                              <span style={{ color: '#ff6b6b' }}>💢 强烈建模</span>
+                            </Col>
+                            <Col span={8} style={{ textAlign: 'center' }}>
+                              <span style={{ color: '#ffa500' }}>⚖️ 平衡建模</span>
+                            </Col>
+                            <Col span={8} style={{ textAlign: 'right' }}>
+                              <span style={{ color: '#4ecdc4' }}>🌊 平滑建模</span>
+                            </Col>
+                          </Row>
+                        </div>
+                      </Form.Item>
+                    </Card>
 
-                    <Row gutter={16}>
-                      <Col span={12}>
-                        <Form.Item>
-                          <Checkbox
-                            checked={gemPyConfig.gravityModel}
-                            onChange={(e) => setGemPyConfig({ ...gemPyConfig, gravityModel: e.target.checked })}
+                    <Card 
+                      title={
+                        <span style={{ color: '#00d9ff', fontSize: '14px', fontWeight: 'bold' }}>
+                          <ExperimentOutlined style={{ marginRight: '8px' }} />
+                          物理场建模
+                        </span>
+                      }
+                      size="small"
+                      style={{ 
+                        marginBottom: '16px',
+                        background: 'rgba(139, 92, 246, 0.05)',
+                        border: '1px solid rgba(139, 92, 246, 0.2)'
+                      }}
+                    >
+                      <Row gutter={16}>
+                        <Col span={12}>
+                          <div style={{ 
+                            padding: '12px', 
+                            border: gemPyConfig.gravityModel 
+                              ? '2px solid rgba(52, 211, 153, 0.6)' 
+                              : '2px solid rgba(255,255,255,0.1)',
+                            borderRadius: '8px',
+                            background: gemPyConfig.gravityModel 
+                              ? 'rgba(52, 211, 153, 0.1)' 
+                              : 'rgba(255,255,255,0.02)',
+                            transition: 'all 0.3s ease',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => setGemPyConfig({ ...gemPyConfig, gravityModel: !gemPyConfig.gravityModel })}
                           >
-                            重力建模
-                          </Checkbox>
-                        </Form.Item>
-                      </Col>
-                      <Col span={12}>
-                        <Form.Item>
-                          <Checkbox
-                            checked={gemPyConfig.magneticModel}
-                            onChange={(e) => setGemPyConfig({ ...gemPyConfig, magneticModel: e.target.checked })}
+                            <Form.Item style={{ marginBottom: 0 }}>
+                              <Checkbox
+                                checked={gemPyConfig.gravityModel}
+                                onChange={(e) => setGemPyConfig({ ...gemPyConfig, gravityModel: e.target.checked })}
+                                style={{ 
+                                  fontSize: '14px',
+                                  fontWeight: 'bold'
+                                }}
+                              >
+                                <span style={{ 
+                                  color: gemPyConfig.gravityModel ? '#34d399' : '#ffffff',
+                                  fontSize: '13px',
+                                  fontWeight: '500'
+                                }}>
+                                  🌍 重力建模
+                                </span>
+                              </Checkbox>
+                              <div style={{ 
+                                fontSize: '10px', 
+                                color: 'rgba(255,255,255,0.6)',
+                                marginTop: '4px',
+                                marginLeft: '24px'
+                              }}>
+                                基于密度差异的重力场计算
+                              </div>
+                            </Form.Item>
+                          </div>
+                        </Col>
+                        <Col span={12}>
+                          <div style={{ 
+                            padding: '12px', 
+                            border: gemPyConfig.magneticModel 
+                              ? '2px solid rgba(245, 101, 101, 0.6)' 
+                              : '2px solid rgba(255,255,255,0.1)',
+                            borderRadius: '8px',
+                            background: gemPyConfig.magneticModel 
+                              ? 'rgba(245, 101, 101, 0.1)' 
+                              : 'rgba(255,255,255,0.02)',
+                            transition: 'all 0.3s ease',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => setGemPyConfig({ ...gemPyConfig, magneticModel: !gemPyConfig.magneticModel })}
                           >
-                            磁法建模
-                          </Checkbox>
-                        </Form.Item>
-                      </Col>
-                    </Row>
+                            <Form.Item style={{ marginBottom: 0 }}>
+                              <Checkbox
+                                checked={gemPyConfig.magneticModel}
+                                onChange={(e) => setGemPyConfig({ ...gemPyConfig, magneticModel: e.target.checked })}
+                                style={{ 
+                                  fontSize: '14px',
+                                  fontWeight: 'bold'
+                                }}
+                              >
+                                <span style={{ 
+                                  color: gemPyConfig.magneticModel ? '#f56565' : '#ffffff',
+                                  fontSize: '13px',
+                                  fontWeight: '500'
+                                }}>
+                                  🧲 磁法建模
+                                </span>
+                              </Checkbox>
+                              <div style={{ 
+                                fontSize: '10px', 
+                                color: 'rgba(255,255,255,0.6)',
+                                marginTop: '4px',
+                                marginLeft: '24px'
+                              }}>
+                                基于磁化率的磁场计算
+                              </div>
+                            </Form.Item>
+                          </div>
+                        </Col>
+                      </Row>
+                    </Card>
                   </Form>
                 </Card>
               )}

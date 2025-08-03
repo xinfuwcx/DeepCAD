@@ -1388,20 +1388,6 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                   style={{ flex: 1, minHeight: '400px' }}
                 />
               </div>
-              
-              {/* 右侧几何工具栏 */}
-              <div style={{ 
-                position: 'absolute',
-                right: '20px',
-                top: '20px',
-                bottom: '20px',
-                zIndex: 1000
-              }}>
-                <VerticalToolbar
-                  activeTool={activeGeometryTool}
-                  onToolSelect={handleGeometryToolSelect}
-                />
-              </div>
             </div>
           );
           

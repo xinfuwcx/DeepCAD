@@ -111,11 +111,11 @@ class iTownsMapController {
       
       console.log('📦 容器尺寸:', this.container.offsetWidth, 'x', this.container.offsetHeight);
 
-      // 使用最简单的iTowns配置
+      // 使用3D地球视角配置
       const viewerOptions = {
-        coord: new itowns.Coordinates('EPSG:4326', 0, 0), // 从赤道0度开始
-        range: 25000000, // 25,000km视距，确保能看到整个地球
-        tilt: 0,
+        coord: new itowns.Coordinates('EPSG:4326', 116.4074, 39.9042), // 从北京开始
+        range: 5000000, // 5,000km视距，3D地球视角
+        tilt: 20, // 适当倾斜，显示3D效果
         heading: 0
       };
 
@@ -328,7 +328,7 @@ class iTownsMapController {
     }
   }
 
-  public flyToLocation(lat: number, lng: number, range: number = 50000): void {
+  public flyToLocation(lat: number, lng: number, range: number = 500000): void {
     if (!this.view || !this.isInitialized) {
       console.warn('⚠️ 地图未初始化，无法飞行');
       return;
@@ -390,9 +390,9 @@ class iTownsMapController {
       excavationGroup.name = `excavation_${project.id}`;
       excavationGroup.userData = { project };
       
-      // 1. 创建基坑的坑洞 (圆柱形凹陷)
-      const pitRadius = Math.max(project.depth * 2, 100); // 基坑半径基于深度
-      const pitDepth = project.depth * 10; // 放大深度便于可视化
+      // 1. 创建基坑的坑洞 (圆柱形凹陷) - 大幅放大以便在地球视角下可见
+      const pitRadius = Math.max(project.depth * 500, 50000); // 大幅放大半径，最小50km
+      const pitDepth = project.depth * 1000; // 大幅放大深度，便于3D可视化
       
       // 创建坑洞几何体 (反向圆柱)
       const pitGeometry = new THREE.CylinderGeometry(
@@ -404,12 +404,14 @@ class iTownsMapController {
         true // 开口向上
       );
       
-      // 基坑材质 - 土壤颜色
+      // 基坑材质 - 明显的土壤颜色
       const pitMaterial = new THREE.MeshBasicMaterial({
         color: 0x8B4513, // 棕土色
         transparent: true,
-        opacity: 0.8,
-        side: THREE.DoubleSide
+        opacity: 0.9,
+        side: THREE.DoubleSide,
+        emissive: 0x442211, // 添加微弱发光，增强可见性
+        emissiveIntensity: 0.2
       });
       
       const pitMesh = new THREE.Mesh(pitGeometry, pitMaterial);
@@ -417,7 +419,7 @@ class iTownsMapController {
       pitMesh.name = `pit_${project.id}`;
       
       // 2. 创建基坑边缘标记环
-      const ringGeometry = new THREE.RingGeometry(pitRadius, pitRadius + 20, 32);
+      const ringGeometry = new THREE.RingGeometry(pitRadius, pitRadius + 10000, 32); // 增大环宽度
       const ringColors = {
         completed: 0x00ff00,  // 绿色
         active: 0xff0000,     // 红色  
@@ -437,7 +439,7 @@ class iTownsMapController {
       
       // 3. 创建高度标识柱
       const poleHeight = pitDepth * 1.5;
-      const poleGeometry = new THREE.CylinderGeometry(5, 5, poleHeight, 8);
+      const poleGeometry = new THREE.CylinderGeometry(5000, 5000, poleHeight, 8); // 增大柱子半径
       const poleMaterial = new THREE.MeshBasicMaterial({
         color: ringColors[project.status],
         emissive: ringColors[project.status],
@@ -690,7 +692,7 @@ export const EnhancedEpicControlCenter: React.FC = () => {
     setCurrentProject(project);
     
     // 使用适合观看基坑的视距
-    let flyRange = 25000; // 25km视距，适合观看基坑细节
+    let flyRange = 500000; // 500km视距，确保3D视角观看巨型基坑
     
     console.log(`🚁 开始飞行到 ${project.name}，视距: ${flyRange}m`);
     
@@ -1006,7 +1008,7 @@ export const EnhancedEpicControlCenter: React.FC = () => {
                               mapControllerRef.current.flyToLocation(
                                 shanghai.location.lat, 
                                 shanghai.location.lng, 
-                                15000 // 15km距离，观看基坑细节
+                                300000 // 300km距离，3D视角观看基坑
                               );
                             }
                           }
