@@ -513,7 +513,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
         {/* 数据管理 */}
         <TabPane tab="钻孔数据" key="data">
           <Row gutter={16}>
-            <Col span={12}>
+            <Col span={24}>
               <Card title="数据上传" size="small">
                 <Dragger {...uploadProps} style={{ marginBottom: '16px' }}>
                   <p style={{ margin: 0, fontSize: '24px', color: '#1890ff' }}>
@@ -538,8 +538,8 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
               </Card>
             </Col>
 
-            <Col span={12}>
-              <Card title="数据统计" size="small">
+            <Col span={24}>
+              <Card title="数据统计" size="small" style={{ marginTop: '16px' }}>
                 {boreholeData ? (
                   <List
                     size="small"
@@ -575,7 +575,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
         {/* 算法配置 */}
         <TabPane tab={algorithm === 'rbf' ? 'RBF配置' : 'GemPy配置'} key="config">
           <Row gutter={16}>
-            <Col span={12}>
+            <Col span={24}>
               {algorithm === 'rbf' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {/* RBF配置 - 合并为一个简洁的卡片 */}
@@ -1046,100 +1046,13 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
               )}
             </Col>
 
-            <Col span={12}>
-              <Card title={algorithm === 'rbf' ? 'RBF算法说明' : 'GemPy算法说明'} size="small">
-                <Collapse size="small" ghost>
-                  {algorithm === 'rbf' ? (
-                    <>
-                      <Panel header="RBF数学原理" key="1">
-                        <Paragraph style={{ fontSize: '12px', margin: 0 }}>
-                          RBF插值的核心数学表达式：<br />
-                          <code>f(x) = Σ(i=1 to N) λi * φ(||x - xi||) + P(x)</code><br />
-                          其中φ为径向基函数，λi为权重系数，P(x)为多项式项。
-                        </Paragraph>
-                      </Panel>
-
-                      <Panel header="核函数特性" key="2">
-                        <List
-                          size="small"
-                          dataSource={[
-                            { name: '高斯函数', desc: '数值稳定，收敛快，适合密集数据' },
-                            { name: '多二次函数', desc: '形状保持，适应性强，稳定性高' },
-                            { name: '薄板样条', desc: '无需调参，理论完备，平滑性优' },
-                            { name: '三次函数', desc: '计算快速，内存小，易实现' },
-                          ]}
-                          renderItem={item => (
-                            <List.Item>
-                              <Text strong style={{ fontSize: '11px' }}>{item.name}:</Text>
-                              <Text style={{ fontSize: '11px', marginLeft: '8px' }}>{item.desc}</Text>
-                            </List.Item>
-                          )}
-                        />
-                      </Panel>
-
-                      <Panel header="五阶段工作流程" key="3">
-                        <Timeline
-                          size="small"
-                          items={[
-                            { children: '数据预处理 - 标准化、校正、质量检查' },
-                            { children: 'RBF参数优化 - 交叉验证、多目标优化' },
-                            { children: '三维网格生成 - 并行插值、质量优化' },
-                            { children: '三维体生成 - Marching Cubes算法' },
-                            { children: '质量评估 - 完整评估报告生成' },
-                          ]}
-                        />
-                      </Panel>
-                    </>
-                  ) : (
-                    <>
-                      <Panel header="GemPy建模原理" key="1">
-                        <Paragraph style={{ fontSize: '12px', margin: 0 }}>
-                          GemPy基于隐式建模方法，通过位势场理论构建三维地质模型。<br />
-                          核心是通过插值技术将地质接触点和层序关系转换为连续的标量场。
-                        </Paragraph>
-                      </Panel>
-
-                      <Panel header="插值方法特性" key="2">
-                        <List
-                          size="small"
-                          dataSource={[
-                            { name: '克里金插值', desc: '地统计学方法，考虑空间相关性' },
-                            { name: '三次样条', desc: '平滑插值，连续性好' },
-                            { name: '径向基函数', desc: '局部插值，适合复杂地质' },
-                          ]}
-                          renderItem={item => (
-                            <List.Item>
-                              <Text strong style={{ fontSize: '11px' }}>{item.name}:</Text>
-                              <Text style={{ fontSize: '11px', marginLeft: '8px' }}>{item.desc}</Text>
-                            </List.Item>
-                          )}
-                        />
-                      </Panel>
-
-                      <Panel header="建模工作流程" key="3">
-                        <Timeline
-                          size="small"
-                          items={[
-                            { children: '数据导入 - 钻孔数据、地层接触点' },
-                            { children: '几何设置 - 建模范围、分辨率配置' },
-                            { children: '插值计算 - 位势场构建、地层边界' },
-                            { children: '断层处理 - 断层面建模、位移计算' },
-                            { children: '物性建模 - 重力、磁法正演计算' },
-                          ]}
-                        />
-                      </Panel>
-                    </>
-                  )}
-                </Collapse>
-              </Card>
-            </Col>
           </Row>
         </TabPane>
 
         {/* 结果分析 */}
         <TabPane tab="结果分析" key="results">
           <Row gutter={16}>
-            <Col span={12}>
+            <Col span={24}>
               <Card title="重建统计" size="small" style={{ marginBottom: '16px' }}>
                 {processingStatus === 'completed' ? (
                   <List
@@ -1209,8 +1122,8 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
               )}
             </Col>
 
-            <Col span={12}>
-              <Card title="网格指导" size="small">
+            <Col span={24}>
+              <Card title="网格指导" size="small" style={{ marginTop: '16px' }}>
                 {qualityMetrics ? (
                   <List
                     size="small"

@@ -61,11 +61,43 @@ const MainLayout: React.FC = () => {
       key: 'geometry',
       icon: <AppstoreOutlined />,
       label: '几何建模',
+      children: [
+        {
+          key: 'geology-modeling',
+          label: '地质建模',
+        },
+        {
+          key: 'borehole-visualization',
+          label: '钻孔可视化',
+        },
+        {
+          key: 'excavation-design',
+          label: '基坑设计',
+        },
+        {
+          key: 'support-structure',
+          label: '支护结构',
+        },
+      ],
     },
     {
       key: 'geology-environment',
       icon: <EnvironmentOutlined />,
       label: '地质环境',
+      children: [
+        {
+          key: 'geology-reconstruction',
+          label: '三维地质重建',
+        },
+        {
+          key: 'tunnel-modeling',
+          label: '隧道建模',
+        },
+        {
+          key: 'adjacent-buildings',
+          label: '相邻建筑',
+        },
+      ],
     },
     {
       key: 'meshing',
@@ -209,8 +241,13 @@ const MainLayout: React.FC = () => {
             <Route path="dashboard" element={
               <EnhancedEpicControlCenter />
             } />
-            <Route path="geometry" element={<EnhancedMainWorkspaceView activeModule="geometry" />} />
-            <Route path="geology-environment" element={<EnhancedMainWorkspaceView activeModule="geology-environment" />} />
+            <Route path="geology-modeling" element={<EnhancedMainWorkspaceView activeModule="geology-modeling" />} />
+            <Route path="borehole-visualization" element={<EnhancedMainWorkspaceView activeModule="borehole-visualization" />} />
+            <Route path="excavation-design" element={<EnhancedMainWorkspaceView activeModule="excavation-design" />} />
+            <Route path="support-structure" element={<EnhancedMainWorkspaceView activeModule="support-structure" />} />
+            <Route path="geology-reconstruction" element={<EnhancedMainWorkspaceView activeModule="geology-reconstruction" />} />
+            <Route path="tunnel-modeling" element={<EnhancedMainWorkspaceView activeModule="tunnel-modeling" />} />
+            <Route path="adjacent-buildings" element={<EnhancedMainWorkspaceView activeModule="adjacent-buildings" />} />
             <Route path="meshing" element={<EnhancedMainWorkspaceView activeModule="meshing" />} />
             <Route path="analysis" element={<EnhancedMainWorkspaceView activeModule="analysis" />} />
             <Route path="results" element={<EnhancedMainWorkspaceView activeModule="results" />} />
