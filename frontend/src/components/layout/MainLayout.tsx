@@ -63,10 +63,6 @@ const MainLayout: React.FC = () => {
       label: '几何建模',
       children: [
         {
-          key: 'geology-modeling',
-          label: '地质建模',
-        },
-        {
           key: 'borehole-visualization',
           label: '钻孔可视化',
         },
@@ -87,7 +83,7 @@ const MainLayout: React.FC = () => {
       children: [
         {
           key: 'geology-reconstruction',
-          label: '三维地质重建',
+          label: '地质重建',
         },
         {
           key: 'tunnel-modeling',
@@ -241,7 +237,6 @@ const MainLayout: React.FC = () => {
             <Route path="dashboard" element={
               <EnhancedEpicControlCenter />
             } />
-            <Route path="geology-modeling" element={<EnhancedMainWorkspaceView activeModule="geology-modeling" />} />
             <Route path="borehole-visualization" element={<EnhancedMainWorkspaceView activeModule="borehole-visualization" />} />
             <Route path="excavation-design" element={<EnhancedMainWorkspaceView activeModule="excavation-design" />} />
             <Route path="support-structure" element={<EnhancedMainWorkspaceView activeModule="support-structure" />} />

@@ -696,29 +696,6 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
 
 
     const moduleConfigs = {
-      'geology-modeling': {
-        title: '地质建模',
-        tabs: [
-          { 
-            key: 'geology-data', 
-            label: <span>{getActivityBadge(geologyStatus)}地质数据</span>, 
-            children: <GeologyModule 
-              interpolationMethod={geologyParams.interpolationMethod}
-              // @ts-ignore
-              gridResolution={geologyParams.gridResolution}
-              xExtend={geologyParams.xExtend}
-              yExtend={geologyParams.yExtend}
-              bottomElevation={geologyParams.bottomElevation}
-              onParamsChange={(key, value) => handleParamsChange('geology', key, value)}
-              onGenerate={(data) => handleGenerate('geology', data)}
-              status={geologyStatus}
-              onGeologyGenerated={(result: any) => console.log('Geology generated:', result)}
-              onQualityReport={(report: any) => console.log('Quality report:', report)}
-              onPerformanceStats={(stats: any) => console.log('Performance stats:', stats)}
-            /> 
-          }
-        ]
-      },
       'borehole-visualization': {
         title: '钻孔可视化',
         tabs: [
@@ -823,37 +800,167 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
         ]
       },
       'geology-reconstruction': {
-        title: '三维地质重建',
+        title: '地质重建',
         tabs: [
           { 
             key: 'geology-data', 
-            label: <span>{getActivityBadge('finish')}地质数据</span>, 
+            label: <span>{getActivityBadge(geologyStatus)}地质数据</span>, 
+            children: <GeologyModule 
+              params={geologyParams}
+              onParamsChange={(key, value) => handleParamsChange('geology', key, value)}
+              onGenerate={(data) => handleGenerate('geology', data)}
+              status={geologyStatus}
+            />
+          },
+          { 
+            key: 'rbf-config', 
+            label: <span>{getActivityBadge('finish')}RBF配置</span>, 
             children: (
               <div style={{ padding: '20px', color: '#fff', height: '100%', overflow: 'auto' }}>
-                <div style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 'bold' }}>🌍 三维地质重建</div>
+                <div style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 'bold' }}>⚡ RBF三维地质重建系统</div>
                 
-                {/* 地质图层信息 */}
-                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(82, 196, 26, 0.1)', borderRadius: '8px', border: '1px solid #52c41a' }}>
-                  <div style={{ color: '#52c41a', fontWeight: 'bold', marginBottom: '8px' }}>地质图层数据</div>
-                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>填土层 (0-3.5m) - 已加载</div>
-                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>粉质粘土 (3.5-8.2m) - 已加载</div>
-                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>粉砂层 (8.2-15.6m) - 已加载</div>
-                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>粘土层 (15.6-22.3m) - 已加载</div>
-                  <div style={{ fontSize: '12px', color: '#ffffff80' }}>基岩 (22.3-30.0m) - 已加载</div>
-                </div>
-
-                {/* 钻孔数据管理 */}
-                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(24, 144, 255, 0.1)', borderRadius: '8px', border: '1px solid #1890ff' }}>
-                  <div style={{ color: '#1890ff', fontWeight: 'bold', marginBottom: '8px' }}>钻孔数据管理</div>
-                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '8px' }}>已导入钻孔: 45个 | 有效数据: 42个</div>
+                {/* RBF算法状态 */}
+                <div style={{ marginBottom: '16px', padding: '16px', backgroundColor: 'rgba(24, 144, 255, 0.1)', borderRadius: '8px', border: '1px solid #1890ff' }}>
+                  <div style={{ color: '#1890ff', fontWeight: 'bold', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>⚡ RBF三维地质重建系统</span>
+                  </div>
+                  
+                  {/* 数据点统计 */}
+                  <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '18px', color: '#00d9ff', fontWeight: 'bold' }}>0</div>
+                      <div style={{ fontSize: '10px', color: '#ffffff80' }}>数据点</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '18px', color: '#52c41a', fontWeight: 'bold' }}>0</div>
+                      <div style={{ fontSize: '10px', color: '#ffffff80' }}>网格点</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '18px', color: '#faad14', fontWeight: 'bold' }}>0.0s</div>
+                      <div style={{ fontSize: '10px', color: '#ffffff80' }}>处理时间</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '18px', color: '#eb2f96', fontWeight: 'bold' }}>0.0</div>
+                      <div style={{ fontSize: '10px', color: '#ffffff80' }}>质量分数</div>
+                    </div>
+                  </div>
+                  
+                  {/* RBF算法选择 */}
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ color: '#1890ff', fontSize: '12px', marginBottom: '6px' }}>RBF算法</div>
+                    <select 
+                      style={{
+                        width: '120px',
+                        padding: '4px 8px',
+                        backgroundColor: '#001122',
+                        color: '#fff',
+                        border: '1px solid #1890ff',
+                        borderRadius: '4px',
+                        fontSize: '11px'
+                      }}
+                      defaultValue="gaussian"
+                    >
+                      <option value="gaussian">高斯</option>
+                      <option value="multiquadric">多二次</option>
+                      <option value="thinplate">薄板样条</option>
+                    </select>
+                  </div>
+                  
+                  {/* 控制按钮 */}
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <button 
-                      onClick={() => {
-                        console.log('导入钻孔数据');
-                      }}
+                      onClick={() => console.log('预览配置')}
                       style={{
                         padding: '6px 12px',
-                        backgroundColor: '#1890ff',
+                        backgroundColor: 'rgba(24, 144, 255, 0.2)',
+                        color: '#1890ff',
+                        border: '1px solid #1890ff',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      👁️ 预览配置
+                    </button>
+                    <button 
+                      onClick={() => console.log('开始建模')}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: 'rgba(82, 196, 26, 0.2)',
+                        color: '#52c41a',
+                        border: '1px solid #52c41a',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      开始建模
+                    </button>
+                  </div>
+                </div>
+
+                {/* 数据上传区域 */}
+                <div style={{ marginBottom: '16px', padding: '16px', backgroundColor: 'rgba(82, 196, 26, 0.05)', borderRadius: '8px', border: '1px dashed #52c41a' }}>
+                  <div style={{ color: '#ffffff', fontSize: '14px', fontWeight: 'bold', marginBottom: '8px' }}>数据上传</div>
+                  <div style={{ 
+                    padding: '24px', 
+                    textAlign: 'center', 
+                    backgroundColor: 'rgba(82, 196, 26, 0.05)', 
+                    borderRadius: '6px',
+                    border: '1px dashed rgba(82, 196, 26, 0.3)'
+                  }}>
+                    <div style={{ color: '#1890ff', fontSize: '32px', marginBottom: '8px' }}>☁️</div>
+                    <div style={{ color: '#ffffff90', fontSize: '12px', marginBottom: '4px' }}>点击或拖拽上传钻孔数据文件</div>
+                    <div style={{ color: '#ffffff60', fontSize: '10px' }}>支持 JSON、CSV、Excel 格式</div>
+                  </div>
+                </div>
+
+                {/* 数据统计 */}
+                <div style={{ padding: '16px', backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <div style={{ color: '#ffffff', fontSize: '14px', fontWeight: 'bold', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>📊</span>
+                    <span>数据统计</span>
+                  </div>
+                  <div style={{ 
+                    padding: '20px', 
+                    backgroundColor: 'rgba(0, 0, 0, 0.2)', 
+                    borderRadius: '6px',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ color: '#ffffff60', fontSize: '11px' }}>暂无钻孔数据</div>
+                  </div>
+                </div>
+              </div>
+            )
+          },
+          { 
+            key: 'results-analysis', 
+            label: <span>{getActivityBadge('process')}结果分析</span>, 
+            children: (
+              <div style={{ padding: '20px', color: '#fff', height: '100%', overflow: 'auto' }}>
+                <div style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 'bold' }}>📊 结果分析</div>
+                
+                {/* 统计结果 */}
+                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(235, 47, 150, 0.1)', borderRadius: '8px', border: '1px solid #eb2f96' }}>
+                  <div style={{ color: '#eb2f96', fontWeight: 'bold', marginBottom: '8px' }}>三维重建统计</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>重建精度: 94.2%</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>地层厚度误差: ±0.3m</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>计算时间: 15.6秒</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff80' }}>内存使用: 256MB</div>
+                </div>
+
+                {/* 导出控制 */}
+                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(250, 173, 20, 0.1)', borderRadius: '8px', border: '1px solid #faad14' }}>
+                  <div style={{ color: '#faad14', fontWeight: 'bold', marginBottom: '8px' }}>数据导出</div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button 
+                      onClick={() => console.log('导出3D模型')}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#faad14',
                         color: 'white',
                         border: 'none',
                         borderRadius: '4px',
@@ -861,36 +968,46 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                         fontSize: '11px'
                       }}
                     >
-                      导入数据
+                      3D模型
                     </button>
                     <button 
-                      onClick={() => {
-                        console.log('数据质量检查');
-                      }}
+                      onClick={() => console.log('导出剖面图')}
                       style={{
                         padding: '6px 12px',
                         backgroundColor: 'transparent',
-                        color: '#1890ff',
-                        border: '1px solid #1890ff',
+                        color: '#faad14',
+                        border: '1px solid #faad14',
                         borderRadius: '4px',
                         cursor: 'pointer',
                         fontSize: '11px'
                       }}
                     >
-                      质量检查
+                      剖面图
+                    </button>
+                    <button 
+                      onClick={() => console.log('导出报告')}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: 'transparent',
+                        color: '#eb2f96',
+                        border: '1px solid #eb2f96',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      分析报告
                     </button>
                   </div>
                 </div>
 
-                {/* 三维重建控制 */}
+                {/* 质量评估 */}
                 <div style={{ padding: '12px', backgroundColor: 'rgba(82, 196, 26, 0.1)', borderRadius: '8px', border: '1px solid #52c41a' }}>
-                  <div style={{ color: '#52c41a', fontWeight: 'bold', marginBottom: '8px' }}>三维重建控制</div>
-                  <div style={{ fontSize: '12px', color: '#ffffff90', marginBottom: '8px' }}>重建质量: 92% | 计算节点: 156,432个</div>
+                  <div style={{ color: '#52c41a', fontWeight: 'bold', marginBottom: '8px' }}>质量评估</div>
+                  <div style={{ fontSize: '12px', color: '#ffffff90', marginBottom: '8px' }}>模型完整度: 98.7% | 数据一致性: 96.1%</div>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <button 
-                      onClick={() => {
-                        console.log('启动自动重建');
-                      }}
+                      onClick={() => console.log('质量检查')}
                       style={{
                         padding: '6px 12px',
                         backgroundColor: '#52c41a',
@@ -901,12 +1018,10 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                         fontSize: '11px'
                       }}
                     >
-                      自动重建
+                      质量检查
                     </button>
                     <button 
-                      onClick={() => {
-                        console.log('参数优化');
-                      }}
+                      onClick={() => console.log('优化建议')}
                       style={{
                         padding: '6px 12px',
                         backgroundColor: 'transparent',
@@ -917,23 +1032,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                         fontSize: '11px'
                       }}
                     >
-                      参数优化
-                    </button>
-                    <button 
-                      onClick={() => {
-                        console.log('导出模型');
-                      }}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: 'transparent',
-                        color: '#52c41a',
-                        border: '1px solid #52c41a',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '11px'
-                      }}
-                    >
-                      导出模型
+                      优化建议
                     </button>
                   </div>
                 </div>
@@ -1207,7 +1306,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
       }
     };
 
-    const currentConfig = moduleConfigs[activeModule as keyof typeof moduleConfigs] || moduleConfigs['geology-modeling'];
+    const currentConfig = moduleConfigs[activeModule as keyof typeof moduleConfigs] || moduleConfigs['geology-reconstruction'];
 
     if (leftPanelState === 'collapsed') {
       return (
@@ -2317,88 +2416,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           </Text>
         </div>
 
-        {/* 中央数据流状态 */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ 
-              width: '12px', 
-              height: '12px', 
-              borderRadius: '50%', 
-              background: themeConfig.colors.success,
-              margin: '0 auto 4px',
-              animation: 'pulse 2s infinite'
-            }} />
-            <Text style={{ color: themeConfig.colors.text.tertiary, fontSize: '10px' }}>
-              2号几何
-            </Text>
-          </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <div style={{
-              width: '40px',
-              height: '2px',
-              background: `linear-gradient(90deg, transparent, ${themeConfig.colors.primary}, transparent)`,
-              animation: 'dataFlow 2s ease-in-out infinite'
-            }} />
-          </div>
 
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ 
-              width: '12px', 
-              height: '12px', 
-              borderRadius: '50%', 
-              background: themeConfig.colors.warning,
-              margin: '0 auto 4px',
-              animation: 'pulse 2s infinite 0.5s'
-            }} />
-            <Text style={{ color: themeConfig.colors.text.tertiary, fontSize: '10px' }}>
-              网格生成
-            </Text>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <div style={{
-              width: '40px',
-              height: '2px',
-              background: `linear-gradient(90deg, transparent, ${themeConfig.colors.primary}, transparent)`,
-              animation: 'dataFlow 2s ease-in-out infinite 1s'
-            }} />
-          </div>
-
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ 
-              width: '12px', 
-              height: '12px', 
-              borderRadius: '50%', 
-              background: themeConfig.colors.accent,
-              margin: '0 auto 4px',
-              animation: 'pulse 2s infinite 1s'
-            }} />
-            <Text style={{ color: themeConfig.colors.text.tertiary, fontSize: '10px' }}>
-              3号计算
-            </Text>
-          </div>
-        </div>
-
-        {/* 协作状态区域 */}
-        <div style={{ textAlign: 'right' }}>
-          <Space>
-            <div style={{ textAlign: 'center' }}>
-              <MonitorOutlined style={{ color: themeConfig.colors.success, fontSize: '16px' }} />
-              <br />
-              <Text style={{ color: themeConfig.colors.text.tertiary, fontSize: '10px' }}>
-                系统正常
-              </Text>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <ThunderboltOutlined style={{ color: themeConfig.colors.primary, fontSize: '16px' }} />
-              <br />
-              <Text style={{ color: themeConfig.colors.text.tertiary, fontSize: '10px' }}>
-                计算中
-              </Text>
-            </div>
-          </Space>
-        </div>
       </div>
     );
   };
