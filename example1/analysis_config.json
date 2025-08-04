@@ -1,0 +1,292 @@
+{
+    "problem_data": {
+        "problem_name": "MSH_Example1_Analysis",
+        "parallel_type": "OpenMP",
+        "echo_level": 1,
+        "start_time": 0.0,
+        "end_time": 1.0
+    },
+    "solver_settings": {
+        "solver_type": "Static",
+        "model_part_name": "Structure",
+        "domain_size": 3,
+        "echo_level": 1,
+        "analysis_type": "non_linear",
+        "model_import_settings": {
+            "input_type": "mdpa",
+            "input_filename": "soil_analysis"
+        },
+        "material_import_settings": {
+            "materials_filename": "materials.json"
+        },
+        "time_stepping": {
+            "time_step": 0.1
+        },
+        "line_search": true,
+        "convergence_criteria": "mixed_criteria",
+        "displacement_relative_tolerance": 1e-06,
+        "residual_relative_tolerance": 1e-06,
+        "displacement_absolute_tolerance": 1e-09,
+        "residual_absolute_tolerance": 1e-09,
+        "max_iteration": 100,
+        "move_mesh_flag": false
+    },
+    "processes": {
+        "constraints_process_list": [
+            {
+                "python_module": "assign_vector_variable_process",
+                "kratos_module": "KratosMultiphysics",
+                "process_name": "AssignVectorVariableProcess",
+                "Parameters": {
+                    "model_part_name": "Structure.BottomBoundary",
+                    "variable_name": "DISPLACEMENT",
+                    "constrained": [
+                        true,
+                        true,
+                        true
+                    ],
+                    "value": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "interval": [
+                        0.0,
+                        "End"
+                    ]
+                }
+            },
+            {
+                "python_module": "assign_vector_variable_process",
+                "kratos_module": "KratosMultiphysics",
+                "process_name": "AssignVectorVariableProcess",
+                "Parameters": {
+                    "model_part_name": "Structure.SideBoundary",
+                    "variable_name": "DISPLACEMENT",
+                    "constrained": [
+                        true,
+                        true,
+                        false
+                    ],
+                    "value": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "interval": [
+                        0.0,
+                        "End"
+                    ]
+                }
+            }
+        ],
+        "loads_process_list": [
+            {
+                "python_module": "assign_vector_by_direction_to_condition_process",
+                "kratos_module": "KratosMultiphysics",
+                "process_name": "AssignVectorByDirectionToConditionProcess",
+                "Parameters": {
+                    "model_part_name": "Structure",
+                    "variable_name": "VOLUME_ACCELERATION",
+                    "modulus": 9.81,
+                    "direction": [
+                        0.0,
+                        0.0,
+                        -1.0
+                    ],
+                    "interval": [
+                        0.0,
+                        "End"
+                    ]
+                }
+            },
+            {
+                "python_module": "assign_scalar_variable_to_condition_process",
+                "kratos_module": "KratosMultiphysics",
+                "process_name": "AssignScalarVariableToConditionProcess",
+                "Parameters": {
+                    "model_part_name": "Structure.TopBoundary",
+                    "variable_name": "POSITIVE_FACE_PRESSURE",
+                    "value": 20000.0,
+                    "interval": [
+                        0.0,
+                        "End"
+                    ]
+                }
+            }
+        ]
+    },
+    "output_processes": {
+        "vtk_output": [
+            {
+                "python_module": "vtk_output_process",
+                "kratos_module": "KratosMultiphysics",
+                "process_name": "VtkOutputProcess",
+                "Parameters": {
+                    "model_part_name": "Structure",
+                    "output_control_type": "step",
+                    "output_frequency": 1,
+                    "file_format": "binary",
+                    "output_precision": 7,
+                    "output_sub_model_parts": false,
+                    "folder_name": "vtk_output",
+                    "save_output_files_in_folder": true,
+                    "nodal_solution_step_data_variables": [
+                        "DISPLACEMENT",
+                        "REACTION",
+                        "VELOCITY",
+                        "ACCELERATION"
+                    ],
+                    "gauss_point_variables": [
+                        "STRESS_TENSOR",
+                        "STRAIN_TENSOR",
+                        "PLASTIC_STRAIN_TENSOR"
+                    ]
+                }
+            }
+        ]
+    },
+    "analysis_stages": {
+        "stage_1": {
+            "name": "Geostatic_Equilibrium",
+            "description": "地应力平衡分析",
+            "active_parts": [
+                "Layer_1",
+                "Layer_2",
+                "Layer_3",
+                "Layer_4",
+                "Layer_5",
+                "Layer_6",
+                "Layer_7"
+            ],
+            "initial_stress_application": true,
+            "time_range": [
+                0.0,
+                0.3
+            ]
+        },
+        "stage_2": {
+            "name": "Tunnel_Excavation",
+            "description": "隧道开挖",
+            "active_parts": [
+                "Layer_1",
+                "Layer_2",
+                "Layer_3",
+                "Layer_4",
+                "Layer_5",
+                "Layer_6",
+                "Layer_7"
+            ],
+            "deactivated_parts": [
+                "TunnelZone"
+            ],
+            "time_range": [
+                0.3,
+                0.6
+            ]
+        },
+        "stage_3": {
+            "name": "Pit_Excavation_Stage1",
+            "description": "基坑开挖第一阶段",
+            "active_parts": [
+                "Layer_1",
+                "Layer_2",
+                "Layer_3",
+                "Layer_4",
+                "Layer_5",
+                "Layer_6",
+                "Layer_7"
+            ],
+            "deactivated_parts": [
+                "TunnelZone",
+                "ExcavationZone_Upper"
+            ],
+            "time_range": [
+                0.6,
+                0.8
+            ]
+        },
+        "stage_4": {
+            "name": "Pit_Excavation_Final",
+            "description": "基坑开挖最终阶段",
+            "active_parts": [
+                "Layer_1",
+                "Layer_2",
+                "Layer_3",
+                "Layer_4",
+                "Layer_5",
+                "Layer_6",
+                "Layer_7"
+            ],
+            "deactivated_parts": [
+                "TunnelZone",
+                "ExcavationZone"
+            ],
+            "time_range": [
+                0.8,
+                1.0
+            ]
+        }
+    },
+    "initial_stress_settings": {
+        "method": "K0_method",
+        "K0_coefficient": 0.5,
+        "overconsolidation_ratio": 1.5,
+        "water_table_depth": 2.0,
+        "unit_weight_water": 9810.0,
+        "apply_effective_stress": true
+    },
+    "monitoring_points": {
+        "tunnel_crown": {
+            "coordinates": [
+                0.0,
+                0.0,
+                31.75
+            ],
+            "variables": [
+                "DISPLACEMENT"
+            ]
+        },
+        "tunnel_springline": {
+            "coordinates": [
+                2.5,
+                0.0,
+                30.0
+            ],
+            "variables": [
+                "DISPLACEMENT",
+                "STRESS_TENSOR"
+            ]
+        },
+        "pit_corner": {
+            "coordinates": [
+                12.5,
+                12.5,
+                38.0
+            ],
+            "variables": [
+                "DISPLACEMENT"
+            ]
+        },
+        "pit_bottom_center": {
+            "coordinates": [
+                0.0,
+                0.0,
+                38.0
+            ],
+            "variables": [
+                "DISPLACEMENT"
+            ]
+        },
+        "surface_settlement": {
+            "coordinates": [
+                0.0,
+                0.0,
+                50.0
+            ],
+            "variables": [
+                "DISPLACEMENT"
+            ]
+        }
+    }
+}

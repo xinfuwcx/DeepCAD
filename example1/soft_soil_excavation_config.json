@@ -1,0 +1,482 @@
+{
+  "project_info": {
+    "name": "Soft_Soil_Deep_Excavation_500x500x30",
+    "description": "软土地区深基坑工程 - 500×500×30m土体域，200×200×15m基坑",
+    "location": "典型软土地区（如上海、杭州等）",
+    "analysis_type": "soil_structure_interaction_with_diaphragm_wall",
+    "author": "Example1",
+    "date": "2025-01-01"
+  },
+  
+  "geometry": {
+    "soil_domain": {
+      "width": 500.0,
+      "length": 500.0,
+      "depth": 30.0,
+      "origin": [0.0, 0.0, 0.0],
+      "description": "大型土体计算域"
+    },
+    "excavation": {
+      "width": 200.0,
+      "length": 200.0,
+      "depth": 15.0,
+      "center": [250.0, 250.0, 0.0],
+      "shape": "rectangular",
+      "description": "深基坑开挖区域"
+    },
+    "diaphragm_wall": {
+      "thickness": 1.0,
+      "depth": 22.0,
+      "embedment_depth": 7.0,
+      "perimeter": "excavation_boundary",
+      "description": "地下连续墙，入土深度7m"
+    },
+    "mesh_settings": {
+      "characteristic_length": 2.0,
+      "refinement_zones": [
+        {
+          "name": "excavation_zone",
+          "size": 1.0,
+          "region": "near_excavation"
+        },
+        {
+          "name": "wall_zone", 
+          "size": 0.5,
+          "region": "diaphragm_wall"
+        }
+      ]
+    }
+  },
+  
+  "soil_layers": [
+    {
+      "layer_id": 1,
+      "name": "杂填土",
+      "top_elevation": 0.0,
+      "bottom_elevation": -2.0,
+      "description": "表层杂填土，工程性质较差",
+      "material_properties": {
+        "unit_weight": 17.0,
+        "saturated_unit_weight": 18.5,
+        "cohesion": 8.0,
+        "friction_angle": 10.0,
+        "elastic_modulus": 4.0,
+        "poisson_ratio": 0.40,
+        "permeability_horizontal": 1e-6,
+        "permeability_vertical": 5e-7,
+        "compression_index": 0.35,
+        "recompression_index": 0.08,
+        "over_consolidation_ratio": 1.0
+      }
+    },
+    {
+      "layer_id": 2,
+      "name": "淤泥质粘土",
+      "top_elevation": -2.0,
+      "bottom_elevation": -8.0,
+      "description": "软塑-流塑状淤泥质粘土，承载力低",
+      "material_properties": {
+        "unit_weight": 16.5,
+        "saturated_unit_weight": 17.8,
+        "cohesion": 12.0,
+        "friction_angle": 8.0,
+        "elastic_modulus": 2.5,
+        "poisson_ratio": 0.45,
+        "permeability_horizontal": 5e-8,
+        "permeability_vertical": 2e-8,
+        "compression_index": 0.45,
+        "recompression_index": 0.10,
+        "over_consolidation_ratio": 1.1
+      }
+    },
+    {
+      "layer_id": 3,
+      "name": "粘土",
+      "top_elevation": -8.0,
+      "bottom_elevation": -16.0,
+      "description": "软塑-可塑状粘土",
+      "material_properties": {
+        "unit_weight": 18.0,
+        "saturated_unit_weight": 19.2,
+        "cohesion": 18.0,
+        "friction_angle": 12.0,
+        "elastic_modulus": 6.0,
+        "poisson_ratio": 0.38,
+        "permeability_horizontal": 2e-8,
+        "permeability_vertical": 8e-9,
+        "compression_index": 0.30,
+        "recompression_index": 0.06,
+        "over_consolidation_ratio": 1.3
+      }
+    },
+    {
+      "layer_id": 4,
+      "name": "粉质粘土",
+      "top_elevation": -16.0,
+      "bottom_elevation": -24.0,
+      "description": "可塑-硬塑状粉质粘土",
+      "material_properties": {
+        "unit_weight": 19.0,
+        "saturated_unit_weight": 20.0,
+        "cohesion": 25.0,
+        "friction_angle": 16.0,
+        "elastic_modulus": 12.0,
+        "poisson_ratio": 0.32,
+        "permeability_horizontal": 8e-8,
+        "permeability_vertical": 4e-8,
+        "compression_index": 0.20,
+        "recompression_index": 0.04,
+        "over_consolidation_ratio": 2.0
+      }
+    },
+    {
+      "layer_id": 5,
+      "name": "粉砂夹粘土",
+      "top_elevation": -24.0,
+      "bottom_elevation": -30.0,
+      "description": "中密-密实粉砂夹粘土层",
+      "material_properties": {
+        "unit_weight": 19.5,
+        "saturated_unit_weight": 20.5,
+        "cohesion": 15.0,
+        "friction_angle": 22.0,
+        "elastic_modulus": 20.0,
+        "poisson_ratio": 0.28,
+        "permeability_horizontal": 2e-6,
+        "permeability_vertical": 1e-6,
+        "compression_index": 0.12,
+        "recompression_index": 0.02,
+        "over_consolidation_ratio": 2.5
+      }
+    }
+  ],
+  
+  "structures": {
+    "diaphragm_wall": {
+      "material_id": "concrete_c30",
+      "geometry": {
+        "thickness": 1.0,
+        "total_depth": 22.0,
+        "embedment_below_excavation": 7.0
+      },
+      "material_properties": {
+        "elastic_modulus": 30000.0,
+        "poisson_ratio": 0.20,
+        "unit_weight": 25.0,
+        "compressive_strength": 30.0,
+        "tensile_strength": 2.5,
+        "thermal_expansion": 1e-5
+      },
+      "construction": {
+        "panel_width": 6.0,
+        "joint_treatment": "reinforced",
+        "quality_class": "primary"
+      }
+    }
+  },
+  
+  "groundwater": {
+    "initial_water_table": -1.5,
+    "perched_water": false,
+    "artesian_pressure": false,
+    "dewatering": {
+      "enabled": true,
+      "target_level": -17.0,
+      "method": "deep_well_pumping",
+      "wells": [
+        {"x": 200.0, "y": 200.0, "depth": -20.0, "radius": 0.3},
+        {"x": 200.0, "y": 300.0, "depth": -20.0, "radius": 0.3},
+        {"x": 300.0, "y": 200.0, "depth": -20.0, "radius": 0.3},
+        {"x": 300.0, "y": 300.0, "depth": -20.0, "radius": 0.3}
+      ]
+    }
+  },
+  
+  "boundary_conditions": {
+    "displacement": {
+      "bottom_boundary": {
+        "type": "fixed",
+        "surfaces": ["z_min"],
+        "constraints": ["ux", "uy", "uz"]
+      },
+      "side_boundaries": {
+        "type": "roller",
+        "surfaces": ["x_min", "x_max", "y_min", "y_max"],
+        "constraints": ["ux", "uy"]
+      },
+      "top_surface": {
+        "type": "free",
+        "surfaces": ["z_max"],
+        "constraints": []
+      }
+    },
+    "hydraulic": {
+      "side_boundaries": {
+        "type": "constant_head",
+        "surfaces": ["x_min", "x_max", "y_min", "y_max"],
+        "head_value": "hydrostatic"
+      },
+      "bottom_boundary": {
+        "type": "impermeable",
+        "surfaces": ["z_min"]
+      }
+    }
+  },
+  
+  "loads": {
+    "gravity": {
+      "enabled": true,
+      "acceleration": [0.0, 0.0, -9.81]
+    },
+    "surface_loads": {
+      "uniform_surcharge": {
+        "magnitude": 20.0,
+        "area": "entire_surface",
+        "description": "地面超载20kPa"
+      },
+      "construction_load": {
+        "magnitude": 15.0,
+        "area": "near_excavation_edge",
+        "description": "施工临时荷载15kPa"
+      }
+    }
+  },
+  
+  "construction_stages": [
+    {
+      "stage": 1,
+      "name": "初始地应力平衡",
+      "description": "建立初始地应力状态，不包含开挖和结构",
+      "duration_days": 0,
+      "operations": [
+        {
+          "type": "apply_gravity",
+          "description": "施加重力荷载，建立地应力平衡"
+        },
+        {
+          "type": "apply_surface_load", 
+          "load": "uniform_surcharge"
+        }
+      ],
+      "analysis_settings": {
+        "solver_type": "linear_elastic",
+        "max_iterations": 10,
+        "convergence_tolerance": 1e-6
+      }
+    },
+    {
+      "stage": 2,
+      "name": "地连墙施工",
+      "description": "激活地下连续墙，模拟成墙过程",
+      "duration_days": 30,
+      "operations": [
+        {
+          "type": "activate_structure",
+          "structure": "diaphragm_wall",
+          "description": "激活地连墙单元"
+        },
+        {
+          "type": "apply_wall_self_weight",
+          "structure": "diaphragm_wall"
+        }
+      ],
+      "analysis_settings": {
+        "solver_type": "nonlinear",
+        "plasticity_model": "mohr_coulomb",
+        "max_iterations": 50,
+        "convergence_tolerance": 1e-6
+      }
+    },
+    {
+      "stage": 3,
+      "name": "第一层开挖",
+      "description": "开挖至-5m深度",
+      "duration_days": 7,
+      "excavation_depth": -5.0,
+      "operations": [
+        {
+          "type": "remove_soil_elements",
+          "depth_range": [0.0, -5.0],
+          "area": "excavation_zone"
+        },
+        {
+          "type": "apply_dewatering",
+          "target_level": -6.0
+        }
+      ],
+      "analysis_settings": {
+        "solver_type": "nonlinear",
+        "plasticity_model": "mohr_coulomb",
+        "max_iterations": 100,
+        "convergence_tolerance": 5e-7,
+        "line_search": true
+      }
+    },
+    {
+      "stage": 4,
+      "name": "第二层开挖",
+      "description": "开挖至-10m深度",
+      "duration_days": 7,
+      "excavation_depth": -10.0,
+      "operations": [
+        {
+          "type": "remove_soil_elements",
+          "depth_range": [-5.0, -10.0],
+          "area": "excavation_zone"
+        },
+        {
+          "type": "apply_dewatering",
+          "target_level": -12.0
+        }
+      ],
+      "analysis_settings": {
+        "solver_type": "nonlinear",
+        "plasticity_model": "mohr_coulomb",
+        "max_iterations": 150,
+        "convergence_tolerance": 5e-7,
+        "line_search": true,
+        "arc_length_control": true
+      }
+    },
+    {
+      "stage": 5,
+      "name": "最终开挖",
+      "description": "开挖至设计深度-15m",
+      "duration_days": 10,
+      "excavation_depth": -15.0,
+      "operations": [
+        {
+          "type": "remove_soil_elements",
+          "depth_range": [-10.0, -15.0],
+          "area": "excavation_zone"
+        },
+        {
+          "type": "apply_dewatering",
+          "target_level": -17.0
+        }
+      ],
+      "analysis_settings": {
+        "solver_type": "nonlinear",
+        "plasticity_model": "mohr_coulomb",
+        "max_iterations": 200,
+        "convergence_tolerance": 1e-7,
+        "line_search": true,
+        "arc_length_control": true,
+        "displacement_control": true
+      }
+    }
+  ],
+  
+  "analysis_settings": {
+    "global_settings": {
+      "problem_type": "quasi_static",
+      "geometry_nonlinearity": true,
+      "material_nonlinearity": true,
+      "contact_nonlinearity": false
+    },
+    "constitutive_models": {
+      "soil": {
+        "type": "mohr_coulomb_plasticity",
+        "hardening": false,
+        "tension_cutoff": true,
+        "apex_smoothing": true
+      },
+      "concrete": {
+        "type": "linear_elastic",
+        "damage_model": false
+      }
+    },
+    "solver_parameters": {
+      "solver_type": "newton_raphson",
+      "max_global_iterations": 200,
+      "convergence_criteria": {
+        "displacement_relative_tolerance": 1e-6,
+        "displacement_absolute_tolerance": 1e-9,
+        "residual_relative_tolerance": 1e-6,
+        "residual_absolute_tolerance": 1e-9
+      },
+      "line_search": {
+        "enabled": true,
+        "max_iterations": 10,
+        "alpha_min": 0.1
+      }
+    }
+  },
+  
+  "output_settings": {
+    "results_directory": "output/soft_soil_excavation/",
+    "vtk_output": {
+      "enabled": true,
+      "frequency": "every_stage",
+      "variables": [
+        "DISPLACEMENT",
+        "TOTAL_STRESS",
+        "EFFECTIVE_STRESS", 
+        "VON_MISES_STRESS",
+        "PLASTIC_STRAIN",
+        "VOLUMETRIC_STRAIN",
+        "PORE_PRESSURE"
+      ]
+    },
+    "json_summary": {
+      "enabled": true,
+      "include_convergence_history": true,
+      "include_stage_summary": true
+    },
+    "monitoring_points": [
+      {
+        "name": "wall_top_center",
+        "location": [250.0, 150.0, 0.0],
+        "variables": ["DISPLACEMENT_X", "DISPLACEMENT_Y"]
+      },
+      {
+        "name": "wall_mid_depth",
+        "location": [250.0, 150.0, -7.5],
+        "variables": ["DISPLACEMENT_X", "STRESS_XX"]
+      },
+      {
+        "name": "excavation_center_bottom",
+        "location": [250.0, 250.0, -15.0],
+        "variables": ["DISPLACEMENT_Z", "EFFECTIVE_STRESS"]
+      },
+      {
+        "name": "ground_surface_behind_wall",
+        "location": [250.0, 100.0, 0.0],
+        "variables": ["DISPLACEMENT_Z"]
+      }
+    ]
+  },
+  
+  "expected_results": {
+    "convergence": {
+      "stage_1": "应该轻松收敛",
+      "stage_2": "地连墙激活，应能收敛",
+      "stage_3": "第一层开挖，可能需要较多迭代",
+      "stage_4": "第二层开挖，需要仔细监控收敛性",
+      "stage_5": "最终开挖，最具挑战性，可能需要位移控制"
+    },
+    "typical_values": {
+      "max_wall_displacement_mm": 40.0,
+      "max_ground_settlement_mm": 25.0,
+      "max_wall_stress_MPa": 15.0,
+      "max_soil_plastic_strain": 0.05,
+      "safety_factor_estimate": 1.3
+    },
+    "critical_checks": [
+      "地连墙变形是否在合理范围内",
+      "基坑底部是否出现过大隆起",
+      "地表沉降影响范围和大小",
+      "塑性区发展是否合理",
+      "数值收敛性检查"
+    ]
+  },
+  
+  "computational_requirements": {
+    "estimated_nodes": 150000,
+    "estimated_elements": 800000,
+    "memory_requirement_gb": 8,
+    "cpu_cores_recommended": 8,
+    "analysis_time_hours": 3,
+    "disk_space_gb": 2
+  }
+}

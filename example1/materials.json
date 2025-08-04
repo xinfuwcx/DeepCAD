@@ -1,0 +1,193 @@
+{
+    "properties": [
+        {
+            "model_part_name": "Layer_1",
+            "properties_id": 1,
+            "Material": {
+                "constitutive_law": {
+                    "name": "MohrCoulombPlastic3DLaw"
+                },
+                "Variables": {
+                    "DENSITY": 2000.0,
+                    "YOUNG_MODULUS": 50000000,
+                    "POISSON_RATIO": 0.28,
+                    "COHESION": 80000,
+                    "INTERNAL_FRICTION_ANGLE": 35.0,
+                    "DILATANCY_ANGLE": 5.0,
+                    "YIELD_STRESS": 80000,
+                    "ISOTROPIC_HARDENING_MODULUS": 500000.0,
+                    "EXPONENTIAL_SATURATION_YIELD_STRESS": 160000.0,
+                    "HARDENING_CURVE": 0,
+                    "MAXIMUM_STRESS": 8000,
+                    "MAXIMUM_STRESS_PRINCIPAL": 8000,
+                    "DAMAGE_ONSET_STRESS_COMPRESSION": 800000,
+                    "BIAXIAL_COMPRESSION_MULTIPLIER": 1.16,
+                    "VISCOSITY": 1e-06
+                },
+                "Tables": {}
+            }
+        },
+        {
+            "model_part_name": "Layer_2",
+            "properties_id": 2,
+            "Material": {
+                "constitutive_law": {
+                    "name": "MohrCoulombPlastic3DLaw"
+                },
+                "Variables": {
+                    "DENSITY": 2083.3,
+                    "YOUNG_MODULUS": 375000000,
+                    "POISSON_RATIO": 0.253,
+                    "COHESION": 233333,
+                    "INTERNAL_FRICTION_ANGLE": 38.3,
+                    "DILATANCY_ANGLE": 8.3,
+                    "YIELD_STRESS": 233333,
+                    "ISOTROPIC_HARDENING_MODULUS": 3750000.0,
+                    "EXPONENTIAL_SATURATION_YIELD_STRESS": 466666.0,
+                    "HARDENING_CURVE": 0,
+                    "MAXIMUM_STRESS": 23333,
+                    "MAXIMUM_STRESS_PRINCIPAL": 23333,
+                    "DAMAGE_ONSET_STRESS_COMPRESSION": 2333330,
+                    "BIAXIAL_COMPRESSION_MULTIPLIER": 1.16,
+                    "VISCOSITY": 1e-06
+                },
+                "Tables": {}
+            }
+        },
+        {
+            "model_part_name": "Layer_3",
+            "properties_id": 3,
+            "Material": {
+                "constitutive_law": {
+                    "name": "MohrCoulombPlastic3DLaw"
+                },
+                "Variables": {
+                    "DENSITY": 2166.7,
+                    "YOUNG_MODULUS": 700000000,
+                    "POISSON_RATIO": 0.227,
+                    "COHESION": 386666,
+                    "INTERNAL_FRICTION_ANGLE": 41.7,
+                    "DILATANCY_ANGLE": 11.7,
+                    "YIELD_STRESS": 386666,
+                    "ISOTROPIC_HARDENING_MODULUS": 7000000.0,
+                    "EXPONENTIAL_SATURATION_YIELD_STRESS": 773332.0,
+                    "HARDENING_CURVE": 0,
+                    "MAXIMUM_STRESS": 38666,
+                    "MAXIMUM_STRESS_PRINCIPAL": 38666,
+                    "DAMAGE_ONSET_STRESS_COMPRESSION": 3866660,
+                    "BIAXIAL_COMPRESSION_MULTIPLIER": 1.16,
+                    "VISCOSITY": 1e-06
+                },
+                "Tables": {}
+            }
+        },
+        {
+            "model_part_name": "Layer_4",
+            "properties_id": 4,
+            "Material": {
+                "constitutive_law": {
+                    "name": "MohrCoulombPlastic3DLaw"
+                },
+                "Variables": {
+                    "DENSITY": 2250.0,
+                    "YOUNG_MODULUS": 1025000000,
+                    "POISSON_RATIO": 0.2,
+                    "COHESION": 540000,
+                    "INTERNAL_FRICTION_ANGLE": 45.0,
+                    "DILATANCY_ANGLE": 15.0,
+                    "YIELD_STRESS": 540000,
+                    "ISOTROPIC_HARDENING_MODULUS": 10250000.0,
+                    "EXPONENTIAL_SATURATION_YIELD_STRESS": 1080000.0,
+                    "HARDENING_CURVE": 0,
+                    "MAXIMUM_STRESS": 54000,
+                    "MAXIMUM_STRESS_PRINCIPAL": 54000,
+                    "DAMAGE_ONSET_STRESS_COMPRESSION": 5400000,
+                    "BIAXIAL_COMPRESSION_MULTIPLIER": 1.16,
+                    "VISCOSITY": 1e-06
+                },
+                "Tables": {}
+            }
+        },
+        {
+            "model_part_name": "Layer_5",
+            "properties_id": 5,
+            "Material": {
+                "constitutive_law": {
+                    "name": "MohrCoulombPlastic3DLaw"
+                },
+                "Variables": {
+                    "DENSITY": 2333.3,
+                    "YOUNG_MODULUS": 1350000000,
+                    "POISSON_RATIO": 0.173,
+                    "COHESION": 693333,
+                    "INTERNAL_FRICTION_ANGLE": 48.3,
+                    "DILATANCY_ANGLE": 18.3,
+                    "YIELD_STRESS": 693333,
+                    "ISOTROPIC_HARDENING_MODULUS": 13500000.0,
+                    "EXPONENTIAL_SATURATION_YIELD_STRESS": 1386666.0,
+                    "HARDENING_CURVE": 0,
+                    "MAXIMUM_STRESS": 69333,
+                    "MAXIMUM_STRESS_PRINCIPAL": 69333,
+                    "DAMAGE_ONSET_STRESS_COMPRESSION": 6933330,
+                    "BIAXIAL_COMPRESSION_MULTIPLIER": 1.16,
+                    "VISCOSITY": 1e-06
+                },
+                "Tables": {}
+            }
+        },
+        {
+            "model_part_name": "Layer_6",
+            "properties_id": 6,
+            "Material": {
+                "constitutive_law": {
+                    "name": "MohrCoulombPlastic3DLaw"
+                },
+                "Variables": {
+                    "DENSITY": 2416.7,
+                    "YOUNG_MODULUS": 1675000000,
+                    "POISSON_RATIO": 0.147,
+                    "COHESION": 846666,
+                    "INTERNAL_FRICTION_ANGLE": 51.7,
+                    "DILATANCY_ANGLE": 21.7,
+                    "YIELD_STRESS": 846666,
+                    "ISOTROPIC_HARDENING_MODULUS": 16750000.0,
+                    "EXPONENTIAL_SATURATION_YIELD_STRESS": 1693332.0,
+                    "HARDENING_CURVE": 0,
+                    "MAXIMUM_STRESS": 84666,
+                    "MAXIMUM_STRESS_PRINCIPAL": 84666,
+                    "DAMAGE_ONSET_STRESS_COMPRESSION": 8466660,
+                    "BIAXIAL_COMPRESSION_MULTIPLIER": 1.16,
+                    "VISCOSITY": 1e-06
+                },
+                "Tables": {}
+            }
+        },
+        {
+            "model_part_name": "Layer_7",
+            "properties_id": 7,
+            "Material": {
+                "constitutive_law": {
+                    "name": "MohrCoulombPlastic3DLaw"
+                },
+                "Variables": {
+                    "DENSITY": 2500.0,
+                    "YOUNG_MODULUS": 2000000000,
+                    "POISSON_RATIO": 0.12,
+                    "COHESION": 1000000,
+                    "INTERNAL_FRICTION_ANGLE": 55.0,
+                    "DILATANCY_ANGLE": 25.0,
+                    "YIELD_STRESS": 1000000,
+                    "ISOTROPIC_HARDENING_MODULUS": 20000000.0,
+                    "EXPONENTIAL_SATURATION_YIELD_STRESS": 2000000.0,
+                    "HARDENING_CURVE": 0,
+                    "MAXIMUM_STRESS": 100000,
+                    "MAXIMUM_STRESS_PRINCIPAL": 100000,
+                    "DAMAGE_ONSET_STRESS_COMPRESSION": 10000000,
+                    "BIAXIAL_COMPRESSION_MULTIPLIER": 1.16,
+                    "VISCOSITY": 1e-06
+                },
+                "Tables": {}
+            }
+        }
+    ]
+}

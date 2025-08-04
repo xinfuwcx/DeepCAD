@@ -1,0 +1,7 @@
+# Example2 - DeepCAD系统测试程序
+# 直接使用DeepCAD项目现有依赖
+
+# 使用项目根目录的requirements.txt
+# 现代化桌面GUI依赖
+PyQt6>=6.4.0
+PyQt6-tools>=6.4.0

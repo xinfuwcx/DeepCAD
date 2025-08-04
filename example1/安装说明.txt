@@ -1,0 +1,34 @@
+Example1 - 深基坑MSH数据处理系统
+安装和使用说明
+
+=== 系统要求 ===
+• Python 3.8+
+• Windows 10/11
+• 内存: 8GB+
+• 存储: 1GB+
+
+=== 安装步骤 ===
+1. 解压本压缩包到任意目录
+2. 安装Python依赖：
+   pip install -r requirements.txt
+
+3. 确保GMSH已安装并添加到PATH环境变量
+
+4. 如需真实Kratos计算，请安装KratosMultiphysics
+
+=== 快速启动 ===
+双击运行: start_example1.py
+或命令行: python start_example1.py
+
+=== 功能说明 ===
+• 生成土体、基坑、隧道MSH网格文件
+• 配置高强度分层土体材料参数  
+• 运行真实的Kratos岩土工程分析
+• 输出PyVista兼容的VTK结果文件
+• 完整的分步开挖分析流程
+
+=== 技术支持 ===
+本软件用于真实深基坑工程分析
+详细说明请参考: EXAMPLE1_README.md
+
+Example1 v1.0 - 2025年

@@ -1,0 +1,57 @@
+*VERSION
+MIDAS Gen 2022 v3.1
+
+*UNIT
+FORCE=KN
+LENGTH=M
+TEMP=C
+
+*NODE
+; NodeID  X      Y      Z
+1        0.0    0.0    0.0
+2       10.0    0.0    0.0  
+3       20.0    0.0    0.0
+4        0.0   10.0    0.0
+5       10.0   10.0    0.0
+6       20.0   10.0    0.0
+7        0.0    0.0  -10.0
+8       10.0    0.0  -10.0
+9       20.0    0.0  -10.0
+10       0.0   10.0  -10.0
+11      10.0   10.0  -10.0  
+12      20.0   10.0  -10.0
+
+*ELEMENT
+; ElemID  Type    NodeI NodeJ NodeK NodeL NodeM NodeN NodeO NodeP
+1       SOLID     1     2     5     4     7     8    11    10
+2       SOLID     2     3     6     5     8     9    12    11
+
+*MATERIAL
+; MatID  Name      E          nu     Density
+1      Soil      30000      0.3    2000
+2      Concrete  30000000   0.2    2500
+
+*CONSTRAINT
+; NodeID  DOF (1=Fixed, 0=Free: Dx Dy Dz Rx Ry Rz)
+7       1 1 1 1 1 1
+8       1 1 1 1 1 1  
+9       1 1 1 1 1 1
+10      1 1 1 1 1 1
+11      1 1 1 1 1 1
+12      1 1 1 1 1 1
+
+*LOAD
+; NodeID  LoadType  Fx    Fy     Fz
+1       FORCE     0.0   0.0   -5.0
+2       FORCE     0.0   0.0   -5.0
+3       FORCE     0.0   0.0   -5.0
+4       FORCE     0.0   0.0   -5.0
+5       FORCE     0.0   0.0  -10.0
+6       FORCE     0.0   0.0  -10.0
+
+*STAGE
+; StageID  StageName
+1        Initial_Gravity
+2        Excavation_Stage_1
+3        Support_Installation
+4        Final_Loading
