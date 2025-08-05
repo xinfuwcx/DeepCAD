@@ -637,7 +637,7 @@ const GeologyModelingComplete: React.FC = () => {
           三维地质建模系统
         </Title>
         <Text type="secondary">
-          钻孔数据 → RBF插值 → PyVista可视化
+          钻孔数据 → RBF插值 → 三维重建
         </Text>
       </div>
 

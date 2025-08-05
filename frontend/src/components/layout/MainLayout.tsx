@@ -11,7 +11,6 @@ import {
   SettingOutlined,
   ExperimentOutlined,
   DatabaseOutlined,
-  CodeOutlined,
   EnvironmentOutlined
 } from '@ant-design/icons';
 import TechIcon from '../ui/TechIcon';
@@ -22,7 +21,6 @@ import EnhancedMainWorkspaceView from '../../views/EnhancedMainWorkspaceView';
 import PhysicsAIView from '../../views/PhysicsAIView';
 import MaterialLibraryView from '../../views/MaterialLibraryView';
 import SettingsView from '../../views/SettingsView';
-import { ComponentExampleShowcase } from '../../examples/ComponentExamples';
 import AIAssistantFloating from '../AIAssistantFloating';
 import ComputationExpertView from '../../views/ComputationExpertView';
 // import { ArchitectZeroUIController } from '../control/ArchitectZeroUIController';
@@ -63,8 +61,23 @@ const MainLayout: React.FC = () => {
       label: '几何建模',
       children: [
         {
-          key: 'borehole-visualization',
-          label: '钻孔可视化',
+          key: 'geology-environment',
+          icon: <EnvironmentOutlined />,
+          label: '地质环境',
+          children: [
+            {
+              key: 'geology-reconstruction',
+              label: '地质重建',
+            },
+            {
+              key: 'tunnel-modeling',
+              label: '隧道建模',
+            },
+            {
+              key: 'adjacent-buildings',
+              label: '相邻建筑',
+            },
+          ],
         },
         {
           key: 'excavation-design',
@@ -73,25 +86,6 @@ const MainLayout: React.FC = () => {
         {
           key: 'support-structure',
           label: '支护结构',
-        },
-      ],
-    },
-    {
-      key: 'geology-environment',
-      icon: <EnvironmentOutlined />,
-      label: '地质环境',
-      children: [
-        {
-          key: 'geology-reconstruction',
-          label: '地质重建',
-        },
-        {
-          key: 'tunnel-modeling',
-          label: '隧道建模',
-        },
-        {
-          key: 'adjacent-buildings',
-          label: '相邻建筑',
         },
       ],
     },
@@ -119,11 +113,6 @@ const MainLayout: React.FC = () => {
       key: 'materials',
       icon: <DatabaseOutlined />,
       label: '材料库',
-    },
-    {
-      key: 'examples',
-      icon: <CodeOutlined />,
-      label: '开发示例',
     },
     {
       key: 'settings',
@@ -237,7 +226,6 @@ const MainLayout: React.FC = () => {
             <Route path="dashboard" element={
               <NewEpicControlCenter />
             } />
-            <Route path="borehole-visualization" element={<EnhancedMainWorkspaceView activeModule="borehole-visualization" />} />
             <Route path="excavation-design" element={<EnhancedMainWorkspaceView activeModule="excavation-design" />} />
             <Route path="support-structure" element={<EnhancedMainWorkspaceView activeModule="support-structure" />} />
             <Route path="geology-reconstruction" element={<EnhancedMainWorkspaceView activeModule="geology-reconstruction" />} />
@@ -248,7 +236,6 @@ const MainLayout: React.FC = () => {
             <Route path="results" element={<EnhancedMainWorkspaceView activeModule="results" />} />
             <Route path="physics-ai" element={<PhysicsAIView />} />
             <Route path="materials" element={<MaterialLibraryView />} />
-            <Route path="examples" element={<ComponentExampleShowcase />} />
             <Route path="settings" element={<SettingsView />} />
             {/* 兼容性重定向：避免旧链接404 */}
             <Route path="computation" element={

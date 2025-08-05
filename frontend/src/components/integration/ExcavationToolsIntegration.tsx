@@ -19,7 +19,6 @@ import {
 } from '@ant-design/icons';
 
 // 导入之前开发的所有组件
-import BoreholeDataVisualization from '../geology/BoreholeDataVisualization';
 import RBFInterpolationConfig from '../geology/RBFInterpolationConfig';
 import GeologyParameterEditor from '../geology/GeologyParameterEditor';
 import DXFBooleanInterface from '../geology/DXFBooleanInterface';
@@ -120,26 +119,6 @@ const ExcavationToolsIntegration: React.FC<ExcavationToolsIntegrationProps> = ({
 }) => {
   // 定义完整的工作流程步骤
   const workflowSteps: WorkflowStep[] = [
-    {
-      id: 'borehole_data',
-      title: '钻孔数据导入',
-      description: '导入和分析钻孔地质数据，进行数据质量评估',
-      component: BoreholeDataVisualization,
-      dependencies: [],
-      outputs: ['geology.boreholes', 'geology.layers'],
-      status: 'pending',
-      progress: 0,
-      duration: 15,
-      priority: 'required',
-      validationRules: [
-        {
-          type: 'data_quality',
-          condition: 'boreholes.length >= 5',
-          message: '至少需要5个钻孔数据点',
-          severity: 'error'
-        }
-      ]
-    },
     {
       id: 'rbf_config',
       title: 'RBF插值配置',

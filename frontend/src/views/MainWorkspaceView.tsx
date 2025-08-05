@@ -51,7 +51,6 @@ import { ModuleErrorBoundary } from '../core/ErrorBoundary';
 import DiaphragmWallOffsetPanel from '../components/advanced/DiaphragmWallOffsetPanel';
 import PileModelingIntegrationPanel from '../components/advanced/PileModelingIntegrationPanel';
 import { GeometryToFEMMapper } from '../core/modeling/GeometryToFEMMapper';
-import BoreholeDataVisualization from '../components/geology/BoreholeDataVisualization';
 
 const { Content } = Layout;
 
@@ -180,13 +179,6 @@ const MainWorkspaceView: React.FC<MainWorkspaceViewProps> = ({
                     onParamsChange={(params) => console.log('地质建模参数更新:', params)}
                     onGenerate={(data) => handleGenerate('geology', data)}
                     status={geologyStatus}
-                  />
-                </div>
-                <div style={{ marginTop: '16px', padding: '12px', background: '#1a2332', borderRadius: '8px', border: '1px solid #00d9ff30' }}>
-                  <h4 style={{ color: '#00d9ff', margin: '0 0 12px 0', fontSize: '14px' }}>📊 钻孔数据可视化</h4>
-                  <BoreholeDataVisualization 
-                    boreholes={[]} // 修正属性名
-                    onBoreholeSelect={(borehole) => console.log('选中钻孔:', borehole)}
                   />
                 </div>
               </Tabs.TabPane>

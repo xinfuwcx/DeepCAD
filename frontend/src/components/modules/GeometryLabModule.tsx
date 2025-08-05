@@ -13,7 +13,6 @@ import {
   CheckCircleOutlined
 } from '@ant-design/icons';
 import GeometryQualityPanel from '../geology/GeometryQualityPanel';
-import BoreholeVisualization3D from '../geology/BoreholeVisualization3D';
 import { geometryOptimizationService } from '../../services/geometryOptimization';
 import { EnhancedBorehole } from '../../services/geologyService';
 
@@ -584,14 +583,15 @@ export const GeometryLabModule: React.FC = () => {
           background: 'rgba(26, 26, 26, 0.9)',
           backdropFilter: 'blur(20px)'
         }}>
-          <BoreholeVisualization3D
-            boreholes={boreholes}
-            onQualityFeedback={handleQualityFeedback}
-            onGeometryChange={handleGeometryUpdate}
-            meshSize={geologyParams.gridResolution}
-            showQualityMetrics={true}
-            realTimeMode={true}
-          />
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            color: 'rgba(255, 255, 255, 0.6)'
+          }}>
+            钻孔可视化组件已移除
+          </div>
         </div>
       )}
 

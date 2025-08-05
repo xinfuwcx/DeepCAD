@@ -21,7 +21,6 @@ import {
 import { useDeepCADTheme } from '../components/ui/DeepCADTheme';
 
 // 懒加载导入已开发的组件
-const BoreholeDataVisualization = React.lazy(() => import('../components/geology/BoreholeDataVisualization'));
 const RBFInterpolationConfig = React.lazy(() => import('../components/geology/RBFInterpolationConfig'));
 const GeologyParameterEditor = React.lazy(() => import('../components/geology/GeologyParameterEditor'));
 const DXFBooleanInterface = React.lazy(() => import('../components/geology/DXFBooleanInterface'));
@@ -191,19 +190,10 @@ const ExcavationWorkflowView: React.FC = () => {
       ),
       content: (
         <Tabs
-          defaultActiveKey="borehole"
+          defaultActiveKey="rbf-config"
           size="small"
           style={{ padding: '16px' }}
           items={[
-            {
-              key: 'borehole',
-              label: '钻孔数据可视化',
-              children: (
-                <Suspense fallback={<LoadingSpinner tip="加载钻孔数据组件..." />}>
-                  <BoreholeDataVisualization />
-                </Suspense>
-              )
-            },
             {
               key: 'rbf-config',
               label: 'RBF插值配置',
