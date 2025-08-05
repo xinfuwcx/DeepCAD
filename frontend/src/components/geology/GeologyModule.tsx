@@ -305,7 +305,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
       className="enhanced-geology-module geology-module-container"
       style={{ 
         height: '100%', 
-        overflow: 'auto',
+        overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column'
       }}
@@ -446,17 +446,17 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
       </AnimatePresence>
 
       {/* 主要内容区域 */}
-      <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+      <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
         <Tabs 
           activeKey={activeTab} 
           onChange={setActiveTab} 
           size="small"
-          style={{ height: '100%' }}
-          tabBarStyle={{ marginBottom: '16px' }}
+          style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+          tabBarStyle={{ marginBottom: '16px', flex: 'none' }}
         >
           {/* 土层计算域 */}
-        <TabPane tab="土体计算域" key="results">
-          <div style={{ height: 'calc(100vh - 200px)', overflow: 'auto', paddingBottom: '40px' }}>
+        <TabPane tab="土体计算域" key="results" style={{ flex: 1, overflow: 'hidden' }}>
+          <div style={{ height: '100%', overflow: 'auto', paddingBottom: '40px' }}>
             <Row gutter={[16, 20]}>
             {/* 计算域设置区域 */}
             <Col span={24}>
@@ -730,8 +730,8 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
           </div>
         </TabPane>
         {/* 数据管理 */}
-        <TabPane tab="钻孔数据" key="data">
-          <div style={{ height: 'calc(100vh - 200px)', overflow: 'auto', paddingBottom: '40px' }}>
+        <TabPane tab="钻孔数据" key="data" style={{ flex: 1, overflow: 'hidden' }}>
+          <div style={{ height: '100%', overflow: 'auto', paddingBottom: '40px' }}>
             <Row gutter={16}>
             <Col span={24}>
               <Card title="数据上传" size="small">
@@ -794,8 +794,8 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
         </TabPane>
 
         {/* 算法配置 */}
-        <TabPane tab="参数配置" key="config">
-          <div style={{ height: 'calc(100vh - 200px)', overflow: 'auto', paddingBottom: '40px' }}>
+        <TabPane tab="参数配置" key="config" style={{ flex: 1, overflow: 'hidden' }}>
+          <div style={{ height: '100%', overflow: 'auto', paddingBottom: '40px' }}>
             <Row gutter={16}>
             <Col span={24}>
               <Card title="GemPy建模配置" size="small" style={{ marginBottom: '16px' }}>
