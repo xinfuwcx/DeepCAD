@@ -143,7 +143,20 @@ def check_dependencies():
     
     # 检查PyVista (可选)
     try:
-        import pyvista
+        import pyvista as pv
+        
+        # 🔧 设置PyVista安全模式，避免3D旋转崩溃
+        pv.set_error_output_file("pyvista_errors.log")  # 错误日志
+        pv.OFF_SCREEN = False  # 确保屏幕渲染
+        
+        # 设置更稳定的默认参数
+        try:
+            pv.global_theme.multi_samples = 0  # 禁用多重采样
+            pv.global_theme.show_edges = False # 默认不显示边界
+            pv.global_theme.line_width = 1     # 线宽设为1
+        except:
+            pass
+            
         print("OK PyVista可用")
     except ImportError:
         print("WARN PyVista不可用，3D显示功能受限")

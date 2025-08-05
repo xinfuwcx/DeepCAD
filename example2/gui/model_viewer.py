@@ -40,14 +40,23 @@ class ModelViewer(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         
         if PYVISTA_AVAILABLE:
-            # 创建PyVista交互器
-            self.plotter = QtInteractor(self)
-            self.plotter.setMinimumSize(600, 400)
-            
-            # 设置默认相机和光照
-            self.setup_default_scene()
-            
-            layout.addWidget(self.plotter.interactor)
+            try:
+                # 🔧 创建PyVista交互器（添加崩溃保护）
+                self.plotter = QtInteractor(self)
+                self.plotter.setMinimumSize(600, 400)
+                
+                # 🔧 添加渲染器异常保护
+                self._setup_safe_interaction()
+                
+                # 设置默认相机和光照
+                self.setup_default_scene()
+                
+                layout.addWidget(self.plotter.interactor)
+                
+            except Exception as e:
+                print(f"❌ PyVista交互器创建失败: {e}")
+                # 创建备用占位符
+                self._create_fallback_placeholder(layout)
             
         else:
             # 创建占位符
@@ -63,44 +72,107 @@ class ModelViewer(QWidget):
             """)
             
             layout.addWidget(placeholder)
-            
-    def setup_default_scene(self):
-        """设置默认场景"""
-        if not PYVISTA_AVAILABLE:
-            return
-            
-        # 设置背景渐变
-        self.plotter.set_background('white', top='lightblue')
-        
-        # 添加坐标轴
-        self.plotter.show_axes()
-        
-        # 设置相机
-        self.plotter.camera_position = 'isometric'
-        
-        # 添加网格
-        self.add_ground_grid()
-        
-    def add_ground_grid(self):
-        """添加地面网格"""
-        if not PYVISTA_AVAILABLE:
-            return
-            
-        # 创建地面网格
-        grid = pv.Plane(center=(0, 0, 0), direction=(0, 0, 1), 
-                       i_size=100, j_size=100, i_resolution=20, j_resolution=20)
-        
-        self.plotter.add_mesh(grid, color='lightgray', opacity=0.3, 
-                             show_edges=True, line_width=0.5)
-        
-    def display_model(self, model):
-        """显示MIDAS模型"""
-        if not PYVISTA_AVAILABLE or not model:
+    
+    def _setup_safe_interaction(self):
+        """🔧 设置安全的3D交互"""
+        if not PYVISTA_AVAILABLE or not hasattr(self, 'plotter'):
             return
             
         try:
-            # 清除现有内容
-            self.clear_scene()
+            # 设置更稳定的渲染参数
+            self.plotter.ren_win.SetMultiSamples(0)  # 禁用多重采样避免驱动问题
+            self.plotter.ren_win.SetAAFrames(0)      # 禁用抗锯齿帧
+            
+            # 设置更保守的交互方式
+            self.plotter.enable_trackball_style()   # 使用更稳定的trackball风格
+            
+        except Exception as e:
+            print(f"⚠️ 3D交互设置警告: {e}")
+    
+    def _create_fallback_placeholder(self, layout):
+        """创建备用占位符"""
+        placeholder = QFrame()
+        placeholder.setFrameStyle(QFrame.Shape.StyledPanel)
+        placeholder.setMinimumSize(600, 400)
+        placeholder.setStyleSheet("""
+            QFrame {
+                background-color: #f8f9fa;
+                border: 2px dashed #dee2e6;
+                border-radius: 8px;
+            }
+        """)
+        layout.addWidget(placeholder)
+            
+    def setup_default_scene(self):
+        """🔧 设置默认场景（带异常保护）"""
+        if not PYVISTA_AVAILABLE or not hasattr(self, 'plotter'):
+            return
+            
+        try:
+            # 设置背景渐变
+            self.plotter.set_background('white', top='lightblue')
+            
+            # 添加坐标轴
+            self.plotter.show_axes()
+            
+            # 设置相机
+            self.plotter.camera_position = 'isometric'
+            
+            # 添加网格
+            self.add_ground_grid()
+            
+        except Exception as e:
+            print(f"⚠️ 默认场景设置失败: {e}")
+            # 尝试最基本的设置
+            try:
+                self.plotter.set_background('white')
+            except:
+                pass
+        
+    def add_ground_grid(self):
+        """🔧 添加地面网格（带异常保护）"""
+        if not PYVISTA_AVAILABLE or not hasattr(self, 'plotter'):
+            return
+            
+        try:
+            # 创建地面网格
+            grid = pv.Plane(center=(0, 0, 0), direction=(0, 0, 1), 
+                           i_size=100, j_size=100, i_resolution=20, j_resolution=20)
+            
+            self.plotter.add_mesh(grid, color='lightgray', opacity=0.3, 
+                                 show_edges=True, line_width=0.5)
+        except Exception as e:
+            print(f"⚠️ 地面网格添加失败: {e}")
+    
+    def safe_clear_scene(self):
+        """🔧 安全清除场景"""
+        if not PYVISTA_AVAILABLE or not hasattr(self, 'plotter'):
+            return
+        
+        try:
+            self.plotter.clear()
+        except Exception as e:
+            print(f"⚠️ 场景清除失败: {e}")
+            # 尝试备用清除方法
+            try:
+                self.plotter.remove_all_lights()
+                for actor in self.actors:
+                    try:
+                        self.plotter.remove_actor(actor)
+                    except:
+                        pass
+                self.actors.clear()
+            except:
+                pass
+        
+    def display_model(self, model):
+        """🔧 显示MIDAS模型（带异常保护）"""
+        if not PYVISTA_AVAILABLE or not model or not hasattr(self, 'plotter'):
+            return
+            
+        try:
+            # 🔧 安全清除现有内容
+            self.safe_clear_scene()
             
             # 重新设置默认场景
             self.setup_default_scene()

@@ -16,7 +16,7 @@ class MIDASReader:
     """MIDAS模型文件读取器"""
     
     def __init__(self):
-        self.supported_formats = ['.mct', '.mgt']
+        self.supported_formats = ['.mct', '.mgt', '.fpn']
         
     def read_mct_file(self, filepath: str) -> Dict[str, Any]:
         """读取MCT格式文件 (MIDAS Civil)"""
@@ -73,6 +73,34 @@ class MIDASReader:
             print(f"读取MGT文件时出错: {e}")
             # 返回空模型
             return self._create_empty_model(str(filepath), 'MGT')
+            
+    def read_fpn_file(self, filepath: str) -> Dict[str, Any]:
+        """读取FPN格式文件 (MIDAS GTS NX)"""
+        filepath = Path(filepath)
+        
+        if not filepath.exists():
+            raise FileNotFoundError(f"文件不存在: {filepath}")
+            
+        if filepath.suffix.lower() not in ['.fpn']:
+            raise ValueError(f"不支持的文件格式: {filepath.suffix}")
+            
+        print(f"正在读取FPN文件: {filepath.name}")
+        
+        try:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+                
+            # 解析FPN格式
+            model = self._parse_fpn_content(content)
+            model['source_file'] = str(filepath)
+            model['file_type'] = 'FPN'
+            
+            return model
+            
+        except Exception as e:
+            print(f"读取FPN文件时出错: {e}")
+            # 返回空模型
+            return self._create_empty_model(str(filepath), 'FPN')
             
     def _parse_mct_content(self, content: str) -> Dict[str, Any]:
         """解析MCT文件内容"""
@@ -222,6 +250,254 @@ class MIDASReader:
             model = self._create_sample_model()
             
         return model
+        
+    def _parse_fpn_content(self, content: str) -> Dict[str, Any]:
+        """解析FPN文件内容"""
+        model = {
+            'nodes': [],
+            'elements': [],
+            'materials': [],
+            'loads': [],
+            'boundaries': [],
+            'sections': [],
+            'groups': []
+        }
+        
+        try:
+            lines = content.split('\n')
+            
+            for i, line in enumerate(lines):
+                line = line.strip()
+                
+                if not line or line.startswith('$$'):
+                    continue
+                
+                line_upper = line.upper()
+                
+                # 解析节点
+                if line_upper.startswith('NODE'):
+                    node = self._parse_fpn_node_line(line)
+                    if node:
+                        model['nodes'].append(node)
+                
+                # 解析四面体单元
+                elif line_upper.startswith('TETRA'):
+                    element = self._parse_fpn_tetra_line(line)
+                    if element:
+                        model['elements'].append(element)
+                
+                # 解析三角形单元
+                elif line_upper.startswith('TRIA'):
+                    element = self._parse_fpn_tria_line(line)
+                    if element:
+                        model['elements'].append(element)
+                
+                # 解析材料
+                elif line_upper.startswith('MATGEN') or line_upper.startswith('MATPORO'):
+                    material = self._parse_fpn_material_line(line)
+                    if material:
+                        model['materials'].append(material)
+                
+                # 解析摩尔-库伦材料参数
+                elif line_upper.startswith('MNLMC'):
+                    mc_params = self._parse_fpn_mohr_coulomb_line(line)
+                    if mc_params:
+                        # 查找对应的材料并添加摩尔-库伦参数
+                        mat_id = mc_params['id']
+                        for material in model['materials']:
+                            if material.get('id') == mat_id:
+                                material.update(mc_params)
+                                break
+                        else:
+                            # 如果没找到对应材料，创建新的
+                            model['materials'].append(mc_params)
+                
+                # 解析固体属性
+                elif line_upper.startswith('PSOLID'):
+                    section = self._parse_fpn_psolid_line(line)
+                    if section:
+                        model['sections'].append(section)
+        
+        except Exception as e:
+            print(f"解析FPN内容时出错: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        # 验证模型
+        self._validate_model(model)
+        print(f"FPN解析完成: {len(model['nodes'])}个节点, {len(model['elements'])}个单元, {len(model['materials'])}种材料")
+        
+        return model
+        
+    def _parse_fpn_node_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """解析FPN格式节点行"""
+        try:
+            # FPN格式: NODE   , 26997,   499542929.9912, 316441370.116915, -60129.455104188, 1, , ,
+            parts = [p.strip() for p in line.split(',')]
+            
+            if len(parts) >= 5:
+                return {
+                    'id': int(parts[1]),
+                    'x': float(parts[2]),
+                    'y': float(parts[3]),
+                    'z': float(parts[4])
+                }
+        except Exception as e:
+            print(f"解析节点行失败: {line[:50]}... 错误: {e}")
+        return None
+    
+    def _parse_fpn_tetra_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """解析FPN格式四面体单元行"""
+        try:
+            # FPN格式: TETRA  , 74918, 12, 27053, 27051, 27080, 27113, ,
+            parts = [p.strip() for p in line.split(',')]
+            
+            if len(parts) >= 7:
+                return {
+                    'id': int(parts[1]),
+                    'type': 'tetrahedron',
+                    'material_id': int(parts[2]),
+                    'nodes': [int(parts[3]), int(parts[4]), int(parts[5]), int(parts[6])]
+                }
+        except Exception as e:
+            print(f"解析四面体单元行失败: {line[:50]}... 错误: {e}")
+        return None
+    
+    def _parse_fpn_tria_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """解析FPN格式三角形单元行"""
+        try:
+            # FPN格式: TRIA   , 151523, 13, 33539, 33531, 38625, , ,
+            parts = [p.strip() for p in line.split(',')]
+            
+            if len(parts) >= 6:
+                return {
+                    'id': int(parts[1]),
+                    'type': 'triangle',
+                    'material_id': int(parts[2]),
+                    'nodes': [int(parts[3]), int(parts[4]), int(parts[5])]
+                }
+        except Exception as e:
+            print(f"解析三角形单元行失败: {line[:50]}... 错误: {e}")
+        return None
+    
+    def _parse_fpn_material_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """解析FPN格式材料行"""
+        try:
+            # FPN格式: MATGEN , 1, 30., 0., 0., 0.2, 2.5e-008, 1e-006, 0.05
+            parts = [p.strip() for p in line.split(',')]
+            
+            if len(parts) >= 3:
+                material_id = int(parts[1])
+                material_type = 'MATGEN' if line.upper().startswith('MATGEN') else 'MATPORO'
+                
+                # 基本材料属性
+                material = {
+                    'id': material_id,
+                    'name': f"{material_type}_{material_id}",
+                    'type': material_type
+                }
+                
+                if material_type == 'MATGEN':
+                    # MATGEN: 弹性材料参数
+                    if len(parts) > 2 and parts[2]:
+                        try:
+                            # 弹性模量，假设单位是GPa，转换为Pa
+                            material['young_modulus'] = float(parts[2]) * 1e9
+                        except:
+                            material['young_modulus'] = 30e9
+                    
+                    if len(parts) > 5 and parts[5]:
+                        try:
+                            material['poisson_ratio'] = float(parts[5])
+                        except:
+                            material['poisson_ratio'] = 0.3
+                    
+                    # 默认密度
+                    material['density'] = 2000.0  # kg/m³
+                    
+                    # 注意：FPN文件中没有摩尔-库伦参数，需要用户后续设置
+                    material['note'] = "需要设置摩尔-库伦参数"
+                    
+                elif material_type == 'MATPORO':
+                    # MATPORO: 多孔介质材料参数
+                    if len(parts) > 2 and parts[2]:
+                        try:
+                            material['permeability'] = float(parts[2])
+                        except:
+                            material['permeability'] = 2.1e-8
+                    
+                    if len(parts) > 3 and parts[3]:
+                        try:
+                            material['porosity'] = float(parts[3])
+                        except:
+                            material['porosity'] = 0.5
+                    
+                    material['note'] = "多孔介质材料"
+                
+                return material
+                
+        except Exception as e:
+            print(f"解析材料行失败: {line[:50]}... 错误: {e}")
+        return None
+    
+    def _parse_fpn_psolid_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """解析FPN格式固体属性行"""
+        try:
+            # FPN格式: PSOLID , 1, 3D , 1, 1, , , ,
+            parts = [p.strip() for p in line.split(',')]
+            
+            if len(parts) >= 5:
+                return {
+                    'id': int(parts[1]),
+                    'name': parts[2] if parts[2] else f"Section_{parts[1]}",
+                    'material_id': int(parts[3]),
+                    'type': 'solid'
+                }
+        except Exception as e:
+            print(f"解析固体属性行失败: {line[:50]}... 错误: {e}")
+        return None
+
+    def _parse_fpn_mohr_coulomb_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """解析FPN格式摩尔-库伦材料参数行"""
+        try:
+            # FPN格式: MNLMC  , 2,               0.,               0.,               0.,              20., 0, ,
+            # 参数含义: MNLMC, 材料ID, 粘聚力c, 参数2, 参数3, 内摩擦角φ, 其他...
+            parts = [p.strip() for p in line.split(',')]
+            
+            if len(parts) >= 6:
+                material_id = int(parts[1])
+                
+                # 粘聚力 (kPa)
+                cohesion = 0.0
+                if len(parts) > 2 and parts[2]:
+                    try:
+                        cohesion = float(parts[2])
+                        # 如果是科学计数法的小数，可能需要转换单位
+                        if cohesion < 1e-3:  # 如果小于0.001，可能是MPa，转换为kPa
+                            cohesion = cohesion * 1000
+                    except:
+                        cohesion = 0.0
+                
+                # 内摩擦角 (度)
+                friction_angle = 0.0
+                if len(parts) > 5 and parts[5]:
+                    try:
+                        friction_angle = float(parts[5])
+                    except:
+                        friction_angle = 30.0  # 默认值
+                
+                return {
+                    'id': material_id,
+                    'type': 'MOHR_COULOMB',
+                    'cohesion': cohesion,  # kPa
+                    'friction_angle': friction_angle,  # 度
+                    'name': f"摩尔-库伦材料_{material_id}",
+                    'note': f"c={cohesion:.3f}kPa, φ={friction_angle:.1f}°"
+                }
+                
+        except Exception as e:
+            print(f"解析摩尔-库伦参数行失败: {line[:50]}... 错误: {e}")
+        return None
         
     def _is_data_line(self, line: str) -> bool:
         """判断是否为数据行"""

@@ -183,6 +183,91 @@ class PostProcessor:
         """获取3D视图组件"""
         return self.viewer_widget
         
+    def set_analysis_results(self, model_data: Dict[str, Any], results: Dict[str, Any]):
+        """直接设置分析结果数据"""
+        try:
+            print("设置分析结果...")
+            
+            # 从模型数据创建网格
+            nodes = model_data.get('nodes', [])
+            elements = model_data.get('elements', [])
+            
+            if not nodes or not elements:
+                print("警告: 模型数据不完整")
+                return
+                
+            if PYVISTA_AVAILABLE:
+                # 创建网格
+                self.mesh = self.create_mesh_from_model(nodes, elements)
+                
+                # 设置结果数据
+                if 'displacement_field' in results:
+                    displacement = np.array(results['displacement_field'])
+                    if displacement.shape[0] == self.mesh.n_points:
+                        self.time_steps = [0]  # 静力分析只有一个时间步
+                        self.current_time_step = 0
+                        self.results_data = {
+                            0: {
+                                'displacement': displacement,
+                                'stress': np.array(results.get('stress_field', [])) if 'stress_field' in results else None
+                            }
+                        }
+                        
+                        print(f"成功设置结果: {len(displacement)}个节点位移")
+                        
+                        # 显示结果
+                        self.display_results()
+                    else:
+                        print(f"位移数据维度不匹配: {displacement.shape[0]} vs {self.mesh.n_points}")
+                        
+        except Exception as e:
+            print(f"设置分析结果失败: {e}")
+    
+    def create_mesh_from_model(self, nodes: List[Dict], elements: List[Dict]):
+        """从模型数据创建PyVista网格"""
+        # 提取节点坐标
+        points = []
+        for node in nodes:
+            if isinstance(node, dict):
+                x = node.get('x', 0.0)
+                y = node.get('y', 0.0)
+                z = node.get('z', 0.0)
+                points.append([x, y, z])
+        
+        points = np.array(points)
+        
+        # 提取单元连接
+        cells = []
+        cell_types = []
+        
+        for element in elements:
+            if isinstance(element, dict):
+                connectivity = element.get('nodes', [])
+                element_type = element.get('type', 'tetra')
+                
+                if len(connectivity) >= 3:
+                    # 转换为0索引
+                    conn = [max(0, int(n) - 1) for n in connectivity if isinstance(n, (int, str))]
+                    
+                    if element_type == 'tetra' and len(conn) == 4:
+                        cells.extend([4] + conn)  # VTK_TETRA = 10
+                        cell_types.append(10)
+                    elif element_type == 'hexa' and len(conn) == 8:
+                        cells.extend([8] + conn)  # VTK_HEXAHEDRON = 12
+                        cell_types.append(12)
+                    elif len(conn) >= 3:
+                        # 默认为三角形或四边形
+                        cells.extend([len(conn)] + conn)
+                        cell_types.append(5 if len(conn) == 3 else 9)
+        
+        if cells:
+            mesh = pv.UnstructuredGrid(cells, np.array(cell_types), points)
+        else:
+            # 创建点云
+            mesh = pv.PolyData(points)
+            
+        return mesh
+
     def load_results(self, file_path: str):
         """加载结果文件"""
         try:
@@ -386,11 +471,36 @@ class PostProcessor:
             
         # 显示网格
         if scalar_field is not None and self.show_contour:
-            # 显示云图
+            # 设置专业的彩虹色彩映射
+            colormap = self.get_professional_colormap(self.current_result_type)
+            
+            # 配置专业的标尺参数
+            scalar_bar_args = {
+                'title': scalar_name,
+                'title_font_size': 14,
+                'label_font_size': 12,
+                'n_labels': 8,
+                'italic': False,
+                'fmt': '%.3f',
+                'font_family': 'arial',
+                'shadow': True,
+                'width': 0.08,
+                'height': 0.75,
+                'position_x': 0.9,
+                'position_y': 0.125,
+                'color': 'black',
+                'background_color': 'white',
+                'background_opacity': 0.8
+            }
+            
+            # 显示云图with专业彩虹标尺
             self.plotter.add_mesh(mesh_to_plot, scalars=scalar_name, 
+                                 cmap=colormap,
                                  show_edges=self.show_wireframe,
                                  edge_color='black' if self.show_wireframe else None,
-                                 show_scalar_bar=True, scalar_bar_args={'title': scalar_name})
+                                 show_scalar_bar=True, 
+                                 scalar_bar_args=scalar_bar_args,
+                                 opacity=0.9)
         else:
             # 只显示几何
             representation = 'wireframe' if self.show_wireframe else 'surface'
@@ -425,6 +535,18 @@ class PostProcessor:
             current_data['strain'] = self.results_data['strain']
             
         return current_data
+    
+    def get_professional_colormap(self, result_type: str) -> str:
+        """根据结果类型获取专业的色彩映射"""
+        colormap_mapping = {
+            'displacement': 'rainbow',      # 位移：彩虹色谱
+            'stress': 'plasma',            # 应力：等离子色谱  
+            'strain': 'viridis',           # 应变：绿蓝色谱
+            'pressure': 'coolwarm',        # 压力：冷暖色谱
+            'temperature': 'hot',          # 温度：热色谱
+            'velocity': 'jet'              # 速度：喷射色谱
+        }
+        return colormap_mapping.get(result_type, 'rainbow')
         
     def get_display_info(self) -> str:
         """获取显示信息"""

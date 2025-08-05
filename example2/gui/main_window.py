@@ -43,10 +43,10 @@ class MainWindow(QMainWindow):
         try:
             from ..utils.threaded_operations import ThreadedOperationManager
             self.operation_manager = ThreadedOperationManager(self)
-            print("✅ 多线程操作管理器初始化成功")
+            print("多线程操作管理器初始化成功")
         except ImportError:
             self.operation_manager = None
-            print("⚠️ 多线程操作管理器不可用")
+            print("多线程操作管理器不可用")
 
         self.current_project = None
         self.analysis_results = None
@@ -1053,6 +1053,10 @@ class MainWindow(QMainWindow):
             # 将解析结果设置到预处理器
             self.preprocessor.fpn_data = fpn_data
 
+            # 传递FPN数据给分析器
+            self.analyzer.load_fpn_analysis_steps(fpn_data)
+            print("FPN数据已传递给分析器")
+
             # 从FPN数据创建网格
             self.preprocessor.create_mesh_from_fpn(fpn_data)
 
@@ -1067,9 +1071,15 @@ class MainWindow(QMainWindow):
             # 显示成功消息
             node_count = len(fpn_data.get('nodes', []))
             element_count = len(fpn_data.get('elements', []))
+            analysis_stages = len(fpn_data.get('analysis_stages', []))
+            
+            # 显示分析步摘要
+            analysis_summary = self.analyzer.get_fpn_analysis_summary()
+            print(analysis_summary)
+            
             QMessageBox.information(
                 self, "导入成功",
-                f"FPN文件导入成功!\n节点: {node_count}\n单元: {element_count}"
+                f"FPN文件导入成功!\n节点: {node_count}\n单元: {element_count}\n分析步: {analysis_stages}"
             )
 
         except Exception as e:

@@ -19,13 +19,35 @@ sys.path.insert(0, str(project_root))
 
 # 尝试导入 Kratos 相关模块
 KRATOS_AVAILABLE = False
+KratosIntegration = None
+
 try:
-    # 尝试导入主项目的 Kratos 集成
-    from core.kratos_integration import KratosIntegration
-    KRATOS_AVAILABLE = True
-    print("✅ Kratos Multiphysics 可用")
-except ImportError:
-    print("⚠️  Kratos Multiphysics 不可用，将使用高级模拟模式")
+    # 直接添加主项目core到路径并导入
+    main_core_dir = str(project_root)
+    if main_core_dir not in sys.path:
+        sys.path.insert(0, main_core_dir)
+    
+    # 临时移除example2的core模块，避免冲突
+    import importlib
+    if 'core' in sys.modules:
+        del sys.modules['core']
+    
+    # 导入主项目的core
+    import core as main_core
+    KratosIntegration = main_core.KratosIntegration
+    KRATOS_AVAILABLE = main_core.KRATOS_AVAILABLE
+    print(f"OK Kratos Multiphysics 可用: {KRATOS_AVAILABLE}")
+    
+    # 恢复example2的core模块路径
+    example2_core_dir = str(Path(__file__).parent.parent)
+    if example2_core_dir in sys.path:
+        sys.path.remove(example2_core_dir)
+    sys.path.insert(0, example2_core_dir)
+    
+except Exception as e:
+    print(f"WARN Kratos Multiphysics 不可用: {e}")
+    KratosIntegration = None
+    KRATOS_AVAILABLE = False
 
 
 class AnalysisType(Enum):
