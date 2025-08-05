@@ -39,7 +39,7 @@ import {
   UploadOutlined, BuildOutlined, FileOutlined, SettingOutlined,
   EyeOutlined, EditOutlined, DeleteOutlined, PlusOutlined,
   ToolOutlined, ExclamationCircleOutlined, AppstoreOutlined,
-  SafetyOutlined, BuildFilled
+  SafetyOutlined, BuildFilled, NodeExpandOutlined
 } from '@ant-design/icons';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as THREE from 'three';
@@ -465,7 +465,7 @@ const ExcavationView: React.FC = () => {
                             >
                                 <div style={{ padding: '16px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                        <Text strong>支护结构设计</Text>
+                                        <Text strong>墙锚体系</Text>
                                         <Button size="small" icon={<PlusOutlined />}>添加结构</Button>
                                     </div>
 
@@ -503,6 +503,191 @@ const ExcavationView: React.FC = () => {
                                             </Space>
                                         </Panel>
                                     </Collapse>
+                                </div>
+                            </TabPane>
+
+                            <TabPane 
+                                tab={<span><NodeExpandOutlined /> 桩锚体系</span>} 
+                                key="pile_anchor"
+                                style={{ height: 'calc(100vh - 200px)', overflow: 'auto' }}
+                            >
+                                <div style={{ padding: '16px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                        <Text strong>桩锚体系</Text>
+                                        <Button size="small" icon={<PlusOutlined />}>添加桩锚</Button>
+                                    </div>
+
+                                    {/* 桩参数配置 */}
+                                    <Collapse defaultActiveKey={['1']}>
+                                        <Panel header="桩参数" key="1">
+                                            <Space direction="vertical" style={{ width: '100%' }}>
+                                                <Row gutter={16}>
+                                                    <Col span={12}>
+                                                        <div>
+                                                            <Text>桩类型</Text>
+                                                            <Select
+                                                                style={{ width: '100%', marginTop: '4px' }}
+                                                                defaultValue="drill_pile"
+                                                            >
+                                                                <Option value="drill_pile">钻孔灌注桩</Option>
+                                                                <Option value="precast_pile">预制桩</Option>
+                                                                <Option value="steel_pipe">钢管桩</Option>
+                                                                <Option value="mixing_pile">搅拌桩</Option>
+                                                                <Option value="cast_in_place">现浇桩</Option>
+                                                            </Select>
+                                                        </div>
+                                                    </Col>
+                                                    <Col span={12}>
+                                                        <div>
+                                                            <Text>桩径 (mm)</Text>
+                                                            <InputNumber
+                                                                style={{ width: '100%', marginTop: '4px' }}
+                                                                min={400}
+                                                                max={2000}
+                                                                defaultValue={800}
+                                                                step={50}
+                                                            />
+                                                        </div>
+                                                    </Col>
+                                                </Row>
+                                                <Row gutter={16}>
+                                                    <Col span={12}>
+                                                        <div>
+                                                            <Text>桩长 (m)</Text>
+                                                            <InputNumber
+                                                                style={{ width: '100%', marginTop: '4px' }}
+                                                                min={10}
+                                                                max={50}
+                                                                defaultValue={25}
+                                                                step={1}
+                                                            />
+                                                        </div>
+                                                    </Col>
+                                                    <Col span={12}>
+                                                        <div>
+                                                            <Text>桩距 (m)</Text>
+                                                            <InputNumber
+                                                                style={{ width: '100%', marginTop: '4px' }}
+                                                                min={1.0}
+                                                                max={5.0}
+                                                                defaultValue={2.5}
+                                                                step={0.1}
+                                                            />
+                                                        </div>
+                                                    </Col>
+                                                </Row>
+                                            </Space>
+                                        </Panel>
+
+                                        <Panel header="锚索参数" key="2">
+                                            <Space direction="vertical" style={{ width: '100%' }}>
+                                                <Row gutter={16}>
+                                                    <Col span={12}>
+                                                        <div>
+                                                            <Text>锚索长度 (m)</Text>
+                                                            <InputNumber
+                                                                style={{ width: '100%', marginTop: '4px' }}
+                                                                min={10}
+                                                                max={40}
+                                                                defaultValue={20}
+                                                                step={1}
+                                                            />
+                                                        </div>
+                                                    </Col>
+                                                    <Col span={12}>
+                                                        <div>
+                                                            <Text>倾斜角度 (°)</Text>
+                                                            <InputNumber
+                                                                style={{ width: '100%', marginTop: '4px' }}
+                                                                min={10}
+                                                                max={45}
+                                                                defaultValue={25}
+                                                                step={1}
+                                                            />
+                                                        </div>
+                                                    </Col>
+                                                </Row>
+                                                <Row gutter={16}>
+                                                    <Col span={12}>
+                                                        <div>
+                                                            <Text>预应力 (kN)</Text>
+                                                            <InputNumber
+                                                                style={{ width: '100%', marginTop: '4px' }}
+                                                                min={100}
+                                                                max={1000}
+                                                                defaultValue={300}
+                                                                step={50}
+                                                            />
+                                                        </div>
+                                                    </Col>
+                                                    <Col span={12}>
+                                                        <div>
+                                                            <Text>锚索间距 (m)</Text>
+                                                            <InputNumber
+                                                                style={{ width: '100%', marginTop: '4px' }}
+                                                                min={1.5}
+                                                                max={6.0}
+                                                                defaultValue={3.0}
+                                                                step={0.5}
+                                                            />
+                                                        </div>
+                                                    </Col>
+                                                </Row>
+                                            </Space>
+                                        </Panel>
+
+                                        <Panel header="冠梁参数" key="3">
+                                            <Space direction="vertical" style={{ width: '100%' }}>
+                                                <Row gutter={16}>
+                                                    <Col span={12}>
+                                                        <div>
+                                                            <Text>冠梁宽度 (mm)</Text>
+                                                            <InputNumber
+                                                                style={{ width: '100%', marginTop: '4px' }}
+                                                                min={800}
+                                                                max={1500}
+                                                                defaultValue={1000}
+                                                                step={50}
+                                                            />
+                                                        </div>
+                                                    </Col>
+                                                    <Col span={12}>
+                                                        <div>
+                                                            <Text>冠梁高度 (mm)</Text>
+                                                            <InputNumber
+                                                                style={{ width: '100%', marginTop: '4px' }}
+                                                                min={600}
+                                                                max={1200}
+                                                                defaultValue={800}
+                                                                step={50}
+                                                            />
+                                                        </div>
+                                                    </Col>
+                                                </Row>
+                                                <div>
+                                                    <Text>混凝土等级</Text>
+                                                    <Select
+                                                        style={{ width: '100%', marginTop: '4px' }}
+                                                        defaultValue="C30"
+                                                    >
+                                                        <Option value="C25">C25</Option>
+                                                        <Option value="C30">C30</Option>
+                                                        <Option value="C35">C35</Option>
+                                                        <Option value="C40">C40</Option>
+                                                    </Select>
+                                                </div>
+                                            </Space>
+                                        </Panel>
+                                    </Collapse>
+
+                                    <Divider />
+
+                                    <Alert
+                                        message="设计建议"
+                                        description="桩锚体系适用于软土地区深基坑工程，桩体提供主要支撑，锚索提供水平约束。建议桩径不小于800mm，锚索预应力应根据土压力计算确定。"
+                                        type="info"
+                                        showIcon
+                                    />
                                 </div>
                             </TabPane>
                         </Tabs>

@@ -296,7 +296,7 @@ export const DiaphragmWallSchema = z.object({
   enabled: z.boolean()
 });
 
-// 排桩参数Schema
+// 墙锚体系参数Schema
 export const PilePileSchema = z.object({
   diameter: z.number()
     .min(0.5, '桩径不能小于0.5米')

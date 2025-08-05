@@ -418,26 +418,10 @@ export class CAEThreeEngine {
   
   // 添加测试几何体
   private addTestGeometry(): void {
-    // 添加一个基本的立方体用于测试交互
-    const cubeGeometry = new THREE.BoxGeometry(2, 2, 2);
-    const cubeMaterial = new THREE.MeshLambertMaterial({ color: 0x00ff88 });
-    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-    cube.position.set(0, 1, 0);
-    cube.name = 'test-cube';
-    cube.castShadow = true;
-    cube.receiveShadow = true;
-    this.scene.add(cube);
-    
-    // 添加一个球体
-    const sphereGeometry = new THREE.SphereGeometry(1.5, 32, 32);
-    const sphereMaterial = new THREE.MeshLambertMaterial({ color: 0xff4444 });
-    const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-    sphere.position.set(-4, 1.5, 2);
-    sphere.name = 'test-sphere';
-    sphere.castShadow = true;
-    sphere.receiveShadow = true;
-    this.scene.add(sphere);
-    
+
+
+
+
     // 添加地面
     const planeGeometry = new THREE.PlaneGeometry(30, 30);
     const planeMaterial = new THREE.MeshLambertMaterial({ color: 0x666666 });

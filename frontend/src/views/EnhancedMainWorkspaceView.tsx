@@ -790,7 +790,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
         tabs: [
           { 
             key: 'support-design', 
-            label: <span>{getActivityBadge(supportStatus)}结构设计</span>, 
+            label: <span>{getActivityBadge(supportStatus)}支护结构参数</span>,
             children: <SupportModule 
               params={supportParams}
               onParamsChange={(key, value) => handleParamsChange('support', key, value)}
