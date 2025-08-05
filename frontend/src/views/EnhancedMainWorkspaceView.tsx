@@ -19,8 +19,10 @@ import {
 import CAEThreeEngineComponent from '../components/3d/CAEThreeEngine';
 
 import GeologyModule from '../components/geology/GeologyModule';
+import TunnelModelingModule from '../components/tunnel/TunnelModelingModule';
 import ExcavationModule from '../components/excavation/ExcavationModule';
 import SupportModule from '../components/support/SupportModule';
+import BuildingAnalysisModule from '../components/building/BuildingAnalysisModule';
 
 import AdvancedMeshConfig from '../components/meshing/AdvancedMeshConfig';
 import PhysicalGroupManager from '../components/meshing/PhysicalGroupManager';
@@ -821,122 +823,33 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           { 
             key: 'tunnel-data', 
             label: <span>{getActivityBadge('process')}隧道设计</span>, 
-            children: (
-              <div style={{ padding: '20px', color: '#fff', height: '100%', overflow: 'auto' }}>
-                <div style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 'bold' }}>🚇 隧道建模</div>
-                
-                {/* 隧道工程信息 */}
-                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(24, 144, 255, 0.1)', borderRadius: '8px', border: '1px solid #1890ff' }}>
-                  <div style={{ color: '#1890ff', fontWeight: 'bold', marginBottom: '8px' }}>隧道工程信息</div>
-                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>地铁1号线: 长度2800m, 直径6.2m, 深18.5m</div>
-                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>排水隧道: 长度1200m, 直径3.0m, 深12.0m</div>
-                  <div style={{ fontSize: '12px', color: '#ffffff80' }}>共计156个盾构分段，已完成106个</div>
-                </div>
-
-                {/* 隧道建模控制 */}
-                <div style={{ padding: '12px', backgroundColor: 'rgba(24, 144, 255, 0.1)', borderRadius: '8px', border: '1px solid #1890ff' }}>
-                  <div style={{ color: '#1890ff', fontWeight: 'bold', marginBottom: '8px' }}>隧道建模控制</div>
-                  <div style={{ fontSize: '12px', color: '#ffffff90', marginBottom: '8px' }}>建模进度: 68% | 精度等级: 高精度</div>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <button 
-                      onClick={() => {
-                        console.log('自动建模');
-                      }}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: '#1890ff',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '11px'
-                      }}
-                    >
-                      自动建模
-                    </button>
-                    <button 
-                      onClick={() => {
-                        console.log('轨迹设计');
-                      }}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: 'transparent',
-                        color: '#1890ff',
-                        border: '1px solid #1890ff',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '11px'
-                      }}
-                    >
-                      轨迹设计
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )
+            children: <TunnelModelingModule 
+              onParametersChange={(params) => console.log('隧道参数更新:', params)}
+              onGenerate={(params) => {
+                console.log('生成隧道模型:', params);
+                // 这里可以添加实际的隧道建模逻辑
+              }}
+              status="idle"
+            />
           }
         ]
       },
       'adjacent-buildings': {
-        title: '相邻建筑分析',
+        title: '相邻建筑',
         tabs: [
           { 
             key: 'building-analysis', 
-            label: <span>{getActivityBadge('wait')}建筑分析</span>, 
-            children: (
-              <div style={{ padding: '20px', color: '#fff', height: '100%', overflow: 'auto' }}>
-                <div style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 'bold' }}>🏢 相邻建筑分析</div>
-                
-                {/* 建筑物信息 */}
-                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(255, 122, 69, 0.1)', borderRadius: '8px', border: '1px solid #ff7a45' }}>
-                  <div style={{ color: '#ff7a45', fontWeight: 'bold', marginBottom: '8px' }}>相邻建筑物信息</div>
-                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>办公大楺A: 25层120m, 距离35m - 中风险</div>
-                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>住宅楻B: 20层80m, 距离28m - 高风险</div>
-                  <div style={{ fontSize: '12px', color: '#ffffff80', marginBottom: '4px' }}>商业中心C: 30层150m, 距离45m - 低风险</div>
-                  <div style={{ fontSize: '12px', color: '#ffffff80' }}>停车场D: 3层15m, 距离22m - 高风险</div>
-                </div>
-
-                {/* 风险评估与预警 */}
-                <div style={{ padding: '12px', backgroundColor: 'rgba(255, 77, 79, 0.1)', borderRadius: '8px', border: '1px solid #ff4d4f' }}>
-                  <div style={{ color: '#ff4d4f', fontWeight: 'bold', marginBottom: '8px' }}>风险评估与预警</div>
-                  <div style={{ fontSize: '12px', color: '#ffffff90', marginBottom: '8px' }}>当前预警: 3条 | 最高级别: 二级预警</div>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <button 
-                      onClick={() => {
-                        console.log('实时风险评估');
-                      }}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: '#ff4d4f',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '11px'
-                      }}
-                    >
-                      实时风险评估
-                    </button>
-                    <button 
-                      onClick={() => {
-                        console.log('监测站部署');
-                      }}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: 'transparent',
-                        color: '#ff7a45',
-                        border: '1px solid #ff7a45',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '11px'
-                      }}
-                    >
-                      监测站部署
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )
+            label: <span>{getActivityBadge('wait')}建筑参数</span>,
+            children: <BuildingAnalysisModule
+              onParametersChange={(params) => {
+                console.log('建筑参数更新:', params);
+              }}
+              onAnalyze={(params) => {
+                console.log('开始建筑:', params);
+                message.info('建筑已启动');
+              }}
+              status="idle"
+            />
           }
         ]
       },
