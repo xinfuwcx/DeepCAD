@@ -10,6 +10,30 @@
   },
   "devDependencies": {
     "@svgr/core": "^8.1.0",
+    "electron": "^37.2.5",
     "vite-plugin-svgr": "^4.3.0"
-  }
+  },
+  "name": "deepcad",
+  "version": "1.0.0",
+  "description": "DeepCAD是一个基于**WebGPU + Three.js**技术栈的下一代深基坑工程CAE平台，实现从地球到基坑的震撼可视化体验和世界领先的GPU加速计算能力。",
+  "main": "check_icons.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xinfuwcx/DeepCAD.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/xinfuwcx/DeepCAD/issues"
+  },
+  "homepage": "https://github.com/xinfuwcx/DeepCAD#readme"
 }

@@ -1,0 +1,69 @@
+{
+  "nodes": [
+    {
+      "id": 1,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "id": 2,
+      "x": 5.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "id": 3,
+      "x": 10.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "id": 4,
+      "x": 0.0,
+      "y": 5.0,
+      "z": 0.0
+    }
+  ],
+  "elements": [
+    {
+      "id": 1,
+      "type": 1,
+      "nodes": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 2,
+      "type": 1,
+      "nodes": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 3,
+      "type": 1,
+      "nodes": [
+        1,
+        4
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "id": 1,
+      "name": "Concrete",
+      "elastic_modulus": 30000.0,
+      "poisson_ratio": 0.2,
+      "density": 2400.0
+    }
+  ],
+  "loads": [],
+  "boundaries": [],
+  "sections": [],
+  "groups": [],
+  "source_file": "test_model.mct",
+  "file_type": "MCT"
+}

@@ -33,12 +33,21 @@ class MainWindow(QMainWindow):
     
     def __init__(self):
         super().__init__()
-        
+
         # 初始化模块
         self.preprocessor = PreProcessor()
         self.analyzer = Analyzer()
         self.postprocessor = PostProcessor()
-        
+
+        # 初始化多线程操作管理器
+        try:
+            from ..utils.threaded_operations import ThreadedOperationManager
+            self.operation_manager = ThreadedOperationManager(self)
+            print("✅ 多线程操作管理器初始化成功")
+        except ImportError:
+            self.operation_manager = None
+            print("⚠️ 多线程操作管理器不可用")
+
         self.current_project = None
         self.analysis_results = None
         
@@ -1012,19 +1021,64 @@ class MainWindow(QMainWindow):
             self.status_label.setText(f"保存项目: {Path(file_path).name}")
             
     def import_fpn(self):
-        """导入FPN文件"""
+        """导入FPN文件（使用多线程）"""
         file_path, _ = QFileDialog.getOpenFileName(
             self, "导入MIDAS FPN文件", "", "FPN文件 (*.fpn);;所有文件 (*.*)"
         )
         if file_path:
-            try:
-                self.preprocessor.load_fpn_file(file_path)
-                self.status_label.setText(f"FPN文件加载完成: {Path(file_path).name}")
-                self.update_model_info()
-                self.update_physics_combos()  # 更新物理组下拉框
-            except Exception as e:
-                QMessageBox.warning(self, "导入失败", f"FPN文件导入失败:\n{str(e)}")
-                self.status_label.setText("FPN文件导入失败")
+            if self.operation_manager:
+                # 使用多线程异步处理
+                self.status_label.setText(f"正在加载FPN文件: {Path(file_path).name}")
+
+                self.operation_manager.parse_fpn_file_async(
+                    file_path,
+                    success_callback=self.on_fpn_import_success,
+                    error_callback=self.on_fpn_import_error,
+                    show_progress=True
+                )
+            else:
+                # 回退到同步处理
+                try:
+                    self.preprocessor.load_fpn_file(file_path)
+                    self.status_label.setText(f"FPN文件加载完成: {Path(file_path).name}")
+                    self.update_model_info()
+                    self.update_physics_combos()
+                except Exception as e:
+                    QMessageBox.warning(self, "导入失败", f"FPN文件导入失败:\n{str(e)}")
+                    self.status_label.setText("FPN文件导入失败")
+
+    def on_fpn_import_success(self, fpn_data):
+        """FPN文件导入成功回调"""
+        try:
+            # 将解析结果设置到预处理器
+            self.preprocessor.fpn_data = fpn_data
+
+            # 从FPN数据创建网格
+            self.preprocessor.create_mesh_from_fpn(fpn_data)
+
+            # 显示网格
+            self.preprocessor.display_mesh()
+
+            # 更新界面
+            self.status_label.setText("FPN文件加载完成")
+            self.update_model_info()
+            self.update_physics_combos()
+
+            # 显示成功消息
+            node_count = len(fpn_data.get('nodes', []))
+            element_count = len(fpn_data.get('elements', []))
+            QMessageBox.information(
+                self, "导入成功",
+                f"FPN文件导入成功!\n节点: {node_count}\n单元: {element_count}"
+            )
+
+        except Exception as e:
+            self.on_fpn_import_error("ProcessingError", f"处理FPN数据失败: {e}")
+
+    def on_fpn_import_error(self, error_type, error_message):
+        """FPN文件导入失败回调"""
+        QMessageBox.critical(self, "导入失败", f"FPN文件导入失败:\n{error_message}")
+        self.status_label.setText("FPN文件导入失败")
     
     def import_mesh(self):
         """导入网格"""

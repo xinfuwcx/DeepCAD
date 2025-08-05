@@ -1,7 +1,27 @@
 # Example2 - DeepCAD系统测试程序
-# 直接使用DeepCAD项目现有依赖
+# 完整的依赖包列表
 
-# 使用项目根目录的requirements.txt
-# 现代化桌面GUI依赖
+# GUI框架
 PyQt6>=6.4.0
 PyQt6-tools>=6.4.0
+
+# 3D可视化
+pyvista>=0.42.0
+pyvistaqt>=0.11.0
+vtk>=9.2.0
+
+# 数值计算
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0
+
+# 网格处理
+meshio>=5.3.0
+
+# 其他工具
+pathlib2>=2.3.0
+requests>=2.28.0
+
+# 可选依赖（用于完整功能）
+# KratosMultiphysics  # 需要单独安装
+# gmsh>=4.11.0        # 需要单独安装

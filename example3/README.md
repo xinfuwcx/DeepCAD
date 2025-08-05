@@ -32,6 +32,11 @@ pip install -r requirements.txt
 python launch_desktop.py
 ```
 
+**Web版界面** (备选):
+```bash
+python launch_gui.py
+```
+
 ### 📊 RBF插值系统界面功能
 
 **参数配置面板**：

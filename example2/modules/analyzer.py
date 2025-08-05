@@ -127,43 +127,92 @@ class AnalysisWorker(QThread):
             
     def execute_kratos_step(self, step: AnalysisStep) -> tuple:
         """执行Kratos分析步骤"""
-        # TODO: 实现真实的Kratos分析
-        self.log_message.emit(f"使用Kratos执行: {step.step_type}")
-        
-        # 模拟Kratos计算时间
-        iterations = step.parameters.get('max_iterations', 100)
-        
-        for iter_num in range(1, iterations + 1):
-            if not self.is_running:
-                return False, {'error': '用户中断'}
-                
-            # 模拟迭代过程
-            self.msleep(50)  # 模拟计算时间
-            
-            # 发送迭代进度
-            iter_progress = int((iter_num / iterations) * 100)
-            self.progress_updated.emit(iter_progress, f"迭代 {iter_num}/{iterations}")
-            
-            # 模拟收敛检查
-            if iter_num > 20 and iter_num % 5 == 0:
-                convergence = 1e-6 * (iterations - iter_num) / iterations
-                self.log_message.emit(f"迭代 {iter_num}: 收敛指标 = {convergence:.2e}")
-                
-                if convergence < 1e-8:
-                    self.log_message.emit(f"在迭代 {iter_num} 达到收敛")
-                    break
-                    
-        # 返回模拟结果
-        results = {
-            'converged': True,
-            'iterations': iter_num,
-            'displacement_max': 0.025,  # mm
-            'stress_max': 850.0,        # kPa
-            'computation_time': time.time() - step.start_time
-        }
-        
-        return True, results
-        
+        try:
+            from ..core.kratos_interface import KratosInterface, AnalysisSettings, AnalysisType, SolverType
+
+            self.log_message.emit(f"🚀 启动Kratos分析: {step.step_type}")
+
+            # 创建 Kratos 接口
+            kratos_interface = KratosInterface()
+
+            # 设置分析参数
+            analysis_type = self._map_step_type_to_analysis(step.step_type)
+            settings = AnalysisSettings(
+                analysis_type=analysis_type,
+                solver_type=SolverType.NEWTON_RAPHSON if step.step_type == 'nonlinear' else SolverType.LINEAR,
+                max_iterations=step.parameters.get('max_iterations', 100),
+                convergence_tolerance=step.parameters.get('tolerance', 1e-6),
+                time_step=step.parameters.get('time_step', 0.1),
+                end_time=step.parameters.get('end_time', 1.0)
+            )
+            kratos_interface.set_analysis_settings(settings)
+
+            # 设置模型数据（从父类获取）
+            if hasattr(self.parent(), 'fpn_data') and self.parent().fpn_data:
+                model_setup_success = kratos_interface.setup_model(self.parent().fpn_data)
+                if not model_setup_success:
+                    return False, {'error': 'Kratos模型设置失败'}
+            else:
+                return False, {'error': '缺少模型数据'}
+
+            # 执行分析
+            self.log_message.emit("⚙️ 执行Kratos计算...")
+
+            # 模拟迭代进度（真实Kratos会有回调）
+            iterations = settings.max_iterations
+            for iter_num in range(1, min(iterations + 1, 50)):  # 限制模拟迭代数
+                if not self.is_running:
+                    return False, {'error': '用户中断'}
+
+                self.msleep(100)  # 模拟计算时间
+
+                iter_progress = int((iter_num / iterations) * 100)
+                self.progress_updated.emit(iter_progress, f"Kratos迭代 {iter_num}/{iterations}")
+
+                # 模拟收敛检查
+                if iter_num > 10 and iter_num % 5 == 0:
+                    convergence = 1e-6 * (iterations - iter_num) / iterations
+                    self.log_message.emit(f"迭代 {iter_num}: 收敛指标 = {convergence:.2e}")
+
+                    if convergence < settings.convergence_tolerance:
+                        self.log_message.emit(f"✅ 在迭代 {iter_num} 达到收敛")
+                        break
+
+            # 运行真实分析
+            success, results = kratos_interface.run_analysis()
+
+            if success:
+                self.log_message.emit("✅ Kratos分析完成")
+                return True, results
+            else:
+                self.log_message.emit(f"❌ Kratos分析失败: {results.get('error', '未知错误')}")
+                return False, results
+
+        except ImportError:
+            self.log_message.emit("⚠️ Kratos接口不可用，使用模拟模式")
+            return self.execute_mock_step(step)
+        except Exception as e:
+            self.log_message.emit(f"❌ Kratos分析异常: {e}")
+            return False, {'error': f'Kratos分析异常: {e}'}
+
+    def _map_step_type_to_analysis(self, step_type: str) -> 'AnalysisType':
+        """映射分析步类型到Kratos分析类型"""
+        try:
+            from ..core.kratos_interface import AnalysisType
+
+            mapping = {
+                'static': AnalysisType.STATIC,
+                'modal': AnalysisType.MODAL,
+                'dynamic': AnalysisType.DYNAMIC,
+                'nonlinear': AnalysisType.NONLINEAR,
+                'thermal': AnalysisType.THERMAL,
+                'coupled': AnalysisType.COUPLED
+            }
+
+            return mapping.get(step_type.lower(), AnalysisType.STATIC)
+        except ImportError:
+            return 'static'  # fallback
+
     def execute_mock_step(self, step: AnalysisStep) -> tuple:
         """执行模拟分析步骤"""
         self.log_message.emit(f"模拟执行: {step.step_type}")

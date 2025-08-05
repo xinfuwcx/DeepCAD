@@ -124,33 +124,50 @@ class PreProcessor:
         return self.viewer_widget
         
     def load_fpn_file(self, file_path: str):
-        """加载MIDAS FPN文件"""
+        """加载MIDAS FPN文件（使用优化解析器）"""
         try:
+            from ..core.optimized_fpn_parser import OptimizedFPNParser
+            from ..utils.error_handler import handle_error
+
             file_path = Path(file_path)
-            
+
             if not file_path.exists():
                 raise FileNotFoundError(f"文件不存在: {file_path}")
-                
+
             print(f"加载FPN文件: {file_path.name}")
-            
-            # 解析FPN文件
-            fpn_data = self.parse_fpn_file(str(file_path))
-            
+
+            # 创建进度回调
+            def progress_callback(progress):
+                print(f"\r解析进度: {progress.progress_percent:.1f}% "
+                      f"节点:{progress.nodes_count} 单元:{progress.elements_count}",
+                      end='', flush=True)
+
+            # 使用优化解析器
+            parser = OptimizedFPNParser(progress_callback=progress_callback)
+            fpn_data = parser.parse_file_streaming(str(file_path))
+
+            print()  # 换行
+
             # 保存解析数据
             self.fpn_data = fpn_data
-            
+
             # 从FPN数据创建网格
             self.create_mesh_from_fpn(fpn_data)
-            
+
             # 显示网格
             self.display_mesh()
-            
+
             print(f"FPN文件解析完成: 节点{len(fpn_data.get('nodes', []))}, 单元{len(fpn_data.get('elements', []))}")
-            print(f"材料组: {len(fpn_data.get('material_groups', {}))}, 荷载组: {len(fpn_data.get('load_groups', {}))}")
-            print(f"边界组: {len(fpn_data.get('boundary_groups', {}))}, 分析步: {len(fpn_data.get('analysis_stages', []))}")
-            
+            print(f"使用编码: {fpn_data.get('metadata', {}).get('encoding', '未知')}")
+            print(f"坐标偏移: {fpn_data.get('metadata', {}).get('coordinate_offset', (0,0,0))}")
+
         except Exception as e:
-            print(f"加载FPN文件失败: {e}")
+            # 使用友好的错误处理
+            try:
+                from ..utils.error_handler import handle_error
+                handle_error(e, f"加载FPN文件: {file_path.name}", show_dialog=False)
+            except ImportError:
+                print(f"加载FPN文件失败: {e}")
             raise e
     
     def parse_fpn_file(self, file_path: str) -> Dict[str, Any]:

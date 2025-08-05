@@ -13,11 +13,11 @@ Example2是DeepCAD系统的完整测试程序，提供：
 ## 技术架构
 
 ### 核心技术栈
-- **GUI框架**: PyQt5/PySide2
-- **模型解析**: 自定义MGT/MCT解析器
-- **数值计算**: Kratos Multiphysics
-- **可视化**: PyVista + VTK
-- **数据处理**: NumPy + Pandas
+- **GUI框架**: PyQt6 (现代化桌面应用框架)
+- **模型解析**: 自定义FPN/MGT/MCT解析器
+- **数值计算**: Kratos Multiphysics (集成中)
+- **可视化**: PyVista + VTK (专业3D可视化)
+- **数据处理**: NumPy + Pandas + SciPy
 
 ### 系统架构
 ```
@@ -108,11 +108,11 @@ H:/DeepCAD/example2/
 ## 快速开始
 
 ### 环境要求
-- Python 3.8+
-- PyQt5/PySide2
-- Kratos Multiphysics
-- PyVista
-- NumPy, Pandas
+- Python 3.8+ (推荐 3.10+)
+- PyQt6>=6.4.0 (现代化GUI框架)
+- PyVista>=0.42.0 (3D可视化)
+- NumPy>=1.24.0, Pandas>=2.0.0 (数值计算)
+- Kratos Multiphysics (可选，用于真实计算)
 
 ### 安装步骤
 ```bash
