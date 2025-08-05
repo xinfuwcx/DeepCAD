@@ -297,6 +297,12 @@ class PreProcessor:
             traceback.print_exc()
             # 创建示例数据
             fpn_data = self.create_sample_fpn_data()
+        
+        # 如果没有找到分析步，添加默认的分析步
+        if not fpn_data.get('analysis_stages'):
+            print("未找到分析步定义，添加默认分析步...")
+            fpn_data['analysis_stages'] = self.create_default_analysis_stages()
+            print(f"已添加 {len(fpn_data['analysis_stages'])} 个默认分析步")
             
         return fpn_data
     
@@ -420,6 +426,67 @@ class PreProcessor:
         except (ValueError, IndexError) as e:
             print(f"跳过无效分析步行: {line[:50]}... 错误: {e}")
         return None
+    
+    def create_default_analysis_stages(self) -> List[Dict]:
+        """创建默认的基坑工程分析步骤"""
+        return [
+            {
+                'id': 1,
+                'name': '初始状态',
+                'type': 0,
+                'active': 1,
+                'description': '模型初始平衡状态'
+            },
+            {
+                'id': 2, 
+                'name': '第一次开挖(-5m)',
+                'type': 1,
+                'active': 1,
+                'description': '开挖至地下5米深度'
+            },
+            {
+                'id': 3,
+                'name': '安装第一道支撑',
+                'type': 2,
+                'active': 1,
+                'description': '在-5m处安装水平支撑'
+            },
+            {
+                'id': 4,
+                'name': '第二次开挖(-10m)',
+                'type': 1,
+                'active': 1,
+                'description': '继续开挖至地下10米深度'
+            },
+            {
+                'id': 5,
+                'name': '安装第二道支撑',
+                'type': 2,
+                'active': 1,
+                'description': '在-10m处安装水平支撑'
+            },
+            {
+                'id': 6,
+                'name': '第三次开挖(-15m)',
+                'type': 1,
+                'active': 1,
+                'description': '继续开挖至地下15米深度'
+            },
+            {
+                'id': 7,
+                'name': '底板施工',
+                'type': 3,
+                'active': 1,
+                'description': '浇筑基坑底板'
+            },
+            {
+                'id': 8,
+                'name': '最终状态',
+                'type': 0,
+                'active': 1,
+                'description': '基坑开挖完成状态'
+            }
+        ]
     
     def calculate_coordinate_offset(self, fpn_data: Dict):
         """计算坐标偏移量，将大地坐标转换为工程坐标"""
@@ -1082,28 +1149,32 @@ class PreProcessor:
         if hasattr(self.mesh, 'cell_data') and 'MaterialID' in self.mesh.cell_data:
             # 根据材料ID分层显示
             material_ids = np.unique(self.mesh.cell_data['MaterialID'])
+            print(f"发现材料ID: {sorted(list(material_ids))}")
+            print(f"网格单元数: {self.mesh.n_cells}")
+            print(f"材料ID数组长度: {len(self.mesh.cell_data['MaterialID'])}")
             
-            # 定义材料颜色和透明度映射 - 优化颜色区分度
+            # 定义材料颜色和透明度映射 - 高对比度土层颜色方案
             material_colors = {
-                1: {'color': [0.6, 0.3, 0.1], 'opacity': 0.5, 'name': 'Fill'},           # 棕色 - 填土
-                2: {'color': [1.0, 0.6, 0.2], 'opacity': 0.6, 'name': 'Silty Clay'},     # 橙色 - 粉质粘土
-                3: {'color': [0.5, 0.5, 0.5], 'opacity': 0.4, 'name': 'Muddy Soil'},     # 灰色 - 淤泥质土
-                4: {'color': [0.8, 0.2, 0.2], 'opacity': 0.7, 'name': 'Clay'},           # 红色 - 粘土
-                5: {'color': [1.0, 1.0, 0.3], 'opacity': 0.6, 'name': 'Sand'},           # 黄色 - 砂土
-                6: {'color': [0.1, 0.3, 0.6], 'opacity': 0.8, 'name': 'Bedrock'},        # 深蓝 - 基岩
-                7: {'color': [0.4, 0.8, 0.4], 'opacity': 0.6, 'name': 'Soil Layer 7'},   # 绿色 - 土层7
-                8: {'color': [0.8, 0.4, 0.8], 'opacity': 0.6, 'name': 'Soil Layer 8'},   # 紫色 - 土层8
-                9: {'color': [0.2, 0.8, 0.8], 'opacity': 0.6, 'name': 'Soil Layer 9'},   # 青色 - 土层9
-                10: {'color': [0.7, 0.7, 0.7], 'opacity': 0.9, 'name': 'Concrete Pile'}, # 灰色 - 混凝土桩
-                11: {'color': [0.9, 0.9, 0.9], 'opacity': 0.95, 'name': 'Steel Support'}, # 银色 - 钢支撑
-                12: {'color': [0.8, 0.8, 0.8], 'opacity': 0.85, 'name': 'Concrete'}       # 浅灰 - 混凝土
+                1: {'color': [0.8, 0.4, 0.1], 'opacity': 0.6, 'name': 'Fill'},           # 深橙色 - 填土
+                2: {'color': [0.9, 0.7, 0.3], 'opacity': 0.7, 'name': 'Silty Clay'},     # 金黄色 - 粉质粘土  
+                3: {'color': [0.4, 0.4, 0.4], 'opacity': 0.5, 'name': 'Muddy Soil'},     # 深灰色 - 淤泥质土
+                4: {'color': [0.9, 0.3, 0.3], 'opacity': 0.7, 'name': 'Clay'},           # 亮红色 - 粘土
+                5: {'color': [1.0, 0.9, 0.2], 'opacity': 0.6, 'name': 'Sand'},           # 鲜黄色 - 砂土
+                6: {'color': [0.2, 0.4, 0.8], 'opacity': 0.8, 'name': 'Bedrock'},        # 蓝色 - 基岩
+                7: {'color': [0.3, 0.8, 0.3], 'opacity': 0.6, 'name': 'Soil Layer 7'},   # 鲜绿色 - 土层7
+                8: {'color': [0.8, 0.3, 0.8], 'opacity': 0.6, 'name': 'Soil Layer 8'},   # 品红色 - 土层8
+                9: {'color': [0.1, 0.9, 0.9], 'opacity': 0.6, 'name': 'Soil Layer 9'},   # 亮青色 - 土层9
+                10: {'color': [0.6, 0.6, 0.6], 'opacity': 0.9, 'name': 'Concrete Pile'}, # 中灰色 - 混凝土桩
+                11: {'color': [0.95, 0.95, 0.95], 'opacity': 0.95, 'name': 'Steel Support'}, # 亮银色 - 钢支撑
+                12: {'color': [0.75, 0.75, 0.75], 'opacity': 0.85, 'name': 'Concrete'}   # 浅灰 - 混凝土
             }
             
             layer_count = 0
             for mat_id in material_ids:
                 # 提取特定材料的单元
                 try:
-                    mat_mesh = self.mesh.threshold(mat_id, scalars='MaterialID')
+                    # 使用正确的threshold方法提取特定材料的单元
+                    mat_mesh = self.mesh.threshold([mat_id - 0.5, mat_id + 0.5], scalars='MaterialID')
                     
                     if mat_mesh.n_points > 0:
                         # 获取材料属性
@@ -1303,7 +1374,7 @@ class PreProcessor:
             
             for mat_id in material_ids:
                 try:
-                    mat_mesh = self.mesh.threshold(mat_id, scalars='MaterialID')
+                    mat_mesh = self.mesh.threshold([mat_id - 0.5, mat_id + 0.5], scalars='MaterialID')
                     if mat_mesh.n_points > 0:
                         color = material_colors.get(mat_id, [0.7, 0.8, 1.0])
                         self.plotter.add_mesh(
@@ -1359,7 +1430,7 @@ class PreProcessor:
             
             for mat_id in material_ids:
                 try:
-                    mat_mesh = self.mesh.threshold(mat_id, scalars='MaterialID')
+                    mat_mesh = self.mesh.threshold([mat_id - 0.5, mat_id + 0.5], scalars='MaterialID')
                     if mat_mesh.n_points > 0:
                         color = material_colors.get(mat_id, [0.7, 0.8, 1.0])
                         
@@ -1489,38 +1560,49 @@ class PreProcessor:
         stage_type = stage.get('type', 0)
         stage_name = stage.get('name', '').lower()
         
-        # 智能判断逻辑：
-        # 1. 基于分析步名称的关键词匹配
-        if '应力' in stage_name or 'stress' in stage_name:
-            # 应力分析：显示所有材料组和相关荷载
-            active_groups['materials'] = list(fpn_data.get('material_groups', {}).keys())
-            active_groups['loads'] = list(fpn_data.get('load_groups', {}).keys())
+        # 智能判断逻辑 - 基坑工程专用
+        print(f"分析分析步: ID={stage_id}, 名称='{stage_name}', 类型={stage_type}")
+        
+        if '初始' in stage_name or 'initial' in stage_name or stage_id == 1:
+            # 初始状态：显示所有土层材料和边界约束
+            active_groups['materials'] = [1]  # 主要土体材料组
+            active_groups['boundaries'] = [1]  # 主要边界组
+            print("智能选择: 初始状态 - 土体材料 + 边界约束")
             
-        elif '变形' in stage_name or 'deformation' in stage_name:
-            # 变形分析：重点显示土体材料和边界条件
-            material_groups = fpn_data.get('material_groups', {})
-            for group_id, group_info in material_groups.items():
-                materials = group_info.get('materials', [])
-                # 优先显示土体材料（材料ID通常较小）
-                if any(mat_id <= 6 for mat_id in materials):
-                    active_groups['materials'].append(group_id)
-            active_groups['boundaries'] = list(fpn_data.get('boundary_groups', {}).keys())
+        elif '开挖' in stage_name or 'excavat' in stage_name or stage_type == 1:
+            # 开挖阶段：重点显示土体材料和开挖相关荷载
+            active_groups['materials'] = [1]  # 土体材料组
+            active_groups['loads'] = [1]      # 开挖荷载组
+            active_groups['boundaries'] = [1] # 边界约束
+            print("智能选择: 开挖阶段 - 土体材料 + 开挖荷载")
             
-        elif '施工' in stage_name or 'construction' in stage_name:
-            # 施工阶段：显示结构材料和施工荷载
-            material_groups = fpn_data.get('material_groups', {})
-            for group_id, group_info in material_groups.items():
-                materials = group_info.get('materials', [])
-                # 优先显示结构材料（材料ID通常较大）
-                if any(mat_id >= 10 for mat_id in materials):
-                    active_groups['materials'].append(group_id)
-            active_groups['loads'] = list(fpn_data.get('load_groups', {}).keys())
+        elif '支撑' in stage_name or 'support' in stage_name or stage_type == 2:
+            # 支撑安装：显示结构材料和支撑相关荷载
+            active_groups['materials'] = [1]  # 包含支撑的材料组
+            active_groups['loads'] = [1]      # 支撑荷载
+            active_groups['boundaries'] = [1] # 支撑边界
+            print("智能选择: 支撑安装 - 结构材料 + 支撑荷载")
+            
+        elif '底板' in stage_name or 'slab' in stage_name or stage_type == 3:
+            # 底板施工：显示混凝土材料和施工荷载
+            active_groups['materials'] = [1]  # 混凝土材料组
+            active_groups['loads'] = [1]      # 施工荷载
+            active_groups['boundaries'] = [1] # 底板边界
+            print("智能选择: 底板施工 - 混凝土材料 + 施工荷载")
+            
+        elif '最终' in stage_name or 'final' in stage_name:
+            # 最终状态：显示所有组
+            active_groups['materials'] = list(fpn_data.get('material_groups', {}).keys()) or [1]
+            active_groups['loads'] = list(fpn_data.get('load_groups', {}).keys()) or [1]
+            active_groups['boundaries'] = list(fpn_data.get('boundary_groups', {}).keys()) or [1]
+            print("智能选择: 最终状态 - 显示所有组")
             
         else:
-            # 默认情况：显示所有组
-            active_groups['materials'] = list(fpn_data.get('material_groups', {}).keys())
-            active_groups['loads'] = list(fpn_data.get('load_groups', {}).keys())
-            active_groups['boundaries'] = list(fpn_data.get('boundary_groups', {}).keys())
+            # 默认情况：显示第一个组
+            active_groups['materials'] = [1]
+            active_groups['loads'] = [1] 
+            active_groups['boundaries'] = [1]
+            print("智能选择: 默认 - 显示主要组")
         
         return active_groups
     
