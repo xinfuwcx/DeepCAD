@@ -290,12 +290,25 @@ class PreProcessor:
                     group_command = self.parse_group_command_line(line)
                     if group_command:
                         print(f"发现物理组命令: {group_command}")
-                        # 关联到最近的分析步
-                        if fpn_data['analysis_stages']:
-                            last_stage = fpn_data['analysis_stages'][-1]
-                            if 'group_commands' not in last_stage:
-                                last_stage['group_commands'] = []
-                            last_stage['group_commands'].append(group_command)
+                        # 根据stage_id关联到对应的分析步
+                        target_stage_id = group_command['stage_id']
+                        target_stage = None
+                        for stage in fpn_data['analysis_stages']:
+                            if stage['id'] == target_stage_id:
+                                target_stage = stage
+                                break
+                        
+                        if target_stage:
+                            if 'group_commands' not in target_stage:
+                                target_stage['group_commands'] = []
+                            target_stage['group_commands'].append(group_command)
+                            print(f"  关联到分析步{target_stage_id}: {target_stage['name']}")
+                        else:
+                            print(f"  警告: 找不到对应的分析步ID={target_stage_id}")
+                            # 如果找不到对应分析步，保存到临时列表
+                            if 'orphaned_commands' not in fpn_data:
+                                fpn_data['orphaned_commands'] = []
+                            fpn_data['orphaned_commands'].append(group_command)
                         
                 elif line.startswith('ANALSTAG,'):
                     # 分析阶段控制信息
