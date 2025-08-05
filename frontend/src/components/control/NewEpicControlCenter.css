@@ -1,0 +1,1119 @@
+/* EPIC控制中心样式 - 完全还原图片中的设计 */
+
+.epic-control-center {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #151822 0%, #1a1d29 50%, #1f2235 100%);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  font-family: 'Arial', sans-serif;
+}
+
+/* ========== 顶部导航栏 ========== */
+.epic-header {
+  height: 80px;
+  background: linear-gradient(135deg, #151822 0%, #1a1d29 100%);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  position: relative;
+  z-index: 100;
+  border-bottom: 2px solid rgba(31, 34, 53, 0.6);
+}
+
+.epic-logo {
+  display: flex;
+  align-items: center;
+  margin-right: 30px;
+}
+
+.logo-icon {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.logo-cube {
+  width: 50px;
+  height: 50px;
+  background: linear-gradient(135deg, #1f2235, #151822);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  box-shadow: 0 0 20px rgba(21, 24, 34, 0.5);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.logo-text {
+  color: white;
+}
+
+.epic-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.hyper-future {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 1px;
+}
+
+.epic-navigation {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+}
+
+.nav-button {
+  padding: 8px 16px;
+  background: rgba(31, 34, 53, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.nav-button:hover {
+  background: rgba(31, 34, 53, 0.8);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(21, 24, 34, 0.6);
+}
+
+.nav-button.active {
+  background: linear-gradient(135deg, rgba(31, 34, 53, 0.8), rgba(26, 29, 41, 0.8));
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 15px rgba(21, 24, 34, 0.5);
+}
+
+.nav-button.selected {
+  background: linear-gradient(135deg, #1f2235, #151822);
+  color: white;
+  font-weight: bold;
+}
+
+.nav-icon {
+  font-size: 14px;
+}
+
+.nav-label {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.notification-badge {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  background: #ff4757;
+  color: white;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-10px); }
+  60% { transform: translateY(-5px); }
+}
+
+/* ========== 主内容区域 ========== */
+.epic-main-content {
+  display: flex;
+  flex: 1;
+  position: relative;
+}
+
+.map-container {
+  flex: 1;
+  position: relative;
+  margin: 20px;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.map-display {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  border-radius: 15px;
+}
+
+.map-placeholder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: white;
+  z-index: 10;
+}
+
+.map-info h3 {
+  font-size: 24px;
+  margin-bottom: 10px;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.map-info p {
+  font-size: 14px;
+  margin: 5px 0;
+  opacity: 0.8;
+}
+
+/* 地图加载状态样式 */
+.map-loading-overlay,
+.map-error-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.loading-content,
+.error-content {
+  text-align: center;
+  color: white;
+  padding: 40px;
+  background: rgba(0, 0, 0, 0.9);
+  border-radius: 15px;
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.loading-spinner {
+  font-size: 48px;
+  animation: spin 2s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.loading-content h3,
+.error-content h3 {
+  color: #00ffff;
+  margin: 10px 0;
+  font-size: 18px;
+}
+
+.loading-content p,
+.error-content p {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 10px 0;
+  font-size: 14px;
+}
+
+.loading-bar {
+  width: 200px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 20px auto 0;
+}
+
+.loading-progress {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #00ffff, #0080ff);
+  animation: progress 2s ease-in-out infinite;
+}
+
+@keyframes progress {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.error-icon {
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+
+.retry-button {
+  background: linear-gradient(135deg, #00ffff, #0080ff);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 20px;
+  transition: all 0.3s ease;
+}
+
+.retry-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+}
+
+.error-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.fallback-button {
+  background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.fallback-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(255, 107, 107, 0.5);
+}
+
+.error-help {
+  margin-top: 25px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  text-align: left;
+}
+
+.error-help p {
+  margin: 0 0 10px 0;
+  font-weight: bold;
+  color: #ffdd59;
+}
+
+.error-help ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #e0e0e0;
+}
+
+.error-help li {
+  margin: 5px 0;
+  font-size: 13px;
+}
+
+/* 主要内容布局 */
+.epic-main-content {
+  display: flex;
+  flex: 1;
+  height: calc(100vh - 80px);
+}
+
+.map-container {
+  flex: 1;
+  position: relative;
+}
+
+/* 右侧边栏样式 */
+.epic-sidebar {
+  width: 320px;
+  background: linear-gradient(180deg, #151822 0%, #1a1d29 50%, #1f2235 100%);
+  backdrop-filter: blur(10px);
+  border-left: 2px solid rgba(31, 34, 53, 0.5);
+  padding: 15px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  box-shadow: -5px 0 20px rgba(21, 24, 34, 0.6);
+}
+
+/* 头部卡片 */
+.weather-header-card {
+  background: rgba(21, 24, 34, 0.8);
+  border: 1px solid rgba(31, 34, 53, 0.6);
+  border-radius: 10px;
+  padding: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 10px rgba(21, 24, 34, 0.4);
+}
+
+.weather-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.weather-icon {
+  font-size: 18px;
+}
+
+.weather-title h3 {
+  color: #ffffff;
+  font-size: 16px;
+  margin: 0;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+}
+
+.ai-subtitle {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+}
+
+.close-btn {
+  background: rgba(244, 67, 54, 0.8);
+  border: 1px solid rgba(244, 67, 54, 0.9);
+  border-radius: 4px;
+  color: white;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.3s;
+  box-shadow: 0 2px 6px rgba(244, 67, 54, 0.3);
+}
+
+/* 位置卡片 */
+.location-card {
+  background: rgba(21, 24, 34, 0.6);
+  border: 1px solid rgba(31, 34, 53, 0.6);
+  border-radius: 10px;
+  padding: 15px;
+  box-shadow: 0 2px 8px rgba(21, 24, 34, 0.4);
+}
+
+.location-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: white;
+  font-size: 14px;
+}
+
+.location-pin {
+  color: #ff6b6b;
+}
+
+.weather-query-btn {
+  background: linear-gradient(135deg, #1f2235, #151822);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  padding: 8px 16px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 2px 6px rgba(21, 24, 34, 0.4);
+}
+
+.weather-query-btn:hover {
+  background: linear-gradient(135deg, #151822, #1a1d29);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(21, 24, 34, 0.5);
+}
+
+/* 天气效果卡片 */
+.weather-effects-card {
+  background: rgba(21, 24, 34, 0.4);
+  border: 1px solid rgba(31, 34, 53, 0.6);
+  border-radius: 10px;
+  padding: 15px;
+  box-shadow: 0 2px 8px rgba(21, 24, 34, 0.3);
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: white;
+  font-size: 14px;
+  margin-bottom: 15px;
+}
+
+.title-icon {
+  color: #b0bec5;
+}
+
+.weather-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.weather-effect-btn {
+  background: rgba(21, 24, 34, 0.6);
+  border: 1px solid rgba(31, 34, 53, 0.5);
+  border-radius: 8px;
+  padding: 12px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(21, 24, 34, 0.3);
+}
+
+.weather-effect-btn.active {
+  background: linear-gradient(135deg, rgba(31, 34, 53, 0.9), rgba(26, 29, 41, 0.9));
+  border-color: rgba(31, 34, 53, 0.8);
+  box-shadow: 0 0 12px rgba(21, 24, 34, 0.5);
+}
+
+.effect-icon {
+  font-size: 20px;
+}
+
+.effect-label {
+  font-size: 12px;
+}
+
+/* 滑块卡片 */
+.slider-card {
+  background: rgba(21, 24, 34, 0.4);
+  border: 1px solid rgba(31, 34, 53, 0.6);
+  border-radius: 10px;
+  padding: 15px;
+  box-shadow: 0 2px 8px rgba(21, 24, 34, 0.3);
+}
+
+.slider-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.slider-icon {
+  color: #b0bec5;
+  font-size: 16px;
+}
+
+.slider-title {
+  color: white;
+  font-size: 14px;
+  flex: 1;
+}
+
+.slider-value {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: bold;
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.3);
+}
+
+.slider-container {
+  margin: 10px 0;
+}
+
+.epic-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.epic-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffffff, #e0e0e0);
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+/* 预报卡片 */
+.forecast-card {
+  background: rgba(21, 24, 34, 0.4);
+  border: 1px solid rgba(31, 34, 53, 0.6);
+  border-radius: 10px;
+  padding: 15px;
+  box-shadow: 0 2px 8px rgba(21, 24, 34, 0.3);
+}
+
+.forecast-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.forecast-item {
+  background: rgba(21, 24, 34, 0.6);
+  border: 1px solid rgba(31, 34, 53, 0.5);
+  border-radius: 6px;
+  padding: 10px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(21, 24, 34, 0.3);
+}
+
+.forecast-item.active {
+  background: linear-gradient(135deg, rgba(31, 34, 53, 0.9), rgba(26, 29, 41, 0.9));
+  border-color: rgba(31, 34, 53, 0.8);
+  box-shadow: 0 0 12px rgba(21, 24, 34, 0.5);
+}
+
+.forecast-icon {
+  font-size: 16px;
+}
+
+.forecast-label {
+  font-size: 12px;
+}
+
+.storm-mode-btn {
+  width: 100%;
+  background: linear-gradient(135deg, rgba(244, 67, 54, 0.8), rgba(211, 47, 47, 0.8));
+  border: 1px solid rgba(244, 67, 54, 1);
+  border-radius: 6px;
+  color: white;
+  padding: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  transition: all 0.3s;
+  box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
+}
+
+.storm-mode-btn:hover {
+  background: linear-gradient(135deg, rgba(244, 67, 54, 1), rgba(211, 47, 47, 1));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+}
+
+.storm-icon {
+  font-size: 16px;
+}
+
+/* 系统信息卡片 */
+.system-info-card {
+  background: rgba(21, 24, 34, 0.4);
+  border: 1px solid rgba(31, 34, 53, 0.6);
+  border-radius: 10px;
+  padding: 15px;
+  box-shadow: 0 2px 8px rgba(21, 24, 34, 0.3);
+}
+
+.info-list {
+  color: white;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.info-item {
+  margin-bottom: 8px;
+  padding-left: 5px;
+}
+
+.map-status-info {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  z-index: 5;
+}
+
+.status-badge {
+  background: rgba(21, 24, 34, 0.9);
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  border: 1px solid rgba(31, 34, 53, 0.6);
+  backdrop-filter: blur(10px);
+  text-shadow: 0 0 5px rgba(255, 255, 255, 0.3);
+}
+
+/* 错误边界样式 */
+.map-error-fallback {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.map-error-fallback .error-content {
+  text-align: center;
+  color: white;
+  padding: 40px;
+  background: rgba(0, 0, 0, 0.95);
+  border-radius: 15px;
+  border: 2px solid rgba(255, 100, 100, 0.5);
+  backdrop-filter: blur(10px);
+}
+
+.map-error-fallback .error-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  opacity: 0.8;
+}
+
+.map-error-fallback h3 {
+  color: #ff6b6b;
+  margin: 15px 0;
+  font-size: 20px;
+}
+
+.map-error-fallback p {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 15px 0;
+  font-size: 14px;
+}
+
+/* ========== 右侧天气控制面板 ========== */
+.weather-control-panel {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 320px;
+  max-height: calc(100vh - 140px);
+  background: rgba(0, 0, 0, 0.9);
+  border: 2px solid;
+  border-image: linear-gradient(135deg, #00ffff, #0080ff, #ff00ff, #00ffff) 1;
+  border-radius: 15px;
+  padding: 20px;
+  backdrop-filter: blur(20px);
+  overflow-y: auto;
+  box-shadow: 0 0 40px rgba(0, 255, 255, 0.4);
+  z-index: 1000;
+}
+
+.weather-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+}
+
+.weather-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.weather-title .weather-icon {
+  font-size: 28px;
+  animation: rotate 8s linear infinite;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.weather-title h3 {
+  color: #00ffff;
+  margin: 0;
+  font-size: 16px;
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+}
+
+.weather-title p {
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  font-size: 11px;
+}
+
+.close-button {
+  background: rgba(255, 100, 100, 0.8);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.3s ease;
+}
+
+.close-button:hover {
+  background: rgba(255, 100, 100, 1);
+  transform: scale(1.1);
+}
+
+/* 当前天气位置 */
+.current-weather {
+  background: rgba(0, 100, 200, 0.2);
+  border: 1px solid rgba(0, 100, 200, 0.4);
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.weather-location {
+  color: white;
+  font-size: 12px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.location-icon {
+  font-size: 14px;
+}
+
+.weather-refresh {
+  background: rgba(0, 150, 255, 0.8);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 auto;
+  transition: all 0.3s ease;
+}
+
+.weather-refresh:hover {
+  background: rgba(0, 150, 255, 1);
+  transform: scale(1.05);
+}
+
+/* 天气效果开关区域 */
+.weather-effects-section {
+  background: rgba(0, 255, 255, 0.1);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.weather-effects-section h4 {
+  color: #00ffff;
+  margin: 0 0 15px 0;
+  font-size: 14px;
+  text-align: center;
+}
+
+.weather-effects-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.weather-effect-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  color: white;
+  padding: 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  transition: all 0.3s ease;
+}
+
+.weather-effect-btn:hover {
+  background: rgba(0, 255, 255, 0.2);
+  border-color: rgba(0, 255, 255, 0.5);
+  transform: scale(1.05);
+}
+
+.weather-effect-btn.active {
+  background: linear-gradient(135deg, rgba(0, 255, 255, 0.3), rgba(0, 150, 255, 0.3));
+  border: 2px solid #00ffff;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+}
+
+.effect-icon {
+  font-size: 18px;
+  animation: pulse 2s infinite;
+}
+
+/* 天气强度控制 */
+.weather-intensity-section,
+.cloud-density-section {
+  background: rgba(0, 255, 255, 0.1);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.intensity-header,
+.density-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.intensity-icon,
+.density-icon {
+  font-size: 20px;
+}
+
+.intensity-label,
+.density-label {
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.intensity-value,
+.density-value {
+  color: #00ffff;
+  font-size: 12px;
+  background: rgba(0, 255, 255, 0.2);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.intensity-slider-container,
+.density-slider-container {
+  position: relative;
+}
+
+.intensity-slider,
+.density-slider {
+  width: 100%;
+  height: 6px;
+  background: linear-gradient(to right, 
+    rgba(0, 255, 255, 0.3) 0%, 
+    rgba(0, 255, 255, 0.8) var(--value, 50%), 
+    rgba(255, 255, 255, 0.2) var(--value, 50%), 
+    rgba(255, 255, 255, 0.2) 100%);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+}
+
+.intensity-slider::-webkit-slider-thumb,
+.density-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #00ffff;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+}
+
+/* 天气预报区域 */
+.weather-forecast-section {
+  background: rgba(255, 165, 0, 0.1);
+  border: 1px solid rgba(255, 165, 0, 0.3);
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.weather-forecast-section h4 {
+  color: #ffaa00;
+  margin: 0 0 15px 0;
+  font-size: 14px;
+  text-align: center;
+}
+
+.forecast-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.forecast-btn {
+  background: rgba(255, 165, 0, 0.2);
+  border: 1px solid rgba(255, 165, 0, 0.4);
+  border-radius: 6px;
+  color: white;
+  padding: 8px;
+  cursor: pointer;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.3s ease;
+}
+
+.forecast-btn:hover {
+  background: rgba(255, 165, 0, 0.4);
+  transform: scale(1.05);
+}
+
+.forecast-btn span:first-child {
+  font-size: 14px;
+}
+
+.storm-mode-btn {
+  background: linear-gradient(135deg, rgba(255, 0, 0, 0.3), rgba(255, 100, 0, 0.3));
+  border: 2px solid rgba(255, 0, 0, 0.5);
+  border-radius: 8px;
+  color: white;
+  padding: 10px;
+  cursor: pointer;
+  font-size: 12px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
+
+.storm-mode-btn:hover {
+  background: linear-gradient(135deg, rgba(255, 0, 0, 0.5), rgba(255, 100, 0, 0.5));
+  transform: scale(1.02);
+}
+
+.storm-mode-btn span:first-child {
+  font-size: 16px;
+  animation: flash 1s infinite;
+}
+
+@keyframes flash {
+  0%, 50% { opacity: 1; }
+  25%, 75% { opacity: 0.5; }
+}
+
+/* 系统状态信息 */
+.weather-system-info {
+  margin-top: 20px;
+  padding: 10px;
+  background: rgba(0, 255, 0, 0.1);
+  border: 1px solid rgba(0, 255, 0, 0.3);
+  border-radius: 6px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+}
+
+.weather-system-info p {
+  margin: 4px 0;
+}
+
+/* 滚动条美化 */
+.weather-control-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.weather-control-panel::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.weather-control-panel::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 255, 0.5);
+  border-radius: 3px;
+}
+
+.weather-control-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 255, 0.8);
+}
+
+/* 响应式适配 */
+@media (max-width: 1400px) {
+  .weather-control-panel {
+    width: 280px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .weather-control-panel {
+    width: 260px;
+  }
+  
+  .nav-button {
+    padding: 6px 12px;
+    font-size: 10px;
+  }
+  
+  .nav-label {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .epic-header {
+    height: 60px;
+    padding: 0 10px;
+  }
+  
+  .epic-navigation {
+    gap: 4px;
+  }
+  
+  .nav-button {
+    padding: 4px 8px;
+  }
+  
+  .weather-control-panel {
+    width: calc(100% - 40px);
+    height: auto;
+    position: fixed;
+    bottom: 0;
+    left: 20px;
+    right: 20px;
+    top: auto;
+    margin: 0;
+    border-radius: 15px 15px 0 0;
+    max-height: 50vh;
+  }
+  
+  .map-container {
+    margin: 10px;
+  }
+}

@@ -17,7 +17,7 @@ import {
 import TechIcon from '../ui/TechIcon';
 import TechLogo from '../ui/TechLogo';
 import { ProjectControlCenter } from '../control/ProjectControlCenter';
-import { EnhancedEpicControlCenter } from '../control/EnhancedEpicControlCenter';
+import { NewEpicControlCenter } from '../control/NewEpicControlCenter';
 import EnhancedMainWorkspaceView from '../../views/EnhancedMainWorkspaceView';
 import PhysicsAIView from '../../views/PhysicsAIView';
 import MaterialLibraryView from '../../views/MaterialLibraryView';
@@ -232,10 +232,10 @@ const MainLayout: React.FC = () => {
         }}>
           <Routes>
             <Route path="/" element={
-              <EnhancedEpicControlCenter />
+              <NewEpicControlCenter />
             } />
             <Route path="dashboard" element={
-              <EnhancedEpicControlCenter />
+              <NewEpicControlCenter />
             } />
             <Route path="borehole-visualization" element={<EnhancedMainWorkspaceView activeModule="borehole-visualization" />} />
             <Route path="excavation-design" element={<EnhancedMainWorkspaceView activeModule="excavation-design" />} />
