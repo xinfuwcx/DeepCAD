@@ -1137,7 +1137,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           bodyStyle={{
             padding: '12px',
             height: 'calc(100% - 60px)',
-            overflowY: 'hidden',
+            overflowY: 'auto',
             display: 'flex',
             flexDirection: 'column'
           }}
@@ -1147,12 +1147,10 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
             size="small"
             tabPosition="top"
             style={{ 
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column'
+              height: 'auto',
+              minHeight: '100%'
             }}
             tabBarStyle={{
-              flex: '0 0 auto',
               marginBottom: '8px'
             }}
           />
@@ -2176,11 +2174,11 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
              '深基坑工程项目'}
           </Title>
           <Text style={{ color: themeConfig.colors.text.secondary, fontSize: '12px' }}>
-            {activeModule === 'geology-modeling' ? '地质数据 • RBF插值 • 三维建模' :
+            {activeModule === 'geology-modeling' ? '地质数据 • 参数插值 • 三维建模' :
              activeModule === 'borehole-visualization' ? '钻孔数据 • 3D显示 • 地层剖面' :
              activeModule === 'excavation-design' ? '基坑参数 • 开挖方案 • 边坡稳定' :
              activeModule === 'support-structure' ? '支护设计 • 结构计算 • 安全评估' :
-             activeModule === 'geology-reconstruction' ? '地质数据 • RBF插值 • 三维重建' :
+             activeModule === 'geology-reconstruction' ? '地质数据 • 参数插值 • 三维重建' :
              activeModule === 'tunnel-modeling' ? '隧道设计 • 盾构仿真 • 施工监控' :
              activeModule === 'adjacent-buildings' ? '建筑分析 • 风险评估 • 监测部署' :
              activeModule === 'meshing' ? '网格生成 • 自适应细化 • 质量分析' :

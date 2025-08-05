@@ -377,11 +377,13 @@ const MainWorkspaceView: React.FC<MainWorkspaceViewProps> = ({
               style={{ 
                 height: '100%',
                 background: '#16213e',
-                border: '1px solid #00d9ff20'
+                border: '1px solid #00d9ff20',
+                display: 'flex',
+                flexDirection: 'column'
               }}
               bodyStyle={{ 
                 padding: '12px',
-                height: 'calc(100% - 60px)',
+                flex: 1,
                 overflowY: 'auto'
               }}
             >

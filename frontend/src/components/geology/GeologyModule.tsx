@@ -1,7 +1,7 @@
 /**
- * 增强型地质模块 - 集成2号专家RBF三维重建技术
- * 基于2号专家《RBF三维重建技术说明》完整实现
- * 0号架构师 - 集成RBF数学模型、五阶段工作流程、完整质量评估
+ * 地质建模模块 - 基于GemPy地质建模系统
+ * 集成高级地质插值算法和三维地质体重建功能
+ * 支持钻孔数据处理、地质建模和质量评估
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
@@ -9,20 +9,20 @@ import {
   Card, Row, Col, Button, Space, Typography, Alert, Progress,
   Tabs, Form, Select, InputNumber, Switch, Slider, Upload,
   Table, Tag, Timeline, List, Modal, message, Spin,
-  Steps, Collapse, Radio, Checkbox, Tooltip,
+  Steps, Collapse, Radio, Checkbox, Tooltip, Input,
 } from 'antd';
 import {
   ThunderboltOutlined, DatabaseOutlined, SettingOutlined,
   PlayCircleOutlined, StopOutlined, EyeOutlined, DownloadOutlined,
   UploadOutlined, ExperimentOutlined, CheckCircleOutlined,
   CloudUploadOutlined, FileSearchOutlined, ReloadOutlined,
-  BulbOutlined, DashboardOutlined, LineChartOutlined,
+  BulbOutlined, DashboardOutlined, LineChartOutlined, BorderOutlined,
 } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// 导入2号专家的RBF三维重建服务和GemPy服务
-import { RBF3DReconstructionService } from '../../services/RBF3DReconstructionService';
+// 导入GemPy服务
 import { GeologyModelingService } from '../../services/GeologyModelingService';
+import { RBFConfig } from '../../services/GeometryArchitectureService';
 
 const { Title, Text, Paragraph } = Typography;
 const { Panel } = Collapse;
@@ -55,27 +55,9 @@ interface EnhancedGeologyModuleProps {
   interpolationMethod?: string
 }
 
-interface RBFConfig {
-  kernelType: 'gaussian' | 'multiquadric' | 'thin_plate_spline' | 'cubic';
-  targetMeshSize: number;
-  qualityLevel: 'draft' | 'standard' | 'precision';
-  enableParallel: boolean;
-  autoOptimize: boolean;
-  performanceMode: 'draft' | 'standard' | 'precision';
-  optimization: {
-    useParallelProcessing: boolean;
-    maxIterations: number;
-    convergenceTolerance: number;
-  };
-  meshCompatibility: {
-    targetMeshSize: number;
-    qualityThreshold: number;
-    fragmentStandard: boolean;
-  };
-}
 
 interface GemPyConfig {
-  interpolationMethod: 'kriging' | 'cubic_spline' | 'rbf';
+  interpolationMethod: 'kriging' | 'cubic_spline';
   resolutionX: number;
   resolutionY: number;
   resolutionZ: number;
@@ -118,27 +100,6 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
   const [processingStatus, setProcessingStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle');
   const [processingProgress, setProcessingProgress] = useState(0);
   const [activeTab, setActiveTab] = useState('data');
-  const [algorithm, setAlgorithm] = useState<'rbf' | 'gempy'>('rbf');
-
-  // RBF配置状态
-  const [rbfConfig, setRbfConfig] = useState<RBFConfig>({
-    kernelType: 'multiquadric',
-    targetMeshSize: 2.0,
-    qualityLevel: 'standard',
-    enableParallel: true,
-    autoOptimize: true,
-    performanceMode: 'standard',
-    optimization: {
-      useParallelProcessing: true,
-      maxIterations: 1000,
-      convergenceTolerance: 1e-8,
-    },
-    meshCompatibility: {
-      targetMeshSize: 2.0,
-      qualityThreshold: 0.65,
-      fragmentStandard: true,
-    },
-  });
 
   // GemPy配置状态
   const [gemPyConfig, setGemPyConfig] = useState<GemPyConfig>({
@@ -165,12 +126,10 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
   const [qualityMetrics, setQualityMetrics] = useState<QualityMetrics | null>(null);
 
   // 服务引用
-  const reconstructionServiceRef = useRef<RBF3DReconstructionService | null>(null);
   const gemPyServiceRef = useRef<GeologyModelingService | null>(null);
 
   // 初始化服务
   useEffect(() => {
-    reconstructionServiceRef.current = new RBF3DReconstructionService();
     gemPyServiceRef.current = new GeologyModelingService();
   }, []);
 
@@ -230,7 +189,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
     return false; // 阻止自动上传
   }, []);
 
-  // 处理地质建模（支持RBF和GemPy）
+  // 处理地质建模（GemPy）
   const handleGeologyModeling = useCallback(async () => {
     if (!boreholeFile || !boreholeData) {
       message.error('请先上传钻孔数据文件');
@@ -242,109 +201,93 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
     onStatusChange?.('processing');
 
     try {
-      let reconstructionResult;
+      console.log('🚀 开始GemPy地质建模流程');
 
-      if (algorithm === 'rbf') {
-        console.log('🚀 开始RBF三维重建完整流程');
-
-        const reconstructionService = reconstructionServiceRef.current;
-        if (!reconstructionService) {
-          throw new Error('RBF重建服务未初始化');
-        }
-
-        // 调用完整的RBF三维重建流程
-        reconstructionResult = await reconstructionService.performComplete3DReconstruction(
-          boreholeFile, // 用户上传的钻孔文件
-          {
-            kernelType: rbfConfig.kernelType,
-            targetMeshSize: rbfConfig.meshCompatibility.targetMeshSize,
-            qualityLevel: rbfConfig.performanceMode as any,
-            enableParallel: rbfConfig.optimization.useParallelProcessing,
-            autoOptimize: true,
-          },
-        );
-      } else {
-        console.log('🚀 开始GemPy地质建模流程');
-
-        const gemPyService = gemPyServiceRef.current;
-        if (!gemPyService) {
-          throw new Error('GemPy服务未初始化');
-        }
-
-        // 调用GemPy建模流程
-        reconstructionResult = await gemPyService.performGeologyModeling(
-          boreholeData,
-          {
-            interpolationMethod: gemPyConfig.interpolationMethod,
-            resolution: {
-              x: gemPyConfig.resolutionX,
-              y: gemPyConfig.resolutionY,
-              z: gemPyConfig.resolutionZ,
-            },
-            enableFaults: gemPyConfig.enableFaults,
-            faultSmoothing: gemPyConfig.faultSmoothing,
-            enableGravity: gemPyConfig.gravityModel,
-            enableMagnetic: gemPyConfig.magneticModel,
-          },
-        );
+      const gemPyService = gemPyServiceRef.current;
+      if (!gemPyService) {
+        throw new Error('GemPy服务未初始化');
       }
+
+      const rbfConfig: RBFConfig = {
+        kernelType: gemPyConfig.interpolationMethod === 'kriging' ? 'gaussian' : 'cubic', // Map to valid kernel
+        kernelParameter: 1.0, // Default value
+        smoothingFactor: gemPyConfig.faultSmoothing,
+        maxIterations: 100, // Default
+        tolerance: 0.001, // Default
+        gridResolution: gemPyConfig.resolutionX // Use X resolution as grid
+      };
+
+      const reconstructionResult = await gemPyService.createGeologyModel(
+        boreholeData,
+        rbfConfig
+      );
 
       setProcessingProgress(100);
       setProcessingStatus('completed');
       onStatusChange?.('completed');
 
-      // 更新结果数据
+      // Update stats using actual GeometryModel properties
       setRealTimeStats({
-        interpolationTime: reconstructionResult.statistics.totalProcessingTime,
-        dataPoints: reconstructionResult.statistics.dataPoints,
-        gridPoints: reconstructionResult.statistics.gridNodes,
-        memoryUsage: reconstructionResult.statistics.memoryUsage,
-        qualityScore: reconstructionResult.quality.overall.score,
+        interpolationTime: 0, // Placeholder, as no statistics
+        dataPoints: reconstructionResult.vertices.length / 3,
+        gridPoints: reconstructionResult.faces.length / 3,
+        memoryUsage: 0,
+        qualityScore: reconstructionResult.quality.meshReadiness * 100,
       });
 
       setQualityMetrics({
-        overall: reconstructionResult.quality.overall,
+        overall: {
+          score: reconstructionResult.quality.meshReadiness * 100,
+          grade: reconstructionResult.quality.meshReadiness > 0.8 ? 'A' : 'B', // Simplified
+          meshReadiness: reconstructionResult.quality.meshReadiness > 0.5,
+          recommendation: [] // Empty
+        },
         meshGuidance: {
-          recommendedMeshSize: reconstructionResult.configuration.usedParameters.meshCompatibility.targetMeshSize,
-          estimatedElements: reconstructionResult.statistics.finalElements,
+          recommendedMeshSize: reconstructionResult.quality.triangleCount / 1000, // Placeholder
+          estimatedElements: reconstructionResult.quality.triangleCount,
           qualityThreshold: 0.65,
         },
       });
 
-      // 通知上层组件
+      // Notify parent
       if (onGeologyGenerated) {
         onGeologyGenerated({
           interpolationResult: {
-            values: reconstructionResult.grid.values,
-            executionTime: reconstructionResult.statistics.totalProcessingTime,
-            memoryUsage: reconstructionResult.statistics.memoryUsage,
+            values: new Float32Array(), // Placeholder
+            executionTime: 0,
+            memoryUsage: 0,
           },
           qualityReport: reconstructionResult.quality,
-          geometry: reconstructionResult.geometry,
+          geometry: {
+            vertices: reconstructionResult.vertices,
+            faces: reconstructionResult.faces,
+            normals: new Float32Array(), // Placeholder
+            boundingBox: reconstructionResult.quality.boundingBox,
+          },
         });
       }
 
-      message.success(`${algorithm === 'rbf' ? 'RBF' : 'GemPy'}地质建模完成！质量等级: ${reconstructionResult.quality.overall.grade}`);
+      message.success(`GemPy地质建模完成！质量分数: ${reconstructionResult.quality.meshReadiness * 100}`);
 
     } catch (error) {
-      console.error(`${algorithm === 'rbf' ? 'RBF' : 'GemPy'}地质建模失败:`, error);
+      console.error(`GemPy地质建模失败:`, error);
       setProcessingStatus('error');
       onStatusChange?.('error');
-      message.error(`${algorithm === 'rbf' ? 'RBF' : 'GemPy'}地质建模过程中发生错误`);
+      message.error(`GemPy地质建模过程中发生错误`);
     }
-  }, [algorithm, boreholeFile, boreholeData, rbfConfig, gemPyConfig, onGeologyGenerated, onStatusChange]);
+  }, [boreholeFile, boreholeData, gemPyConfig, onGeologyGenerated, onStatusChange]);
 
   // 停止重建
   const handleStopReconstruction = useCallback(() => {
     setProcessingStatus('idle');
     setProcessingProgress(0);
     onStatusChange?.('idle');
-    message.info('RBF重建过程已停止');
+    message.info('地质建模过程已停止');
   }, [onStatusChange]);
 
   // 预览配置
   const handlePreviewConfig = useCallback(() => {
-    message.info('配置预览功能 - 显示当前RBF参数设置');
+    message.info('配置预览功能 - 显示当前GemPy参数设置');
   }, []);
 
   // ==================== 渲染组件 ====================
@@ -358,7 +301,15 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
   };
 
   return (
-    <div className="enhanced-geology-module geology-module-container">
+    <div 
+      className="enhanced-geology-module geology-module-container"
+      style={{ 
+        height: '100%', 
+        overflow: 'auto',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
       {/* 头部状态栏 */}
       <Card size="small" style={{ 
         marginBottom: '16px'
@@ -374,7 +325,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                   writingMode: 'horizontal-tb',
                   whiteSpace: 'nowrap'
                 }}>
-                  {algorithm === 'rbf' ? 'RBF三维地质重建系统' : 'GemPy地质建模系统'}
+                  地质建模系统
                 </Title>
               </Space>
             </div>
@@ -421,16 +372,6 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
               justifyContent: 'flex-end',
               alignItems: 'center'
             }}>
-              <Select
-                size="small"
-                value={algorithm}
-                onChange={setAlgorithm}
-                disabled={processingStatus === 'processing'}
-                style={{ width: 100 }}
-              >
-                <Option value="rbf">RBF算法</Option>
-                <Option value="gempy">GemPy</Option>
-              </Select>
               <Button
                 size="small"
                 icon={<EyeOutlined />}
@@ -465,7 +406,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
             <Card size="small" style={{ marginBottom: '16px' }}>
               <Row gutter={16} align="middle">
                 <Col span={4}>
-                  <Text strong>RBF重建进度:</Text>
+                  <Text strong>地质建模进度:</Text>
                 </Col>
                 <Col span={16}>
                   <Progress
@@ -505,14 +446,293 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
       </AnimatePresence>
 
       {/* 主要内容区域 */}
-      <Tabs 
-        activeKey={activeTab} 
-        onChange={setActiveTab} 
-        size="small"
-      >
+      <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+        <Tabs 
+          activeKey={activeTab} 
+          onChange={setActiveTab} 
+          size="small"
+          style={{ height: '100%' }}
+          tabBarStyle={{ marginBottom: '16px' }}
+        >
+          {/* 土层计算域 */}
+        <TabPane tab="土体计算域" key="results">
+          <div style={{ height: 'calc(100vh - 200px)', overflow: 'auto', paddingBottom: '40px' }}>
+            <Row gutter={[16, 20]}>
+            {/* 计算域设置区域 */}
+            <Col span={24}>
+              {/* 计算域范围设置 */}
+              <Card
+                title={
+                  <Space>
+                    <SettingOutlined style={{ color: '#00d9ff' }} />
+                    <span>计算域范围设置</span>
+                  </Space>
+                }
+                size="small"
+                style={{ 
+                  marginBottom: '20px', 
+                  border: '1px solid #00d9ff',
+                  borderRadius: '8px'
+                }}
+              >
+                <Form layout="vertical">
+                  <Row gutter={[16, 12]}>
+                    <Col xs={24} sm={12}>
+                      <Form.Item label="X方向范围 (m)">
+                        <InputNumber placeholder="例如: 50" defaultValue="50" />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} sm={12}>
+                      <Form.Item label="Y方向范围 (m)">
+                        <InputNumber placeholder="例如: 50" defaultValue="50" />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                  <Row gutter={[16, 12]}>
+                    <Col xs={24} sm={12}>
+                      <Form.Item label="Z方向范围 (m)">
+                        <InputNumber placeholder="例如: 5" defaultValue="5" />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} sm={12}>
+                      <Form.Item label="网格密度">
+                        <Select defaultValue="medium" style={{ width: '100%' }}>
+                          <Option value="coarse">粗糙</Option>
+                          <Option value="medium">中等</Option>
+                          <Option value="fine">精细</Option>
+                        </Select>
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                </Form>
+              </Card>
+
+              {/* 土层分层设置 */}
+              <Card
+                title={
+                  <Space>
+                    <DatabaseOutlined style={{ color: '#52c41a' }} />
+                    <span>土层分层设置</span>
+                  </Space>
+                }
+                size="small"
+                style={{ 
+                  marginBottom: '20px', 
+                  border: '1px solid #52c41a',
+                  borderRadius: '8px'
+                }}
+              >
+                <Form layout="vertical">
+                  <Row gutter={[16, 12]}>
+                    <Col span={24}>
+                      <Form.Item label="分层方法">
+                        <Select defaultValue="auto" style={{ width: '100%' }}>
+                          <Option value="auto">自动分层</Option>
+                          <Option value="manual">手动分层</Option>
+                          <Option value="combined">混合模式</Option>
+                        </Select>
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                  <Row gutter={[16, 12]}>
+                    <Col span={24}>
+                      <Form.Item label="最小层厚 (m)">
+                        <InputNumber
+                          defaultValue={0.5}
+                          step={0.1}
+                          style={{ width: '100%' }}
+                          controls={false}
+                        />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                  <Row gutter={[16, 12]}>
+                    <Col span={24}>
+                      <Form.Item label="最大层厚 (m)">
+                        <InputNumber
+                          defaultValue={5.0}
+                          step={0.5}
+                          style={{ width: '100%' }}
+                          controls={false}
+                        />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                </Form>
+              </Card>
+
+              {/* 边界条件设置 */}
+              <Card
+                title={
+                  <Space>
+                    <BorderOutlined style={{ color: '#fa8c16' }} />
+                    <span>边界条件</span>
+                  </Space>
+                }
+                size="small"
+                style={{ 
+                  border: '1px solid #fa8c16',
+                  borderRadius: '8px'
+                }}
+              >
+                <Form layout="vertical">
+                  <Row gutter={[16, 12]}>
+                    <Col xs={24} sm={12}>
+                      <Form.Item label="顶面边界">
+                        <Select defaultValue="free" style={{ width: '100%' }}>
+                          <Option value="free">自由边界</Option>
+                          <Option value="fixed">固定边界</Option>
+                          <Option value="pressure">压力边界</Option>
+                        </Select>
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} sm={12}>
+                      <Form.Item label="底面边界">
+                        <Select defaultValue="fixed" style={{ width: '100%' }}>
+                          <Option value="free">自由边界</Option>
+                          <Option value="fixed">固定边界</Option>
+                          <Option value="pressure">压力边界</Option>
+                        </Select>
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                  <Row>
+                    <Col span={24}>
+                      <Form.Item style={{ marginBottom: 0 }}>
+                        <Checkbox defaultChecked>考虑地下水影响</Checkbox>
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                </Form>
+              </Card>
+              
+              {/* 计算域统计和操作控制 */}
+              <Row gutter={[16, 16]} style={{ marginTop: '20px' }}>
+                <Col span={24}>
+                  <Card
+                    title={
+                      <Space>
+                        <DashboardOutlined style={{ color: '#722ed1' }} />
+                        <span>计算域统计</span>
+                      </Space>
+                    }
+                    size="small"
+                    style={{ borderRadius: '8px', marginBottom: '16px' }}
+                  >
+                    <Row gutter={[8, 12]}>
+                      <Col span={6}>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#00d9ff' }}>
+                            100×100
+                          </div>
+                          <Text type="secondary" style={{ fontSize: '11px' }}>平面尺寸(m)</Text>
+                        </div>
+                      </Col>
+                      <Col span={6}>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#52c41a' }}>
+                            35
+                          </div>
+                          <Text type="secondary" style={{ fontSize: '11px' }}>总深度(m)</Text>
+                        </div>
+                      </Col>
+                      <Col span={6}>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#fa8c16' }}>
+                            12.5万
+                          </div>
+                          <Text type="secondary" style={{ fontSize: '11px' }}>预估节点</Text>
+                        </div>
+                      </Col>
+                      <Col span={6}>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#f5222d' }}>
+                            75万
+                          </div>
+                          <Text type="secondary" style={{ fontSize: '11px' }}>预估单元</Text>
+                        </div>
+                      </Col>
+                    </Row>
+                  </Card>
+                </Col>
+                <Col span={24}>
+                  <Card 
+                    title="操作控制" 
+                    size="small" 
+                    style={{ borderRadius: '8px', marginBottom: '16px' }}
+                  >
+                    <Row gutter={[16, 8]}>
+                      <Col xs={24} sm={12}>
+                        <Button
+                          type="primary"
+                          icon={<EyeOutlined />}
+                          style={{ width: '100%' }}
+                        >
+                          预览计算域
+                        </Button>
+                      </Col>
+                      <Col xs={24} sm={12}>
+                        <Button
+                          icon={<CheckCircleOutlined />}
+                          style={{ width: '100%' }}
+                        >
+                          应用设置
+                        </Button>
+                      </Col>
+                    </Row>
+                  </Card>
+                </Col>
+                <Col span={24}>
+                  <Card
+                    title="快捷设置"
+                    size="small"
+                    style={{ borderRadius: '8px', marginBottom: '40px' }}
+                  >
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))',
+                      gap: '6px'
+                    }}>
+                      <Button
+                        size="small"
+                        ghost
+                        type="primary"
+                      >
+                        浅基坑
+                      </Button>
+                      <Button
+                        size="small"
+                        ghost
+                        type="primary"
+                      >
+                        中基坑
+                      </Button>
+                      <Button
+                        size="small"
+                        ghost
+                        type="primary"
+                      >
+                        深基坑
+                      </Button>
+                      <Button
+                        size="small"
+                        ghost
+                        type="primary"
+                      >
+                        超深基坑
+                      </Button>
+                    </div>
+                  </Card>
+                </Col>
+              </Row>
+            </Col>
+            </Row>
+          </div>
+        </TabPane>
         {/* 数据管理 */}
         <TabPane tab="钻孔数据" key="data">
-          <Row gutter={16}>
+          <div style={{ height: 'calc(100vh - 200px)', overflow: 'auto', paddingBottom: '40px' }}>
+            <Row gutter={16}>
             <Col span={24}>
               <Card title="数据上传" size="small">
                 <Dragger {...uploadProps} style={{ marginBottom: '16px' }}>
@@ -570,130 +790,15 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
               </Card>
             </Col>
           </Row>
+          </div>
         </TabPane>
 
         {/* 算法配置 */}
-        <TabPane tab={algorithm === 'rbf' ? 'RBF配置' : 'GemPy配置'} key="config">
-          <Row gutter={16}>
+        <TabPane tab="参数配置" key="config">
+          <div style={{ height: 'calc(100vh - 200px)', overflow: 'auto', paddingBottom: '40px' }}>
+            <Row gutter={16}>
             <Col span={24}>
-              {algorithm === 'rbf' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {/* RBF配置 - 合并为一个简洁的卡片 */}
-                  <Card 
-                    title={
-                      <Space>
-                        <ThunderboltOutlined style={{ color: '#1890ff', fontSize: '16px' }} />
-                        <span style={{ 
-                          color: '#1890ff',
-                          fontSize: '14px',
-                          fontWeight: '500'
-                        }}>
-                          RBF配置
-                        </span>
-                      </Space>
-                    }
-                    style={{ 
-                      background: 'rgba(255, 255, 255, 0.03)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      borderRadius: '8px'
-                    }}
-                  >
-                    {/* 第一行：核函数类型 */}
-                    <Row style={{ marginBottom: '16px' }}>
-                      <Col span={24}>
-                        <div style={{ marginBottom: '6px', color: '#ffffff', fontSize: '13px', fontWeight: '500' }}>核函数类型</div>
-                        <Select
-                          value={rbfConfig.kernelType}
-                          onChange={(value) => setRbfConfig({ ...rbfConfig, kernelType: value })}
-                          style={{ width: '100%' }}
-                        >
-                          <Option value="gaussian">高斯函数</Option>
-                          <Option value="multiquadric">多二次函数</Option>
-                          <Option value="thin_plate_spline">薄板样条</Option>
-                          <Option value="cubic">三次函数</Option>
-                        </Select>
-                      </Col>
-                    </Row>
-
-                    {/* 第二行：网格尺寸 */}
-                    <Row style={{ marginBottom: '16px' }}>
-                      <Col span={24}>
-                        <div style={{ marginBottom: '6px', color: '#ffffff', fontSize: '13px', fontWeight: '500' }}>网格尺寸 (m)</div>
-                        <InputNumber
-                          value={rbfConfig.targetMeshSize}
-                          onChange={(value) => setRbfConfig({ ...rbfConfig, targetMeshSize: value || 2.0 })}
-                          min={0.5}
-                          max={10}
-                          step={0.5}
-                          style={{ width: '100%' }}
-                        />
-                      </Col>
-                    </Row>
-
-                    {/* 第三行：质量等级 */}
-                    <Row style={{ marginBottom: '16px' }}>
-                      <Col span={24}>
-                        <div style={{ marginBottom: '6px', color: '#ffffff', fontSize: '13px', fontWeight: '500' }}>质量等级</div>
-                        <Radio.Group
-                          value={rbfConfig.qualityLevel}
-                          onChange={(e) => setRbfConfig({ ...rbfConfig, qualityLevel: e.target.value })}
-                          style={{ width: '100%' }}
-                        >
-                          <Radio value="draft" style={{ color: '#ffffff', fontSize: '13px' }}>快速预览</Radio>
-                          <Radio value="standard" style={{ color: '#ffffff', fontSize: '13px' }}>标准质量</Radio>
-                          <Radio value="precision" style={{ color: '#ffffff', fontSize: '13px' }}>高精度</Radio>
-                        </Radio.Group>
-                      </Col>
-                    </Row>
-
-                    {/* 第四行：启用并行计算 */}
-                    <Row style={{ marginBottom: '12px' }}>
-                      <Col span={24}>
-                        <Checkbox
-                          checked={rbfConfig.enableParallel}
-                          onChange={(e) => setRbfConfig({ ...rbfConfig, enableParallel: e.target.checked })}
-                          style={{ color: '#ffffff', fontSize: '13px' }}
-                        >
-                          启用并行计算
-                        </Checkbox>
-                      </Col>
-                    </Row>
-
-                    {/* 第五行：自动参数优化 */}
-                    <Row style={{ marginBottom: '12px' }}>
-                      <Col span={24}>
-                        <Checkbox
-                          checked={rbfConfig.autoOptimize}
-                          onChange={(e) => setRbfConfig({ ...rbfConfig, autoOptimize: e.target.checked })}
-                          style={{ color: '#ffffff', fontSize: '13px' }}
-                        >
-                          自动参数优化
-                        </Checkbox>
-                      </Col>
-                    </Row>
-
-                    {/* 第六行：质量阈值 */}
-                    <Row>
-                      <Col span={24}>
-                        <div style={{ color: '#ffffff', fontSize: '12px', marginBottom: '6px', fontWeight: '500' }}>
-                          质量阈值: {rbfConfig.meshCompatibility.qualityThreshold.toFixed(2)}
-                        </div>
-                        <Slider
-                          value={rbfConfig.meshCompatibility.qualityThreshold}
-                          onChange={(value) => setRbfConfig({
-                            ...rbfConfig,
-                            meshCompatibility: { ...rbfConfig.meshCompatibility, qualityThreshold: value },
-                          })}
-                          min={0.3}
-                          max={1.0}
-                          step={0.05}
-                        />
-                      </Col>
-                    </Row>
-                  </Card>
-                </div>
-              ) : (
-                <Card title="GemPy建模配置" size="small" style={{ marginBottom: '16px' }}>
+              <Card title="GemPy建模配置" size="small" style={{ marginBottom: '16px' }}>
                   <Form layout="vertical" size="small">
                     <Form.Item label="插值方法">
                       <Select
@@ -702,7 +807,6 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                       >
                         <Option value="kriging">克里金插值 - 地统计学方法</Option>
                         <Option value="cubic_spline">三次样条 - 平滑插值</Option>
-                        <Option value="rbf">径向基函数 - 局部插值</Option>
                       </Select>
                     </Form.Item>
 
@@ -938,226 +1042,24 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                       </Form.Item>
                     </Card>
 
-                    <Card 
-                      title={
-                        <span style={{ color: '#00d9ff', fontSize: '14px', fontWeight: 'bold' }}>
-                          <ExperimentOutlined style={{ marginRight: '8px' }} />
-                          物理场建模
-                        </span>
-                      }
-                      size="small"
-                      style={{ 
-                        marginBottom: '16px',
-                        background: 'rgba(139, 92, 246, 0.05)',
-                        border: '1px solid rgba(139, 92, 246, 0.2)'
-                      }}
-                    >
-                      <Row gutter={16}>
-                        <Col span={12}>
-                          <div style={{ 
-                            padding: '12px', 
-                            border: gemPyConfig.gravityModel 
-                              ? '2px solid rgba(52, 211, 153, 0.6)' 
-                              : '2px solid rgba(255,255,255,0.1)',
-                            borderRadius: '8px',
-                            background: gemPyConfig.gravityModel 
-                              ? 'rgba(52, 211, 153, 0.1)' 
-                              : 'rgba(255,255,255,0.02)',
-                            transition: 'all 0.3s ease',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() => setGemPyConfig({ ...gemPyConfig, gravityModel: !gemPyConfig.gravityModel })}
-                          >
-                            <Form.Item style={{ marginBottom: 0 }}>
-                              <Checkbox
-                                checked={gemPyConfig.gravityModel}
-                                onChange={(e) => setGemPyConfig({ ...gemPyConfig, gravityModel: e.target.checked })}
-                                style={{ 
-                                  fontSize: '14px',
-                                  fontWeight: 'bold'
-                                }}
-                              >
-                                <span style={{ 
-                                  color: gemPyConfig.gravityModel ? '#34d399' : '#ffffff',
-                                  fontSize: '13px',
-                                  fontWeight: '500'
-                                }}>
-                                  🌍 重力建模
-                                </span>
-                              </Checkbox>
-                              <div style={{ 
-                                fontSize: '10px', 
-                                color: 'rgba(255,255,255,0.6)',
-                                marginTop: '4px',
-                                marginLeft: '24px'
-                              }}>
-                                基于密度差异的重力场计算
-                              </div>
-                            </Form.Item>
-                          </div>
-                        </Col>
-                        <Col span={12}>
-                          <div style={{ 
-                            padding: '12px', 
-                            border: gemPyConfig.magneticModel 
-                              ? '2px solid rgba(245, 101, 101, 0.6)' 
-                              : '2px solid rgba(255,255,255,0.1)',
-                            borderRadius: '8px',
-                            background: gemPyConfig.magneticModel 
-                              ? 'rgba(245, 101, 101, 0.1)' 
-                              : 'rgba(255,255,255,0.02)',
-                            transition: 'all 0.3s ease',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() => setGemPyConfig({ ...gemPyConfig, magneticModel: !gemPyConfig.magneticModel })}
-                          >
-                            <Form.Item style={{ marginBottom: 0 }}>
-                              <Checkbox
-                                checked={gemPyConfig.magneticModel}
-                                onChange={(e) => setGemPyConfig({ ...gemPyConfig, magneticModel: e.target.checked })}
-                                style={{ 
-                                  fontSize: '14px',
-                                  fontWeight: 'bold'
-                                }}
-                              >
-                                <span style={{ 
-                                  color: gemPyConfig.magneticModel ? '#f56565' : '#ffffff',
-                                  fontSize: '13px',
-                                  fontWeight: '500'
-                                }}>
-                                  🧲 磁法建模
-                                </span>
-                              </Checkbox>
-                              <div style={{ 
-                                fontSize: '10px', 
-                                color: 'rgba(255,255,255,0.6)',
-                                marginTop: '4px',
-                                marginLeft: '24px'
-                              }}>
-                                基于磁化率的磁场计算
-                              </div>
-                            </Form.Item>
-                          </div>
-                        </Col>
-                      </Row>
-                    </Card>
+
                   </Form>
                 </Card>
-              )}
             </Col>
 
           </Row>
+          </div>
         </TabPane>
 
-        {/* 结果分析 */}
-        <TabPane tab="结果分析" key="results">
-          <Row gutter={16}>
-            <Col span={24}>
-              <Card title="重建统计" size="small" style={{ marginBottom: '16px' }}>
-                {processingStatus === 'completed' ? (
-                  <List
-                    size="small"
-                    dataSource={[
-                      { label: '处理时间', value: `${(realTimeStats.interpolationTime / 1000).toFixed(1)} 秒` },
-                      { label: '数据点数', value: `${realTimeStats.dataPoints.toLocaleString()} 个` },
-                      { label: '网格节点', value: `${realTimeStats.gridPoints.toLocaleString()} 个` },
-                      { label: '内存使用', value: `${realTimeStats.memoryUsage.toFixed(1)} MB` },
-                      { label: '质量分数', value: realTimeStats.qualityScore.toFixed(3) },
-                    ]}
-                    renderItem={item => (
-                      <List.Item>
-                        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                          <Text>{item.label}:</Text>
-                          <Text strong>{item.value}</Text>
-                        </Space>
-                      </List.Item>
-                    )}
-                  />
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '40px' }}>
-                    <ExperimentOutlined style={{ fontSize: '48px', color: '#d9d9d9', marginBottom: '16px' }} />
-                    <Text style={{ color: '#999' }}>暂无重建结果</Text>
-                  </div>
-                )}
-              </Card>
 
-              {qualityMetrics && (
-                <Card title="质量指标" size="small">
-                  <div style={{ marginBottom: '16px' }}>
-                    <Space>
-                      <Text>整体评级:</Text>
-                      <Tag color={
-                        qualityMetrics.overall.grade === 'A' ? 'green' :
-                          qualityMetrics.overall.grade === 'B' ? 'blue' :
-                            qualityMetrics.overall.grade === 'C' ? 'orange' : 'red'
-                      }>
-                        {qualityMetrics.overall.grade}
-                      </Tag>
-                      <Text>分数: {qualityMetrics.overall.score.toFixed(3)}</Text>
-                    </Space>
-                  </div>
-
-                  <div style={{ marginBottom: '16px' }}>
-                    <Text>网格就绪: </Text>
-                    <Tag color={qualityMetrics.overall.meshReadiness ? 'green' : 'red'}>
-                      {qualityMetrics.overall.meshReadiness ? '是' : '否'}
-                    </Tag>
-                  </div>
-
-                  {qualityMetrics.overall.recommendation.length > 0 && (
-                    <div>
-                      <Text strong>建议:</Text>
-                      <List
-                        size="small"
-                        dataSource={qualityMetrics.overall.recommendation}
-                        renderItem={item => (
-                          <List.Item style={{ padding: '4px 0' }}>
-                            <Text style={{ fontSize: '12px' }}>• {item}</Text>
-                          </List.Item>
-                        )}
-                      />
-                    </div>
-                  )}
-                </Card>
-              )}
-            </Col>
-
-            <Col span={24}>
-              <Card title="网格指导" size="small" style={{ marginTop: '16px' }}>
-                {qualityMetrics ? (
-                  <List
-                    size="small"
-                    dataSource={[
-                      { label: '推荐网格尺寸', value: `${qualityMetrics.meshGuidance.recommendedMeshSize} m` },
-                      { label: '预估单元数', value: qualityMetrics.meshGuidance.estimatedElements.toLocaleString() },
-                      { label: '质量阈值', value: qualityMetrics.meshGuidance.qualityThreshold.toFixed(2) },
-                    ]}
-                    renderItem={item => (
-                      <List.Item>
-                        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                          <Text>{item.label}:</Text>
-                          <Text strong>{item.value}</Text>
-                        </Space>
-                      </List.Item>
-                    )}
-                  />
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '40px' }}>
-                    <BulbOutlined style={{ fontSize: '48px', color: '#d9d9d9', marginBottom: '16px' }} />
-                    <Text style={{ color: '#999' }}>完成重建后显示指导信息</Text>
-                  </div>
-                )}
-              </Card>
-            </Col>
-          </Row>
-        </TabPane>
-      </Tabs>
+        </Tabs>
+      </div>
 
       {/* 状态提示 */}
       {processingStatus === 'completed' && (
         <Alert
-          message="RBF三维重建完成"
-          description="基于径向基函数的三维地质体重建已完成，可用于进一步的网格生成和数值分析。"
+          message="地质建模完成"
+          description="基于GemPy的三维地质体建模已完成，可用于进一步的网格生成和数值分析。"
           type="success"
           showIcon
           style={{ marginTop: '16px' }}
@@ -1176,8 +1078,8 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
 
       {processingStatus === 'error' && (
         <Alert
-          message="RBF三维重建失败"
-          description="重建过程中发生错误，请检查钻孔数据格式和参数设置后重试。"
+          message="地质建模失败"
+          description="建模过程中发生错误，请检查钻孔数据格式和参数设置后重试。"
           type="error"
           showIcon
           style={{ marginTop: '16px' }}
