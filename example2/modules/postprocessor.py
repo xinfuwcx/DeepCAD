@@ -182,6 +182,46 @@ class PostProcessor:
     def get_viewer_widget(self):
         """获取3D视图组件"""
         return self.viewer_widget
+
+    def set_analysis_results(self, model_data: Dict[str, Any], results: Dict[str, Any]):
+        """直接设置分析结果数据"""
+        try:
+            print("设置分析结果...")
+            
+            # 从模型数据创建网格
+            nodes = model_data.get('nodes', [])
+            elements = model_data.get('elements', [])
+            
+            if not nodes or not elements:
+                print("警告: 模型数据不完整")
+                return
+                
+            if PYVISTA_AVAILABLE:
+                # 创建网格
+                self.mesh = self.create_mesh_from_model(nodes, elements)
+                
+                # 设置结果数据
+                if 'displacement_field' in results:
+                    displacement = np.array(results['displacement_field'])
+                    if displacement.shape[0] == self.mesh.n_points:
+                        self.time_steps = [0]  # 静力分析只有一个时间步
+                        self.current_time_step = 0
+                        self.results_data = {
+                            0: {
+                                'displacement': displacement,
+                                'stress': np.array(results.get('stress_field', [])) if 'stress_field' in results else None
+                            }
+                        }
+                        
+                        print(f"成功设置结果: {len(displacement)}个节点位移")
+                        
+                        # 显示结果
+                        self.display_results()
+                    else:
+                        print(f"位移数据维度不匹配: {displacement.shape[0]} vs {self.mesh.n_points}")
+                        
+        except Exception as e:
+            print(f"设置分析结果失败: {e}")
         
     def set_analysis_results(self, model_data: Dict[str, Any], results: Dict[str, Any]):
         """直接设置分析结果数据"""
@@ -534,6 +574,10 @@ class PostProcessor:
         elif 'strain' in self.results_data:
             current_data['strain'] = self.results_data['strain']
             
+        # 兼容新的单步结果格式
+        if not current_data and self.current_time_step in self.results_data:
+            return self.results_data[self.current_time_step]
+
         return current_data
     
     def get_professional_colormap(self, result_type: str) -> str:

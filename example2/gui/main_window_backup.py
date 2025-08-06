@@ -787,10 +787,9 @@ class MainWindow(QMainWindow):
         analysis_layout = QVBoxLayout(analysis_group)
         
         self.analysis_type = QComboBox()
-        self.analysis_type.addItems([
-            "摩尔-库伦非线性分析", "弹性静力分析", "大变形分析"
-        ])
-        self.analysis_type.setCurrentIndex(0)  # 默认选择摩尔-库伦
+        self.analysis_type.addItems(["非线性静力分析"])
+        self.analysis_type.setCurrentText("非线性静力分析")
+        self.analysis_type.setEnabled(False)  # 禁用选择，因为只有一种类型
         analysis_layout.addWidget(self.analysis_type)
         
         # 添加分析说明

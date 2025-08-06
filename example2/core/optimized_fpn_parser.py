@@ -47,34 +47,51 @@ class OptimizedFPNParser:
         self.coordinate_offset = None
         self.encoding_used = None
         
-        # 支持的编码列表
-        self.encodings = ['utf-8', 'gbk', 'latin1', 'cp1252']
+        # 支持的编码列表 - 中文FPN文件通常使用GBK编码
+        self.encodings = ['gbk', 'gb2312', 'utf-8', 'latin1', 'cp1252']
         
         # 数据缓存
         self.nodes_cache = {}
         self.elements_cache = {}
         
     def detect_file_encoding(self, file_path: str) -> str:
-        """检测文件编码"""
+        """检测文件编码，特别处理中文字符"""
+        # 先尝试读取文件的BOM标记
+        with open(file_path, 'rb') as f:
+            raw_data = f.read(3)
+            if raw_data.startswith(b'\xef\xbb\xbf'):
+                logger.info("检测到UTF-8 BOM，使用UTF-8编码")
+                return 'utf-8'
+        
+        # 测试各种编码
         for encoding in self.encodings:
             try:
-                with open(file_path, 'r', encoding=encoding) as f:
+                with open(file_path, 'r', encoding=encoding, errors='strict') as f:
                     # 读取前1000行进行编码检测
+                    chinese_chars_found = 0
                     for i, line in enumerate(f):
                         if i > 1000:
                             break
-                        # 尝试解码，如果成功则认为编码正确
-                        line.encode('utf-8')
+                        # 检查是否包含中文字符
+                        for char in line:
+                            if '\u4e00' <= char <= '\u9fff':  # 中文字符范围
+                                chinese_chars_found += 1
+                                
+                    # 如果找到中文字符且使用GBK/GB2312成功读取，优先使用
+                    if chinese_chars_found > 0 and encoding in ['gbk', 'gb2312']:
+                        logger.info(f"检测到中文字符，使用编码: {encoding}")
+                        return encoding
+                    elif chinese_chars_found == 0:  # 没有中文字符，第一个成功的编码即可
+                        logger.info(f"检测到文件编码: {encoding}")
+                        return encoding
                 
-                logger.info(f"检测到文件编码: {encoding}")
-                return encoding
-                
-            except (UnicodeDecodeError, UnicodeEncodeError):
+            except (UnicodeDecodeError, UnicodeEncodeError) as e:
+                logger.debug(f"编码 {encoding} 测试失败: {e}")
                 continue
                 
-        # 如果都失败，使用latin1作为fallback
-        logger.warning("无法检测文件编码，使用latin1作为fallback")
-        return 'latin1'
+        # 如果都失败，使用gbk作为fallback（对中文FPN文件最可能）
+        logger.warning("无法检测文件编码，使用gbk作为fallback")
+        return 'gbk'
     
     def count_file_lines(self, file_path: str, encoding: str) -> int:
         """快速统计文件行数"""

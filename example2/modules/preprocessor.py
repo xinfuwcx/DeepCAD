@@ -184,17 +184,28 @@ class PreProcessor:
         }
         
         try:
-            # 尝试不同编码读取文件
+            # 尝试不同编码读取文件，优先使用GBK处理中文
             lines = []
             file_encoding = None
-            for encoding in ['utf-8', 'gbk', 'latin1']:
+            for encoding in ['gbk', 'gb2312', 'utf-8', 'latin1']:
                 try:
-                    with open(file_path, 'r', encoding=encoding, errors='ignore') as f:
+                    with open(file_path, 'r', encoding=encoding, errors='strict') as f:
                         lines = f.readlines()
                     file_encoding = encoding
                     print(f"使用{encoding}编码成功读取FPN文件，共{len(lines)}行")
+                    
+                    # 验证中文字符是否正确解码
+                    chinese_chars_found = 0
+                    for line_sample in lines[:100]:  # 检查前100行
+                        for char in line_sample:
+                            if '\u4e00' <= char <= '\u9fff':
+                                chinese_chars_found += 1
+                    
+                    if chinese_chars_found > 0:
+                        print(f"检测到 {chinese_chars_found} 个中文字符，编码 {encoding} 处理正确")
                     break
-                except:
+                except Exception as e:
+                    print(f"编码 {encoding} 失败: {e}")
                     continue
             
             if not lines:
@@ -407,19 +418,28 @@ class PreProcessor:
         return None
     
     def parse_material_group_line(self, line: str) -> Optional[Dict]:
-        """解析材料组行: MADD   , ID, MaterialCount, ..."""
+        """解析材料组行: MADD   , StageID, MaterialCount, StartMaterialID, ..."""
         try:
             parts = [p.strip() for p in line.split(',')]
-            if len(parts) >= 3 and parts[0] == 'MADD':
+            if len(parts) >= 4 and parts[0] == 'MADD':
+                stage_id = int(parts[1]) if parts[1] else 0
+                material_count = int(parts[2]) if parts[2] else 0
+                start_material_id = int(parts[3]) if parts[3] else 1
+                
+                # 生成材料ID列表：从start_material_id开始，连续material_count个
+                materials = []
+                if material_count > 0:
+                    materials = list(range(start_material_id, start_material_id + material_count))
+                
                 group = {
-                    'id': int(parts[1]),
-                    'material_count': int(parts[2]) if parts[2] else 0,
-                    'materials': []
+                    'id': stage_id,  # 使用阶段ID作为组ID
+                    'stage_id': stage_id,
+                    'material_count': material_count,
+                    'start_material_id': start_material_id,
+                    'materials': materials
                 }
-                # 解析材料ID列表
-                for i in range(4, len(parts)):
-                    if parts[i] and parts[i].isdigit():
-                        group['materials'].append(int(parts[i]))
+                
+                print(f"解析MADD: 阶段{stage_id}, 材料数量{material_count}, 起始ID{start_material_id}, 材料列表{materials}")
                 return group
         except (ValueError, IndexError) as e:
             print(f"跳过无效材料组行: {line[:50]}... 错误: {e}")
@@ -590,18 +610,38 @@ class PreProcessor:
         return None
     
     def parse_group_command_line(self, line: str) -> Optional[Dict]:
-        """解析物理组命令行: MADD/MDEL/BADD/LADD , StageID, GroupID, ..."""
+        """解析物理组命令行: MADD/MDEL/BADD/LADD , StageID, Count/GroupID, StartID/..."""
         try:
             parts = [p.strip() for p in line.split(',')]
             if len(parts) >= 3:
                 command = parts[0]
                 stage_id = int(parts[1]) if parts[1] else 0
                 
-                # 解析组ID列表
                 group_ids = []
-                for i in range(2, len(parts)):
-                    if parts[i] and parts[i].isdigit():
-                        group_ids.append(int(parts[i]))
+                
+                # MADD特殊处理: MADD, StageID, Count, StartID  
+                if command == 'MADD' and len(parts) >= 4:
+                    count = int(parts[2]) if parts[2] else 0
+                    start_id = int(parts[3]) if parts[3] else 1
+                    
+                    if count > 0:
+                        # 生成连续的材料ID列表，但只包含实际存在的材料ID (2-12)
+                        all_ids = list(range(start_id, start_id + count))
+                        # 过滤只保留实际存在的材料ID
+                        group_ids = [mid for mid in all_ids if 2 <= mid <= 12]
+                        print(f"MADD原始范围: {all_ids}, 过滤后: {group_ids}")
+                    
+                # MDEL特殊处理: MDEL, StageID, GroupID_to_delete
+                elif command == 'MDEL' and len(parts) >= 3:
+                    group_id_to_delete = int(parts[2]) if parts[2] else 0
+                    if group_id_to_delete > 0:
+                        group_ids = [group_id_to_delete]
+                    
+                # 其他命令的标准处理（BADD, LADD等）
+                else:
+                    for i in range(2, len(parts)):
+                        if parts[i] and parts[i].isdigit():
+                            group_ids.append(int(parts[i]))
                 
                 return {
                     'command': command,
@@ -675,56 +715,76 @@ class PreProcessor:
                 'name': '初始状态',
                 'type': 0,
                 'active': 1,
-                'description': '模型初始平衡状态'
+                'description': '模型初始平衡状态',
+                'group_commands': [
+                    {'command': 'MADD', 'stage_id': 1, 'group_ids': [1, 2], 'description': 'MADD 阶段1: 组[1, 2]'}
+                ]
             },
             {
                 'id': 2, 
                 'name': '第一次开挖(-5m)',
                 'type': 1,
                 'active': 1,
-                'description': '开挖至地下5米深度'
+                'description': '开挖至地下5米深度',
+                'group_commands': [
+                    {'command': 'MDEL', 'stage_id': 2, 'group_ids': [1], 'description': 'MDEL 阶段2: 组[1]'},
+                    {'command': 'LADD', 'stage_id': 2, 'group_ids': [1], 'description': 'LADD 阶段2: 组[1]'}
+                ]
             },
             {
                 'id': 3,
                 'name': '安装第一道支撑',
                 'type': 2,
                 'active': 1,
-                'description': '在-5m处安装水平支撑'
+                'description': '在-5m处安装水平支撑',
+                'group_commands': [
+                    {'command': 'MADD', 'stage_id': 3, 'group_ids': [3], 'description': 'MADD 阶段3: 组[3]'},
+                    {'command': 'BADD', 'stage_id': 3, 'group_ids': [1], 'description': 'BADD 阶段3: 组[1]'}
+                ]
             },
             {
                 'id': 4,
                 'name': '第二次开挖(-10m)',
                 'type': 1,
                 'active': 1,
-                'description': '继续开挖至地下10米深度'
+                'description': '继续开挖至地下10米深度',
+                'group_commands': [
+                    {'command': 'MDEL', 'stage_id': 4, 'group_ids': [2], 'description': 'MDEL 阶段4: 组[2]'}
+                ]
             },
             {
                 'id': 5,
                 'name': '安装第二道支撑',
                 'type': 2,
                 'active': 1,
-                'description': '在-10m处安装水平支撑'
+                'description': '在-10m处安装水平支撑',
+                'group_commands': [
+                    {'command': 'MADD', 'stage_id': 5, 'group_ids': [4], 'description': 'MADD 阶段5: 组[4]'}
+                ]
             },
             {
                 'id': 6,
                 'name': '第三次开挖(-15m)',
                 'type': 1,
                 'active': 1,
-                'description': '继续开挖至地下15米深度'
+                'description': '继续开挖至地下15米深度',
+                'group_commands': []
             },
             {
                 'id': 7,
                 'name': '底板施工',
                 'type': 3,
                 'active': 1,
-                'description': '浇筑基坑底板'
+                'description': '浇筑基坑底板',
+                'group_commands': []
             },
             {
                 'id': 8,
                 'name': '最终状态',
                 'type': 0,
                 'active': 1,
-                'description': '基坑开挖完成状态'
+                'description': '基坑开挖完成状态',
+                'group_commands': []
             }
         ]
     
@@ -1186,40 +1246,27 @@ class PreProcessor:
             invalid_elements = 0
             
             for element in elements:
-                # 🔧 修复1：添加类型检查和错误处理
+                # 🔧 修复：添加类型检查和错误处理
                 if not isinstance(element, dict):
-                    print(f"警告: 跳过无效单元数据 (类型: {type(element)}, 值: {element})")
+                    if invalid_elements < 10: # 避免过多日志
+                        print(f"警告: 跳过无效单元数据 (类型: {type(element)}, 值: {str(element)[:100]})")
                     invalid_elements += 1
                     continue
                 
                 # 安全获取节点列表
                 element_nodes = element.get('nodes', [])
-                if not isinstance(element_nodes, list):
-                    print(f"警告: 单元{element.get('id', '未知')}的nodes字段不是列表类型: {type(element_nodes)}")
+                if not isinstance(element_nodes, list) or not element_nodes:
+                    if invalid_elements < 10:
+                        print(f"警告: 单元 {element.get('id', '未知')} 的节点数据无效")
                     invalid_elements += 1
                     continue
                 
-                # 验证节点列表不为空
-                if not element_nodes:
-                    print(f"警告: 单元{element.get('id', '未知')}没有节点数据")
-                    invalid_elements += 1
-                    continue
-                    
-                material_id = element.get('material_id', element.get('mat_id', element.get('material', 1)))
-                
-                # 验证material_id是数字
-                try:
-                    material_id = int(material_id)
-                except (ValueError, TypeError):
-                    print(f"警告: 单元{element.get('id', '未知')}的材料ID无效: {material_id}")
-                    material_id = 1
+                material_id = element.get('material_id', 1)
                 
                 if len(element_nodes) == 4:  # 四面体单元
-                    # 映射节点ID到索引
                     try:
                         mapped_nodes = [node_id_map[node_id] for node_id in element_nodes if node_id in node_id_map]
                         if len(mapped_nodes) == 4:
-                            # 四面体单元
                             cells.extend([4] + mapped_nodes)
                             cell_types.append(10)  # VTK_TETRA
                             material_ids.append(material_id)
@@ -1227,9 +1274,9 @@ class PreProcessor:
                         else:
                             invalid_elements += 1
                     except KeyError as e:
-                        invalid_elements += 1
-                        if invalid_elements < 5:  # 只显示前几个错误
+                        if invalid_elements < 10:
                             print(f"节点ID映射错误: {e}")
+                        invalid_elements += 1
                 else:
                     invalid_elements += 1
             
@@ -1936,92 +1983,80 @@ class PreProcessor:
         return None
     
     def determine_active_groups_for_stage(self, stage):
-        """根据分析步确定需要激活的物理组"""
+        """根据分析步确定需要激活的物理组，正确处理MADD/MDEL等命令"""
+        
+        fpn_data = getattr(self, 'fpn_data', {})
+        if not fpn_data or 'analysis_stages' not in fpn_data or not stage:
+            return {'materials': [], 'loads': [], 'boundaries': []}
+
+        stage_id = stage.get('id')
+        stage_name = stage.get('name')
+        
+        # 初始化所有组为激活状态（基于FPN文件中的MADD命令）
+        active_materials = set()
+        active_loads = set()
+        active_boundaries = set()
+        
+        # 收集所有分析步的物理组命令
+        all_physics_commands = []
+        for s in fpn_data.get('analysis_stages', []):
+            stage_commands = s.get('group_commands', [])
+            all_physics_commands.extend(stage_commands)
+        
+        print(f"总共收集到 {len(all_physics_commands)} 个物理组命令")
+        
+        # 按照阶段顺序应用所有命令到当前阶段
+        for cmd in sorted(all_physics_commands, key=lambda x: x.get('stage_id', 0)):
+            cmd_stage_id = cmd.get('stage_id', 0)
+            
+            # 只应用到当前阶段为止的命令
+            if cmd_stage_id <= stage_id:
+                command = cmd.get('command', '')
+                group_ids = cmd.get('group_ids', [])
+                
+                if command == 'MADD':  # 添加材料组
+                    for gid in group_ids:
+                        active_materials.add(gid)
+                    print(f"  阶段{cmd_stage_id}: MADD 激活材料组 {group_ids}")
+                    
+                elif command == 'MDEL':  # 删除材料组
+                    for gid in group_ids:
+                        active_materials.discard(gid)
+                    print(f"  阶段{cmd_stage_id}: MDEL 删除材料组 {group_ids}")
+                    
+                elif command == 'LADD':  # 添加荷载组
+                    for gid in group_ids:
+                        active_loads.add(gid)
+                    print(f"  阶段{cmd_stage_id}: LADD 激活荷载组 {group_ids}")
+                    
+                elif command == 'LDEL':  # 删除荷载组
+                    for gid in group_ids:
+                        active_loads.discard(gid)
+                    print(f"  阶段{cmd_stage_id}: LDEL 删除荷载组 {group_ids}")
+                    
+                elif command == 'BADD':  # 添加边界组
+                    for gid in group_ids:
+                        active_boundaries.add(gid)
+                    print(f"  阶段{cmd_stage_id}: BADD 激活边界组 {group_ids}")
+                    
+                elif command == 'BDEL':  # 删除边界组
+                    for gid in group_ids:
+                        active_boundaries.discard(gid)
+                    print(f"  阶段{cmd_stage_id}: BDEL 删除边界组 {group_ids}")
+        
+        # 确保至少有基本的组
+        if not active_materials:
+            active_materials = {1}  # 默认材料组
+        if not active_boundaries:
+            active_boundaries = {1}  # 默认边界组
+        
         active_groups = {
-            'materials': [],
-            'loads': [],
-            'boundaries': []
+            'materials': list(active_materials),
+            'loads': list(active_loads),
+            'boundaries': list(active_boundaries)
         }
         
-        if not hasattr(self, 'fpn_data') or not stage:
-            return active_groups
-            
-        fpn_data = self.fpn_data
-        stage_id = stage.get('id', 0)
-        stage_type = stage.get('type', 0)
-        stage_name = stage.get('name', '').lower()
-        
-        print(f"分析分析步: ID={stage_id}, 名称='{stage_name}', 类型={stage_type}")
-        
-        # 1. 首先检查分析步是否有直接的组关联信息
-        if 'groups' in stage:
-            print(f"使用分析步{stage_id}的直接组关联信息")
-            for group in stage['groups']:
-                group_type = group.get('group_type', '').lower()
-                group_id = group.get('group_id', 0)
-                if group.get('active', 1):  # 只激活active的组
-                    if 'material' in group_type or 'mat' in group_type:
-                        active_groups['materials'].append(group_id)
-                    elif 'load' in group_type or 'force' in group_type:
-                        active_groups['loads'].append(group_id)
-                    elif 'boundary' in group_type or 'constraint' in group_type:
-                        active_groups['boundaries'].append(group_id)
-                        
-            # 如果找到了直接关联，就使用这些信息
-            if any(active_groups.values()):
-                print(f"使用直接组关联: {active_groups}")
-                return active_groups
-        
-        # 2. 如果没有直接关联，使用智能推断 - 基坑工程专用
-        print("使用智能推断确定激活组")
-        
-        # 获取所有可用的组ID
-        available_materials = list(fpn_data.get('material_groups', {}).keys())
-        available_loads = list(fpn_data.get('load_groups', {}).keys())
-        available_boundaries = list(fpn_data.get('boundary_groups', {}).keys())
-        
-        if '初始' in stage_name or 'initial' in stage_name or stage_id == 1:
-            # 初始状态：显示基础土层材料和边界约束
-            active_groups['materials'] = available_materials[:2] if available_materials else [1]  # 前两个材料组
-            active_groups['boundaries'] = available_boundaries[:1] if available_boundaries else [1]  # 第一个边界组
-            print("智能选择: 初始状态 - 基础土体材料 + 边界约束")
-            
-        elif '开挖' in stage_name or 'excavat' in stage_name or stage_type == 1:
-            # 开挖阶段：土体材料 + 开挖荷载
-            active_groups['materials'] = available_materials if available_materials else [1]
-            active_groups['loads'] = available_loads[:1] if available_loads else [1]  # 开挖荷载
-            active_groups['boundaries'] = available_boundaries if available_boundaries else [1]
-            print("智能选择: 开挖阶段 - 土体材料 + 开挖荷载")
-            
-        elif '支撑' in stage_name or 'support' in stage_name or stage_type == 2:
-            # 支撑安装：结构材料 + 支撑荷载
-            active_groups['materials'] = available_materials if available_materials else [1, 2]  # 包含结构材料
-            active_groups['loads'] = available_loads if available_loads else [1, 2]  # 支撑荷载
-            active_groups['boundaries'] = available_boundaries if available_boundaries else [1]
-            print("智能选择: 支撑安装 - 结构材料 + 支撑荷载")
-            
-        elif '底板' in stage_name or 'slab' in stage_name or stage_type == 3:
-            # 底板施工：混凝土材料 + 施工荷载
-            active_groups['materials'] = available_materials[-2:] if len(available_materials) >= 2 else available_materials  # 后面的材料（混凝土）
-            active_groups['loads'] = available_loads if available_loads else [1]
-            active_groups['boundaries'] = available_boundaries if available_boundaries else [1]
-            print("智能选择: 底板施工 - 混凝土材料 + 施工荷载")
-            
-        elif '最终' in stage_name or 'final' in stage_name:
-            # 最终状态：显示所有组
-            active_groups['materials'] = available_materials if available_materials else [1]
-            active_groups['loads'] = available_loads if available_loads else [1]
-            active_groups['boundaries'] = available_boundaries if available_boundaries else [1]
-            print("智能选择: 最终状态 - 显示所有组")
-            
-        else:
-            # 默认情况：显示主要组
-            active_groups['materials'] = available_materials[:1] if available_materials else [1]
-            active_groups['loads'] = available_loads[:1] if available_loads else [1]
-            active_groups['boundaries'] = available_boundaries[:1] if available_boundaries else [1]
-            print("智能选择: 默认 - 显示主要组")
-        
-        print(f"最终激活组: {active_groups}")
+        print(f"分析步 {stage_id} ('{stage_name}') 的最终激活物理组: {active_groups}")
         return active_groups
     
     def filter_display_by_groups(self, active_groups):
@@ -2042,29 +2077,34 @@ class PreProcessor:
             print(f"所有材料ID: {sorted(list(all_material_ids))}")
             print(f"激活的材料组: {active_materials}")
             
-            # 调整非激活材料的显示透明度
-            for mat_id in all_material_ids:
-                actor_name = f'material_{mat_id}'
-                try:
-                    # 根据是否在激活组中调整透明度
-                    if int(mat_id) in active_materials:
-                        # 激活组：正常显示
-                        opacity = 0.8
-                        print(f"材料{mat_id}: 激活显示 (透明度={opacity})")
-                    else:
-                        # 非激活组：半透明显示
-                        opacity = 0.3
-                        print(f"材料{mat_id}: 淡化显示 (透明度={opacity})")
+            # 重新显示网格以应用物理组过滤
+            try:
+                # 创建材料ID的掩码
+                material_mask = np.isin(self.mesh.cell_data['MaterialID'], active_materials)
+                
+                if hasattr(self, 'plotter') and self.plotter:
+                    # 清除现有显示
+                    self.plotter.clear()
                     
-                    # 如果网格中有这个actor，调整其透明度
-                    if hasattr(self.plotter, 'renderer') and hasattr(self.plotter.renderer, 'actors'):
-                        if actor_name in self.plotter.renderer.actors:
-                            actor = self.plotter.renderer.actors[actor_name]
-                            if hasattr(actor, 'GetProperty'):
-                                actor.GetProperty().SetOpacity(opacity)
-                                
-                except Exception as e:
-                    print(f"调整材料{mat_id}显示时出错: {e}")
+                    # 显示激活的材料（正常颜色）
+                    if np.any(material_mask):
+                        active_mesh = self.mesh.extract_cells(material_mask)
+                        active_scalars = active_mesh.cell_data['MaterialID'] if 'MaterialID' in active_mesh.cell_data else None
+                        self.plotter.add_mesh(active_mesh, scalars=active_scalars, 
+                                            cmap='viridis', opacity=0.8, name='active_materials')
+                        print(f"显示激活材料: {active_materials}")
+                    
+                    # 显示非激活的材料（淡化）
+                    if np.any(~material_mask):
+                        inactive_mesh = self.mesh.extract_cells(~material_mask)
+                        self.plotter.add_mesh(inactive_mesh, color='gray', 
+                                            opacity=0.2, name='inactive_materials')
+                        print(f"淡化显示非激活材料")
+                        
+                    self.plotter.render()
+                    
+            except Exception as e:
+                print(f"应用物理组过滤时出错: {e}")
         
         # 更新显示
         if hasattr(self.plotter, 'render_window'):
