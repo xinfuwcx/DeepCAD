@@ -859,7 +859,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           { 
             key: 'integrated', 
             label: <span>{getActivityBadge('process')}🎛️ 集成控制</span>, 
-            component: <IntegratedMeshControl 
+            children: <IntegratedMeshControl 
               onMeshGenerated={(meshData) => {
                 console.log('网格生成完成:', meshData);
                 ComponentDevHelper.logDevTip('网格生成成功，参数已保存');
@@ -873,12 +873,12 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           { 
             key: 'config', 
             label: <span>{getActivityBadge('wait')}⚙️ 高级算法</span>, 
-            component: <AdvancedMeshConfig /> 
+            children: <AdvancedMeshConfig /> 
           },
           { 
             key: 'groups', 
             label: <span>{getActivityBadge('finish')}🏷️ 物理组</span>, 
-            component: <PhysicalGroupManager /> 
+            children: <PhysicalGroupManager /> 
           }
         ]
       },
@@ -888,17 +888,17 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           { 
             key: 'boundary', 
             label: <span>{getActivityBadge('finish')}边界条件</span>, 
-            component: <BoundaryConditionConfigPanel projectId="enhanced-workspace-project" /> 
+            children: <BoundaryConditionConfigPanel projectId="enhanced-workspace-project" /> 
           },
           { 
             key: 'load', 
             label: <span>{getActivityBadge('process')}载荷配置</span>, 
-            component: <LoadConfigPanel projectId="enhanced-workspace-project" /> 
+            children: <LoadConfigPanel projectId="enhanced-workspace-project" /> 
           },
           { 
             key: 'computation', 
             label: <span>{getActivityBadge(expert3State.computationActive ? 'process' : 'wait')}💻 计算控制中心</span>, 
-            component: threeScene ? <ComputationControlPanel 
+            children: threeScene ? <ComputationControlPanel 
               scene={threeScene}
               onStatusChange={(status) => console.log('计算状态:', status)}
               onResultsUpdate={(results) => handleExpert3Action('computation_complete', results)}
@@ -913,12 +913,12 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           { 
             key: 'monitor', 
             label: <span>{getActivityBadge('process')}计算监控</span>, 
-            component: <RealtimeProgressMonitor title="计算进度监控" showControls={true} /> 
+            children: <RealtimeProgressMonitor title="计算进度监控" showControls={true} /> 
           },
           {
             key: 'terra', 
             label: <span>{getActivityBadge('process')}Terra求解器</span>, 
-            component: (
+            children: (
               <div style={{ padding: '20px', color: '#fff' }}>
                 <div style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 'bold' }}>🧮 Terra计算引擎</div>
                 <div style={{ color: '#1890ff', marginBottom: '12px' }}>🔧 多物理耦合: 活跃</div>
@@ -979,7 +979,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           {
             key: 'analysis',
             label: <span>{getActivityBadge('process')}后处理分析</span>,
-            component: (
+            children: (
               <div style={{ padding: '20px', color: '#fff' }}>
                 <div style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 'bold' }}>🔍 专业后处理分析</div>
                 <div style={{ color: '#1890ff', marginBottom: '12px' }}>📐 截面分析: 任意切面</div>
@@ -1252,70 +1252,6 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                   onMeasurement={(measurement) => ComponentDevHelper.logDevTip(`几何测量: ${JSON.stringify(measurement)}`)}
                   style={{ flex: 1, minHeight: '400px' }}
                 />
-              </div>
-            </div>
-          );
-          
-        case 'meshing':
-          return (
-            <div style={{ 
-              height: '100%',
-              display: 'flex'
-            }}>
-              {/* 左侧参数配置面板 */}
-              <div style={{ 
-                width: '300px',
-                minWidth: '300px',
-                background: 'rgba(0, 0, 0, 0.6)',
-                borderRight: '1px solid rgba(255, 255, 255, 0.1)',
-                overflow: 'auto'
-              }}>
-                <AdvancedMeshConfig />
-              </div>
-              
-              {/* 中间3D预览区域 */}
-              <div style={{ 
-                flex: 1,
-                position: 'relative',
-                background: 'rgba(0, 0, 0, 0.2)',
-                height: '100%',
-                minHeight: '500px'
-              }}>
-                <CAEThreeEngineComponent 
-                  onSelection={(objects) => ComponentDevHelper.logDevTip(`选中对象: ${objects.length}个`)}
-                  onMeasurement={(measurement) => ComponentDevHelper.logDevTip(`测量结果: ${JSON.stringify(measurement)}`)}
-                />
-                
-                {/* 左上角状态信息 */}
-                <div style={{ 
-                  position: 'absolute',
-                  top: '16px',
-                  left: '16px',
-                  background: 'rgba(0, 0, 0, 0.7)',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  color: '#ffffff',
-                  fontSize: '12px',
-                  zIndex: 5
-                }}>
-                  <div style={{ color: '#52c41a', marginBottom: '4px' }}>🔗 Fragment区域: 1,867个</div>
-                  <div style={{ color: '#1890ff', marginBottom: '4px' }}>📐 网格单元: 156,847个</div>
-                  <div style={{ color: '#faad14' }}>⚙️ 质量评分: 87/100</div>
-                </div>
-              </div>
-              
-              {/* 右侧工具栏 */}
-              <div style={{ 
-                width: '60px',
-                background: 'rgba(0, 0, 0, 0.8)',
-                borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                padding: '16px 8px',
-                gap: '12px'
-              }}>
-                {renderMeshToolbar()}
               </div>
             </div>
           );

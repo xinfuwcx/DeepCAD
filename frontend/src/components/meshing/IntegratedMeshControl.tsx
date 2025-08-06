@@ -295,210 +295,234 @@ const IntegratedMeshControl: React.FC<IntegratedMeshControlProps> = ({
   // ======================= 渲染组件 =======================
 
   const renderControlTab = () => (
-    <div style={{ padding: '20px' }}>
-      <Row gutter={[24, 24]}>
-        {/* 左侧控制面板 */}
-        <Col span={16}>
-          <Card title="🎛️ 网格生成控制" size="small">
-            <Space direction="vertical" style={{ width: '100%' }} size="large">
-              {/* 控制按钮 */}
-              <div style={{ textAlign: 'center' }}>
-                <Space size="large">
-                  <Button
-                    type="primary"
-                    icon={<PlayCircleOutlined />}
-                    size="large"
-                    onClick={handleStartGeneration}
-                    disabled={isGenerating}
-                    loading={isGenerating && !isPaused}
-                  >
-                    开始生成
-                  </Button>
-                  <Button
-                    icon={isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />}
-                    onClick={handlePauseGeneration}
-                    disabled={!isGenerating}
-                  >
-                    {isPaused ? '继续' : '暂停'}
-                  </Button>
-                  <Button
-                    icon={<StopOutlined />}
-                    onClick={handleStopGeneration}
-                    disabled={!isGenerating}
-                    danger
-                  >
-                    停止
-                  </Button>
-                </Space>
-              </div>
-
-              {/* 生成进度 */}
-              {isGenerating && (
-                <Card size="small" title="生成进度">
-                  <Space direction="vertical" style={{ width: '100%' }}>
-                    <div>
-                      <Text strong>当前阶段: </Text>
-                      <Tag color="processing">{progress.stage}</Tag>
-                    </div>
-                    <Progress 
-                      percent={Math.round(progress.progress)} 
-                      status={isPaused ? 'exception' : 'active'}
-                      strokeColor={isPaused ? '#ff4d4f' : '#1890ff'}
-                    />
-                    <Row gutter={16}>
-                      <Col span={12}>
-                        <Text type="secondary">任务: {progress.currentTask}</Text>
-                      </Col>
-                      <Col span={12}>
-                        <Text type="secondary">预计剩余: {Math.round(progress.estimatedTimeLeft / 1000)}s</Text>
-                      </Col>
-                    </Row>
-                    <Row gutter={16}>
-                      <Col span={12}>
-                        <Statistic title="已生成单元" value={progress.elementsGenerated} />
-                      </Col>
-                      <Col span={12}>
-                        <Statistic title="完成度" value={progress.progress} suffix="%" precision={1} />
-                      </Col>
-                    </Row>
-                  </Space>
-                </Card>
-              )}
-
-              {/* 基础参数 */}
-              <Card size="small" title="基础参数">
-                <Form form={form} layout="vertical">
-                  <Row gutter={16}>
-                    <Col span={8}>
-                      <Form.Item label="全局单元尺寸">
-                        <InputNumber
-                          value={meshParams.global_element_size}
-                          onChange={(value) => handleParameterChange('global_element_size', value)}
-                          min={0.01}
-                          max={10}
-                          step={0.1}
-                          style={{ width: '100%' }}
-                        />
-                      </Form.Item>
-                    </Col>
-                    <Col span={8}>
-                      <Form.Item label="2D算法">
-                        <Select
-                          value={meshParams.algorithm_2d}
-                          onChange={(value) => handleParameterChange('algorithm_2d', value)}
-                        >
-                          <Option value="delaunay">Delaunay</Option>
-                          <Option value="frontal">Frontal</Option>
-                          <Option value="quad">Quad</Option>
-                        </Select>
-                      </Form.Item>
-                    </Col>
-                    <Col span={8}>
-                      <Form.Item label="3D算法">
-                        <Select
-                          value={meshParams.algorithm_3d}
-                          onChange={(value) => handleParameterChange('algorithm_3d', value)}
-                        >
-                          <Option value="delaunay">Delaunay</Option>
-                          <Option value="frontal">Frontal</Option>
-                          <Option value="tetgen">TetGen</Option>
-                        </Select>
-                      </Form.Item>
-                    </Col>
-                  </Row>
-                  
-                  <Row gutter={16}>
-                    <Col span={12}>
-                      <Form.Item label="质量模式">
-                        <Select
-                          value={meshParams.quality_mode}
-                          onChange={(value) => handleParameterChange('quality_mode', value)}
-                        >
-                          <Option value="fast">快速模式</Option>
-                          <Option value="balanced">平衡模式</Option>
-                          <Option value="high_quality">高质量模式</Option>
-                        </Select>
-                      </Form.Item>
-                    </Col>
-                    <Col span={12}>
-                      <Form.Item label="细化策略">
-                        <Select
-                          value={meshParams.refinement_strategy}
-                          onChange={(value) => handleParameterChange('refinement_strategy', value)}
-                        >
-                          <Option value="uniform">均匀细化</Option>
-                          <Option value="adaptive">自适应细化</Option>
-                          <Option value="curvature_based">曲率细化</Option>
-                        </Select>
-                      </Form.Item>
-                    </Col>
-                  </Row>
-                </Form>
-              </Card>
-            </Space>
-          </Card>
-        </Col>
-
-        {/* 右侧状态面板 */}
-        <Col span={8}>
-          <Space direction="vertical" style={{ width: '100%' }} size="middle">
-            {/* 质量统计 */}
-            <Card title="📊 网格质量" size="small">
-              <Row gutter={[8, 8]}>
-                <Col span={12}>
-                  <Statistic title="单元数" value={qualityMetrics.elementCount} />
-                </Col>
-                <Col span={12}>
-                  <Statistic title="节点数" value={qualityMetrics.nodeCount} />
-                </Col>
-                <Col span={12}>
-                  <Statistic title="平均质量" value={qualityMetrics.averageQuality} precision={2} />
-                </Col>
-                <Col span={12}>
-                  <Statistic title="最差质量" value={qualityMetrics.worstQuality} precision={2} />
-                </Col>
-              </Row>
-              <Divider />
-              <Progress
-                type="circle"
-                percent={qualityMetrics.overallScore}
-                format={percent => `${percent}分`}
-                strokeColor={qualityMetrics.overallScore > 85 ? '#52c41a' : qualityMetrics.overallScore > 70 ? '#faad14' : '#ff4d4f'}
-              />
-              <div style={{ textAlign: 'center', marginTop: '8px' }}>
-                <Text type="secondary">整体质量评分</Text>
-              </div>
-            </Card>
-
-            {/* 系统状态 */}
-            <Card title="⚙️ 系统状态" size="small">
-              <Descriptions column={1} size="small">
-                <Descriptions.Item label="几何状态">
-                  <Tag color="success">已加载</Tag>
-                </Descriptions.Item>
-                <Descriptions.Item label="Fragment">
-                  <Tag color="processing">{fragments.filter(f => f.visible).length}/{fragments.length} 可见</Tag>
-                </Descriptions.Item>
-                <Descriptions.Item label="并行处理">
-                  <Tag color={meshParams.parallel_config.enable_parallel ? 'success' : 'default'}>
-                    {meshParams.parallel_config.enable_parallel ? `${meshParams.parallel_config.num_threads}线程` : '禁用'}
-                  </Tag>
-                </Descriptions.Item>
-                <Descriptions.Item label="质量优化">
-                  <Tag color={meshParams.enable_optimization ? 'success' : 'default'}>
-                    {meshParams.enable_optimization ? '启用' : '禁用'}
-                  </Tag>
-                </Descriptions.Item>
-              </Descriptions>
-            </Card>
+    <div>
+      {/* 控制按钮 */}
+      <Card 
+        title="网格生成控制" 
+        size="small" 
+        style={{ marginBottom: '16px', borderRadius: '8px' }}
+      >
+        <div style={{ textAlign: 'center' }}>
+          <Space size="large">
+            <Button
+              type="primary"
+              icon={<PlayCircleOutlined />}
+              size="large"
+              onClick={handleStartGeneration}
+              disabled={isGenerating}
+              loading={isGenerating && !isPaused}
+            >
+              开始生成
+            </Button>
+            <Button
+              icon={isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />}
+              onClick={handlePauseGeneration}
+              disabled={!isGenerating}
+              size="large"
+            >
+              {isPaused ? '继续' : '暂停'}
+            </Button>
+            <Button
+              icon={<StopOutlined />}
+              onClick={handleStopGeneration}
+              disabled={!isGenerating}
+              danger
+              size="large"
+            >
+              停止
+            </Button>
           </Space>
-        </Col>
-      </Row>
+        </div>
+      </Card>
+
+      {/* 生成进度 */}
+      {isGenerating && (
+        <Card 
+          title="生成进度" 
+          size="small" 
+          style={{ marginBottom: '16px', borderRadius: '8px' }}
+        >
+          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <div>
+              <Text strong>当前阶段: </Text>
+              <Tag color="processing">{progress.stage}</Tag>
+            </div>
+            <Progress 
+              percent={Math.round(progress.progress)} 
+              status={isPaused ? 'exception' : 'active'}
+              strokeColor={isPaused ? '#ff4d4f' : '#1890ff'}
+            />
+            <Row gutter={[16, 16]}>
+              <Col span={12}>
+                <Text type="secondary">任务: {progress.currentTask}</Text>
+              </Col>
+              <Col span={12}>
+                <Text type="secondary">预计剩余: {Math.round(progress.estimatedTimeLeft / 1000)}s</Text>
+              </Col>
+              <Col span={12}>
+                <Statistic title="已生成单元" value={progress.elementsGenerated} />
+              </Col>
+              <Col span={12}>
+                <Statistic title="完成度" value={progress.progress} suffix="%" precision={1} />
+              </Col>
+            </Row>
+          </Space>
+        </Card>
+      )}
+
+      {/* 基础参数 */}
+      <Card 
+        title="基础参数" 
+        size="small" 
+        style={{ marginBottom: '16px', borderRadius: '8px' }}
+      >
+        <Row gutter={[16, 16]}>
+          <Col span={8}>
+            <Form.Item 
+              label="全局单元尺寸"
+              tooltip="控制整体网格密度的基准尺寸"
+            >
+              <InputNumber
+                value={meshParams.global_element_size}
+                onChange={(value) => handleParameterChange('global_element_size', value)}
+                min={0.01}
+                max={10}
+                step={0.1}
+                size="large"
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item label="2D算法">
+              <Select
+                value={meshParams.algorithm_2d}
+                onChange={(value) => handleParameterChange('algorithm_2d', value)}
+                size="large"
+                style={{ width: '100%' }}
+              >
+                <Option value="delaunay">Delaunay</Option>
+                <Option value="frontal">Frontal</Option>
+                <Option value="quad">Quad</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item label="3D算法">
+              <Select
+                value={meshParams.algorithm_3d}
+                onChange={(value) => handleParameterChange('algorithm_3d', value)}
+                size="large"
+                style={{ width: '100%' }}
+              >
+                <Option value="delaunay">Delaunay</Option>
+                <Option value="frontal">Frontal</Option>
+                <Option value="tetgen">TetGen</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item label="质量模式">
+              <Select
+                value={meshParams.quality_mode}
+                onChange={(value) => handleParameterChange('quality_mode', value)}
+                size="large"
+                style={{ width: '100%' }}
+              >
+                <Option value="fast">快速模式</Option>
+                <Option value="balanced">平衡模式</Option>
+                <Option value="high_quality">高质量模式</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item label="细化策略">
+              <Select
+                value={meshParams.refinement_strategy}
+                onChange={(value) => handleParameterChange('refinement_strategy', value)}
+                size="large"
+                style={{ width: '100%' }}
+              >
+                <Option value="uniform">均匀细化</Option>
+                <Option value="adaptive">自适应细化</Option>
+                <Option value="curvature_based">曲率细化</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+        </Row>
+      </Card>
+
+      {/* 网格质量 */}
+      <Card 
+        title="网格质量" 
+        size="small" 
+        style={{ marginBottom: '16px', borderRadius: '8px' }}
+      >
+        <Row gutter={[16, 16]}>
+          <Col span={6}>
+            <Statistic title="单元数" value={qualityMetrics.elementCount} />
+          </Col>
+          <Col span={6}>
+            <Statistic title="节点数" value={qualityMetrics.nodeCount} />
+          </Col>
+          <Col span={6}>
+            <Statistic title="平均质量" value={qualityMetrics.averageQuality} precision={2} />
+          </Col>
+          <Col span={6}>
+            <Statistic title="最差质量" value={qualityMetrics.worstQuality} precision={2} />
+          </Col>
+          <Col span={24} style={{ textAlign: 'center', marginTop: '16px' }}>
+            <Progress
+              type="circle"
+              percent={qualityMetrics.overallScore}
+              format={percent => `${percent}分`}
+              strokeColor={qualityMetrics.overallScore > 85 ? '#52c41a' : qualityMetrics.overallScore > 70 ? '#faad14' : '#ff4d4f'}
+            />
+            <div style={{ marginTop: '8px' }}>
+              <Text type="secondary">整体质量评分</Text>
+            </div>
+          </Col>
+        </Row>
+      </Card>
+
+      {/* 系统状态 */}
+      <Card 
+        title="系统状态" 
+        size="small" 
+        style={{ marginBottom: '16px', borderRadius: '8px' }}
+      >
+        <Row gutter={[16, 16]}>
+          <Col span={12}>
+            <Form.Item label="几何状态">
+              <Tag color="success">已加载</Tag>
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item label="Fragment">
+              <Tag color="processing">{fragments.filter(f => f.visible).length}/{fragments.length} 可见</Tag>
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item label="并行处理">
+              <Tag color={meshParams.parallel_config.enable_parallel ? 'success' : 'default'}>
+                {meshParams.parallel_config.enable_parallel ? `${meshParams.parallel_config.num_threads}线程` : '禁用'}
+              </Tag>
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item label="质量优化">
+              <Tag color={meshParams.enable_optimization ? 'success' : 'default'}>
+                {meshParams.enable_optimization ? '启用' : '禁用'}
+              </Tag>
+            </Form.Item>
+          </Col>
+        </Row>
+      </Card>
     </div>
   );
 
   const renderFragmentTab = () => (
-    <div style={{ padding: '20px' }}>
+    <div>
       <Card title="🔲 Fragment可视化管理" size="small">
         <Table
           dataSource={fragments}
@@ -578,7 +602,7 @@ const IntegratedMeshControl: React.FC<IntegratedMeshControlProps> = ({
   );
 
   const renderAdvancedTab = () => (
-    <div style={{ padding: '20px' }}>
+    <div>
       <Collapse defaultActiveKey={['quality', 'size']}>
         <Panel header="质量优化" key="quality">
           <Form layout="vertical">
@@ -755,7 +779,7 @@ const IntegratedMeshControl: React.FC<IntegratedMeshControlProps> = ({
   // ======================= 主渲染 =======================
 
   return (
-    <div style={{ height: '100%', background: '#f5f5f5' }}>
+    <div style={{ height: '100%', padding: '16px' }}>
       <Tabs activeKey={activeTab} onChange={setActiveTab} type="card">
         <TabPane tab={
           <span>
