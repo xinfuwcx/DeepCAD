@@ -124,8 +124,11 @@ class PreProcessor:
         return self.viewer_widget
         
     def load_fpn_file(self, file_path: str):
-        """加载MIDAS FPN文件"""
+        """加载MIDAS FPN文件（使用优化解析器）"""
         try:
+            from ..core.optimized_fpn_parser import OptimizedFPNParser
+            from ..utils.error_handler import handle_error
+
             file_path = Path(file_path)
 
             if not file_path.exists():
@@ -133,8 +136,17 @@ class PreProcessor:
 
             print(f"加载FPN文件: {file_path.name}")
 
-            # 使用内置的详细FPN解析器（而不是简化版的midas_reader）
-            fpn_data = self.parse_fpn_file(str(file_path))
+            # 创建进度回调
+            def progress_callback(progress):
+                print(f"\r解析进度: {progress.progress_percent:.1f}% "
+                      f"节点:{progress.nodes_count} 单元:{progress.elements_count}",
+                      end='', flush=True)
+
+            # 使用优化解析器
+            parser = OptimizedFPNParser(progress_callback=progress_callback)
+            fpn_data = parser.parse_file_streaming(str(file_path))
+
+            print()  # 换行
 
             # 保存解析数据
             self.fpn_data = fpn_data
@@ -145,27 +157,18 @@ class PreProcessor:
             # 显示网格
             self.display_mesh()
 
-            print(f"FPN文件加载完成 - {len(fpn_data.get('nodes', []))}个节点，{len(fpn_data.get('elements', []))}个单元")
-            
-            # 返回解析结果
-            return fpn_data
+            print(f"FPN文件解析完成: 节点{len(fpn_data.get('nodes', []))}, 单元{len(fpn_data.get('elements', []))}")
+            print(f"使用编码: {fpn_data.get('metadata', {}).get('encoding', '未知')}")
+            print(f"坐标偏移: {fpn_data.get('metadata', {}).get('coordinate_offset', (0,0,0))}")
 
         except Exception as e:
-            print(f"加载FPN文件失败: {e}")
-            import traceback
-            traceback.print_exc()
-            
-            # 尝试创建示例数据避免完全失败
+            # 使用友好的错误处理
             try:
-                print("创建示例数据以避免程序崩溃...")
-                self.fpn_data = self.create_sample_fpn_data()
-                self.create_mesh_from_fpn(self.fpn_data)
-                self.display_mesh()
-                print("示例数据创建成功")
-                return self.fpn_data
-            except Exception as fallback_e:
-                print(f"示例数据创建也失败: {fallback_e}")
-                raise e
+                from ..utils.error_handler import handle_error
+                handle_error(e, f"加载FPN文件: {file_path.name}", show_dialog=False)
+            except ImportError:
+                print(f"加载FPN文件失败: {e}")
+            raise e
     
     def parse_fpn_file(self, file_path: str) -> Dict[str, Any]:
         """解析真实的MIDAS GTS NX FPN文件格式"""
@@ -184,28 +187,17 @@ class PreProcessor:
         }
         
         try:
-            # 尝试不同编码读取文件，优先使用GBK处理中文
+            # 尝试不同编码读取文件
             lines = []
             file_encoding = None
-            for encoding in ['gbk', 'gb2312', 'utf-8', 'latin1']:
+            for encoding in ['utf-8', 'gbk', 'latin1']:
                 try:
-                    with open(file_path, 'r', encoding=encoding, errors='strict') as f:
+                    with open(file_path, 'r', encoding=encoding, errors='ignore') as f:
                         lines = f.readlines()
                     file_encoding = encoding
                     print(f"使用{encoding}编码成功读取FPN文件，共{len(lines)}行")
-                    
-                    # 验证中文字符是否正确解码
-                    chinese_chars_found = 0
-                    for line_sample in lines[:100]:  # 检查前100行
-                        for char in line_sample:
-                            if '\u4e00' <= char <= '\u9fff':
-                                chinese_chars_found += 1
-                    
-                    if chinese_chars_found > 0:
-                        print(f"检测到 {chinese_chars_found} 个中文字符，编码 {encoding} 处理正确")
                     break
-                except Exception as e:
-                    print(f"编码 {encoding} 失败: {e}")
+                except:
                     continue
             
             if not lines:
@@ -280,66 +272,11 @@ class PreProcessor:
                     if boundary_group:
                         fpn_data['boundary_groups'][boundary_group['id']] = boundary_group
                         
-                elif 'STAGE' in line and line.strip().startswith('STAGE'):
-                    # 分析阶段定义 - 实际FPN格式（可能有多个空格）
-                    print(f"发现STAGE行 (行{i+1}): {repr(line.strip())}")
-                    analysis_stage = self.parse_stage_line(line.strip())
+                elif line.startswith('ANALLS ,'):
+                    # 分析步定义
+                    analysis_stage = self.parse_analysis_stage_line(line)
                     if analysis_stage:
                         fpn_data['analysis_stages'].append(analysis_stage)
-                        print(f"成功添加分析步: {analysis_stage['name']} (ID: {analysis_stage['id']})")
-                    else:
-                        print(f"解析STAGE行失败: {repr(line.strip())}")
-                        
-                elif line.startswith('STGSET'):
-                    # 分析阶段设置
-                    stage_set = self.parse_stgset_line(line)
-                    if stage_set:
-                        print(f"发现阶段设置: {stage_set}")
-                        
-                elif line.startswith('MADD') or line.startswith('MDEL') or line.startswith('BADD') or line.startswith('LADD'):
-                    # 物理组添加/删除命令
-                    group_command = self.parse_group_command_line(line)
-                    if group_command:
-                        print(f"发现物理组命令: {group_command}")
-                        # 根据stage_id关联到对应的分析步
-                        target_stage_id = group_command['stage_id']
-                        target_stage = None
-                        for stage in fpn_data['analysis_stages']:
-                            if stage['id'] == target_stage_id:
-                                target_stage = stage
-                                break
-                        
-                        if target_stage:
-                            if 'group_commands' not in target_stage:
-                                target_stage['group_commands'] = []
-                            target_stage['group_commands'].append(group_command)
-                            print(f"  关联到分析步{target_stage_id}: {target_stage['name']}")
-                        else:
-                            print(f"  警告: 找不到对应的分析步ID={target_stage_id}")
-                            # 如果找不到对应分析步，保存到临时列表
-                            if 'orphaned_commands' not in fpn_data:
-                                fpn_data['orphaned_commands'] = []
-                            fpn_data['orphaned_commands'].append(group_command)
-                        
-                elif line.startswith('ANALSTAG,'):
-                    # 分析阶段控制信息
-                    analysis_control = self.parse_analstag_line(line)
-                    if analysis_control:
-                        fpn_data['analysis_control'] = analysis_control
-                        
-                # 解析其他可能的分析步相关行
-                elif line.startswith('ANGROUP ,'):
-                    # 分析组定义 - 可能包含物理组激活信息
-                    group_info = self.parse_analysis_group_line(line)
-                    if group_info:
-                        # 将组信息关联到对应的分析步
-                        self.associate_group_to_stage(fpn_data, group_info)
-                        
-                elif line.startswith('STAGEACTIV ,') or line.startswith('STAGECTRL ,'):
-                    # 分析步激活/控制信息
-                    stage_control = self.parse_stage_control_line(line)
-                    if stage_control:
-                        self.update_stage_control(fpn_data, stage_control)
                 
                 # 显示进度（每10000行显示一次）
                 if i % 10000 == 0 and i > 0:
@@ -418,28 +355,19 @@ class PreProcessor:
         return None
     
     def parse_material_group_line(self, line: str) -> Optional[Dict]:
-        """解析材料组行: MADD   , StageID, MaterialCount, StartMaterialID, ..."""
+        """解析材料组行: MADD   , ID, MaterialCount, ..."""
         try:
             parts = [p.strip() for p in line.split(',')]
-            if len(parts) >= 4 and parts[0] == 'MADD':
-                stage_id = int(parts[1]) if parts[1] else 0
-                material_count = int(parts[2]) if parts[2] else 0
-                start_material_id = int(parts[3]) if parts[3] else 1
-                
-                # 生成材料ID列表：从start_material_id开始，连续material_count个
-                materials = []
-                if material_count > 0:
-                    materials = list(range(start_material_id, start_material_id + material_count))
-                
+            if len(parts) >= 3 and parts[0] == 'MADD':
                 group = {
-                    'id': stage_id,  # 使用阶段ID作为组ID
-                    'stage_id': stage_id,
-                    'material_count': material_count,
-                    'start_material_id': start_material_id,
-                    'materials': materials
+                    'id': int(parts[1]),
+                    'material_count': int(parts[2]) if parts[2] else 0,
+                    'materials': []
                 }
-                
-                print(f"解析MADD: 阶段{stage_id}, 材料数量{material_count}, 起始ID{start_material_id}, 材料列表{materials}")
+                # 解析材料ID列表
+                for i in range(4, len(parts)):
+                    if parts[i] and parts[i].isdigit():
+                        group['materials'].append(int(parts[i]))
                 return group
         except (ValueError, IndexError) as e:
             print(f"跳过无效材料组行: {line[:50]}... 错误: {e}")
@@ -487,225 +415,17 @@ class PreProcessor:
         """解析分析步行: ANALLS , ID, Name, Type, Active, ..."""
         try:
             parts = [p.strip() for p in line.split(',')]
-            if len(parts) >= 2 and parts[0] == 'ANALLS':
-                stage_id = int(parts[1])
-                
-                # 更灵活的名称解析 - 支持空名称或多字段名称
-                stage_name = ''
-                if len(parts) > 2 and parts[2]:
-                    stage_name = parts[2]
-                else:
-                    stage_name = f'Analysis Stage {stage_id}'
-                
-                # 解析类型和状态（可能为空）
-                stage_type = 0
-                if len(parts) > 3 and parts[3]:
-                    try:
-                        stage_type = int(parts[3])
-                    except:
-                        stage_type = 0
-                
-                active = 1  # 默认激活
-                if len(parts) > 4 and parts[4]:
-                    try:
-                        active = int(parts[4])
-                    except:
-                        active = 1
-                
+            if len(parts) >= 5 and parts[0] == 'ANALLS':
                 stage = {
-                    'id': stage_id,
-                    'name': stage_name,
-                    'type': stage_type,
-                    'active': active,
-                    'description': f'分析步{stage_id}: {stage_name}'
+                    'id': int(parts[1]),
+                    'name': parts[2] if parts[2] else f'Analysis Stage {parts[1]}',
+                    'type': int(parts[3]) if parts[3] else 0,
+                    'active': int(parts[4]) if parts[4] else 0
                 }
-                
-                print(f"解析分析步成功: ID={stage_id}, 名称='{stage_name}', 类型={stage_type}, 激活={active}")
                 return stage
-                
         except (ValueError, IndexError) as e:
             print(f"跳过无效分析步行: {line[:50]}... 错误: {e}")
         return None
-    
-    def parse_stage_line(self, line: str) -> Optional[Dict]:
-        """解析STAGE行: STAGE  , ID, Type, Name, Params..."""
-        try:
-            parts = [p.strip() for p in line.split(',')]
-            print(f"STAGE行分割结果: {parts}")
-            print(f"parts长度: {len(parts)}, parts[0]='{parts[0]}'")
-            
-            if len(parts) >= 2 and parts[0].strip() == 'STAGE':
-                stage_id = int(parts[1]) if parts[1] else 0
-                stage_type = int(parts[2]) if len(parts) > 2 and parts[2] else 0
-                stage_name = parts[3] if len(parts) > 3 and parts[3] else f'Stage {stage_id}'
-                
-                # 解析其他参数
-                active = 1
-                if len(parts) > 4 and parts[4]:
-                    try:
-                        active = int(parts[4])
-                    except:
-                        active = 1
-                
-                stage = {
-                    'id': stage_id,
-                    'name': stage_name,
-                    'type': stage_type,
-                    'active': active,
-                    'description': f'施工阶段{stage_id}: {stage_name}',
-                    'fpn_format': 'STAGE'
-                }
-                
-                print(f"解析STAGE成功: ID={stage_id}, 名称='{stage_name}', 类型={stage_type}, 激活={active}")
-                return stage
-            else:
-                print(f"STAGE行不满足条件: len={len(parts)}, first_part='{parts[0] if parts else 'None'}'")
-                
-        except Exception as e:
-            print(f"跳过无效STAGE行: {line[:80]}... 错误: {e}")
-            import traceback
-            traceback.print_exc()
-        return None
-    
-    def parse_analstag_line(self, line: str) -> Optional[Dict]:
-        """解析ANALSTAG行: ANALSTAG, ID, Name, Stage1, Stage2, ..."""
-        try:
-            parts = [p.strip() for p in line.split(',')]
-            if len(parts) >= 4 and parts[0] == 'ANALSTAG':
-                control_id = int(parts[1])
-                control_name = parts[2] if parts[2] else f'Analysis {control_id}'
-                
-                # 解析包含的阶段ID
-                stage_ids = []
-                for i in range(3, len(parts)):
-                    if parts[i] and parts[i].isdigit():
-                        stage_ids.append(int(parts[i]))
-                
-                control = {
-                    'id': control_id,
-                    'name': control_name,
-                    'stage_ids': stage_ids,
-                    'description': f'分析控制: {control_name}, 包含阶段: {stage_ids}'
-                }
-                
-                print(f"解析ANALSTAG成功: ID={control_id}, 名称='{control_name}', 阶段={stage_ids}")
-                return control
-                
-        except (ValueError, IndexError) as e:
-            print(f"跳过无效ANALSTAG行: {line[:50]}... 错误: {e}")
-        return None
-    
-    def parse_stgset_line(self, line: str) -> Optional[Dict]:
-        """解析STGSET行: STGSET , ID, Type, Name, ..."""
-        try:
-            parts = [p.strip() for p in line.split(',')]
-            if len(parts) >= 4 and parts[0] == 'STGSET':
-                return {
-                    'id': int(parts[1]),
-                    'type': int(parts[2]) if parts[2] else 0,
-                    'name': parts[3] if parts[3] else f'StageSet {parts[1]}'
-                }
-        except Exception as e:
-            print(f"解析STGSET行失败: {e}")
-        return None
-    
-    def parse_group_command_line(self, line: str) -> Optional[Dict]:
-        """解析物理组命令行: MADD/MDEL/BADD/LADD , StageID, Count/GroupID, StartID/..."""
-        try:
-            parts = [p.strip() for p in line.split(',')]
-            if len(parts) >= 3:
-                command = parts[0]
-                stage_id = int(parts[1]) if parts[1] else 0
-                
-                group_ids = []
-                
-                # MADD特殊处理: MADD, StageID, Count, StartID  
-                if command == 'MADD' and len(parts) >= 4:
-                    count = int(parts[2]) if parts[2] else 0
-                    start_id = int(parts[3]) if parts[3] else 1
-                    
-                    if count > 0:
-                        # 生成连续的材料ID列表，但只包含实际存在的材料ID (2-12)
-                        all_ids = list(range(start_id, start_id + count))
-                        # 过滤只保留实际存在的材料ID
-                        group_ids = [mid for mid in all_ids if 2 <= mid <= 12]
-                        print(f"MADD原始范围: {all_ids}, 过滤后: {group_ids}")
-                    
-                # MDEL特殊处理: MDEL, StageID, GroupID_to_delete
-                elif command == 'MDEL' and len(parts) >= 3:
-                    group_id_to_delete = int(parts[2]) if parts[2] else 0
-                    if group_id_to_delete > 0:
-                        group_ids = [group_id_to_delete]
-                    
-                # 其他命令的标准处理（BADD, LADD等）
-                else:
-                    for i in range(2, len(parts)):
-                        if parts[i] and parts[i].isdigit():
-                            group_ids.append(int(parts[i]))
-                
-                return {
-                    'command': command,
-                    'stage_id': stage_id,
-                    'group_ids': group_ids,
-                    'description': f'{command} 阶段{stage_id}: 组{group_ids}'
-                }
-        except Exception as e:
-            print(f"解析物理组命令行失败: {e}")
-        return None
-    
-    def parse_analysis_group_line(self, line: str) -> Optional[Dict]:
-        """解析分析组行: ANGROUP , GroupID, StageID, GroupType, Active, ..."""
-        try:
-            parts = [p.strip() for p in line.split(',')]
-            if len(parts) >= 4 and parts[0] == 'ANGROUP':
-                group_info = {
-                    'group_id': int(parts[1]),
-                    'stage_id': int(parts[2]),
-                    'group_type': parts[3] if parts[3] else 'unknown',
-                    'active': int(parts[4]) if len(parts) > 4 and parts[4] else 1
-                }
-                print(f"解析分析组: 组ID={group_info['group_id']}, 步骤ID={group_info['stage_id']}, 类型={group_info['group_type']}")
-                return group_info
-        except (ValueError, IndexError) as e:
-            print(f"跳过无效分析组行: {line[:50]}... 错误: {e}")
-        return None
-    
-    def parse_stage_control_line(self, line: str) -> Optional[Dict]:
-        """解析分析步控制行"""
-        try:
-            parts = [p.strip() for p in line.split(',')]
-            if len(parts) >= 3:
-                control_info = {
-                    'command': parts[0],
-                    'stage_id': int(parts[1]),
-                    'parameters': parts[2:] if len(parts) > 2 else []
-                }
-                return control_info
-        except (ValueError, IndexError) as e:
-            print(f"跳过无效控制行: {line[:50]}... 错误: {e}")
-        return None
-    
-    def associate_group_to_stage(self, fpn_data: Dict, group_info: Dict):
-        """将组信息关联到对应的分析步"""
-        stage_id = group_info['stage_id']
-        for stage in fpn_data.get('analysis_stages', []):
-            if stage.get('id') == stage_id:
-                if 'groups' not in stage:
-                    stage['groups'] = []
-                stage['groups'].append(group_info)
-                print(f"组{group_info['group_id']}关联到分析步{stage_id}")
-                break
-    
-    def update_stage_control(self, fpn_data: Dict, control_info: Dict):
-        """更新分析步控制信息"""
-        stage_id = control_info['stage_id']
-        for stage in fpn_data.get('analysis_stages', []):
-            if stage.get('id') == stage_id:
-                if 'controls' not in stage:
-                    stage['controls'] = []
-                stage['controls'].append(control_info)
-                print(f"添加控制信息到分析步{stage_id}")
-                break
     
     def create_default_analysis_stages(self) -> List[Dict]:
         """创建默认的基坑工程分析步骤"""
@@ -715,76 +435,56 @@ class PreProcessor:
                 'name': '初始状态',
                 'type': 0,
                 'active': 1,
-                'description': '模型初始平衡状态',
-                'group_commands': [
-                    {'command': 'MADD', 'stage_id': 1, 'group_ids': [1, 2], 'description': 'MADD 阶段1: 组[1, 2]'}
-                ]
+                'description': '模型初始平衡状态'
             },
             {
                 'id': 2, 
                 'name': '第一次开挖(-5m)',
                 'type': 1,
                 'active': 1,
-                'description': '开挖至地下5米深度',
-                'group_commands': [
-                    {'command': 'MDEL', 'stage_id': 2, 'group_ids': [1], 'description': 'MDEL 阶段2: 组[1]'},
-                    {'command': 'LADD', 'stage_id': 2, 'group_ids': [1], 'description': 'LADD 阶段2: 组[1]'}
-                ]
+                'description': '开挖至地下5米深度'
             },
             {
                 'id': 3,
                 'name': '安装第一道支撑',
                 'type': 2,
                 'active': 1,
-                'description': '在-5m处安装水平支撑',
-                'group_commands': [
-                    {'command': 'MADD', 'stage_id': 3, 'group_ids': [3], 'description': 'MADD 阶段3: 组[3]'},
-                    {'command': 'BADD', 'stage_id': 3, 'group_ids': [1], 'description': 'BADD 阶段3: 组[1]'}
-                ]
+                'description': '在-5m处安装水平支撑'
             },
             {
                 'id': 4,
                 'name': '第二次开挖(-10m)',
                 'type': 1,
                 'active': 1,
-                'description': '继续开挖至地下10米深度',
-                'group_commands': [
-                    {'command': 'MDEL', 'stage_id': 4, 'group_ids': [2], 'description': 'MDEL 阶段4: 组[2]'}
-                ]
+                'description': '继续开挖至地下10米深度'
             },
             {
                 'id': 5,
                 'name': '安装第二道支撑',
                 'type': 2,
                 'active': 1,
-                'description': '在-10m处安装水平支撑',
-                'group_commands': [
-                    {'command': 'MADD', 'stage_id': 5, 'group_ids': [4], 'description': 'MADD 阶段5: 组[4]'}
-                ]
+                'description': '在-10m处安装水平支撑'
             },
             {
                 'id': 6,
                 'name': '第三次开挖(-15m)',
                 'type': 1,
                 'active': 1,
-                'description': '继续开挖至地下15米深度',
-                'group_commands': []
+                'description': '继续开挖至地下15米深度'
             },
             {
                 'id': 7,
                 'name': '底板施工',
                 'type': 3,
                 'active': 1,
-                'description': '浇筑基坑底板',
-                'group_commands': []
+                'description': '浇筑基坑底板'
             },
             {
                 'id': 8,
                 'name': '最终状态',
                 'type': 0,
                 'active': 1,
-                'description': '基坑开挖完成状态',
-                'group_commands': []
+                'description': '基坑开挖完成状态'
             }
         ]
     
@@ -834,16 +534,6 @@ class PreProcessor:
         print(f"  X偏移: {x_offset:.2f}")
         print(f"  Y偏移: {y_offset:.2f}")
         print(f"  Z偏移: {z_offset:.2f}")
-        
-        # 计算偏移后的坐标范围
-        x_coords_new = [node['x'] for node in nodes]
-        y_coords_new = [node['y'] for node in nodes]
-        z_coords_new = [node['z'] for node in nodes]
-        
-        print(f"偏移后坐标范围:")
-        print(f"  X: {min(x_coords_new):.2f} ~ {max(x_coords_new):.2f}")
-        print(f"  Y: {min(y_coords_new):.2f} ~ {max(y_coords_new):.2f}")
-        print(f"  Z: {min(z_coords_new):.2f} ~ {max(z_coords_new):.2f}")
     
     def parse_gts_data_line(self, line: str, section: str, fpn_data: Dict):
         """解析GTS数据行 - 通用方法"""
@@ -1197,221 +887,350 @@ class PreProcessor:
         }
     
     def create_mesh_from_fpn(self, fpn_data: Dict[str, Any]):
-        """🔧 修复3：从FPN数据创建PyVista网格（带崩溃保护）"""
-        try:
-            if not PYVISTA_AVAILABLE:
-                print("PyVista不可用，无法创建网格")
-                return
-                
-            nodes = fpn_data.get('nodes', [])
-            elements = fpn_data.get('elements', [])
+        """从FPN数据创建PyVista网格"""
+        if not PYVISTA_AVAILABLE:
+            print("PyVista不可用，无法创建网格")
+            return
             
-            if not nodes:
-                print("FPN数据中没有节点信息，创建示例网格")
-                self.create_sample_mesh()
-                return
-            
-            print(f"开始创建PyVista网格: {len(nodes)}个节点, {len(elements)}个单元")
-            
-            # 显示节点坐标范围用于调试
-            if nodes:
-                x_coords = [node['x'] for node in nodes]
-                y_coords = [node['y'] for node in nodes]
-                z_coords = [node['z'] for node in nodes]
-                print(f"节点坐标范围: X[{min(x_coords):.1f}, {max(x_coords):.1f}], Y[{min(y_coords):.1f}, {max(y_coords):.1f}], Z[{min(z_coords):.1f}, {max(z_coords):.1f}]")
+        nodes = fpn_data.get('nodes', [])
+        elements = fpn_data.get('elements', [])
         
-            # 🚨 内存保护：检查数据规模
-            if len(nodes) > 50000 or len(elements) > 100000:
-                print("检测到大型模型，启用内存优化模式")
-                import gc
-                gc.collect()  # 强制垃圾回收
-                
-            # 创建点坐标数组
-            points = []
-            node_id_map = {}
+        if not nodes:
+            print("FPN数据中没有节点信息，创建示例网格")
+            self.create_sample_mesh()
+            return
+        
+        print(f"开始创建PyVista网格: {len(nodes)}个节点, {len(elements)}个单元")
             
-            for i, node in enumerate(nodes):
-                points.append([node['x'], node['y'], node['z']])
-                node_id_map[node['id']] = i
-                
-            points = np.array(points)
-            print(f"节点坐标数组创建完成: {points.shape}")
+        # 创建点坐标数组
+        points = []
+        node_id_map = {}
+        
+        for i, node in enumerate(nodes):
+            points.append([node['x'], node['y'], node['z']])
+            node_id_map[node['id']] = i
             
-            # 创建单元连接数组
-            cells = []
-            cell_types = []
-            material_ids = []
+        points = np.array(points)
+        print(f"节点坐标数组创建完成: {points.shape}")
+        
+        # 创建单元连接数组
+        cells = []
+        cell_types = []
+        material_ids = []
+        
+        valid_elements = 0
+        invalid_elements = 0
+        
+        for element in elements:
+            element_nodes = element.get('nodes', [])
+            material_id = element.get('material_id', 1)
             
-            valid_elements = 0
-            invalid_elements = 0
-            
-            for element in elements:
-                # 🔧 修复：添加类型检查和错误处理
-                if not isinstance(element, dict):
-                    if invalid_elements < 10: # 避免过多日志
-                        print(f"警告: 跳过无效单元数据 (类型: {type(element)}, 值: {str(element)[:100]})")
-                    invalid_elements += 1
-                    continue
-                
-                # 安全获取节点列表
-                element_nodes = element.get('nodes', [])
-                if not isinstance(element_nodes, list) or not element_nodes:
-                    if invalid_elements < 10:
-                        print(f"警告: 单元 {element.get('id', '未知')} 的节点数据无效")
-                    invalid_elements += 1
-                    continue
-                
-                material_id = element.get('material_id', 1)
-                
-                if len(element_nodes) == 4:  # 四面体单元
-                    try:
-                        mapped_nodes = [node_id_map[node_id] for node_id in element_nodes if node_id in node_id_map]
-                        if len(mapped_nodes) == 4:
-                            cells.extend([4] + mapped_nodes)
-                            cell_types.append(10)  # VTK_TETRA
-                            material_ids.append(material_id)
-                            valid_elements += 1
-                        else:
-                            invalid_elements += 1
-                    except KeyError as e:
-                        if invalid_elements < 10:
-                            print(f"节点ID映射错误: {e}")
+            if len(element_nodes) == 4:  # 四面体单元
+                # 映射节点ID到索引
+                try:
+                    mapped_nodes = [node_id_map[node_id] for node_id in element_nodes if node_id in node_id_map]
+                    if len(mapped_nodes) == 4:
+                        # 四面体单元
+                        cells.extend([4] + mapped_nodes)
+                        cell_types.append(10)  # VTK_TETRA
+                        material_ids.append(material_id)
+                        valid_elements += 1
+                    else:
                         invalid_elements += 1
-                else:
+                except KeyError as e:
                     invalid_elements += 1
+                    if invalid_elements < 5:  # 只显示前几个错误
+                        print(f"节点ID映射错误: {e}")
+            else:
+                invalid_elements += 1
+        
+        print(f"单元处理完成: 有效{valid_elements}个, 无效{invalid_elements}个")
+        
+        # 创建PyVista网格
+        if cells and cell_types:
+            self.mesh = pv.UnstructuredGrid(cells, cell_types, points)
             
-            print(f"单元处理完成: 有效{valid_elements}个, 无效{invalid_elements}个")
-            
-            # 🚨 创建PyVista网格 - 添加崩溃保护
-            try:
-                if cells and cell_types:
-                    print(f"创建UnstructuredGrid: {len(cells)}个cells, {len(cell_types)}个cell_types, {len(points)}个points")
-                    
-                    # 验证数据完整性
-                    if len(cell_types) != valid_elements:
-                        print(f"警告: cell_types数量({len(cell_types)})与有效单元数({valid_elements})不匹配")
-                    
-                    # 内存检查
-                    import psutil
-                    memory_percent = psutil.virtual_memory().percent
-                    if memory_percent > 80:
-                        print(f"⚠️ 内存使用率过高: {memory_percent:.1f}%，可能导致崩溃")
-                        import gc
-                        gc.collect()
-                    
-                    # 安全创建网格
-                    self.mesh = pv.UnstructuredGrid(cells, cell_types, points)
-                    print("UnstructuredGrid创建成功")
-                    
-                    # 添加材料ID作为单元数据
-                    if material_ids:
-                        try:
-                            material_array = np.array(material_ids)
-                            if len(material_array) == self.mesh.n_cells:
-                                self.mesh.cell_data['MaterialID'] = material_array
-                                print(f"添加材料ID数据: {len(set(material_ids))}种材料")
-                            else:
-                                print(f"警告: 材料ID数量({len(material_array)})与网格单元数({self.mesh.n_cells})不匹配")
-                        except Exception as e:
-                            print(f"添加材料ID数据失败: {e}")
-                        
-                else:
-                    # 如果没有有效单元，创建点云
-                    print("没有有效单元，创建点云显示")
-                    try:
-                        self.mesh = pv.PolyData(points)
-                        print("PolyData创建成功")
-                    except Exception as e:
-                        print(f"PolyData创建失败: {e}")
-                        raise
-                        
-            except MemoryError as e:
-                error_msg = f"内存不足，无法创建网格: {e}"
-                print(f"ERROR: {error_msg}")
-                # 尝试垃圾回收释放内存
-                import gc
-                gc.collect()
-                raise RuntimeError(error_msg)
-            except Exception as e:
-                error_msg = f"PyVista网格创建失败: {e}"
-                print(f"ERROR: {error_msg}")
-                import traceback
-                traceback.print_exc()
-                # 尝试垃圾回收
-                import gc
-                gc.collect()
-                raise RuntimeError(error_msg)
+            # 添加材料ID作为单元数据
+            if material_ids:
+                self.mesh.cell_data['MaterialID'] = np.array(material_ids)
+                print(f"添加材料ID数据: {len(set(material_ids))}种材料")
                 
-            # 存储FPN数据到预处理器
-            self.fpn_data = fpn_data
+        else:
+            # 如果没有有效单元，创建点云
+            print("没有有效单元，创建点云显示")
+            self.mesh = pv.PolyData(points)
             
-            # 从材料ID集合创建材料字典
+        # 存储FPN数据到预处理器
+        self.fpn_data = fpn_data
+        
+        # 从网格集合创建材料字典
+        mesh_sets = fpn_data.get('mesh_sets', {})
+        self.materials = {}
+
+        # 材料名称映射（基于常见的岩土工程材料）
+        material_name_mapping = {
+            46: '15细砂2', 47: '2细砂+粉土', 48: '7粉质粘土', 49: '9粉质粘土',
+            50: '11地方粉土', 51: '13卵石', 52: '14粉质粘土', 53: '15细砂1',
+            57: '3粉质粘土', 58: '5粉质粘土', 61: '6卵石', 62: '4粉质粘土',
+            79: '支护墙1', 80: '支护墙2', 81: '支护墙3', 82: '支护墙4', 83: '支护墙5',
+            89: '围护墙', 91: '地连墙'
+        }
+
+        for mesh_id, mesh_data in mesh_sets.items():
+            material_name = material_name_mapping.get(mesh_id, mesh_data.get('name', f'Material_{mesh_id}'))
+            self.materials[mesh_id] = {
+                'id': mesh_id,
+                'name': material_name,
+                'properties': {
+                    'type': 'concrete' if '墙' in material_name or '石' in material_name else 'soil',
+                    'color': self.get_material_color(mesh_id, material_name)
+                }
+            }
+
+        # 如果没有网格集合，从材料ID创建
+        if not self.materials:
             materials_set = fpn_data.get('materials', set())
-            self.materials = {}
             for mat_id in materials_set:
                 self.materials[mat_id] = {
                     'id': mat_id,
                     'name': f'Material_{mat_id}',
-                    'properties': {'type': 'soil' if mat_id == 6 else 'concrete'}
+                    'properties': {
+                        'type': 'soil' if mat_id <= 10 else 'concrete',
+                        'color': self.get_material_color(mat_id, f'Material_{mat_id}')
+                    }
                 }
+        
+        # 清理现有约束和荷载
+        self.clear_constraints()  
+        self.clear_loads()
+        
+        # FPN文件通常不包含约束和荷载信息，这些在分析阶段定义
+        # 这里可以根据需要添加一些示例约束和荷载用于演示
+        if len(points) > 0:
+            # 在Z坐标最小的几个点添加固定约束
+            z_coords = points[:, 2]
+            z_min = np.min(z_coords)
+            bottom_nodes = np.where(np.abs(z_coords - z_min) < 100)[0]  # 100mm容差
             
-            # 清理现有约束和荷载
-            self.clear_constraints()  
-            self.clear_loads()
+            constraint_count = 0
+            for node_idx in bottom_nodes[:20]:  # 限制约束数量
+                point = points[node_idx]
+                self.add_constraint('fixed', tuple(point))
+                constraint_count += 1
             
-            # FPN文件通常不包含约束和荷载信息，这些在分析阶段定义
-            # 这里可以根据需要添加一些示例约束和荷载用于演示
-            if len(points) > 0:
-                # 在Z坐标最小的几个点添加固定约束
-                z_coords = points[:, 2]
-                z_min = np.min(z_coords)
-                bottom_nodes = np.where(np.abs(z_coords - z_min) < 100)[0]  # 100mm容差
-                
-                constraint_count = 0
-                for node_idx in bottom_nodes[:20]:  # 限制约束数量
-                    point = points[node_idx]
-                    self.add_constraint('fixed', tuple(point))
-                    constraint_count += 1
-                
-                print(f"添加了{constraint_count}个底部固定约束")
-                
-                # 在顶部添加一些示例荷载
-                z_max = np.max(z_coords)
-                top_nodes = np.where(np.abs(z_coords - z_max) < 100)[0]
-                
-                load_count = 0
-                for node_idx in top_nodes[:10]:  # 限制荷载数量
-                    point = points[node_idx]
-                    self.add_load('force', tuple(point), 10.0, (0, 0, -1))  # 10kN向下
-                    load_count += 1
-                
-                print(f"添加了{load_count}个顶部荷载")
+            print(f"添加了{constraint_count}个底部固定约束")
             
-                print(f"从FPN创建网格完成!")
-                print(f"  节点: {len(points)}个")
-                print(f"  单元: {len(cell_types)}个") 
-                print(f"  材料: {len(self.materials)}种")
-                print(f"  约束: {len(self.constraints)}个")
-                print(f"  荷载: {len(self.loads)}个")
+            # 在顶部添加一些示例荷载
+            z_max = np.max(z_coords)
+            top_nodes = np.where(np.abs(z_coords - z_max) < 100)[0]
             
-        except Exception as e:
-            # 🔧 崩溃保护：捕获所有异常
-            error_msg = f"FPN网格创建过程中发生崩溃: {e}"
-            print(f"❌ {error_msg}")
-            import traceback
-            traceback.print_exc()
+            load_count = 0
+            for node_idx in top_nodes[:10]:  # 限制荷载数量
+                point = points[node_idx]
+                self.add_load('force', tuple(point), 10.0, (0, 0, -1))  # 10kN向下
+                load_count += 1
             
-            # 尝试创建备用网格以防止程序完全崩溃
-            try:
-                print("尝试创建备用示例网格...")
-                self.create_sample_mesh()
-                print("备用网格创建成功")
-            except Exception as fallback_e:
-                print(f"备用网格创建也失败: {fallback_e}")
-                # 最后的保护措施：确保有一个最小可用状态
-                self.mesh = None
-                print("设置为空网格状态以防止程序崩溃")
-    
+            print(f"添加了{load_count}个顶部荷载")
+        
+        print(f"从FPN创建网格完成!")
+        print(f"  节点: {len(points)}个")
+        print(f"  单元: {len(cell_types)}个") 
+        print(f"  材料: {len(self.materials)}种")
+        print(f"  约束: {len(self.constraints)}个")
+        print(f"  荷载: {len(self.loads)}个")
+
+        # 处理分析步信息
+        self.analysis_stages = fpn_data.get('analysis_stages', [])
+        if self.analysis_stages:
+            print(f"发现 {len(self.analysis_stages)} 个分析步:")
+            for stage in self.analysis_stages:
+                print(f"  - {stage['name']} (ID: {stage['id']})")
+
+        # 设置当前分析步为第一个
+        self.current_stage_index = 0
+
+    def get_material_color(self, material_id: int, material_name: str) -> tuple:
+        """根据材料ID和名称分配颜色"""
+        # 专业的岩土工程材料颜色方案
+        color_mapping = {
+            # 土层颜色（基于地质学标准）
+            '细砂': (1.0, 1.0, 0.3),      # 黄色
+            '粉土': (0.8, 0.6, 0.4),      # 棕色
+            '粉质粘土': (0.8, 0.4, 0.2),  # 橙棕色
+            '粘土': (0.6, 0.3, 0.1),      # 深棕色
+            '卵石': (0.5, 0.5, 0.5),      # 灰色
+            '砂土': (1.0, 0.8, 0.2),      # 金黄色
+            '淤泥': (0.4, 0.4, 0.3),      # 暗灰绿
+
+            # 结构材料颜色
+            '围护墙': (0.7, 0.7, 0.7),    # 浅灰色
+            '地连墙': (0.6, 0.6, 0.6),    # 中灰色
+            '支护墙': (0.5, 0.5, 0.5),    # 深灰色
+            '混凝土': (0.8, 0.8, 0.8),    # 浅灰色
+            '钢材': (0.3, 0.3, 0.4),      # 钢蓝色
+        }
+
+        # 根据材料名称匹配颜色
+        for key, color in color_mapping.items():
+            if key in material_name:
+                return color
+
+        # 如果没有匹配，根据材料ID生成颜色
+        # 使用HSV色彩空间生成区分度高的颜色
+        import colorsys
+        hue = (material_id * 0.618033988749895) % 1.0  # 黄金比例，确保颜色分布均匀
+        saturation = 0.7
+        value = 0.8
+        rgb = colorsys.hsv_to_rgb(hue, saturation, value)
+        return rgb
+
+    def get_analysis_stages(self) -> list:
+        """获取所有分析步"""
+        return getattr(self, 'analysis_stages', [])
+
+    def get_current_analysis_stage(self) -> dict:
+        """获取当前分析步"""
+        if hasattr(self, 'analysis_stages') and self.analysis_stages:
+            index = getattr(self, 'current_stage_index', 0)
+            if 0 <= index < len(self.analysis_stages):
+                return self.analysis_stages[index]
+        return None
+
+    def set_current_analysis_stage(self, stage_index: int):
+        """设置当前分析步（通过索引）"""
+        if hasattr(self, 'analysis_stages') and 0 <= stage_index < len(self.analysis_stages):
+            self.current_stage_index = stage_index
+            stage = self.analysis_stages[stage_index]
+            print(f"切换到分析步: {stage['name']}")
+
+            # 根据分析步更新显示的物理组
+            self.update_display_for_stage(stage)
+
+    def update_display_for_stage(self, stage: dict):
+        """根据分析步更新显示"""
+        stage_name = stage.get('name', '')
+        stage_id = stage.get('id', 0)
+        active_materials = stage.get('active_materials', [])
+        active_loads = stage.get('active_loads', [])
+        active_boundaries = stage.get('active_boundaries', [])
+
+        print(f"分析分析步: ID={stage_id}, 名称='{stage_name}', 类型={stage.get('type', 0)}")
+        print(f"激活的材料组: {active_materials}")
+        print(f"激活的荷载组: {active_loads}")
+        print(f"激活的边界组: {active_boundaries}")
+
+        # 根据分析步的激活材料组过滤显示
+        if active_materials:
+            # 只显示激活的材料组
+            self.filter_materials_by_stage(active_materials)
+        else:
+            # 如果没有指定材料组，根据分析步名称智能判断
+            self.intelligent_material_selection(stage_name)
+
+        # 重新显示网格
+        if hasattr(self, 'mesh') and self.mesh:
+            self.display_mesh()
+
+    def determine_active_groups_for_stage(self, stage: dict) -> dict:
+        """根据分析步确定需要激活的物理组"""
+        active_groups = {
+            'materials': [],
+            'loads': [],
+            'boundaries': []
+        }
+
+        if not stage:
+            return active_groups
+
+        stage_name = stage.get('name', '').lower()
+
+        # 智能判断逻辑：
+        # 1. 基于分析步名称的关键词匹配
+        if '初始' in stage_name or 'initial' in stage_name:
+            # 初始应力分析：显示所有土体材料
+            active_groups['materials'] = [mid for mid, mat in self.materials.items()
+                                        if mat['properties']['type'] == 'soil']
+        elif '开挖' in stage_name or 'excavation' in stage_name:
+            # 开挖分析：显示剩余土体和支护结构
+            active_groups['materials'] = list(self.materials.keys())
+        elif '支护' in stage_name or '围护' in stage_name:
+            # 支护分析：重点显示结构材料
+            active_groups['materials'] = [mid for mid, mat in self.materials.items()
+                                        if mat['properties']['type'] == 'concrete']
+        else:
+            # 默认显示所有材料
+            active_groups['materials'] = list(self.materials.keys())
+
+        return active_groups
+
+    def filter_materials_by_stage(self, active_materials: list):
+        """根据分析步过滤材料显示"""
+        print(f"根据分析步过滤材料: {active_materials}")
+
+        # 创建网格集合ID到实际材料ID的映射
+        mesh_to_material_mapping = {}
+        if hasattr(self, 'fpn_data') and self.fpn_data:
+            mesh_sets = self.fpn_data.get('mesh_sets', {})
+
+            # 从FPN文件中我们知道的映射关系
+            # 网格集合ID -> 实际材料ID的映射
+            known_mappings = {
+                1: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],  # 初始地应力阶段的所有土体材料
+                89: [12],  # 围护墙材料
+                0: []      # 空集合或删除操作
+            }
+
+            # 如果激活材料包含已知的映射
+            mapped_materials = set()
+            for mesh_id in active_materials:
+                if mesh_id in known_mappings:
+                    mapped_materials.update(known_mappings[mesh_id])
+                elif mesh_id in mesh_sets:
+                    # 直接使用网格集合ID作为材料ID
+                    mapped_materials.add(mesh_id)
+
+            self.current_active_materials = mapped_materials
+        else:
+            # 没有网格集合信息，直接使用激活材料列表
+            self.current_active_materials = set(active_materials)
+
+        print(f"映射后的激活材料: {self.current_active_materials}")
+
+    def intelligent_material_selection(self, stage_name: str):
+        """根据分析步名称智能选择材料"""
+        stage_name_lower = stage_name.lower()
+
+        if '初始' in stage_name_lower or 'initial' in stage_name_lower:
+            # 初始应力分析：显示所有土体材料
+            print("智能选择: 初始应力阶段 - 所有土体材料")
+            self.current_active_materials = set()
+            for mat_id, mat_info in self.materials.items():
+                if mat_info['properties']['type'] == 'soil':
+                    self.current_active_materials.add(mat_id)
+
+        elif '开挖' in stage_name_lower or 'excavation' in stage_name_lower:
+            # 开挖分析：显示土体材料和开挖相关荷载
+            print("智能选择: 开挖阶段 - 土体材料 + 开挖荷载")
+            self.current_active_materials = set()
+            for mat_id, mat_info in self.materials.items():
+                if mat_info['properties']['type'] == 'soil':
+                    self.current_active_materials.add(mat_id)
+
+        elif '支护' in stage_name_lower or '围护' in stage_name_lower or '墙' in stage_name_lower:
+            # 支护分析：显示结构材料
+            print("智能选择: 支护阶段 - 结构材料")
+            self.current_active_materials = set()
+            for mat_id, mat_info in self.materials.items():
+                if mat_info['properties']['type'] == 'concrete':
+                    self.current_active_materials.add(mat_id)
+
+        else:
+            # 默认显示所有材料
+            print("智能选择: 默认 - 所有材料")
+            self.current_active_materials = set(self.materials.keys())
+
+        print(f"智能选择结果: {self.current_active_materials}")
+
     def load_mesh(self, file_path: str):
         """加载网格文件"""
         try:
@@ -1548,33 +1367,37 @@ class PreProcessor:
         # 检查是否有材料ID信息
         if hasattr(self.mesh, 'cell_data') and 'MaterialID' in self.mesh.cell_data:
             # 根据材料ID分层显示
-            material_ids = np.unique(self.mesh.cell_data['MaterialID'])
-            print(f"发现材料ID: {sorted(list(material_ids))}")
+            all_material_ids = np.unique(self.mesh.cell_data['MaterialID'])
+
+            # 过滤材料ID：只显示当前分析步激活的材料
+            if hasattr(self, 'current_active_materials') and self.current_active_materials:
+                material_ids = [mid for mid in all_material_ids if mid in self.current_active_materials]
+                print(f"分析步过滤后的材料ID: {sorted(list(material_ids))} (从 {sorted(list(all_material_ids))} 中过滤)")
+            else:
+                material_ids = all_material_ids
+                print(f"显示所有材料ID: {sorted(list(material_ids))}")
+
             print(f"网格单元数: {self.mesh.n_cells}")
             print(f"材料ID数组长度: {len(self.mesh.cell_data['MaterialID'])}")
             
-            # 统计每种材料的单元数量
-            material_counts = {}
+            # 使用材料字典中的颜色信息
+            material_colors = {}
             for mat_id in material_ids:
-                count = np.sum(self.mesh.cell_data['MaterialID'] == mat_id)
-                material_counts[mat_id] = count
-            print(f"各材料单元数量: {material_counts}")
-            
-            # 定义材料颜色和透明度映射 - 高对比度土层颜色方案
-            material_colors = {
-                1: {'color': [0.8, 0.4, 0.1], 'opacity': 0.6, 'name': 'Fill'},           # 深橙色 - 填土
-                2: {'color': [0.9, 0.7, 0.3], 'opacity': 0.7, 'name': 'Silty Clay'},     # 金黄色 - 粉质粘土  
-                3: {'color': [0.4, 0.4, 0.4], 'opacity': 0.5, 'name': 'Muddy Soil'},     # 深灰色 - 淤泥质土
-                4: {'color': [0.9, 0.3, 0.3], 'opacity': 0.7, 'name': 'Clay'},           # 亮红色 - 粘土
-                5: {'color': [1.0, 0.9, 0.2], 'opacity': 0.6, 'name': 'Sand'},           # 鲜黄色 - 砂土
-                6: {'color': [0.2, 0.4, 0.8], 'opacity': 0.8, 'name': 'Bedrock'},        # 蓝色 - 基岩
-                7: {'color': [0.3, 0.8, 0.3], 'opacity': 0.6, 'name': 'Soil Layer 7'},   # 鲜绿色 - 土层7
-                8: {'color': [0.8, 0.3, 0.8], 'opacity': 0.6, 'name': 'Soil Layer 8'},   # 品红色 - 土层8
-                9: {'color': [0.1, 0.9, 0.9], 'opacity': 0.6, 'name': 'Soil Layer 9'},   # 亮青色 - 土层9
-                10: {'color': [0.6, 0.6, 0.6], 'opacity': 0.9, 'name': 'Concrete Pile'}, # 中灰色 - 混凝土桩
-                11: {'color': [0.95, 0.95, 0.95], 'opacity': 0.95, 'name': 'Steel Support'}, # 亮银色 - 钢支撑
-                12: {'color': [0.75, 0.75, 0.75], 'opacity': 0.85, 'name': 'Concrete'}   # 浅灰 - 混凝土
-            }
+                if mat_id in self.materials:
+                    material_info = self.materials[mat_id]
+                    material_colors[mat_id] = {
+                        'color': material_info['properties']['color'],
+                        'opacity': 0.8 if 'concrete' in material_info['properties']['type'] else 0.6,
+                        'name': material_info['name']
+                    }
+                else:
+                    # 回退到默认颜色
+                    color = self.get_material_color(mat_id, f'Material_{mat_id}')
+                    material_colors[mat_id] = {
+                        'color': color,
+                        'opacity': 0.7,
+                        'name': f'Material_{mat_id}'
+                    }
             
             layer_count = 0
             for mat_id in material_ids:
@@ -1607,32 +1430,16 @@ class PreProcessor:
                                 name=f'material_{mat_id}'
                             )
                         else:  # 土体材料
-                            # 🔧 安全的半透明效果（防崩溃）
-                            try:
-                                # 限制透明度范围，避免渲染问题
-                                safe_opacity = max(0.1, min(0.95, mat_props['opacity']))
-                                
-                                self.plotter.add_mesh(
-                                    mat_mesh,
-                                    color=mat_props['color'],
-                                    opacity=safe_opacity,
-                                    show_edges=True,
-                                    edge_color='white',
-                                    line_width=0.5,
-                                    name=f'material_{mat_id}'
-                                )
-                            except Exception as e:
-                                print(f"材料层{mat_id}透明渲染失败，使用不透明渲染: {e}")
-                                # 备用：不透明渲染
-                                self.plotter.add_mesh(
-                                    mat_mesh,
-                                    color=mat_props['color'],
-                                    opacity=1.0,  # 不透明
-                                    show_edges=True,
-                                    edge_color='white',
-                                    line_width=0.5,
-                                    name=f'material_{mat_id}_fallback'
-                                )
+                            # 半透明效果
+                            self.plotter.add_mesh(
+                                mat_mesh,
+                                color=mat_props['color'],
+                                opacity=mat_props['opacity'],
+                                show_edges=True,
+                                edge_color='white',
+                                line_width=0.5,
+                                name=f'material_{mat_id}'
+                            )
                         
                         layer_count += 1
                         print(f"显示材料层 {mat_id}: {mat_props['name']}, 单元数: {mat_mesh.n_cells}")
@@ -1718,7 +1525,7 @@ class PreProcessor:
                 color=[0.85, 0.85, 0.9],    # 底部银灰色
                 top=[0.1, 0.2, 0.4]         # 顶部深蓝色
             )
-            print("Abaqus风格渐变背景设置成功")
+            print("✅ Abaqus风格渐变背景设置成功")
         except Exception as e:
             # 如果渐变不支持，使用Abaqus风格的单色背景
             self.plotter.set_background([0.45, 0.5, 0.65])  # 类似Abaqus的中性蓝灰色
@@ -1786,28 +1593,52 @@ class PreProcessor:
         # 检查是否有材料ID信息
         if hasattr(self.mesh, 'cell_data') and 'MaterialID' in self.mesh.cell_data:
             # 根据材料ID分层显示
-            material_ids = np.unique(self.mesh.cell_data['MaterialID'])
+            all_material_ids = np.unique(self.mesh.cell_data['MaterialID'])
+
+            # 过滤材料ID：只显示当前分析步激活的材料
+            if hasattr(self, 'current_active_materials') and self.current_active_materials:
+                material_ids = [mid for mid in all_material_ids if mid in self.current_active_materials]
+                print(f"线框模式 - 分析步过滤后的材料ID: {sorted(list(material_ids))}")
+            else:
+                material_ids = all_material_ids
+                print(f"线框模式 - 显示所有材料ID: {sorted(list(material_ids))}")
             
-            # 定义材料颜色映射 - 与半透明模式保持一致
-            material_colors = {
-                1: [0.6, 0.3, 0.1], 2: [1.0, 0.6, 0.2], 3: [0.5, 0.5, 0.5], 4: [0.8, 0.2, 0.2],
-                5: [1.0, 1.0, 0.3], 6: [0.1, 0.3, 0.6], 7: [0.4, 0.8, 0.4], 8: [0.8, 0.4, 0.8],
-                9: [0.2, 0.8, 0.8], 10: [0.7, 0.7, 0.7], 11: [0.9, 0.9, 0.9], 12: [0.8, 0.8, 0.8]
-            }
+            # 使用材料字典中的颜色信息
+            material_colors = {}
+            for mat_id in material_ids:
+                if mat_id in self.materials:
+                    material_info = self.materials[mat_id]
+                    material_colors[mat_id] = {
+                        'color': material_info['properties']['color'],
+                        'name': material_info['name']
+                    }
+                else:
+                    # 回退到默认颜色
+                    color = self.get_material_color(mat_id, f'Material_{mat_id}')
+                    material_colors[mat_id] = {
+                        'color': color,
+                        'name': f'Material_{mat_id}'
+                    }
             
             for mat_id in material_ids:
                 try:
                     mat_mesh = self.mesh.threshold([mat_id - 0.5, mat_id + 0.5], scalars='MaterialID')
                     if mat_mesh.n_points > 0:
-                        color = material_colors.get(mat_id, [0.7, 0.8, 1.0])
+                        # 获取颜色和名称
+                        mat_info = material_colors[mat_id]
+                        color = mat_info['color']
+                        name = mat_info['name']
+
                         self.plotter.add_mesh(
                             mat_mesh,
                             style='wireframe',
                             color=color,
                             line_width=2,
                             opacity=1.0,
-                            name=f'wireframe_material_{mat_id}'
+                            name=f'wireframe_material_{mat_id}',
+                            label=name
                         )
+                        print(f"显示材料层 {mat_id}: {name}, 线框模式, 单元数: {mat_mesh.n_cells}")
                 except Exception as e:
                     print(f"线框模式显示材料{mat_id}时出错: {e}")
         else:
@@ -1842,22 +1673,46 @@ class PreProcessor:
         # 检查是否有材料ID信息
         if hasattr(self.mesh, 'cell_data') and 'MaterialID' in self.mesh.cell_data:
             # 根据材料ID分层显示
-            material_ids = np.unique(self.mesh.cell_data['MaterialID'])
+            all_material_ids = np.unique(self.mesh.cell_data['MaterialID'])
+
+            # 过滤材料ID：只显示当前分析步激活的材料
+            if hasattr(self, 'current_active_materials') and self.current_active_materials:
+                material_ids = [mid for mid in all_material_ids if mid in self.current_active_materials]
+                print(f"实体模式 - 分析步过滤后的材料ID: {sorted(list(material_ids))}")
+            else:
+                material_ids = all_material_ids
+                print(f"实体模式 - 显示所有材料ID: {sorted(list(material_ids))}")
             
-            # 定义材料颜色映射 - 与半透明模式保持一致
-            material_colors = {
-                1: [0.6, 0.3, 0.1], 2: [1.0, 0.6, 0.2], 3: [0.5, 0.5, 0.5], 4: [0.8, 0.2, 0.2],
-                5: [1.0, 1.0, 0.3], 6: [0.1, 0.3, 0.6], 7: [0.4, 0.8, 0.4], 8: [0.8, 0.4, 0.8],
-                9: [0.2, 0.8, 0.8], 10: [0.7, 0.7, 0.7], 11: [0.9, 0.9, 0.9], 12: [0.8, 0.8, 0.8]
-            }
+            # 使用材料字典中的颜色信息
+            material_colors = {}
+            for mat_id in material_ids:
+                if mat_id in self.materials:
+                    material_info = self.materials[mat_id]
+                    material_colors[mat_id] = {
+                        'color': material_info['properties']['color'],
+                        'name': material_info['name'],
+                        'type': material_info['properties']['type']
+                    }
+                else:
+                    # 回退到默认颜色
+                    color = self.get_material_color(mat_id, f'Material_{mat_id}')
+                    material_colors[mat_id] = {
+                        'color': color,
+                        'name': f'Material_{mat_id}',
+                        'type': 'soil'
+                    }
             
             for mat_id in material_ids:
                 try:
                     mat_mesh = self.mesh.threshold([mat_id - 0.5, mat_id + 0.5], scalars='MaterialID')
                     if mat_mesh.n_points > 0:
-                        color = material_colors.get(mat_id, [0.7, 0.8, 1.0])
-                        
-                        if mat_id in [10, 11, 12]:  # 支护结构
+                        # 获取颜色、名称和类型
+                        mat_info = material_colors[mat_id]
+                        color = mat_info['color']
+                        name = mat_info['name']
+                        mat_type = mat_info['type']
+
+                        if mat_type == 'concrete':  # 结构材料
                             # 金属/混凝土效果
                             self.plotter.add_mesh(
                                 mat_mesh,
@@ -1867,7 +1722,8 @@ class PreProcessor:
                                 pbr=True,
                                 opacity=1.0,
                                 show_edges=False,
-                                name=f'solid_material_{mat_id}'
+                                name=f'solid_material_{mat_id}',
+                                label=name
                             )
                         else:  # 土体材料
                             # 普通实体效果
@@ -1878,7 +1734,8 @@ class PreProcessor:
                                 show_edges=True,
                                 edge_color='black',
                                 line_width=0.5,
-                                name=f'solid_material_{mat_id}'
+                                name=f'solid_material_{mat_id}',
+                                label=name
                             )
                 except Exception as e:
                     print(f"实体模式显示材料{mat_id}时出错: {e}")
@@ -1948,21 +1805,6 @@ class PreProcessor:
         """设置当前分析步ID"""
         self.current_stage_id = stage_id
         print(f"设置当前分析步ID: {stage_id}")
-        
-        # 立即更新显示以反映新的分析步
-        self.display_analysis_stage_groups()
-        
-        # 如果有网格，重新显示以应用新的组过滤
-        if self.mesh:
-            self.display_mesh()
-    
-    def get_available_analysis_stages(self):
-        """获取所有可用的分析步"""
-        if not hasattr(self, 'fpn_data') or not self.fpn_data:
-            return []
-            
-        stages = self.fpn_data.get('analysis_stages', [])
-        return [(stage.get('id'), stage.get('name', f"Stage {stage.get('id')}")) for stage in stages]
     
     def get_current_analysis_stage(self):
         """获取当前选择的分析步"""
@@ -1983,135 +1825,73 @@ class PreProcessor:
         return None
     
     def determine_active_groups_for_stage(self, stage):
-        """根据分析步确定需要激活的物理组，正确处理MADD/MDEL等命令"""
-        
-        fpn_data = getattr(self, 'fpn_data', {})
-        if not fpn_data or 'analysis_stages' not in fpn_data or not stage:
-            return {'materials': [], 'loads': [], 'boundaries': []}
-
-        stage_id = stage.get('id')
-        stage_name = stage.get('name')
-        
-        # 初始化所有组为激活状态（基于FPN文件中的MADD命令）
-        active_materials = set()
-        active_loads = set()
-        active_boundaries = set()
-        
-        # 收集所有分析步的物理组命令
-        all_physics_commands = []
-        for s in fpn_data.get('analysis_stages', []):
-            stage_commands = s.get('group_commands', [])
-            all_physics_commands.extend(stage_commands)
-        
-        print(f"总共收集到 {len(all_physics_commands)} 个物理组命令")
-        
-        # 按照阶段顺序应用所有命令到当前阶段
-        for cmd in sorted(all_physics_commands, key=lambda x: x.get('stage_id', 0)):
-            cmd_stage_id = cmd.get('stage_id', 0)
-            
-            # 只应用到当前阶段为止的命令
-            if cmd_stage_id <= stage_id:
-                command = cmd.get('command', '')
-                group_ids = cmd.get('group_ids', [])
-                
-                if command == 'MADD':  # 添加材料组
-                    for gid in group_ids:
-                        active_materials.add(gid)
-                    print(f"  阶段{cmd_stage_id}: MADD 激活材料组 {group_ids}")
-                    
-                elif command == 'MDEL':  # 删除材料组
-                    for gid in group_ids:
-                        active_materials.discard(gid)
-                    print(f"  阶段{cmd_stage_id}: MDEL 删除材料组 {group_ids}")
-                    
-                elif command == 'LADD':  # 添加荷载组
-                    for gid in group_ids:
-                        active_loads.add(gid)
-                    print(f"  阶段{cmd_stage_id}: LADD 激活荷载组 {group_ids}")
-                    
-                elif command == 'LDEL':  # 删除荷载组
-                    for gid in group_ids:
-                        active_loads.discard(gid)
-                    print(f"  阶段{cmd_stage_id}: LDEL 删除荷载组 {group_ids}")
-                    
-                elif command == 'BADD':  # 添加边界组
-                    for gid in group_ids:
-                        active_boundaries.add(gid)
-                    print(f"  阶段{cmd_stage_id}: BADD 激活边界组 {group_ids}")
-                    
-                elif command == 'BDEL':  # 删除边界组
-                    for gid in group_ids:
-                        active_boundaries.discard(gid)
-                    print(f"  阶段{cmd_stage_id}: BDEL 删除边界组 {group_ids}")
-        
-        # 确保至少有基本的组
-        if not active_materials:
-            active_materials = {1}  # 默认材料组
-        if not active_boundaries:
-            active_boundaries = {1}  # 默认边界组
-        
+        """根据分析步确定需要激活的物理组"""
         active_groups = {
-            'materials': list(active_materials),
-            'loads': list(active_loads),
-            'boundaries': list(active_boundaries)
+            'materials': [],
+            'loads': [],
+            'boundaries': []
         }
         
-        print(f"分析步 {stage_id} ('{stage_name}') 的最终激活物理组: {active_groups}")
+        if not hasattr(self, 'fpn_data') or not stage:
+            return active_groups
+            
+        fpn_data = self.fpn_data
+        stage_id = stage.get('id', 0)
+        stage_type = stage.get('type', 0)
+        stage_name = stage.get('name', '').lower()
+        
+        # 智能判断逻辑 - 基坑工程专用
+        print(f"分析分析步: ID={stage_id}, 名称='{stage_name}', 类型={stage_type}")
+        
+        if '初始' in stage_name or 'initial' in stage_name or stage_id == 1:
+            # 初始状态：显示所有土层材料和边界约束
+            active_groups['materials'] = [1]  # 主要土体材料组
+            active_groups['boundaries'] = [1]  # 主要边界组
+            print("智能选择: 初始状态 - 土体材料 + 边界约束")
+            
+        elif '开挖' in stage_name or 'excavat' in stage_name or stage_type == 1:
+            # 开挖阶段：重点显示土体材料和开挖相关荷载
+            active_groups['materials'] = [1]  # 土体材料组
+            active_groups['loads'] = [1]      # 开挖荷载组
+            active_groups['boundaries'] = [1] # 边界约束
+            print("智能选择: 开挖阶段 - 土体材料 + 开挖荷载")
+            
+        elif '支撑' in stage_name or 'support' in stage_name or stage_type == 2:
+            # 支撑安装：显示结构材料和支撑相关荷载
+            active_groups['materials'] = [1]  # 包含支撑的材料组
+            active_groups['loads'] = [1]      # 支撑荷载
+            active_groups['boundaries'] = [1] # 支撑边界
+            print("智能选择: 支撑安装 - 结构材料 + 支撑荷载")
+            
+        elif '底板' in stage_name or 'slab' in stage_name or stage_type == 3:
+            # 底板施工：显示混凝土材料和施工荷载
+            active_groups['materials'] = [1]  # 混凝土材料组
+            active_groups['loads'] = [1]      # 施工荷载
+            active_groups['boundaries'] = [1] # 底板边界
+            print("智能选择: 底板施工 - 混凝土材料 + 施工荷载")
+            
+        elif '最终' in stage_name or 'final' in stage_name:
+            # 最终状态：显示所有组
+            active_groups['materials'] = list(fpn_data.get('material_groups', {}).keys()) or [1]
+            active_groups['loads'] = list(fpn_data.get('load_groups', {}).keys()) or [1]
+            active_groups['boundaries'] = list(fpn_data.get('boundary_groups', {}).keys()) or [1]
+            print("智能选择: 最终状态 - 显示所有组")
+            
+        else:
+            # 默认情况：显示第一个组
+            active_groups['materials'] = [1]
+            active_groups['loads'] = [1] 
+            active_groups['boundaries'] = [1]
+            print("智能选择: 默认 - 显示主要组")
+        
         return active_groups
     
     def filter_display_by_groups(self, active_groups):
         """根据激活的物理组过滤显示内容"""
+        # 这个方法可以进一步根据激活的组来调整显示
+        # 例如高亮显示激活的组，或者隐藏非激活的组
         print(f"应用物理组过滤: {active_groups}")
-        
-        if not PYVISTA_AVAILABLE or not self.mesh:
-            return
-            
-        # 根据激活的材料组调整显示
-        active_materials = active_groups.get('materials', [])
-        if active_materials and hasattr(self.mesh, 'cell_data') and 'MaterialID' in self.mesh.cell_data:
-            import numpy as np
-            
-            # 获取所有材料ID
-            all_material_ids = np.unique(self.mesh.cell_data['MaterialID'])
-            
-            print(f"所有材料ID: {sorted(list(all_material_ids))}")
-            print(f"激活的材料组: {active_materials}")
-            
-            # 重新显示网格以应用物理组过滤
-            try:
-                # 创建材料ID的掩码
-                material_mask = np.isin(self.mesh.cell_data['MaterialID'], active_materials)
-                
-                if hasattr(self, 'plotter') and self.plotter:
-                    # 清除现有显示
-                    self.plotter.clear()
-                    
-                    # 显示激活的材料（正常颜色）
-                    if np.any(material_mask):
-                        active_mesh = self.mesh.extract_cells(material_mask)
-                        active_scalars = active_mesh.cell_data['MaterialID'] if 'MaterialID' in active_mesh.cell_data else None
-                        self.plotter.add_mesh(active_mesh, scalars=active_scalars, 
-                                            cmap='viridis', opacity=0.8, name='active_materials')
-                        print(f"显示激活材料: {active_materials}")
-                    
-                    # 显示非激活的材料（淡化）
-                    if np.any(~material_mask):
-                        inactive_mesh = self.mesh.extract_cells(~material_mask)
-                        self.plotter.add_mesh(inactive_mesh, color='gray', 
-                                            opacity=0.2, name='inactive_materials')
-                        print(f"淡化显示非激活材料")
-                        
-                    self.plotter.render()
-                    
-            except Exception as e:
-                print(f"应用物理组过滤时出错: {e}")
-        
-        # 更新显示
-        if hasattr(self.plotter, 'render_window'):
-            try:
-                self.plotter.render_window.Render()
-            except:
-                pass
+        # 具体实现可以根据需要调整网格显示的透明度、颜色等
         
     def add_constraint(self, constraint_type: str, location: tuple, **kwargs):
         """添加约束条件"""
