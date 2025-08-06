@@ -26,6 +26,7 @@ sys.path.insert(0, str(project_root))
 from example2.modules.preprocessor import PreProcessor
 from example2.modules.analyzer import Analyzer  
 from example2.modules.postprocessor import PostProcessor
+from example2.utils.error_handler import ErrorHandler, ErrorLevel
 
 
 class MainWindow(QMainWindow):
@@ -335,11 +336,9 @@ class MainWindow(QMainWindow):
         analysis_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         analysis_layout = QVBoxLayout(analysis_group)
         
-        self.analysis_type = QComboBox()
-        self.analysis_type.addItems([
-            "静力分析", "模态分析", "非线性分析", "瞬态分析", "特征值分析"
-        ])
-        analysis_layout.addWidget(self.analysis_type)
+        self.analysis_type_label = QLabel("非线性静力分析")
+        self.analysis_type_label.setStyleSheet("font-weight: bold; color: #007bff;")
+        analysis_layout.addWidget(self.analysis_type_label)
         
         layout.addWidget(analysis_group)
         
@@ -1027,13 +1026,20 @@ class MainWindow(QMainWindow):
         )
         if file_path:
             if self.operation_manager:
+                # 显示进度条
+                self.overall_progress.setValue(0)
+                self.overall_progress.show()
+                self.step_progress.setValue(0)
+                self.step_progress.show()
+                
                 # 使用多线程异步处理
-                self.status_label.setText(f"正在加载FPN文件: {Path(file_path).name}")
+                self.status_label.setText(f"正在解析FPN文件: {Path(file_path).name}")
 
                 self.operation_manager.parse_fpn_file_async(
                     file_path,
                     success_callback=self.on_fpn_import_success,
                     error_callback=self.on_fpn_import_error,
+                    progress_callback=self.on_fpn_import_progress,
                     show_progress=True
                 )
             else:
@@ -1050,6 +1056,9 @@ class MainWindow(QMainWindow):
     def on_fpn_import_success(self, fpn_data):
         """FPN文件导入成功回调"""
         try:
+            # 隐藏进度条
+            self.overall_progress.hide()
+            self.step_progress.hide()
             # 将解析结果设置到预处理器
             self.preprocessor.fpn_data = fpn_data
 
@@ -1085,9 +1094,60 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.on_fpn_import_error("ProcessingError", f"处理FPN数据失败: {e}")
 
+    def on_fpn_import_progress(self, progress_info):
+        """FPN文件导入进度回调"""
+        try:
+            if isinstance(progress_info, dict):
+                # 更新进度条
+                overall_progress = progress_info.get('overall_progress', 0)
+                current_section = progress_info.get('current_section', '')
+                processed_lines = progress_info.get('processed_lines', 0)
+                total_lines = progress_info.get('total_lines', 0)
+                
+                self.overall_progress.setValue(int(overall_progress))
+                
+                if total_lines > 0:
+                    step_progress = (processed_lines / total_lines) * 100
+                    self.step_progress.setValue(int(step_progress))
+                
+                # 更新状态文本
+                status_text = f"解析FPN文件 - {current_section}: {processed_lines}/{total_lines} 行"
+                self.status_label.setText(status_text)
+                
+        except Exception as e:
+            print(f"进度回调处理失败: {e}")
+
     def on_fpn_import_error(self, error_type, error_message):
         """FPN文件导入失败回调"""
-        QMessageBox.critical(self, "导入失败", f"FPN文件导入失败:\n{error_message}")
+        # 隐藏进度条
+        self.overall_progress.hide()
+        self.step_progress.hide()
+        
+        # 使用专业错误处理器
+        error_handler = ErrorHandler()
+        
+        # 根据错误类型显示专业错误信息
+        if "encoding" in error_message.lower() or "decode" in error_message.lower():
+            error_handler.show_user_friendly_error(
+                self, "PARSE_ENCODING_ERROR", 
+                "FPN文件编码问题", error_message
+            )
+        elif "node" in error_message.lower():
+            error_handler.show_user_friendly_error(
+                self, "PARSE_DATA_INCOMPLETE",
+                "FPN文件缺少节点数据", error_message
+            )
+        elif "element" in error_message.lower() or "tetra" in error_message.lower():
+            error_handler.show_user_friendly_error(
+                self, "PARSE_DATA_INCOMPLETE", 
+                "FPN文件缺少单元数据", error_message
+            )
+        else:
+            error_handler.show_user_friendly_error(
+                self, "PARSE_FORMAT_ERROR",
+                "FPN文件格式问题", f"{error_type}: {error_message}"
+            )
+        
         self.status_label.setText("FPN文件导入失败")
     
     def import_mesh(self):
@@ -1172,7 +1232,24 @@ class MainWindow(QMainWindow):
         
         self.status_label.setText("分析完成")
         self.analysis_log.append("分析成功完成！")
-        
+
+        # 修复：将分析结果传递给后处理模块
+        if hasattr(self, 'analysis_results') and self.analysis_results:
+            # 假设 self.analysis_results 是一个包含所有步骤结果的列表
+            # 我们传递最后一个步骤的结果
+            last_result = self.analysis_results[-1]
+            model_data = self.preprocessor.fpn_data
+            
+            if model_data and last_result:
+                self.postprocessor.set_analysis_results(model_data, last_result)
+                self.status_label.setText("分析完成，结果已加载到后处理模块。")
+            else:
+                self.status_label.setText("分析完成，但无法加载结果（缺少数据）。")
+        else:
+            # 如果没有真实结果，加载示例结果用于演示
+            self.postprocessor.create_sample_results()
+            self.status_label.setText("分析完成，已加载示例结果。")
+
         # 切换到后处理标签页
         self.workflow_tabs.setCurrentIndex(2)
         
@@ -1260,8 +1337,13 @@ class MainWindow(QMainWindow):
         self.analysis_stage_combo.addItem("初始状态")
         analysis_stages = fpn_data.get('analysis_stages', [])
         for stage in analysis_stages:
-            stage_name = stage.get('name', f'分析步 {stage.get("id", "?")}')
-            self.analysis_stage_combo.addItem(f"{stage_name} (ID: {stage.get('id', '?')})")
+            if isinstance(stage, dict):
+                stage_name = stage.get('name', f'分析步 {stage.get("id", "?")}')
+                stage_id = stage.get('id', '?')
+                self.analysis_stage_combo.addItem(f"{stage_name} (ID: {stage_id})")
+            else:
+                # 处理stage不是字典的情况（例如直接是ID）
+                self.analysis_stage_combo.addItem(f"分析步 ID: {stage}")
     
     def on_material_group_changed(self, text):
         """材料组选择改变"""

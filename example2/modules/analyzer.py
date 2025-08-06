@@ -510,7 +510,7 @@ class Analyzer(QObject):
         super().__init__()
         
         # 分析配置
-        self.analysis_type = 'static'
+        self.analysis_type = 'nonlinear'
         self.analysis_steps = []
         self.current_step = 0
         self.analysis_results = []
@@ -670,14 +670,16 @@ class Analyzer(QObject):
         self.log_message.emit(f"设置分析类型: {analysis_type}")
         
         # 根据分析类型调整默认步骤
-        if analysis_type == 'modal':
-            self.create_modal_steps()
-        elif analysis_type == 'nonlinear':
+        if analysis_type == 'nonlinear':
             self.create_nonlinear_steps()
-        elif analysis_type == 'transient':
-            self.create_transient_steps()
+        # if analysis_type == 'modal':
+        #     self.create_modal_steps()
+        # elif analysis_type == 'nonlinear':
+        #     self.create_nonlinear_steps()
+        # elif analysis_type == 'transient':
+        #     self.create_transient_steps()
         else:
-            self.create_default_steps()
+            self.create_excavation_default_steps()
             
     def create_modal_steps(self):
         """创建模态分析步骤"""

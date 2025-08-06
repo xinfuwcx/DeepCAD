@@ -141,6 +141,187 @@ class KratosIntegration:
             logger.error(f"Error creating structural solver: {e}")
             return None
 
+    def run_analysis(self, project_path):
+        """
+        Run a Kratos analysis using a ProjectParameters.json file.
+        This is the standard way to run a Kratos simulation.
+        """
+        if not self.is_available():
+            logger.error("Kratos is not available. Cannot run analysis.")
+            return False, "Kratos not available"
+
+        try:
+            from KratosMultiphysics.analysis_stage import AnalysisStage
+            
+            class MyAnalysisStage(AnalysisStage):
+                def __init__(self, model, project_parameters):
+                    super().__init__(model, project_parameters)
+
+                def Finalize(self):
+                    super().Finalize()
+                    # Optionally, add custom finalization steps here
+                    logger.info("Custom finalization of MyAnalysisStage finished.")
+
+            # Read the ProjectParameters.json file
+            with open(project_path, 'r') as parameter_file:
+                parameters = KratosMultiphysics.Parameters(parameter_file.read())
+
+            # Create and run the analysis stage
+            model = KratosMultiphysics.Model()
+            simulation = MyAnalysisStage(model, parameters)
+            simulation.Run()
+            
+            logger.info("Kratos analysis finished successfully.")
+            return True, "Analysis successful"
+            
+        except Exception as e:
+            logger.error(f"An error occurred during Kratos analysis: {e}")
+            return False, f"Analysis failed: {str(e)}"
+            
+    def run_excavation_analysis(self, fpn_data, analysis_stages):
+        """
+        运行基坑工程专门的分析，包含摩尔-库伦本构模型和非线性求解
+        """
+        if not self.is_available():
+            logger.error("Kratos is not available. Cannot run excavation analysis.")
+            return False, "Kratos not available"
+
+        try:
+            import KratosMultiphysics
+            from KratosMultiphysics import StructuralMechanicsApplication
+            from KratosMultiphysics.StructuralMechanicsApplication.structural_mechanics_analysis import StructuralMechanicsAnalysis
+            
+            # 创建基坑工程专用的分析参数
+            project_parameters = self._create_excavation_parameters(fpn_data, analysis_stages)
+            
+            # 运行分析
+            model = KratosMultiphysics.Model()
+            analysis = StructuralMechanicsAnalysis(model, project_parameters)
+            analysis.Run()
+            
+            logger.info("基坑工程Kratos分析完成")
+            return True, "Excavation analysis successful"
+            
+        except Exception as e:
+            logger.error(f"基坑分析失败: {e}")
+            return False, f"Analysis failed: {str(e)}"
+    
+    def _create_excavation_parameters(self, fpn_data, analysis_stages):
+        """创建基坑工程专用的Kratos参数"""
+        import KratosMultiphysics
+        
+        # 基坑工程分析参数模板
+        parameters_dict = {
+            "problem_data": {
+                "problem_name": "excavation_analysis",
+                "parallel_type": "OpenMP",
+                "echo_level": 1,
+                "start_time": 0.0,
+                "end_time": len(analysis_stages)
+            },
+            "solver_settings": {
+                "solver_type": "Static",
+                "model_part_name": "Structure",
+                "domain_size": 3,
+                "echo_level": 1,
+                "analysis_type": "non_linear",
+                "model_import_settings": {
+                    "input_type": "mdpa",
+                    "input_filename": "excavation_model"
+                },
+                "material_import_settings": {
+                    "materials_filename": "materials.json"
+                },
+                "time_stepping": {
+                    "time_step": 1.0
+                },
+                "line_search": False,
+                "convergence_criterion": "residual_criterion",
+                "displacement_relative_tolerance": 1e-4,
+                "displacement_absolute_tolerance": 1e-9,
+                "residual_relative_tolerance": 1e-4,
+                "residual_absolute_tolerance": 1e-9,
+                "max_iteration": 20,
+                "use_old_stiffness_in_first_iteration": False,
+                "problem_domain_sub_model_part_list": ["Parts_soil", "Parts_structure"],
+                "processes_sub_model_part_list": ["DISPLACEMENT_boundary", "SelfWeight3D_load"]
+            },
+            "processes": {
+                "constraints_process_list": [
+                    {
+                        "python_module": "assign_vector_variable_process",
+                        "kratos_module": "KratosMultiphysics",
+                        "process_name": "AssignVectorVariableProcess",
+                        "Parameters": {
+                            "model_part_name": "Structure.DISPLACEMENT_boundary",
+                            "variable_name": "DISPLACEMENT",
+                            "constrained": [True, True, True],
+                            "value": [0.0, 0.0, 0.0],
+                            "interval": [0.0, "End"]
+                        }
+                    }
+                ],
+                "loads_process_list": [
+                    {
+                        "python_module": "assign_vector_by_direction_process",
+                        "kratos_module": "KratosMultiphysics",
+                        "check": "DirectorVectorNonZero direction",
+                        "process_name": "AssignVectorByDirectionProcess",
+                        "Parameters": {
+                            "model_part_name": "Structure.SelfWeight3D_load",
+                            "variable_name": "VOLUME_ACCELERATION",
+                            "modulus": 9.81,
+                            "direction": [0.0, 0.0, -1.0],
+                            "interval": [0.0, "End"]
+                        }
+                    }
+                ]
+            },
+            "output_processes": {
+                "gid_output": [
+                    {
+                        "python_module": "gid_output_process",
+                        "kratos_module": "KratosMultiphysics",
+                        "process_name": "GiDOutputProcess",
+                        "help": "This process writes postprocessing files for GiD",
+                        "Parameters": {
+                            "model_part_name": "Structure",
+                            "output_name": "excavation_results",
+                            "postprocess_parameters": {
+                                "result_file_configuration": {
+                                    "gidpost_flags": {
+                                        "GiDPostMode": "GiD_PostBinary",
+                                        "WriteDeformedMeshFlag": "WriteDeformed",
+                                        "WriteConditionsFlag": "WriteConditions",
+                                        "MultiFileFlag": "SingleFile"
+                                    },
+                                    "file_label": "time",
+                                    "output_control_type": "step",
+                                    "output_frequency": 1,
+                                    "body_output": True,
+                                    "node_output": False,
+                                    "skin_output": False,
+                                    "plane_output": [],
+                                    "nodal_results": [
+                                        "DISPLACEMENT",
+                                        "REACTION",
+                                        "VELOCITY",
+                                        "ACCELERATION"
+                                    ],
+                                    "gauss_point_results": [
+                                        "CAUCHY_STRESS_TENSOR",
+                                        "STRAIN_ENERGY"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+        
+        return KratosMultiphysics.Parameters(str(parameters_dict).replace("'", '"'))
+
 # Create a singleton instance
 kratos_integration = KratosIntegration()
 

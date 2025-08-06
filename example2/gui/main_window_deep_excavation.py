@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Example2主窗�?- DeepCAD系统测试程序
+Example2主窗�?- DeepCAD系统测试程序
 集成前处理、分析、后处理三大模块
 """
 
@@ -34,19 +34,19 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # 初始化模�?
+        # 初始化模�?
         self.preprocessor = PreProcessor()
         self.analyzer = Analyzer()
         self.postprocessor = PostProcessor()
 
-        # 初始化多线程操作管理�?
+        # 初始化多线程操作管理�?
         try:
             from ..utils.threaded_operations import ThreadedOperationManager
             self.operation_manager = ThreadedOperationManager(self)
-            print("�?多线程操作管理器初始化成�?)
+            print("�?多线程操作管理器初始化成�?)
         except ImportError:
             self.operation_manager = None
-            print("⚠️ 多线程操作管理器不可�?)
+            print("⚠️ 多线程操作管理器不可�?)
 
         self.current_project = None
         self.analysis_results = None
@@ -55,17 +55,17 @@ class MainWindow(QMainWindow):
         self.setup_connections()
         
     def init_ui(self):
-        """初始化用户界�?""
-        self.setWindowTitle("岩土工程分析系统 - MIDAS模型摩尔-库伦非线性分�?v2.0")
+        """初始化用户界�?""
+        self.setWindowTitle("岩土工程分析系统 - MIDAS模型摩尔-库伦非线性分�?v2.0")
         self.setGeometry(100, 100, 1800, 1200)
         
         # 设置窗口图标
         self.setWindowIcon(self.style().standardIcon(self.style().SP_ComputerIcon))
         
-        # 设置现代化主�?
+        # 设置现代化主�?
         self.set_modern_theme()
         
-        # 创建菜单栏和工具�?
+        # 创建菜单栏和工具�?
         self.create_menu_bar()
         self.create_tool_bar()
         
@@ -76,7 +76,7 @@ class MainWindow(QMainWindow):
         self.create_main_layout()
         
     def set_modern_theme(self):
-        """设置现代化主�?""
+        """设置现代化主�?""
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #f5f5f5;
@@ -183,11 +183,11 @@ class MainWindow(QMainWindow):
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.setCentralWidget(main_splitter)
         
-        # 左侧：项目树和控制面�?
+        # 左侧：项目树和控制面�?
         left_panel = self.create_left_panel()
         main_splitter.addWidget(left_panel)
         
-        # 中央�?D视图和工作区
+        # 中央�?D视图和工作区
         center_panel = self.create_center_panel()
         main_splitter.addWidget(center_panel)
         
@@ -197,7 +197,7 @@ class MainWindow(QMainWindow):
         
         # 设置分割比例
         main_splitter.setSizes([300, 1000, 400])
-        main_splitter.setStretchFactor(1, 1)  # 中央面板可拉�?
+        main_splitter.setStretchFactor(1, 1)  # 中央面板可拉�?
     
     def create_left_panel(self):
         """创建左侧控制面板"""
@@ -227,16 +227,16 @@ class MainWindow(QMainWindow):
         layout.addWidget(project_group)
         
         # 模型信息
-        model_group = QGroupBox("🏗�?模型信息")
+        model_group = QGroupBox("🏗�?模型信息")
         model_layout = QFormLayout(model_group)
         
         self.nodes_label = QLabel("0")
         self.elements_label = QLabel("0") 
         self.materials_label = QLabel("0")
         
-        model_layout.addRow("节点�?", self.nodes_label)
-        model_layout.addRow("单元�?", self.elements_label)
-        model_layout.addRow("材料�?", self.materials_label)
+        model_layout.addRow("节点�?", self.nodes_label)
+        model_layout.addRow("单元�?", self.elements_label)
+        model_layout.addRow("材料�?", self.materials_label)
         
         layout.addWidget(model_group)
         
@@ -249,25 +249,25 @@ class MainWindow(QMainWindow):
         type_layout.addWidget(QLabel("分析类型:"))
         self.analysis_type_combo = QComboBox()
         self.analysis_type_combo.addItems([
-            "摩尔-库伦非线性分�?,
-            "弹性静力分�?, 
-            "模态分�?,
+            "摩尔-库伦非线性分�?,
+            "弹性静力分�?, 
+            "模态分�?,
             "动力时程分析"
         ])
         type_layout.addWidget(self.analysis_type_combo)
         analysis_layout.addLayout(type_layout)
         
-        # 分析�?
+        # 分析�?
         stage_layout = QHBoxLayout()
-        stage_layout.addWidget(QLabel("分析�?"))
+        stage_layout.addWidget(QLabel("分析�?"))
         self.analysis_stage_combo = QComboBox()
-        self.analysis_stage_combo.addItem("初始状�?)
+        self.analysis_stage_combo.addItem("初始状�?)
         stage_layout.addWidget(self.analysis_stage_combo)
         analysis_layout.addLayout(stage_layout)
         
         # 分析按钮
         analysis_buttons = QVBoxLayout()
-        self.run_analysis_btn = QPushButton("▶️ 开始分�?)
+        self.run_analysis_btn = QPushButton("▶️ 开始分�?)
         self.pause_analysis_btn = QPushButton("⏸️ 暂停")
         self.stop_analysis_btn = QPushButton("⏹️ 停止")
         
@@ -299,17 +299,17 @@ class MainWindow(QMainWindow):
         self.workspace_tabs = QTabWidget()
         self.workspace_tabs.setTabPosition(QTabWidget.TabPosition.North)
         
-        # 3D视图标签�?
+        # 3D视图标签�?
         self.view_3d_widget = self.create_3d_viewer()
         self.workspace_tabs.addTab(self.view_3d_widget, "🎯 3D视图")
         
         # 前处理标签页  
         self.preprocessor_widget = self.create_preprocessor_workspace()
-        self.workspace_tabs.addTab(self.preprocessor_widget, "🔧 前处�?)
+        self.workspace_tabs.addTab(self.preprocessor_widget, "🔧 前处�?)
         
         # 后处理标签页
         self.postprocessor_widget = self.create_postprocessor_panel()
-        self.workspace_tabs.addTab(self.postprocessor_widget, "📊 后处�?)
+        self.workspace_tabs.addTab(self.postprocessor_widget, "📊 后处�?)
         
         return self.workspace_tabs
     
@@ -321,7 +321,7 @@ class MainWindow(QMainWindow):
     
     def create_preprocessor_workspace(self):
         """创建前处理工作区"""
-        # 创建水平分割�?
+        # 创建水平分割�?
         splitter = QSplitter(Qt.Orientation.Horizontal)
         
         # 左侧：前处理控制面板
@@ -334,17 +334,17 @@ class MainWindow(QMainWindow):
         
         # 设置分割比例 (控制面板:视图 = 1:2)
         splitter.setSizes([300, 600])
-        splitter.setStretchFactor(1, 1)  # 视图可拉�?
+        splitter.setStretchFactor(1, 1)  # 视图可拉�?
         
         return splitter
     
     def create_postprocessor_panel(self):
-        """创建后处理面�?""
+        """创建后处理面�?""
         panel = QWidget()
         layout = QVBoxLayout(panel)
         
         # 标题
-        title_label = QLabel("📊 后处�?- 结果查看与分�?)
+        title_label = QLabel("📊 后处�?- 结果查看与分�?)
         title_label.setFont(QFont("Microsoft YaHei", 12, QFont.Bold))
         title_label.setAlignment(Qt.AlignCenter)
         title_label.setStyleSheet("""
@@ -359,7 +359,7 @@ class MainWindow(QMainWindow):
         """)
         layout.addWidget(title_label)
         
-        # 后处理内容（占位�?
+        # 后处理内容（占位�?
         content_label = QLabel("🔄 后处理功能开发中...\n完成分析后将在此显示结果")
         content_label.setAlignment(Qt.AlignCenter)
         content_label.setStyleSheet("""
@@ -382,13 +382,13 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(8, 8, 8, 8)
         
-        # 材料属性面�?
-        material_group = QGroupBox("🧱 材料属�?)
+        # 材料属性面�?
+        material_group = QGroupBox("🧱 材料属�?)
         material_layout = QVBoxLayout(material_group)
         
         # 材料选择
         material_select_layout = QHBoxLayout()
-        material_select_layout.addWidget(QLabel("材料�?"))
+        material_select_layout.addWidget(QLabel("材料�?"))
         self.material_group_combo = QComboBox()
         material_select_layout.addWidget(self.material_group_combo)
         material_layout.addLayout(material_select_layout)
@@ -400,19 +400,19 @@ class MainWindow(QMainWindow):
         self.elastic_modulus_spin.setRange(1, 100000)
         self.elastic_modulus_spin.setValue(20)
         self.elastic_modulus_spin.setSuffix(" MPa")
-        params_layout.addRow("弹性模�?", self.elastic_modulus_spin)
+        params_layout.addRow("弹性模�?", self.elastic_modulus_spin)
         
         self.poisson_ratio_spin = QDoubleSpinBox()
         self.poisson_ratio_spin.setRange(0.1, 0.49)
         self.poisson_ratio_spin.setValue(0.3)
         self.poisson_ratio_spin.setDecimals(3)
-        params_layout.addRow("泊松�?", self.poisson_ratio_spin)
+        params_layout.addRow("泊松�?", self.poisson_ratio_spin)
         
         self.cohesion_spin = QDoubleSpinBox()
         self.cohesion_spin.setRange(0, 1000)
         self.cohesion_spin.setValue(20)
         self.cohesion_spin.setSuffix(" kPa")
-        params_layout.addRow("粘聚�?", self.cohesion_spin)
+        params_layout.addRow("粘聚�?", self.cohesion_spin)
         
         self.friction_angle_spin = QDoubleSpinBox()
         self.friction_angle_spin.setRange(0, 60)
@@ -469,7 +469,7 @@ class MainWindow(QMainWindow):
         
         # 日志控制按钮
         log_buttons = QHBoxLayout()
-        clear_log_btn = QPushButton("🗑�?清空")
+        clear_log_btn = QPushButton("🗑�?清空")
         save_log_btn = QPushButton("💾 保存日志")
         clear_log_btn.clicked.connect(self.analysis_log.clear)
         log_buttons.addWidget(clear_log_btn)
@@ -495,17 +495,17 @@ class MainWindow(QMainWindow):
         right_panel = self.create_preprocessor_viewer()
         layout.addWidget(right_panel)
         
-        self.workflow_tabs.addTab(tab, "🔧 前处�?)
+        self.workflow_tabs.addTab(tab, "🔧 前处�?)
         
     def create_preprocessor_controls(self):
-        """创建前处理控制面�?""
+        """创建前处理控制面�?""
         panel = QFrame()
         panel.setFrameStyle(QFrame.StyledPanel)
         
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(8, 8, 8, 8)
         
-        # 项目管理�?
+        # 项目管理�?
         project_group = QGroupBox("📁 项目管理")
         project_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         project_layout = QVBoxLayout(project_group)
@@ -520,7 +520,7 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(project_group)
         
-        # 几何模型�?
+        # 几何模型�?
         geometry_group = QGroupBox("📐 几何模型")
         geometry_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         geometry_layout = QVBoxLayout(geometry_group)
@@ -528,7 +528,7 @@ class MainWindow(QMainWindow):
         self.import_fpn_btn = QPushButton("📄 导入MIDAS基坑模型")
         self.import_mesh_btn = QPushButton("📥 导入其他网格")
         self.generate_mesh_btn = QPushButton("🔨 生成测试网格")
-        self.mesh_quality_btn = QPushButton("🔍 网格质量检�?)
+        self.mesh_quality_btn = QPushButton("🔍 网格质量检�?)
         
         # 设置主要按钮样式
         self.import_fpn_btn.setStyleSheet("""
@@ -553,35 +553,35 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(geometry_group)
         
-        # 模型信息�?
+        # 模型信息�?
         info_group = QGroupBox("📋 模型信息")
         info_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         info_layout = QFormLayout(info_group)
         
         self.nodes_count_label = QLabel("0")
-        info_layout.addRow("节点�?", self.nodes_count_label)
+        info_layout.addRow("节点�?", self.nodes_count_label)
         
         self.elements_count_label = QLabel("0")
-        info_layout.addRow("单元�?", self.elements_count_label)
+        info_layout.addRow("单元�?", self.elements_count_label)
         
         self.materials_count_label = QLabel("0")
-        info_layout.addRow("材料�?", self.materials_count_label)
+        info_layout.addRow("材料�?", self.materials_count_label)
         
         self.constraints_count_label = QLabel("0") 
-        info_layout.addRow("约束�?", self.constraints_count_label)
+        info_layout.addRow("约束�?", self.constraints_count_label)
         
         self.loads_count_label = QLabel("0")
-        info_layout.addRow("荷载�?", self.loads_count_label)
+        info_layout.addRow("荷载�?", self.loads_count_label)
         
         layout.addWidget(info_group)
         
-        # 材料参数�?
+        # 材料参数�?
         materials_group = QGroupBox("🧱 材料参数")
         materials_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         materials_layout = QVBoxLayout(materials_group)
         
         # 材料统计信息
-        self.materials_summary = QLabel("未加载材料数�?)
+        self.materials_summary = QLabel("未加载材料数�?)
         self.materials_summary.setStyleSheet("""
             QLabel {
                 color: #7f8c8d; 
@@ -620,7 +620,7 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(materials_group)
         
-        # 边界条件�?(只展示，不修�?
+        # 边界条件�?(只展示，不修�?
         boundary_group = QGroupBox("🔒 边界条件")
         boundary_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         boundary_layout = QVBoxLayout(boundary_group)
@@ -643,17 +643,17 @@ class MainWindow(QMainWindow):
         physics_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         physics_layout = QVBoxLayout(physics_group)
         
-        physics_layout.addWidget(QLabel("材料�?"))
+        physics_layout.addWidget(QLabel("材料�?"))
         self.material_group_combo = QComboBox()
         self.material_group_combo.addItem("所有材料组")
         physics_layout.addWidget(self.material_group_combo)
         
-        physics_layout.addWidget(QLabel("荷载�?"))
+        physics_layout.addWidget(QLabel("荷载�?"))
         self.load_group_combo = QComboBox()
         self.load_group_combo.addItem("所有荷载组")
         physics_layout.addWidget(self.load_group_combo)
         
-        physics_layout.addWidget(QLabel("边界�?"))
+        physics_layout.addWidget(QLabel("边界�?"))
         self.boundary_group_combo = QComboBox()
         self.boundary_group_combo.addItem("所有边界组")
         physics_layout.addWidget(self.boundary_group_combo)
@@ -665,15 +665,15 @@ class MainWindow(QMainWindow):
         analysis_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         analysis_layout = QVBoxLayout(analysis_group)
         
-        analysis_layout.addWidget(QLabel("当前分析�?"))
+        analysis_layout.addWidget(QLabel("当前分析�?"))
         self.analysis_stage_combo = QComboBox()
-        self.analysis_stage_combo.addItem("初始状�?)
+        self.analysis_stage_combo.addItem("初始状�?)
         analysis_layout.addWidget(self.analysis_stage_combo)
         
         layout.addWidget(analysis_group)
         
-        # 显示控制�?
-        display_group = QGroupBox("👁�?显示控制")
+        # 显示控制�?
+        display_group = QGroupBox("👁�?显示控制")
         display_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         display_layout = QVBoxLayout(display_group)
         
@@ -683,7 +683,7 @@ class MainWindow(QMainWindow):
         self.solid_btn = QPushButton("实体")
         self.transparent_btn = QPushButton("半透明")
         
-        # 设置按钮样式和状�?
+        # 设置按钮样式和状�?
         for btn in [self.wireframe_btn, self.solid_btn, self.transparent_btn]:
             btn.setCheckable(True)
             btn.setMinimumHeight(30)
@@ -694,7 +694,7 @@ class MainWindow(QMainWindow):
         display_layout.addLayout(mode_layout)
         
         # 其他显示选项
-        self.show_mesh_cb = QCheckBox("显示网格�?)
+        self.show_mesh_cb = QCheckBox("显示网格�?)
         self.show_mesh_cb.setChecked(True)
         self.show_nodes_cb = QCheckBox("显示节点")
         self.show_supports_cb = QCheckBox("显示支承")
@@ -713,7 +713,7 @@ class MainWindow(QMainWindow):
         return panel
         
     def create_preprocessor_viewer(self):
-        """创建前处�?D视图"""
+        """创建前处�?D视图"""
         panel = QFrame()
         panel.setFrameStyle(QFrame.StyledPanel)
         
@@ -721,7 +721,7 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(8, 8, 8, 8)
         
         # 标题
-        title_label = QLabel("🏗�?基坑工程前处�?- MIDAS模型导入与可视化")
+        title_label = QLabel("🏗�?基坑工程前处�?- MIDAS模型导入与可视化")
         title_label.setFont(QFont("Microsoft YaHei", 12, QFont.Bold))
         title_label.setAlignment(Qt.AlignCenter)
         title_label.setStyleSheet("""
@@ -745,7 +745,7 @@ class MainWindow(QMainWindow):
         
         self.pre_reset_btn = QPushButton("🔄 重置视图")
         self.pre_fit_btn = QPushButton("📏 适应窗口")
-        self.pre_wireframe_btn = QPushButton("🕸�?线框模式")
+        self.pre_wireframe_btn = QPushButton("🕸�?线框模式")
         self.pre_solid_btn = QPushButton("🧊 实体模式")
         
         for btn in [self.pre_reset_btn, self.pre_fit_btn, self.pre_wireframe_btn, self.pre_solid_btn]:
@@ -757,7 +757,7 @@ class MainWindow(QMainWindow):
         return panel
         
     def create_analyzer_tab(self):
-        """创建分析模块标签�?""
+        """创建分析模块标签�?""
         tab = QWidget()
         layout = QHBoxLayout(tab)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -781,28 +781,27 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(8, 8, 8, 8)
         
-        # 分析类型�?
+        # 分析类型�?
         analysis_group = QGroupBox("📋 分析类型")
         analysis_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         analysis_layout = QVBoxLayout(analysis_group)
         
         self.analysis_type = QComboBox()
-        self.analysis_type.addItems([
-            "摩尔-库伦非线性分�?, "弹性静力分�?, "大变形分�?
-        ])
-        self.analysis_type.setCurrentIndex(0)  # 默认选择摩尔-库伦
+        self.analysis_type.addItems(["非线性静力分析"])
+        self.analysis_type.setCurrentText("非线性静力分析")
+        self.analysis_type.setEnabled(False)  # 禁用选择，因为只有一种类型
         analysis_layout.addWidget(self.analysis_type)
         
         # 添加分析说明
-        analysis_note = QLabel("�?FPN文件包含MNLMC摩尔-库伦参数，支持非线性分�?)
+        analysis_note = QLabel("�?FPN文件包含MNLMC摩尔-库伦参数，支持非线性分�?)
         analysis_note.setStyleSheet("color: #27ae60; font-size: 10px; font-style: italic;")
         analysis_note.setWordWrap(True)
         analysis_layout.addWidget(analysis_note)
         
         layout.addWidget(analysis_group)
         
-        # 施工步序�?(导入数据展示)
-        steps_group = QGroupBox("🏗�?施工步序")
+        # 施工步序�?(导入数据展示)
+        steps_group = QGroupBox("🏗�?施工步序")
         steps_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         steps_layout = QVBoxLayout(steps_group)
         
@@ -811,13 +810,13 @@ class MainWindow(QMainWindow):
         
         # 基坑工程施工步序
         construction_steps = [
-            "步骤1: 初始地应力平�?,
+            "步骤1: 初始地应力平�?,
             "步骤2: 围护结构施工", 
-            "步骤3: 第一层土体开�?,
-            "步骤4: 第一道支撑安�?,
-            "步骤5: 第二层土体开�?,
-            "步骤6: 第二道支撑安�?,
-            "步骤7: 基坑见底开�?
+            "步骤3: 第一层土体开�?,
+            "步骤4: 第一道支撑安�?,
+            "步骤5: 第二层土体开�?,
+            "步骤6: 第二道支撑安�?,
+            "步骤7: 基坑见底开�?
         ]
         for step in construction_steps:
             self.steps_list.addItem(step)
@@ -827,8 +826,8 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(steps_group)
         
-        # 求解参数�?(简化，只展示关键参�?
-        solver_group = QGroupBox("�?求解参数")
+        # 求解参数�?(简化，只展示关键参�?
+        solver_group = QGroupBox("�?求解参数")
         solver_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         solver_layout = QFormLayout(solver_group)
         
@@ -836,7 +835,7 @@ class MainWindow(QMainWindow):
         self.max_iterations = QSpinBox()
         self.max_iterations.setRange(10, 500)
         self.max_iterations.setValue(100)
-        solver_layout.addRow("最大迭代次�?", self.max_iterations)
+        solver_layout.addRow("最大迭代次�?", self.max_iterations)
         
         # 使用标准下拉框选择收敛精度
         self.convergence_combo = QComboBox()
@@ -846,12 +845,12 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(solver_group)
         
-        # 计算控制�?
+        # 计算控制�?
         control_group = QGroupBox("🎮 计算控制")
         control_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         control_layout = QVBoxLayout(control_group)
         
-        self.run_analysis_btn = QPushButton("🚀 开始分�?)
+        self.run_analysis_btn = QPushButton("🚀 开始分�?)
         self.run_analysis_btn.setMinimumHeight(50)
         self.run_analysis_btn.setStyleSheet("""
             QPushButton {
@@ -893,7 +892,7 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(8, 8, 8, 8)
         
         # 标题
-        title_label = QLabel("�?Kratos摩尔-库伦非线性分�?- 基坑工程求解监控")
+        title_label = QLabel("�?Kratos摩尔-库伦非线性分�?- 基坑工程求解监控")
         title_label.setFont(QFont("Microsoft YaHei", 12, QFont.Bold))
         title_label.setAlignment(Qt.AlignCenter)
         title_label.setStyleSheet("""
@@ -909,7 +908,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(title_label)
         
         # 分析说明
-        info_label = QLabel("🏗�?正在使用MIDAS FPN数据进行摩尔-库伦非线性分析，包含真实土体参数")
+        info_label = QLabel("🏗�?正在使用MIDAS FPN数据进行摩尔-库伦非线性分析，包含真实土体参数")
         info_label.setStyleSheet("""
             QLabel {
                 background-color: #d5f4e6;
@@ -923,12 +922,12 @@ class MainWindow(QMainWindow):
         info_label.setWordWrap(True)
         layout.addWidget(info_label)
         
-        # 进度信息�?
+        # 进度信息�?
         progress_group = QGroupBox("📈 计算进度")
         progress_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         progress_layout = QVBoxLayout(progress_group)
         
-        # 总进�?
+        # 总进�?
         self.overall_progress = QProgressBar()
         self.overall_progress.setTextVisible(True)
         progress_layout.addWidget(QLabel("总体进度:"))
@@ -949,7 +948,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(progress_group)
         
         # 状态信息组
-        status_group = QGroupBox("📊 状态信�?)
+        status_group = QGroupBox("📊 状态信�?)
         status_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         status_layout = QFormLayout(status_group)
         
@@ -960,7 +959,7 @@ class MainWindow(QMainWindow):
         
         status_layout.addRow("当前步骤:", self.current_step_label)
         status_layout.addRow("迭代次数:", self.current_iteration_label)
-        status_layout.addRow("收敛状�?", self.convergence_label)
+        status_layout.addRow("收敛状�?", self.convergence_label)
         status_layout.addRow("运行时间:", self.elapsed_time_label)
         
         layout.addWidget(status_group)
@@ -973,13 +972,13 @@ class MainWindow(QMainWindow):
         self.analysis_log = QTextEdit()
         self.analysis_log.setMaximumHeight(200)
         self.analysis_log.setFont(QFont("Consolas", 9))
-        self.analysis_log.append("系统就绪，等待开始分�?..")
+        self.analysis_log.append("系统就绪，等待开始分�?..")
         log_layout.addWidget(self.analysis_log)
         
         layout.addWidget(log_group)
         
-        # Kratos状�?
-        kratos_group = QGroupBox("🔧 Kratos状�?)
+        # Kratos状�?
+        kratos_group = QGroupBox("🔧 Kratos状�?)
         kratos_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         kratos_layout = QFormLayout(kratos_group)
         
@@ -987,7 +986,7 @@ class MainWindow(QMainWindow):
         self.kratos_version_label = QLabel("N/A")
         self.memory_usage_label = QLabel("N/A")
         
-        kratos_layout.addRow("Kratos状�?", self.kratos_status_label)
+        kratos_layout.addRow("Kratos状�?", self.kratos_status_label)
         kratos_layout.addRow("版本信息:", self.kratos_version_label)
         kratos_layout.addRow("内存使用:", self.memory_usage_label)
         
@@ -1010,23 +1009,23 @@ class MainWindow(QMainWindow):
         right_panel = self.create_postprocessor_viewer()
         layout.addWidget(right_panel)
         
-        self.workflow_tabs.addTab(tab, "📊 后处�?)
+        self.workflow_tabs.addTab(tab, "📊 后处�?)
         
     def create_postprocessor_controls(self):
-        """创建后处理控制面�?""
+        """创建后处理控制面�?""
         panel = QFrame()
         panel.setFrameStyle(QFrame.StyledPanel)
         
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(8, 8, 8, 8)
         
-        # 结果加载�?
+        # 结果加载�?
         load_group = QGroupBox("📂 结果加载")
         load_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         load_layout = QVBoxLayout(load_group)
         
         self.load_results_btn = QPushButton("📥 加载结果文件")
-        self.results_info_label = QLabel("未加载结�?)
+        self.results_info_label = QLabel("未加载结�?)
         self.results_info_label.setStyleSheet("color: gray;")
         
         load_layout.addWidget(self.load_results_btn)
@@ -1034,14 +1033,14 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(load_group)
         
-        # 结果类型�?
+        # 结果类型�?
         result_group = QGroupBox("📈 结果类型")
         result_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         result_layout = QVBoxLayout(result_group)
         
         self.result_type = QComboBox()
         self.result_type.addItems([
-            "位移", "应力", "应变", "反力", "模态振�?, "主应�?
+            "位移", "应力", "应变", "反力", "模态振�?, "主应�?
         ])
         result_layout.addWidget(self.result_type)
         
@@ -1055,14 +1054,14 @@ class MainWindow(QMainWindow):
         layout.addWidget(result_group)
         
         # 时间步控制组
-        time_group = QGroupBox("�?时间步控�?)
+        time_group = QGroupBox("�?时间步控�?)
         time_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         time_layout = QVBoxLayout(time_group)
         
         self.time_slider = QSlider(Qt.Horizontal)
         self.time_slider.setRange(0, 100)
-        self.time_slider.setValue(100)  # 最后一�?
-        time_layout.addWidget(QLabel("时间�?"))
+        self.time_slider.setValue(100)  # 最后一�?
+        time_layout.addWidget(QLabel("时间�?"))
         time_layout.addWidget(self.time_slider)
         
         self.time_info_label = QLabel("步骤: 100/100")
@@ -1082,7 +1081,7 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(time_group)
         
-        # 显示设置�?
+        # 显示设置�?
         display_group = QGroupBox("🎨 显示设置")
         display_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         display_layout = QFormLayout(display_group)
@@ -1105,12 +1104,12 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(display_group)
         
-        # 导出�?
+        # 导出�?
         export_group = QGroupBox("💾 结果导出")
         export_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         export_layout = QVBoxLayout(export_group)
         
-        self.export_image_btn = QPushButton("🖼�?导出图片")
+        self.export_image_btn = QPushButton("🖼�?导出图片")
         self.export_animation_btn = QPushButton("🎬 导出动画")
         self.export_data_btn = QPushButton("📊 导出数据")
         self.export_report_btn = QPushButton("📋 生成报告")
@@ -1128,7 +1127,7 @@ class MainWindow(QMainWindow):
         return panel
         
     def create_postprocessor_viewer(self):
-        """创建后处�?D视图"""
+        """创建后处�?D视图"""
         panel = QFrame()
         panel.setFrameStyle(QFrame.StyledPanel)
         
@@ -1136,7 +1135,7 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(8, 8, 8, 8)
         
         # 标题
-        title_label = QLabel("📊 后处�?- 云图、动画、详细显�?)
+        title_label = QLabel("📊 后处�?- 云图、动画、详细显�?)
         title_label.setFont(QFont("Microsoft YaHei", 12, QFont.Bold))
         title_label.setAlignment(Qt.AlignCenter)
         title_label.setStyleSheet("""
@@ -1159,9 +1158,9 @@ class MainWindow(QMainWindow):
         control_layout = QHBoxLayout()
         
         self.post_reset_btn = QPushButton("🔄 重置视图")
-        self.post_legend_btn = QPushButton("🏷�?显示图例")
+        self.post_legend_btn = QPushButton("🏷�?显示图例")
         self.post_colorbar_btn = QPushButton("🌈 色标设置")
-        self.post_fullscreen_btn = QPushButton("🖥�?全屏显示")
+        self.post_fullscreen_btn = QPushButton("🖥�?全屏显示")
         
         for btn in [self.post_reset_btn, self.post_legend_btn, 
                    self.post_colorbar_btn, self.post_fullscreen_btn]:
@@ -1173,7 +1172,7 @@ class MainWindow(QMainWindow):
         return panel
         
     def create_menu_bar(self):
-        """创建菜单�?""
+        """创建菜单�?""
         menubar = self.menuBar()
         
         # 文件菜单
@@ -1193,7 +1192,7 @@ class MainWindow(QMainWindow):
         
         file_menu.addSeparator()
         
-        exit_action = QAction("退�?, self)
+        exit_action = QAction("退�?, self)
         exit_action.setShortcut("Ctrl+Q")
         file_menu.addAction(exit_action)
         
@@ -1213,7 +1212,7 @@ class MainWindow(QMainWindow):
         help_menu.addAction(about_action)
         
     def create_tool_bar(self):
-        """创建工具�?""
+        """创建工具�?""
         toolbar = self.addToolBar("主工具栏")
         toolbar.setMovable(False)
         toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
@@ -1233,8 +1232,8 @@ class MainWindow(QMainWindow):
         
         toolbar.addSeparator()
         
-        # 工作流控�?
-        preprocess_action = QAction("前处�?, self)
+        # 工作流控�?
+        preprocess_action = QAction("前处�?, self)
         preprocess_action.setIcon(self.style().standardIcon(self.style().SP_FileDialogDetailedView))
         toolbar.addAction(preprocess_action)
         
@@ -1242,7 +1241,7 @@ class MainWindow(QMainWindow):
         analyze_action.setIcon(self.style().standardIcon(self.style().SP_MediaPlay))
         toolbar.addAction(analyze_action)
         
-        postprocess_action = QAction("后处�?, self)
+        postprocess_action = QAction("后处�?, self)
         postprocess_action.setIcon(self.style().standardIcon(self.style().SP_ComputerIcon))
         toolbar.addAction(postprocess_action)
         
@@ -1250,12 +1249,12 @@ class MainWindow(QMainWindow):
         """创建状态栏"""
         statusbar = self.statusBar()
         
-        # 状态标�?
+        # 状态标�?
         self.status_label = QLabel("DeepCAD系统就绪")
         statusbar.addWidget(self.status_label)
         
-        # 模块状�?
-        self.module_status = QLabel("前处�?)
+        # 模块状�?
+        self.module_status = QLabel("前处�?)
         statusbar.addPermanentWidget(self.module_status)
         
         # 内存使用
@@ -1263,7 +1262,7 @@ class MainWindow(QMainWindow):
         statusbar.addPermanentWidget(self.memory_label)
         
     def apply_modern_style(self):
-        """应用现代化样�?""
+        """应用现代化样�?""
         style_sheet = """
         QMainWindow {
             background-color: #f5f5f5;
@@ -1442,31 +1441,31 @@ class MainWindow(QMainWindow):
             self.analysis_stage_combo.currentTextChanged.connect(self.on_analysis_stage_changed)
             self.material_group_combo.currentTextChanged.connect(self.on_material_group_changed)
         except AttributeError as e:
-            print(f"下拉框连接跳�? {e}")
+            print(f"下拉框连接跳�? {e}")
         
-        # 标签页切�?
+        # 标签页切�?
         try:
             if hasattr(self, 'workspace_tabs'):
                 self.workspace_tabs.currentChanged.connect(self.on_tab_changed)
         except AttributeError as e:
-            print(f"标签页连接跳�? {e}")
+            print(f"标签页连接跳�? {e}")
         
     def on_tab_changed(self, index):
-        """标签页切换事�?""
-        tab_names = ["前处�?, "分析", "后处�?]
+        """标签页切换事�?""
+        tab_names = ["前处�?, "分析", "后处�?]
         if index < len(tab_names):
             self.module_status.setText(tab_names[index])
             self.status_label.setText(f"切换到{tab_names[index]}模块")
             
     def new_project(self):
         """新建项目"""
-        self.status_label.setText("创建新项�?..")
+        self.status_label.setText("创建新项�?..")
         # TODO: 实现新建项目逻辑
         
     def load_project(self):
         """加载项目"""
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "加载项目", "", "项目文件 (*.json);;所有文�?(*.*)"
+            self, "加载项目", "", "项目文件 (*.json);;所有文�?(*.*)"
         )
         if file_path:
             self.status_label.setText(f"加载项目: {Path(file_path).name}")
@@ -1474,16 +1473,16 @@ class MainWindow(QMainWindow):
     def save_project(self):
         """保存项目"""
         file_path, _ = QFileDialog.getSaveFileName(
-            self, "保存项目", "", "项目文件 (*.json);;所有文�?(*.*)"
+            self, "保存项目", "", "项目文件 (*.json);;所有文�?(*.*)"
         )
         if file_path:
             self.status_label.setText(f"保存项目: {Path(file_path).name}")
             
     def import_fpn(self):
-        """🔧 修复3：导入FPN文件（使用多线程�?""
+        """🔧 修复3：导入FPN文件（使用多线程�?""
         try:
             file_path, _ = QFileDialog.getOpenFileName(
-                self, "导入MIDAS FPN文件", "", "FPN文件 (*.fpn);;所有文�?(*.*)"
+                self, "导入MIDAS FPN文件", "", "FPN文件 (*.fpn);;所有文�?(*.*)"
             )
             
             if not file_path:
@@ -1491,7 +1490,7 @@ class MainWindow(QMainWindow):
                 
             # 验证文件
             if not Path(file_path).exists():
-                QMessageBox.critical(self, "文件错误", f"文件不存�? {file_path}")
+                QMessageBox.critical(self, "文件错误", f"文件不存�? {file_path}")
                 return
                 
             if not file_path.lower().endswith('.fpn'):
@@ -1500,20 +1499,20 @@ class MainWindow(QMainWindow):
                 
             file_size = Path(file_path).stat().st_size
             if file_size == 0:
-                QMessageBox.critical(self, "文件错误", "选择的文件为�?)
+                QMessageBox.critical(self, "文件错误", "选择的文件为�?)
                 return
                 
             if file_size > 500 * 1024 * 1024:  # 500MB限制
                 result = QMessageBox.question(
-                    self, "大文件警�?, 
-                    f"文件较大({file_size/1024/1024:.1f}MB)，加载可能需要较长时间。\n是否继续�?,
+                    self, "大文件警�?, 
+                    f"文件较大({file_size/1024/1024:.1f}MB)，加载可能需要较长时间。\n是否继续�?,
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
                 )
                 if result != QMessageBox.StandardButton.Yes:
                     return
             
             if self.operation_manager:
-                # 使用多线程异步处�?
+                # 使用多线程异步处�?
                 self.status_label.setText(f"正在加载FPN文件: {Path(file_path).name}")
 
                 self.operation_manager.parse_fpn_file_async(
@@ -1537,30 +1536,30 @@ class MainWindow(QMainWindow):
                     # 详细验证加载结果
                     print(f"🔍 FPN加载结果调试:")
                     print(f"  - result类型: {type(result)}")
-                    print(f"  - result�? {result is not None}")
+                    print(f"  - result�? {result is not None}")
                     
                     if result is None:
-                        print("�?文件加载返回空结果，尝试使用示例数据...")
+                        print("�?文件加载返回空结果，尝试使用示例数据...")
                         try:
                             # 尝试创建示例数据
                             result = self.preprocessor.create_sample_fpn_data()
-                            print("�?使用示例数据成功")
+                            print("�?使用示例数据成功")
                         except Exception as fallback_e:
-                            print(f"�?示例数据创建也失�? {fallback_e}")
-                            raise RuntimeError(f"文件加载失败且无法创建示例数�? {fallback_e}")
+                            print(f"�?示例数据创建也失�? {fallback_e}")
+                            raise RuntimeError(f"文件加载失败且无法创建示例数�? {fallback_e}")
                     
                     if isinstance(result, dict):
-                        print(f"  - 节点�? {len(result.get('nodes', []))}")
-                        print(f"  - 单元�? {len(result.get('elements', []))}")
-                        print(f"  - 数据�? {list(result.keys())}")
+                        print(f"  - 节点�? {len(result.get('nodes', []))}")
+                        print(f"  - 单元�? {len(result.get('elements', []))}")
+                        print(f"  - 数据�? {list(result.keys())}")
                     
-                    # 验证数据完整�?
+                    # 验证数据完整�?
                     if hasattr(self.preprocessor, 'fpn_data'):
                         fpn_data = self.preprocessor.fpn_data
                         if not isinstance(fpn_data, dict):
                             raise TypeError(f"FPN数据格式错误: 期望dict，得到{type(fpn_data)}")
                         
-                        # 检查关键字�?
+                        # 检查关键字�?
                         if 'nodes' not in fpn_data or 'elements' not in fpn_data:
                             raise ValueError("FPN数据缺少关键字段(nodes/elements)")
                         
@@ -1568,7 +1567,7 @@ class MainWindow(QMainWindow):
                         elements = fpn_data.get('elements', [])
                         
                         if not isinstance(nodes, list) or not isinstance(elements, list):
-                            raise TypeError("节点或单元数据不是列表格�?)
+                            raise TypeError("节点或单元数据不是列表格�?)
                         
                         if len(nodes) == 0:
                             raise ValueError("没有找到节点数据")
@@ -1585,19 +1584,19 @@ class MainWindow(QMainWindow):
                     self.update_physics_combos()
                     
                 except FileNotFoundError:
-                    error_msg = f"文件未找�? {file_path}"
+                    error_msg = f"文件未找�? {file_path}"
                     QMessageBox.critical(self, "文件错误", error_msg)
-                    self.status_label.setText("文件未找�?)
+                    self.status_label.setText("文件未找�?)
                 except PermissionError:
                     error_msg = f"文件访问权限不足: {file_path}"
                     QMessageBox.critical(self, "权限错误", error_msg)
-                    self.status_label.setText("文件访问被拒�?)
+                    self.status_label.setText("文件访问被拒�?)
                 except UnicodeDecodeError as e:
-                    error_msg = f"文件编码错误: {str(e)}\n请确认文件编码格�?
+                    error_msg = f"文件编码错误: {str(e)}\n请确认文件编码格�?
                     QMessageBox.critical(self, "编码错误", error_msg)
                     self.status_label.setText("文件编码错误")
                 except (TypeError, ValueError) as e:
-                    error_msg = f"数据格式错误: {str(e)}\n这可能是由于FPN文件格式不正确造成�?
+                    error_msg = f"数据格式错误: {str(e)}\n这可能是由于FPN文件格式不正确造成�?
                     QMessageBox.critical(self, "数据格式错误", error_msg)
                     self.status_label.setText("数据格式错误")
                 except Exception as e:
@@ -1651,7 +1650,7 @@ class MainWindow(QMainWindow):
     def import_mesh(self):
         """导入网格"""
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "导入网格", "", "网格文件 (*.msh *.vtk *.vtu);;所有文�?(*.*)"
+            self, "导入网格", "", "网格文件 (*.msh *.vtk *.vtu);;所有文�?(*.*)"
         )
         if file_path:
             self.preprocessor.load_mesh(file_path)
@@ -1691,11 +1690,11 @@ class MainWindow(QMainWindow):
             elastic_count = len([m for m in materials if 'young_modulus' in m])
             
             # 更新统计信息
-            summary_text = f"📊 总计: {total_materials}种材�?| 🏗�?摩尔-库伦: {mohr_coulomb_count}�?| �?弹�? {elastic_count}�?
+            summary_text = f"📊 总计: {total_materials}种材�?| 🏗�?摩尔-库伦: {mohr_coulomb_count}�?| �?弹�? {elastic_count}�?
             self.materials_summary.setText(summary_text)
             
             # 显示材料详细信息
-            for i, material in enumerate(materials[:10]):  # 只显示前10个材�?
+            for i, material in enumerate(materials[:10]):  # 只显示前10个材�?
                 mat_info = []
                 mat_name = material.get('name', f'材料{material.get("id", i+1)}')
                 
@@ -1703,18 +1702,18 @@ class MainWindow(QMainWindow):
                 if 'cohesion' in material and 'friction_angle' in material:
                     c = material['cohesion']
                     phi = material['friction_angle']
-                    mat_info.append(f"🏗�?{mat_name}: c={c:.2f}kPa, φ={phi:.1f}°")
+                    mat_info.append(f"🏗�?{mat_name}: c={c:.2f}kPa, φ={phi:.1f}°")
                 
-                # 弹性参�?
+                # 弹性参�?
                 if 'young_modulus' in material:
                     E = material['young_modulus'] / 1e9  # 转换为GPa
                     nu = material.get('poisson_ratio', 0.0)
                     if mat_info:
-                        mat_info.append(f"    �?E={E:.1f}GPa, ν={nu:.2f}")
+                        mat_info.append(f"    �?E={E:.1f}GPa, ν={nu:.2f}")
                     else:
-                        mat_info.append(f"�?{mat_name}: E={E:.1f}GPa, ν={nu:.2f}")
+                        mat_info.append(f"�?{mat_name}: E={E:.1f}GPa, ν={nu:.2f}")
                 
-                # 如果没有参数信息，显示基本信�?
+                # 如果没有参数信息，显示基本信�?
                 if not mat_info:
                     mat_type = material.get('type', '未知')
                     mat_info.append(f"📋 {mat_name}: {mat_type}")
@@ -1722,7 +1721,7 @@ class MainWindow(QMainWindow):
                 for info in mat_info:
                     self.materials_list.addItem(info)
         else:
-            self.materials_summary.setText("�?未加载材料数�?)
+            self.materials_summary.setText("�?未加载材料数�?)
         
     def run_analysis(self):
         """运行分析"""
@@ -1730,7 +1729,7 @@ class MainWindow(QMainWindow):
         self.pause_analysis_btn.setEnabled(True)
         self.stop_analysis_btn.setEnabled(True)
         
-        # 检查Kratos可用�?
+        # 检查Kratos可用�?
         try:
             from ..core.kratos_interface import KRATOS_AVAILABLE
             if not KRATOS_AVAILABLE:
@@ -1746,7 +1745,7 @@ class MainWindow(QMainWindow):
             self.stop_analysis_btn.setEnabled(False)
             return
         
-        # 检查模型数�?
+        # 检查模型数�?
         if not hasattr(self.preprocessor, 'fpn_data') or not self.preprocessor.fpn_data:
             QMessageBox.critical(self, "错误", "请先导入有效的FPN模型数据")
             self.run_analysis_btn.setEnabled(True)
@@ -1760,7 +1759,7 @@ class MainWindow(QMainWindow):
         # 传递FPN数据给分析器
         self.analyzer.fpn_data = self.preprocessor.fpn_data
         
-        # 连接分析器信�?
+        # 连接分析器信�?
         self.analyzer.analysis_finished.connect(self.on_real_analysis_finished)
         self.analyzer.progress_updated.connect(self.on_analysis_progress_updated)
         self.analyzer.log_message.connect(self.analysis_log.append)
@@ -1779,7 +1778,7 @@ class MainWindow(QMainWindow):
         """更新分析进度"""
         self.analysis_step += 1
         
-        # 更新进度�?
+        # 更新进度�?
         overall_progress = min(self.analysis_step * 2, 100)
         self.overall_progress.setValue(overall_progress)
         
@@ -1789,7 +1788,7 @@ class MainWindow(QMainWindow):
         iteration_progress = (self.analysis_step * 5) % 100
         self.iteration_progress.setValue(iteration_progress)
         
-        # 更新状态标�?
+        # 更新状态标�?
         current_step = (self.analysis_step // 25) + 1
         self.current_step_label.setText(f"步骤 {current_step}")
         self.current_iteration_label.setText(f"{self.analysis_step % 25 + 1}/25")
@@ -1810,26 +1809,26 @@ class MainWindow(QMainWindow):
         self.stop_analysis_btn.setEnabled(False)
         
         self.status_label.setText("分析完成")
-        self.analysis_log.append("分析成功完成�?)
+        self.analysis_log.append("分析成功完成�?)
         
         # 获取分析结果并传递给后处理器
         if hasattr(self.analyzer, 'analysis_results') and self.analyzer.analysis_results:
             try:
-                # 取最后一步分析结�?
+                # 取最后一步分析结�?
                 last_results = self.analyzer.analysis_results[-1] if self.analyzer.analysis_results else None
                 if last_results and hasattr(self.preprocessor, 'fpn_data') and self.preprocessor.fpn_data:
-                    self.analysis_log.append("正在设置后处理结�?..")
+                    self.analysis_log.append("正在设置后处理结�?..")
                     self.postprocessor.set_analysis_results(self.preprocessor.fpn_data, last_results)
-                    self.analysis_log.append("后处理结果设置完�?)
+                    self.analysis_log.append("后处理结果设置完�?)
                 else:
-                    self.analysis_log.append("警告: 无分析结果数�?)
+                    self.analysis_log.append("警告: 无分析结果数�?)
             except Exception as e:
-                self.analysis_log.append(f"设置后处理结果失�? {str(e)}")
+                self.analysis_log.append(f"设置后处理结果失�? {str(e)}")
         
-        # 切换到后处理标签�?
+        # 切换到后处理标签�?
         self.workflow_tabs.setCurrentIndex(2)
         
-        QMessageBox.information(self, "完成", "分析计算完成！\n已自动切换到后处理模块�?)
+        QMessageBox.information(self, "完成", "分析计算完成！\n已自动切换到后处理模块�?)
         
     def on_real_analysis_finished(self, success: bool, message: str):
         """真实分析完成回调"""
@@ -1839,24 +1838,24 @@ class MainWindow(QMainWindow):
         
         if success:
             self.status_label.setText("Kratos分析成功完成")
-            self.analysis_log.append("�?Kratos分析成功完成")
+            self.analysis_log.append("�?Kratos分析成功完成")
             
             # 获取分析结果
             results = self.analyzer.get_all_results()
             if results:
-                # 传递结果给后处理模�?
+                # 传递结果给后处理模�?
                 self.postprocessor.load_analysis_results(results)
                 
-                # 切换到后处理标签�?
+                # 切换到后处理标签�?
                 self.workflow_tabs.setCurrentIndex(2)
                 
                 QMessageBox.information(self, "分析完成", 
                     f"Kratos分析成功完成！\n已自动切换到后处理模块查看结果。\n\n{message}")
             else:
-                QMessageBox.warning(self, "警告", "分析完成但未获取到结果数�?)
+                QMessageBox.warning(self, "警告", "分析完成但未获取到结果数�?)
         else:
             self.status_label.setText("Kratos分析失败")
-            self.analysis_log.append(f"�?Kratos分析失败: {message}")
+            self.analysis_log.append(f"�?Kratos分析失败: {message}")
             QMessageBox.critical(self, "分析失败", f"Kratos分析失败:\n{message}")
     
     def on_analysis_progress_updated(self, progress: int, message: str):
@@ -1869,7 +1868,7 @@ class MainWindow(QMainWindow):
         """暂停分析"""
         if hasattr(self, 'analysis_timer'):
             self.analysis_timer.stop()
-        self.status_label.setText("分析已暂�?)
+        self.status_label.setText("分析已暂�?)
         
     def stop_analysis(self):
         """停止分析"""
@@ -1884,17 +1883,17 @@ class MainWindow(QMainWindow):
         self.step_progress.setValue(0)
         self.iteration_progress.setValue(0)
         
-        self.status_label.setText("分析已停�?)
-        self.analysis_log.append("分析被用户停止�?)
+        self.status_label.setText("分析已停�?)
+        self.analysis_log.append("分析被用户停止�?)
         
     def load_results(self):
         """加载结果"""
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "加载结果", "", "结果文件 (*.vtk *.vtu);;所有文�?(*.*)"
+            self, "加载结果", "", "结果文件 (*.vtk *.vtu);;所有文�?(*.*)"
         )
         if file_path:
             self.postprocessor.load_results(file_path)
-            self.results_info_label.setText(f"已加�? {Path(file_path).name}")
+            self.results_info_label.setText(f"已加�? {Path(file_path).name}")
             self.results_info_label.setStyleSheet("color: green;")
             self.status_label.setText("结果加载完成")
             
@@ -1906,12 +1905,12 @@ class MainWindow(QMainWindow):
     def pause_animation(self):
         """暂停动画"""
         self.postprocessor.pause_animation()
-        self.status_label.setText("动画已暂�?)
+        self.status_label.setText("动画已暂�?)
         
     def stop_animation(self):
         """停止动画"""
         self.postprocessor.stop_animation()
-        self.status_label.setText("动画已停�?)
+        self.status_label.setText("动画已停�?)
     
     # 新增方法：物理组和分析步选择
     def update_physics_combos(self):
@@ -1921,41 +1920,41 @@ class MainWindow(QMainWindow):
             
         fpn_data = self.preprocessor.fpn_data
         
-        # 更新材料�?
+        # 更新材料�?
         self.material_group_combo.clear()
         self.material_group_combo.addItem("所有材料组")
         material_groups = fpn_data.get('material_groups', {})
         for group_id, group_info in material_groups.items():
-            self.material_group_combo.addItem(f"材料�?{group_id} ({group_info.get('material_count', 0)} 材料)")
+            self.material_group_combo.addItem(f"材料�?{group_id} ({group_info.get('material_count', 0)} 材料)")
         
-        # 更新荷载�?
+        # 更新荷载�?
         self.load_group_combo.clear()
         self.load_group_combo.addItem("所有荷载组")
         load_groups = fpn_data.get('load_groups', {})
         for group_id, group_info in load_groups.items():
-            self.load_group_combo.addItem(f"荷载�?{group_id} ({group_info.get('load_count', 0)} 荷载)")
+            self.load_group_combo.addItem(f"荷载�?{group_id} ({group_info.get('load_count', 0)} 荷载)")
         
-        # 更新边界�?
+        # 更新边界�?
         self.boundary_group_combo.clear()
         self.boundary_group_combo.addItem("所有边界组")
         boundary_groups = fpn_data.get('boundary_groups', {})
         for group_id, group_info in boundary_groups.items():
-            self.boundary_group_combo.addItem(f"边界�?{group_id} ({group_info.get('boundary_count', 0)} 边界)")
+            self.boundary_group_combo.addItem(f"边界�?{group_id} ({group_info.get('boundary_count', 0)} 边界)")
         
-        # 更新分析�?
+        # 更新分析�?
         self.analysis_stage_combo.clear()
-        self.analysis_stage_combo.addItem("初始状�?)
+        self.analysis_stage_combo.addItem("初始状�?)
         analysis_stages = fpn_data.get('analysis_stages', [])
         for stage in analysis_stages:
             # 🔧 安全处理stage数据类型
             if isinstance(stage, dict):
-                stage_name = stage.get('name', f'分析�?{stage.get("id", "?")}')
+                stage_name = stage.get('name', f'分析�?{stage.get("id", "?")}')
                 stage_id = stage.get('id', '?')
             elif isinstance(stage, (int, str)):
                 stage_name = f'分析步{stage}'
                 stage_id = stage
             else:
-                print(f"警告: 未知的stage数据类型: {type(stage)}, �? {stage}")
+                print(f"警告: 未知的stage数据类型: {type(stage)}, �? {stage}")
                 stage_name = 'Unknown'
                 stage_id = '?'
             
@@ -1963,23 +1962,23 @@ class MainWindow(QMainWindow):
     
     def on_material_group_changed(self, text):
         """材料组选择改变"""
-        print(f"选择材料�? {text}")
+        print(f"选择材料�? {text}")
         self.update_display()
     
     def on_load_group_changed(self, text):
         """荷载组选择改变"""
-        print(f"选择荷载�? {text}")
+        print(f"选择荷载�? {text}")
         self.update_display()
     
     def on_boundary_group_changed(self, text):
         """边界组选择改变"""
-        print(f"选择边界�? {text}")
+        print(f"选择边界�? {text}")
         self.update_display()
     
     def on_analysis_stage_changed(self, text):
         """分析步选择改变"""
         try:
-            print(f"选择分析�? {text}")
+            print(f"选择分析�? {text}")
             
             # 提取分析步ID
             if "ID:" in text:
@@ -1995,13 +1994,13 @@ class MainWindow(QMainWindow):
                     print(f"解析分析步ID失败: {e}")
                     return
             
-            # 智能更新物理组显�?
+            # 智能更新物理组显�?
             self.intelligent_update_physics_groups()
             self.update_display()
             
         except Exception as e:
-            print(f"分析步切换失�? {e}")
-            self.status_label.setText(f"分析步切换失�? {str(e)}")
+            print(f"分析步切换失�? {e}")
+            self.status_label.setText(f"分析步切换失�? {str(e)}")
             import traceback
             traceback.print_exc()
     
@@ -2011,13 +2010,13 @@ class MainWindow(QMainWindow):
             return
             
         try:
-            # 获取当前分析�?
+            # 获取当前分析�?
             current_stage = self.preprocessor.get_current_analysis_stage()
             if not current_stage:
                 print("未找到当前分析步")
                 return
                 
-            # 获取该分析步应该激活的物理�?
+            # 获取该分析步应该激活的物理�?
             active_groups = self.preprocessor.determine_active_groups_for_stage(current_stage)
             
             # 自动选择相关的物理组
@@ -2034,7 +2033,7 @@ class MainWindow(QMainWindow):
             print(f"智能切换完成: {stage_name}")
             
         except Exception as e:
-            print(f"智能更新物理组失�? {e}")
+            print(f"智能更新物理组失�? {e}")
             import traceback
             traceback.print_exc()
     
@@ -2045,38 +2044,38 @@ class MainWindow(QMainWindow):
             self.material_group_combo.blockSignals(True)
             self.load_group_combo.blockSignals(True)
             self.boundary_group_combo.blockSignals(True)
-            # 自动选择材料�?
+            # 自动选择材料�?
             material_groups = active_groups.get('materials', [])
             if material_groups and self.material_group_combo.count() > 1:
-                # 选择第一个相关的材料�?
-                target_text = f"材料�?{material_groups[0]}"
+                # 选择第一个相关的材料�?
+                target_text = f"材料�?{material_groups[0]}"
                 for i in range(self.material_group_combo.count()):
                     if target_text in self.material_group_combo.itemText(i):
                         self.material_group_combo.setCurrentIndex(i)
                         break
             
-            # 自动选择荷载�?
+            # 自动选择荷载�?
             load_groups = active_groups.get('loads', [])
             if load_groups and self.load_group_combo.count() > 1:
-                target_text = f"荷载�?{load_groups[0]}"
+                target_text = f"荷载�?{load_groups[0]}"
                 for i in range(self.load_group_combo.count()):
                     if target_text in self.load_group_combo.itemText(i):
                         self.load_group_combo.setCurrentIndex(i)
                         break
                         
-            # 自动选择边界�?
+            # 自动选择边界�?
             boundary_groups = active_groups.get('boundaries', [])
             if boundary_groups and self.boundary_group_combo.count() > 1:
-                target_text = f"边界�?{boundary_groups[0]}"
+                target_text = f"边界�?{boundary_groups[0]}"
                 for i in range(self.boundary_group_combo.count()):
                     if target_text in self.boundary_group_combo.itemText(i):
                         self.boundary_group_combo.setCurrentIndex(i)
                         break
                         
-            print(f"自动选择物理�?- 材料: {material_groups}, 荷载: {load_groups}, 边界: {boundary_groups}")
+            print(f"自动选择物理�?- 材料: {material_groups}, 荷载: {load_groups}, 边界: {boundary_groups}")
             
         except Exception as e:
-            print(f"自动选择物理组失�? {e}")
+            print(f"自动选择物理组失�? {e}")
         finally:
             # 恢复信号连接
             self.material_group_combo.blockSignals(False)
@@ -2119,4 +2118,4 @@ class MainWindow(QMainWindow):
         """更新显示"""
         if hasattr(self.preprocessor, 'display_mesh'):
             self.preprocessor.display_mesh()
-        self.status_label.setText("显示已更�?)
+        self.status_label.setText("显示已更�?)
