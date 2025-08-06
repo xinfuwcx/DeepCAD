@@ -4,7 +4,7 @@
  * 技术：iTowns + OpenMeteo + Zustand + Framer Motion
  */
 
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useState, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SafetyOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
@@ -14,10 +14,13 @@ import { weatherService, WeatherData } from '../../services/weatherService';
 import { useControlCenterStore, useMapState, useUIState, useWeatherStateStore } from '../../stores/controlCenterStore';
 import './NewEpicControlCenter.css';
 
+// 懒加载项目管理面板
+const ProjectManagementPanel = React.lazy(() => import('../project/ProjectManagementPanel'));
+
 const { Title, Text } = Typography;
 
 // === 类型定义 ===
-type NavigationKey = 'street' | 'satellite' | 'terrain' | 'dark' | 'weather' | 'weather-effects' | 'epic' | 'monitor' | 'ai' | 'exit';
+type NavigationKey = 'street' | 'satellite' | 'terrain' | 'dark' | 'weather' | 'weather-effects' | 'project-management' | 'epic' | 'monitor' | 'ai' | 'exit';
 
 interface NavigationItem {
   key: NavigationKey;
@@ -174,14 +177,14 @@ MapContainer.displayName = 'MapContainer';
 const NavigationButton: React.FC<{
   item: NavigationItem;
   isActive: boolean;
-}> = React.memo(({ item, isActive }) => {
-  const { handleNavigationClick } = useControlCenterStore();
+  onNavigationClick: (key: NavigationKey) => void;
+}> = React.memo(({ item, isActive, onNavigationClick }) => {
 
   const handleClick = useCallback(() => {
-    handleNavigationClick(item.key);
+    onNavigationClick(item.key);
     
     // 地图图层切换逻辑会在 store 中处理
-  }, [item.key, handleNavigationClick]);
+  }, [item.key, onNavigationClick]);
 
   return (
     <motion.button
@@ -218,6 +221,9 @@ export const NewEpicControlCenter: React.FC = () => {
   const { themeConfig } = useDeepCADTheme();
   useWeatherData(); // 初始化天气数据
   
+  // 本地状态管理
+  const [showProjectManagementPanel, setShowProjectManagementPanel] = useState(false);
+  
   // 直接使用 store selectors
   const activeMapMode = useControlCenterStore(state => state.activeMapMode);
   const showWeatherPanel = useControlCenterStore(state => state.showWeatherPanel);
@@ -229,10 +235,19 @@ export const NewEpicControlCenter: React.FC = () => {
   const cloudDensity = useControlCenterStore(state => state.cloudDensity);
   
   // Store actions
-  const handleNavigationClick = useControlCenterStore(state => state.handleNavigationClick);
+  const storeHandleNavigationClick = useControlCenterStore(state => state.handleNavigationClick);
   const updateWeatherState = useControlCenterStore(state => state.updateWeatherState);
   const setWeatherIntensity = useControlCenterStore(state => state.setWeatherIntensity);
   const setCloudDensity = useControlCenterStore(state => state.setCloudDensity);
+
+  // 自定义导航点击处理
+  const handleNavigationClick = useCallback((key: NavigationKey) => {
+    if (key === 'project-management') {
+      setShowProjectManagementPanel(!showProjectManagementPanel);
+    } else {
+      storeHandleNavigationClick(key);
+    }
+  }, [showProjectManagementPanel, storeHandleNavigationClick]);
 
   // === 常量定义 ===
   const navigationItems: NavigationItem[] = [
@@ -242,6 +257,7 @@ export const NewEpicControlCenter: React.FC = () => {
     { key: 'dark', label: '暗色主题', icon: '🌙', active: false },
     { key: 'weather', label: '天气', icon: '🌤️', active: true },
     { key: 'weather-effects', label: '天气效果', icon: '⛈️', active: false },
+    { key: 'project-management', label: '项目管理', icon: '🏗️', active: false },
     { key: 'epic', label: 'EPIC开关', icon: '⚡', active: false },
     { key: 'monitor', label: '大屏监控', icon: '📺', active: false },
     { key: 'ai', label: 'AI助手', icon: '🤖', active: false },
@@ -290,7 +306,8 @@ export const NewEpicControlCenter: React.FC = () => {
             <NavigationButton
               key={item.key}
               item={item}
-              isActive={activeMapMode === item.key}
+              isActive={activeMapMode === item.key || (item.key === 'project-management' && showProjectManagementPanel)}
+              onNavigationClick={handleNavigationClick}
             />
           ))}
         </div>
@@ -537,6 +554,62 @@ export const NewEpicControlCenter: React.FC = () => {
         </div>
         )}
       </div>
+
+      {/* 项目管理面板 */}
+      {showProjectManagementPanel && (
+        <Suspense fallback={<div>加载项目管理面板...</div>}>
+          <ProjectManagementPanel
+            visible={showProjectManagementPanel}
+            onClose={() => setShowProjectManagementPanel(false)}
+            position={{ x: 350, y: 120 }}
+            onProjectSelect={(project) => {
+              console.log('选择项目:', project.name);
+              // 这里可以添加项目切换逻辑
+            }}
+            projects={[
+              {
+                id: '1',
+                name: '上海中心深基坑项目',
+                description: '大型商业综合体深基坑工程',
+                location: '上海市浦东新区',
+                status: 'active',
+                progress: 75,
+                startDate: '2024-01-15',
+                endDate: '2024-12-30',
+                manager: '张工',
+                depth: 18.5,
+                area: 2500
+              },
+              {
+                id: '2', 
+                name: '北京CBD地铁站基坑',
+                description: '地铁换乘站深基坑施工',
+                location: '北京市朝阳区',
+                status: 'planning',
+                progress: 25,
+                startDate: '2024-03-01',
+                endDate: '2025-06-15',
+                manager: '李工',
+                depth: 22.0,
+                area: 1800
+              },
+              {
+                id: '3',
+                name: '深圳前海金融中心',
+                description: '超高层建筑深基坑工程',
+                location: '深圳市南山区',
+                status: 'completed',
+                progress: 100,
+                startDate: '2023-05-20',
+                endDate: '2024-02-10',
+                manager: '王工',
+                depth: 25.5,
+                area: 3200
+              }
+            ]}
+          />
+        </Suspense>
+      )}
     </div>
   );
 };

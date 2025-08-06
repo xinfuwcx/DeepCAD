@@ -41,6 +41,7 @@ interface SimpleWeatherData {
 const WeatherControlPanel = lazy(() => import('./WeatherControlPanel').then(module => ({ default: module.WeatherControlPanel })));
 const PerformancePanel = lazy(() => import('../../components/3d/performance/PerformancePanel').then(module => ({ default: module.PerformancePanel })));
 const PerformanceDashboard = lazy(() => import('../common/PerformanceDashboard').then(module => ({ default: module.PerformanceDashboard })));
+const ProjectManagementPanel = lazy(() => import('../project/ProjectManagementPanel').then(module => ({ default: module.default })));
 
 // ======================= 优化的接口定义 =======================
 
@@ -135,6 +136,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
   const [showWeatherPanel, setShowWeatherPanel] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [showPerformancePanel, setShowPerformancePanel] = useState(false);
+  const [showProjectManagementPanel, setShowProjectManagementPanel] = useState(false);
   
   // 性能监控器状态
   const [performanceMonitorInstance, setPerformanceMonitorInstance] = useState<any>(null);
@@ -805,6 +807,54 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
             transition={{ duration: 1, repeat: Infinity }}
           >
             📊 性能监控
+          </motion.span>
+        </motion.button>
+
+        <motion.button
+          onClick={() => setShowProjectManagementPanel(!showProjectManagementPanel)}
+          whileHover={{ 
+            scale: 1.05,
+            boxShadow: '0 0 25px rgba(255, 165, 0, 0.8)'
+          }}
+          whileTap={{ scale: 0.95 }}
+          animate={{
+            background: showProjectManagementPanel ? 
+              [
+                'linear-gradient(45deg, rgba(255, 165, 0, 0.4), rgba(255, 100, 0, 0.4))',
+                'linear-gradient(45deg, rgba(255, 100, 0, 0.4), rgba(255, 165, 0, 0.4))',
+                'linear-gradient(45deg, rgba(255, 165, 0, 0.4), rgba(255, 100, 0, 0.4))'
+              ] : 'rgba(255, 255, 255, 0.1)',
+            borderColor: showProjectManagementPanel ? 
+              ['#ffa500', '#ff6400', '#ffa500'] : 'rgba(255, 255, 255, 0.3)'
+          }}
+          transition={{
+            duration: showProjectManagementPanel ? 2 : 0.2,
+            repeat: showProjectManagementPanel ? Infinity : 0,
+            ease: "linear"
+          }}
+          style={{
+            border: '2px solid',
+            borderRadius: '10px',
+            color: '#ffffff',
+            padding: '8px 12px',
+            fontSize: '12px',
+            cursor: 'pointer',
+            backdropFilter: 'blur(10px)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+        >
+          <motion.span
+            animate={showProjectManagementPanel ? {
+              textShadow: [
+                '0 0 5px #ffa500',
+                '0 0 15px #ff6400',
+                '0 0 5px #ffa500'
+              ]
+            } : {}}
+            transition={{ duration: 1, repeat: Infinity }}
+          >
+            🏗️ 项目管理
           </motion.span>
         </motion.button>
 
@@ -1588,6 +1638,38 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
               <div>🏗️ 活跃项目: {systemStatus.activeProjects}</div>
             </div>
           </div>
+        </Suspense>
+      )}
+
+      {/* 项目管理面板 */}
+      {showProjectManagementPanel && (
+        <Suspense fallback={<div>加载项目管理面板...</div>}>
+          <ProjectManagementPanel
+            visible={showProjectManagementPanel}
+            onClose={() => setShowProjectManagementPanel(false)}
+            position={{ x: 350, y: 120 }}
+            onProjectSelect={(project) => {
+              console.log('选择项目:', project.name);
+              // 这里可以添加项目切换逻辑，比如飞行到项目位置
+              if (mapControllerRef.current && 'location' in project) {
+                // 如果项目有地理位置信息，可以飞行到该位置
+                console.log('飞行到项目位置:', project.location);
+              }
+            }}
+            projects={projectsData.map(p => ({
+              id: p.id,
+              name: p.name,
+              description: `深基坑工程项目 - 深度${p.depth}m`,
+              location: `${p.location.lat.toFixed(3)}°N, ${p.location.lng.toFixed(3)}°E`,
+              status: p.status,
+              progress: p.progress,
+              startDate: '2024-01-01',
+              endDate: '2024-12-31',
+              manager: '项目经理',
+              depth: p.depth,
+              area: 2000
+            }))}
+          />
         </Suspense>
       )}
 

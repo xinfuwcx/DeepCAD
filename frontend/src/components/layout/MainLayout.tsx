@@ -115,6 +115,11 @@ const MainLayout: React.FC = () => {
       label: '材料库',
     },
     {
+      key: 'project-management',
+      icon: <AppstoreOutlined />,
+      label: '项目管理',
+    },
+    {
       key: 'settings',
       icon: <SettingOutlined />,
       label: '系统设置',
@@ -236,6 +241,7 @@ const MainLayout: React.FC = () => {
             <Route path="results" element={<EnhancedMainWorkspaceView activeModule="results" />} />
             <Route path="physics-ai" element={<PhysicsAIView />} />
             <Route path="materials" element={<MaterialLibraryView />} />
+            <Route path="project-management" element={<NewEpicControlCenter />} />
             <Route path="settings" element={<SettingsView />} />
             {/* 兼容性重定向：避免旧链接404 */}
             <Route path="computation" element={
