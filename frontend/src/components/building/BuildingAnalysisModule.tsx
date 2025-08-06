@@ -17,18 +17,14 @@ const { Option } = Select;
 const { TabPane } = Tabs;
 
 // 桩材料类型
-type PileMaterial = 'concrete' | 'steel' | 'composite';
+type PileMaterial = 
+  | 'C20' | 'C25' | 'C30' | 'C35' | 'C40' | 'C45' | 'C50' | 'C55' | 'C60' | 'C65' | 'C70' | 'C80'  // 混凝土等级
+  | 'Q235' | 'Q345' | 'Q390' | 'Q420' | 'Q460'                                                      // 钢材等级
+  | 'HRB400' | 'HRB500'                                                                              // 钢筋等级
+  | 'GFRP' | 'CFRP' | 'BFRP';                                                                       // 复合材料
 
 // 建筑分析参数接口
 interface BuildingAnalysisParameters {
-  // 相邻间距参数
-  adjacentSpacing: {
-    northDistance: number;    // 北侧距离 (m)
-    southDistance: number;    // 南侧距离 (m)
-    eastDistance: number;     // 东侧距离 (m)
-    westDistance: number;     // 西侧距离 (m)
-  };
-  
   // 底板参数
   floorParameters: {
     length: number;           // 长度 (m)
@@ -60,12 +56,6 @@ const BuildingAnalysisModule: React.FC<BuildingAnalysisModuleProps> = ({
   status = 'idle'
 }) => {
   const [buildingParams, setBuildingParams] = useState<BuildingAnalysisParameters>({
-    adjacentSpacing: {
-      northDistance: 15.0,
-      southDistance: 12.0,
-      eastDistance: 18.0,
-      westDistance: 10.0
-    },
     floorParameters: {
       length: 50.0,
       width: 30.0,
@@ -78,11 +68,11 @@ const BuildingAnalysisModule: React.FC<BuildingAnalysisModuleProps> = ({
       count: 24,
       length: 25.0,
       diameter: 0.8,
-      material: 'concrete'
+      material: 'C30'
     }
   });
 
-  const [activeTab, setActiveTab] = useState('spacing');
+  const [activeTab, setActiveTab] = useState('floor');
 
   // 更新参数的通用函数
   const updateParams = useCallback((newParams: Partial<BuildingAnalysisParameters>) => {
@@ -119,101 +109,7 @@ const BuildingAnalysisModule: React.FC<BuildingAnalysisModuleProps> = ({
         style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
         tabBarStyle={{ flex: 'none' }}
       >
-        {/* 相邻间距 */}
-        <TabPane 
-          tab={
-            <span>
-              <SettingOutlined />
-              相邻间距
-            </span>
-          } 
-          key="spacing"
-          style={{ flex: 1, overflow: 'hidden' }}
-        >
-          <div style={{ height: 'calc(100vh - 200px)', overflow: 'auto', paddingBottom: '40px' }}>
-            <Form layout="vertical" size="large">
-              {/* 间距配置 */}
-              <Card
-                title="建筑物间距"
-                size="small"
-                style={{ marginBottom: '16px', borderRadius: '8px' }}
-              >
-                <Row gutter={[16, 8]}>
-                  <Col span={12}>
-                    <Form.Item
-                      label="北侧距离 (m)"
-                      tooltip="建筑物北侧与相邻建筑的距离"
-                    >
-                      <InputNumber
-                        value={buildingParams.adjacentSpacing.northDistance}
-                        onChange={(value) => handleSpacingChange('northDistance', value || 15.0)}
-                        min={5}
-                        max={100}
-                        step={0.5}
-                        precision={1}
-                        size="large"
-                        style={{ width: '100%' }}
-                      />
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item
-                      label="南侧距离 (m)"
-                      tooltip="建筑物南侧与相邻建筑的距离"
-                    >
-                      <InputNumber
-                        value={buildingParams.adjacentSpacing.southDistance}
-                        onChange={(value) => handleSpacingChange('southDistance', value || 12.0)}
-                        min={5}
-                        max={100}
-                        step={0.5}
-                        precision={1}
-                        size="large"
-                        style={{ width: '100%' }}
-                      />
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item
-                      label="东侧距离 (m)"
-                      tooltip="建筑物东侧与相邻建筑的距离"
-                    >
-                      <InputNumber
-                        value={buildingParams.adjacentSpacing.eastDistance}
-                        onChange={(value) => handleSpacingChange('eastDistance', value || 18.0)}
-                        min={5}
-                        max={100}
-                        step={0.5}
-                        precision={1}
-                        size="large"
-                        style={{ width: '100%' }}
-                      />
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item
-                      label="西侧距离 (m)"
-                      tooltip="建筑物西侧与相邻建筑的距离"
-                    >
-                      <InputNumber
-                        value={buildingParams.adjacentSpacing.westDistance}
-                        onChange={(value) => handleSpacingChange('westDistance', value || 10.0)}
-                        min={5}
-                        max={100}
-                        step={0.5}
-                        precision={1}
-                        size="large"
-                        style={{ width: '100%' }}
-                      />
-                    </Form.Item>
-                  </Col>
-                </Row>
-              </Card>
 
-
-            </Form>
-          </div>
-        </TabPane>
 
         {/* 底板参数 */}
         <TabPane 
@@ -235,6 +131,40 @@ const BuildingAnalysisModule: React.FC<BuildingAnalysisModuleProps> = ({
                 style={{ marginBottom: '16px', borderRadius: '8px' }}
               >
                 <Row gutter={[16, 8]}>
+                  <Col span={24}>
+                    <Form.Item
+                        label="长边距离 (m)"
+                        tooltip="底板长度方向距离基坑边界的距离"
+                    >
+                      <InputNumber
+                          value={buildingParams.floorParameters.lengthDistance}
+                          onChange={(value) => handleFloorChange('lengthDistance', value || 5.0)}
+                          min={1}
+                          max={20}
+                          step={0.5}
+                          precision={1}
+                          size="large"
+                          style={{ width: '100%' }}
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={24}>
+                    <Form.Item
+                        label="短边距离 (m)"
+                        tooltip="底板宽度方向距离基坑边界的距离"
+                    >
+                      <InputNumber
+                          value={buildingParams.floorParameters.widthDistance}
+                          onChange={(value) => handleFloorChange('widthDistance', value || 3.0)}
+                          min={1}
+                          max={15}
+                          step={0.5}
+                          precision={1}
+                          size="large"
+                          style={{ width: '100%' }}
+                      />
+                    </Form.Item>
+                  </Col>
                   <Col span={24}>
                     <Form.Item
                       label="长度 (m)"
@@ -286,40 +216,7 @@ const BuildingAnalysisModule: React.FC<BuildingAnalysisModuleProps> = ({
                        />
                      </Form.Item>
                    </Col>
-                   <Col span={24}>
-                     <Form.Item
-                       label="长度距离 (m)"
-                       tooltip="底板长度方向距离基坑边界的距离"
-                     >
-                       <InputNumber
-                         value={buildingParams.floorParameters.lengthDistance}
-                         onChange={(value) => handleFloorChange('lengthDistance', value || 5.0)}
-                         min={1}
-                         max={20}
-                         step={0.5}
-                         precision={1}
-                         size="large"
-                         style={{ width: '100%' }}
-                       />
-                     </Form.Item>
-                   </Col>
-                   <Col span={24}>
-                     <Form.Item
-                       label="宽度距离 (m)"
-                       tooltip="底板宽度方向距离基坑边界的距离"
-                     >
-                       <InputNumber
-                         value={buildingParams.floorParameters.widthDistance}
-                         onChange={(value) => handleFloorChange('widthDistance', value || 3.0)}
-                         min={1}
-                         max={15}
-                         step={0.5}
-                         precision={1}
-                         size="large"
-                         style={{ width: '100%' }}
-                       />
-                     </Form.Item>
-                   </Col>
+
                 </Row>
               </Card>
 
@@ -348,6 +245,42 @@ const BuildingAnalysisModule: React.FC<BuildingAnalysisModuleProps> = ({
                 style={{ marginBottom: '16px', borderRadius: '8px' }}
               >
                 <Row gutter={[16, 8]}>
+                  <Col span={24}>
+                    <Form.Item
+                        label="材料"
+                        tooltip="桩基材料类型"
+                    >
+                                             <Select
+                           value={buildingParams.pileParameters.material}
+                           onChange={(value) => handlePileChange('material', value)}
+                           size="large"
+                           style={{ width: '100%' }}
+                       >
+                         <Option value="C20">C20 - 普通混凝土</Option>
+                         <Option value="C25">C25 - 普通混凝土</Option>
+                         <Option value="C30">C30 - 常用混凝土</Option>
+                         <Option value="C35">C35 - 高强混凝土</Option>
+                         <Option value="C40">C40 - 高强混凝土</Option>
+                         <Option value="C45">C45 - 超高强混凝土</Option>
+                         <Option value="C50">C50 - 超高强混凝土</Option>
+                         <Option value="C55">C55 - 特高强混凝土</Option>
+                         <Option value="C60">C60 - 特高强混凝土</Option>
+                         <Option value="C65">C65 - 特高强混凝土</Option>
+                         <Option value="C70">C70 - 超特高强混凝土</Option>
+                         <Option value="C80">C80 - 超特高强混凝土</Option>
+                         <Option value="Q235">Q235 - 普通碳素钢</Option>
+                         <Option value="Q345">Q345 - 低合金高强度钢</Option>
+                         <Option value="Q390">Q390 - 低合金高强度钢</Option>
+                         <Option value="Q420">Q420 - 低合金高强度钢</Option>
+                         <Option value="Q460">Q460 - 低合金高强度钢</Option>
+                         <Option value="HRB400">HRB400 - 热轧带肋钢筋</Option>
+                         <Option value="HRB500">HRB500 - 热轧带肋钢筋</Option>
+                         <Option value="GFRP">GFRP - 玻璃纤维复合材料</Option>
+                         <Option value="CFRP">CFRP - 碳纤维复合材料</Option>
+                         <Option value="BFRP">BFRP - 玄武岩纤维复合材料</Option>
+                       </Select>
+                    </Form.Item>
+                  </Col>
                   <Col span={24}>
                     <Form.Item
                       label="边距 (m)"
@@ -415,23 +348,7 @@ const BuildingAnalysisModule: React.FC<BuildingAnalysisModuleProps> = ({
                       />
                     </Form.Item>
                   </Col>
-                  <Col span={24}>
-                    <Form.Item
-                      label="材料"
-                      tooltip="桩基材料类型"
-                    >
-                      <Select
-                        value={buildingParams.pileParameters.material}
-                        onChange={(value) => handlePileChange('material', value)}
-                        size="large"
-                        style={{ width: '100%' }}
-                      >
-                        <Option value="concrete">混凝土</Option>
-                        <Option value="steel">钢材</Option>
-                        <Option value="composite">复合材料</Option>
-                      </Select>
-                    </Form.Item>
-                  </Col>
+
                 </Row>
               </Card>
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Space, Row, Col, Typography, Collapse, Switch, Select, Alert, Card, InputNumber, Divider, Tabs, Form } from 'antd';
+import { Space, Row, Col, Typography, Collapse, Switch, Select, Alert, Card, InputNumber, Divider, Tabs, Form, Table, Checkbox } from 'antd';
 import { SafetyOutlined, CheckCircleOutlined, BuildOutlined, NodeExpandOutlined, AimOutlined, TableOutlined } from '@ant-design/icons';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -28,6 +28,238 @@ const SupportModule: React.FC<SupportModuleProps> = ({
   disabled 
 }) => {
   const [activePanel, setActivePanel] = useState<string | string[]>(['diaphragm']);
+  const [anchorCount, setAnchorCount] = useState(20);
+  const [beamEnabled, setBeamEnabled] = useState(false);
+
+  // 生成锚杆表格数据
+  const generateAnchorTableData = (count: number) => {
+    return Array.from({ length: count }, (_, index) => ({
+      key: index + 1,
+      number: index + 1,
+      angle: 15,
+      freeLength: 6.0,
+      freeSection: 25,
+      topDistance: (index + 1) * 2.0, // 默认每根锚杆间隔2米
+      freeMaterial: 'HRB400',
+      anchorLength: 4.0,
+      anchorSection: 32,
+      anchorMaterial: 'HRB500',
+      prestress: 150
+    }));
+  };
+
+  const [anchorTableData, setAnchorTableData] = useState(generateAnchorTableData(anchorCount));
+
+  // 当锚杆数量改变时更新表格数据
+  React.useEffect(() => {
+    setAnchorTableData(generateAnchorTableData(anchorCount));
+  }, [anchorCount]);
+
+  // 表格列配置
+  const anchorColumns = [
+    {
+      title: '编号',
+      dataIndex: 'number',
+      key: 'number',
+      width: 60,
+      fixed: 'left' as const,
+    },
+    {
+      title: '距顶部距离(m)',
+      dataIndex: 'topDistance',
+      key: 'topDistance',
+      width: 130,
+      render: (value: number, record: any) => (
+          <InputNumber
+              value={value}
+              min={0}
+              max={50}
+              step={0.1}
+              precision={1}
+              size="small"
+              style={{ width: '100%' }}
+              onChange={(newValue) => {
+                const newData = [...anchorTableData];
+                newData[record.key - 1].topDistance = newValue || 0;
+                setAnchorTableData(newData);
+              }}
+          />
+      ),
+    },
+    {
+      title: '角度(°)',
+      dataIndex: 'angle',
+      key: 'angle',
+      width: 100,
+      render: (value: number, record: any) => (
+        <InputNumber
+          value={value}
+          min={0}
+          max={90}
+          step={1}
+          size="small"
+          style={{ width: '100%' }}
+          onChange={(newValue) => {
+            const newData = [...anchorTableData];
+            newData[record.key - 1].angle = newValue || 0;
+            setAnchorTableData(newData);
+          }}
+        />
+      ),
+    },
+    {
+      title: '自由端长度(m)',
+      dataIndex: 'freeLength',
+      key: 'freeLength',
+      width: 120,
+      render: (value: number, record: any) => (
+        <InputNumber
+          value={value}
+          min={1}
+          max={20}
+          step={0.1}
+          precision={1}
+          size="small"
+          style={{ width: '100%' }}
+          onChange={(newValue) => {
+            const newData = [...anchorTableData];
+            newData[record.key - 1].freeLength = newValue || 0;
+            setAnchorTableData(newData);
+          }}
+        />
+      ),
+    },
+    {
+      title: '自由端截面(mm)',
+      dataIndex: 'freeSection',
+      key: 'freeSection',
+      width: 130,
+      render: (value: number, record: any) => (
+        <InputNumber
+          value={value}
+          min={16}
+          max={50}
+          step={1}
+          size="small"
+          style={{ width: '100%' }}
+          onChange={(newValue) => {
+            const newData = [...anchorTableData];
+            newData[record.key - 1].freeSection = newValue || 0;
+            setAnchorTableData(newData);
+          }}
+        />
+      ),
+    },
+
+    {
+      title: '自由端材料',
+      dataIndex: 'freeMaterial',
+      key: 'freeMaterial',
+      width: 120,
+      render: (value: string, record: any) => (
+        <Select
+          value={value}
+          size="small"
+          style={{ width: '100%' }}
+          onChange={(newValue) => {
+            const newData = [...anchorTableData];
+            newData[record.key - 1].freeMaterial = newValue;
+            setAnchorTableData(newData);
+          }}
+        >
+          <Option value="HRB335">HRB335</Option>
+          <Option value="HRB400">HRB400</Option>
+          <Option value="HRB500">HRB500</Option>
+        </Select>
+      ),
+    },
+    {
+      title: '锚固端长度(m)',
+      dataIndex: 'anchorLength',
+      key: 'anchorLength',
+      width: 130,
+      render: (value: number, record: any) => (
+        <InputNumber
+          value={value}
+          min={1}
+          max={15}
+          step={0.1}
+          precision={1}
+          size="small"
+          style={{ width: '100%' }}
+          onChange={(newValue) => {
+            const newData = [...anchorTableData];
+            newData[record.key - 1].anchorLength = newValue || 0;
+            setAnchorTableData(newData);
+          }}
+        />
+      ),
+    },
+    {
+      title: '锚固端截面(mm)',
+      dataIndex: 'anchorSection',
+      key: 'anchorSection',
+      width: 130,
+      render: (value: number, record: any) => (
+        <InputNumber
+          value={value}
+          min={20}
+          max={60}
+          step={1}
+          size="small"
+          style={{ width: '100%' }}
+          onChange={(newValue) => {
+            const newData = [...anchorTableData];
+            newData[record.key - 1].anchorSection = newValue || 0;
+            setAnchorTableData(newData);
+          }}
+        />
+      ),
+    },
+    {
+      title: '锚固端材料',
+      dataIndex: 'anchorMaterial',
+      key: 'anchorMaterial',
+      width: 120,
+      render: (value: string, record: any) => (
+        <Select
+          value={value}
+          size="small"
+          style={{ width: '100%' }}
+          onChange={(newValue) => {
+            const newData = [...anchorTableData];
+            newData[record.key - 1].anchorMaterial = newValue;
+            setAnchorTableData(newData);
+          }}
+        >
+          <Option value="HRB400">HRB400</Option>
+          <Option value="HRB500">HRB500</Option>
+          <Option value="HRB600">HRB600</Option>
+        </Select>
+      ),
+    },
+    {
+      title: '预应力(kN)',
+      dataIndex: 'prestress',
+      key: 'prestress',
+      width: 120,
+      render: (value: number, record: any) => (
+        <InputNumber
+          value={value}
+          min={50}
+          max={500}
+          step={10}
+          size="small"
+          style={{ width: '100%' }}
+          onChange={(newValue) => {
+            const newData = [...anchorTableData];
+            newData[record.key - 1].prestress = newValue || 0;
+            setAnchorTableData(newData);
+          }}
+        />
+      ),
+    },
+  ];
 
   // React Hook Form with Zod validation
   const {
@@ -101,7 +333,7 @@ const SupportModule: React.FC<SupportModuleProps> = ({
     <div className="p-4">
       <Tabs defaultActiveKey="wall_anchor" type="card">
                 <TabPane 
-          tab={<span><SafetyOutlined /> 墙锚体系</span>} 
+          tab={<span><SafetyOutlined /> 墙参数</span>}
           key="wall_anchor"
         >
           <div style={{ padding: '16px' }}>
@@ -172,53 +404,51 @@ const SupportModule: React.FC<SupportModuleProps> = ({
               </Row>
             </Card>
 
-            {/* 锚杆参数 */}
             <Card
-              title="锚杆参数"
+              title="摩擦参数"
               size="small"
               style={{ marginBottom: '16px', borderRadius: '8px' }}
             >
               <Row gutter={[16, 16]}>
+                <Col span={24}>
+                  <Form.Item
+                    label="是否考虑摩擦"
+                  >
+                    <Select
+                      defaultValue="yes"
+                      size="large"
+                      style={{ width: '100%' }}
+                    >
+                      <Option value="yes">是</Option>
+                      <Option value="no">否</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
                 <Col span={12}>
                   <Form.Item
-                    label="锚杆长度 (m)"
+                    label="摩擦系数"
                   >
                     <InputNumber
-                      defaultValue={15}
-                                            size="large"
+                      defaultValue={0.35}
+                      min={0.1}
+                      max={1.0}
+                      step={0.05}
+                      precision={2}
+                      size="large"
                       style={{ width: '100%' }}
                     />
                   </Form.Item>
                 </Col>
                 <Col span={12}>
                   <Form.Item
-                    label="倾斜角度 (°)"
+                    label="粘聚力 (kPa)"
                   >
                     <InputNumber
                       defaultValue={20}
-                                            size="large"
-                      style={{ width: '100%' }}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item
-                    label="水平间距 (m)"
-                  >
-                    <InputNumber
-                      defaultValue={3.0}
-                                            size="large"
-                      style={{ width: '100%' }}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item
-                    label="竖向间距 (m)"
-                  >
-                    <InputNumber
-                      defaultValue={4.0}
-                                            size="large"
+                      min={0}
+                      max={100}
+                      step={5}
+                      size="large"
                       style={{ width: '100%' }}
                     />
                   </Form.Item>
@@ -233,7 +463,7 @@ const SupportModule: React.FC<SupportModuleProps> = ({
         </TabPane>
 
         <TabPane 
-          tab={<span><NodeExpandOutlined /> 桩锚体系</span>} 
+          tab={<span><NodeExpandOutlined /> 桩参数</span>}
           key="pile_anchor"
         >
           <div style={{ padding: '16px' }}>
@@ -306,70 +536,7 @@ const SupportModule: React.FC<SupportModuleProps> = ({
               </Row>
             </Card>
 
-            <Card
-              title="锚索参数"
-              size="small"
-              style={{ marginBottom: '16px', borderRadius: '8px' }}
-            >
-              <Row gutter={[16, 16]}>
-                <Col span={12}>
-                  <Form.Item
-                    label="锚索长度 (m)"
-                  >
-                    <InputNumber
-                      min={10}
-                      max={40}
-                      defaultValue={20}
-                      step={1}
-                                            size="large"
-                      style={{ width: '100%' }}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item
-                    label="倾斜角度 (°)"
-                  >
-                    <InputNumber
-                      min={10}
-                      max={45}
-                      defaultValue={25}
-                      step={1}
-                                            size="large"
-                      style={{ width: '100%' }}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item
-                    label="预应力 (kN)"
-                  >
-                    <InputNumber
-                      min={100}
-                      max={1000}
-                      defaultValue={300}
-                      step={50}
-                                            size="large"
-                      style={{ width: '100%' }}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item
-                    label="锚索间距 (m)"
-                  >
-                    <InputNumber
-                      min={1.5}
-                      max={6.0}
-                      defaultValue={3.0}
-                      step={0.5}
-                                            size="large"
-                      style={{ width: '100%' }}
-                    />
-                  </Form.Item>
-                </Col>
-              </Row>
-            </Card>
+
 
             <Card
               title="冠梁参数"
@@ -377,6 +544,22 @@ const SupportModule: React.FC<SupportModuleProps> = ({
               style={{ marginBottom: '16px', borderRadius: '8px' }}
             >
               <Row gutter={[16, 16]}>
+                <Col span={24}>
+                  <Form.Item
+                      label="混凝土等级"
+                  >
+                    <Select
+                        defaultValue="C30"
+                        size="large"
+                        style={{ width: '100%' }}
+                    >
+                      <Option value="C25">C25</Option>
+                      <Option value="C30">C30</Option>
+                      <Option value="C35">C35</Option>
+                      <Option value="C40">C40</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
                 <Col span={12}>
                   <Form.Item
                     label="冠梁宽度 (mm)"
@@ -405,26 +588,198 @@ const SupportModule: React.FC<SupportModuleProps> = ({
                     />
                   </Form.Item>
                 </Col>
+
+              </Row>
+            </Card>
+
+            <Card
+              title="摩擦参数"
+              size="small"
+              style={{ marginBottom: '16px', borderRadius: '8px' }}
+            >
+              <Row gutter={[16, 16]}>
                 <Col span={24}>
                   <Form.Item
-                    label="混凝土等级"
+                    label="是否考虑摩擦"
                   >
                     <Select
-                      defaultValue="C30"
-                                            size="large"
+                      defaultValue="yes"
+                      size="large"
                       style={{ width: '100%' }}
                     >
-                      <Option value="C25">C25</Option>
-                      <Option value="C30">C30</Option>
-                      <Option value="C35">C35</Option>
-                      <Option value="C40">C40</Option>
+                      <Option value="yes">是</Option>
+                      <Option value="no">否</Option>
                     </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    label="摩擦系数"
+                  >
+                    <InputNumber
+                      defaultValue={0.35}
+                      min={0.1}
+                      max={1.0}
+                      step={0.05}
+                      precision={2}
+                      size="large"
+                      style={{ width: '100%' }}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    label="粘聚力 (kPa)"
+                  >
+                    <InputNumber
+                      defaultValue={20}
+                      min={0}
+                      max={100}
+                      step={5}
+                      size="large"
+                      style={{ width: '100%' }}
+                    />
                   </Form.Item>
                 </Col>
               </Row>
             </Card>
 
             <Divider />
+
+          </div>
+        </TabPane>
+
+        {/* 锚杆参数标签页 */}
+        <TabPane 
+          tab={<span><AimOutlined /> 锚杆参数</span>}
+          key="anchor"
+        >
+          <div style={{ padding: '16px', height: 'calc(100vh - 200px)', overflow: 'auto' }}>
+            {/* 锚杆参数 */}
+            <Card
+              title="锚杆参数"
+              size="small"
+              style={{ marginBottom: '16px', borderRadius: '8px' }}
+            >
+              <Row gutter={[16, 16]}>
+                <Col span={24}>
+                  <Form.Item
+                    label="锚杆数量"
+                  >
+                    <InputNumber
+                      defaultValue={20}
+                      min={1}
+                      max={200}
+                      step={1}
+                      size="large"
+                      style={{ width: '100%' }}
+                      onChange={(value) => setAnchorCount(value || 20)}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </Card>
+
+            {/* 锚杆详细参数表格 */}
+            <Card
+              title="锚杆详细参数"
+              size="small"
+              style={{ marginBottom: '16px', borderRadius: '8px' }}
+            >
+              <div style={{ overflowX: 'auto', maxHeight: '400px', overflowY: 'auto' }}>
+                <Table
+                  dataSource={anchorTableData}
+                  columns={anchorColumns}
+                  pagination={false}
+                  size="small"
+                  scroll={{ x: 1330, y: 350 }}
+                  rowKey="key"
+                />
+              </div>
+            </Card>
+
+
+
+            {/* 腰梁参数 */}
+            <Card
+              title={
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <Checkbox 
+                    checked={beamEnabled}
+                    onChange={(e) => setBeamEnabled(e.target.checked)}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span>腰梁参数</span>
+                </div>
+              }
+              size="small"
+              style={{ 
+                marginBottom: '8px', 
+                borderRadius: '8px',
+                opacity: beamEnabled ? 1 : 0.6
+              }}
+            >
+              <Row gutter={[8, 8]}>
+                <Col span={24}>
+                  <Form.Item
+                      label="钢材材料"
+                  >
+                    <Select
+                        defaultValue="Q235"
+                        size="large"
+                        disabled={!beamEnabled}
+                        style={{ width: '100%' }}
+                    >
+                      <Option value="Q235">Q235</Option>
+                      <Option value="Q345">Q345</Option>
+                      <Option value="Q390">Q390</Option>
+                      <Option value="Q420">Q420</Option>
+                      <Option value="Q460">Q460</Option>
+                      <Option value="Q500">Q500</Option>
+                      <Option value="Q550">Q550</Option>
+                      <Option value="Q620">Q620</Option>
+                      <Option value="Q690">Q690</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={24}>
+                  <Form.Item
+                    label="腰梁截面宽度(mm)"
+                  >
+                    <InputNumber
+                      defaultValue={300}
+                      min={200}
+                      max={600}
+                      step={10}
+                      size="large"
+                      disabled={!beamEnabled}
+                      style={{ width: '100%' }}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={24}>
+                  <Form.Item
+                    label="腰梁截面高度(mm)"
+                  >
+                    <InputNumber
+                      defaultValue={400}
+                      min={300}
+                      max={800}
+                      step={10}
+                      size="large"
+                      disabled={!beamEnabled}
+                      style={{ width: '100%' }}
+                    />
+                  </Form.Item>
+                </Col>
+
+              </Row>
+            </Card>
+
+            <Divider />
+
+            {/* 增加底部空白区域，防止内容被遮挡 */}
+            <div style={{ height: '80px' }}></div>
 
           </div>
         </TabPane>

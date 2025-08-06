@@ -47,11 +47,6 @@ interface TunnelParameters {
     material: LiningMaterial;
     materialGrade?: ConcreteGrade | SteelGrade | string; // 材料等级
     thickness: number;
-    reinforcement?: {
-      enabled: boolean;
-      steelGrade: string;
-      spacing: number;
-    };
   };
   
   // 隧道基本参数
@@ -248,10 +243,12 @@ const TunnelModelingModule: React.FC<TunnelModelingModuleProps> = ({
       case 'horseshoe':
         return (
           <>
-            <Col span={8}>
+            {/* 宽度 - 第一行 */}
+            <Col span={24}>
               <Form.Item
                 label="宽度 (m)"
                 tooltip="马蹄形截面的底部宽度"
+                style={{ marginBottom: '12px' }}
               >
                 <InputNumber
                   value={dimensions.width}
@@ -270,10 +267,12 @@ const TunnelModelingModule: React.FC<TunnelModelingModuleProps> = ({
                 />
               </Form.Item>
             </Col>
-            <Col span={8}>
+            {/* 高度 - 第二行 */}
+            <Col span={24}>
               <Form.Item
                 label="高度 (m)"
                 tooltip="马蹄形截面的总高度"
+                style={{ marginBottom: '12px' }}
               >
                 <InputNumber
                   value={dimensions.height}
@@ -292,7 +291,8 @@ const TunnelModelingModule: React.FC<TunnelModelingModuleProps> = ({
                 />
               </Form.Item>
             </Col>
-            <Col span={8}>
+            {/* 拱半径 - 第三行 */}
+            <Col span={24}>
               <Form.Item
                 label="拱半径 (m)"
                 tooltip="马蹄形拱部的半径"
@@ -430,7 +430,7 @@ const TunnelModelingModule: React.FC<TunnelModelingModuleProps> = ({
                       fontSize: '13px'
                     }}
                   >
-                    马蹄
+                    马蹄形
                   </Radio.Button>
                   <Radio.Button 
                     value="rectangular"
@@ -542,72 +542,7 @@ const TunnelModelingModule: React.FC<TunnelModelingModuleProps> = ({
                 </Row>
               </Card>
 
-              {/* 钢筋配置 */}
-              <Card
-                title="钢筋配置"
-                size="small"
-                style={{ marginBottom: '16px', borderRadius: '8px' }}
-              >
-                <Row gutter={[16, 8]}>
-                  <Col span={24}>
-                    <Form.Item
-                      label="启用钢筋"
-                      tooltip="是否在衬砌中配置钢筋"
-                    >
-                      <Select
-                        value={tunnelParams.lining.reinforcement?.enabled}
-                        onChange={(value) => handleLiningChange('reinforcement.enabled', value)}
-                        size="large"
-                        style={{ width: '100%' }}
-                      >
-                        <Option value={true}>启用</Option>
-                        <Option value={false}>不启用</Option>
-                      </Select>
-                    </Form.Item>
-                  </Col>
-                  {tunnelParams.lining.reinforcement?.enabled && (
-                    <>
-                      <Col span={24}>
-                        <Form.Item
-                          label="钢筋等级"
-                          tooltip="选择钢筋的强度等级"
-                        >
-                          <Select
-                            value={tunnelParams.lining.reinforcement?.steelGrade}
-                            onChange={(value) => handleLiningChange('reinforcement.steelGrade', value)}
-                            size="large"
-                            style={{ width: '100%' }}
-                          >
-                            <Option value="HRB335">HRB335 - 热轧带肋钢筋</Option>
-                            <Option value="HRB400">HRB400 - 热轧带肋钢筋</Option>
-                            <Option value="HRB500">HRB500 - 热轧带肋钢筋</Option>
-                            <Option value="HRBF335">HRBF335 - 细晶粒热轧钢筋</Option>
-                            <Option value="HRBF400">HRBF400 - 细晶粒热轧钢筋</Option>
-                            <Option value="HRBF500">HRBF500 - 细晶粒热轧钢筋</Option>
-                          </Select>
-                        </Form.Item>
-                      </Col>
-                      <Col span={24}>
-                        <Form.Item
-                          label="钢筋间距 (m)"
-                          tooltip="钢筋之间的间距，影响结构强度"
-                        >
-                          <InputNumber
-                            value={tunnelParams.lining.reinforcement?.spacing}
-                            onChange={(value) => handleLiningChange('reinforcement.spacing', value || 0.2)}
-                            min={0.1}
-                            max={0.5}
-                            step={0.05}
-                            precision={2}
-                            size="large"
-                            style={{ width: '100%' }}
-                          />
-                        </Form.Item>
-                      </Col>
-                    </>
-                  )}
-                </Row>
-              </Card>
+
             </Form>
           </div>
         </TabPane>
@@ -651,6 +586,23 @@ const TunnelModelingModule: React.FC<TunnelModelingModuleProps> = ({
                   </Col>
                   <Col span={24}>
                     <Form.Item
+                        label="边距 (m)"
+                        tooltip="隧道边缘到开挖边界的距离"
+                    >
+                      <InputNumber
+                          value={tunnelParams.tunnel.margin}
+                          onChange={(value) => handleTunnelChange('margin', value || 1.0)}
+                          min={0.5}
+                          max={5.0}
+                          step={0.1}
+                          precision={1}
+                          size="large"
+                          style={{ width: '100%' }}
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={24}>
+                    <Form.Item
                       label="纵坡 (%)"
                       tooltip="隧道轴线在纵向的坡度"
                     >
@@ -683,23 +635,7 @@ const TunnelModelingModule: React.FC<TunnelModelingModuleProps> = ({
                       />
                     </Form.Item>
                   </Col>
-                  <Col span={24}>
-                    <Form.Item
-                      label="边距 (m)"
-                      tooltip="隧道边缘到开挖边界的距离"
-                    >
-                      <InputNumber
-                        value={tunnelParams.tunnel.margin}
-                        onChange={(value) => handleTunnelChange('margin', value || 1.0)}
-                        min={0.5}
-                        max={5.0}
-                        step={0.1}
-                        precision={1}
-                        size="large"
-                        style={{ width: '100%' }}
-                      />
-                    </Form.Item>
-                  </Col>
+
                 </Row>
               </Card>
 

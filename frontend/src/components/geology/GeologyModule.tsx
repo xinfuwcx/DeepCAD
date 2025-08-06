@@ -17,6 +17,7 @@ import {
   UploadOutlined, ExperimentOutlined, CheckCircleOutlined,
   CloudUploadOutlined, FileSearchOutlined, ReloadOutlined,
   BulbOutlined, DashboardOutlined, LineChartOutlined, BorderOutlined,
+  PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined
 } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -682,48 +683,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                     </Row>
                   </Card>
                 </Col>
-                <Col span={24}>
-                  <Card
-                    title="快捷设置"
-                    size="small"
-                    style={{ borderRadius: '8px', marginBottom: '40px' }}
-                  >
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))',
-                      gap: '6px'
-                    }}>
-                      <Button
-                        size="small"
-                        ghost
-                        type="primary"
-                      >
-                        浅基坑
-                      </Button>
-                      <Button
-                        size="small"
-                        ghost
-                        type="primary"
-                      >
-                        中基坑
-                      </Button>
-                      <Button
-                        size="small"
-                        ghost
-                        type="primary"
-                      >
-                        深基坑
-                      </Button>
-                      <Button
-                        size="small"
-                        ghost
-                        type="primary"
-                      >
-                        超深基坑
-                      </Button>
-                    </div>
-                  </Card>
-                </Col>
+
               </Row>
             </Col>
             </Row>
@@ -798,7 +758,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
           <div style={{ height: '100%', overflow: 'auto', paddingBottom: '40px' }}>
             <Row gutter={16}>
             <Col span={24}>
-              <Card title="GemPy建模配置" size="small" style={{ marginBottom: '16px' }}>
+              <Card title="建模配置" size="small" style={{ marginBottom: '16px' }}>
                   <Form layout="vertical" size="small">
                     <Form.Item label="插值方法">
                       <Select
@@ -1045,12 +1005,513 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
 
                   </Form>
                 </Card>
+
+                {/* 参数确认操作卡片 */}
+                <Card 
+                  size="small"
+                  style={{ 
+                    background: 'rgba(24, 144, 255, 0.05)',
+                    border: '1px solid rgba(24, 144, 255, 0.2)',
+                    borderRadius: '8px'
+                  }}
+                >
+                  <Row gutter={16} align="middle">
+                    <Col span={12}>
+                      <Button 
+                        type="default"
+                        size="large"
+                        style={{ 
+                          width: '100%',
+                          height: '40px',
+                          borderColor: '#d9d9d9',
+                          color: '#595959'
+                        }}
+                        onClick={() => {
+                          // 重置参数到默认值
+                          setGemPyConfig({
+                            interpolationMethod: 'kriging',
+                            resolutionX: 50,
+                            resolutionY: 50,
+                            resolutionZ: 50,
+                            enableFaults: true,
+                            faultSmoothing: 0.5,
+                            gravityModel: false,
+                            magneticModel: false,
+                          });
+                          message.info('参数已重置到默认值');
+                        }}
+                      >
+                        取消
+                      </Button>
+                    </Col>
+                    <Col span={12}>
+                      <Button 
+                        type="primary"
+                        size="large"
+                        style={{ 
+                          width: '100%',
+                          height: '40px',
+                          background: 'linear-gradient(135deg, #1890ff 0%, #40a9ff 100%)',
+                          borderColor: '#1890ff',
+                          boxShadow: '0 2px 4px rgba(24, 144, 255, 0.2)'
+                        }}
+                        onClick={() => {
+                          // 应用当前参数配置
+                          message.success('参数配置已应用');
+                          // 如果需要，可以触发其他回调或状态更新
+                        }}
+                      >
+                        确定
+                      </Button>
+                    </Col>
+                  </Row>
+                </Card>
             </Col>
 
           </Row>
           </div>
         </TabPane>
 
+        {/* 渗流参数配置 */}
+        <TabPane tab="渗流参数" key="seepage" style={{ flex: 1, overflow: 'hidden' }}>
+          <div style={{ height: '100%', overflow: 'auto', paddingBottom: '80px' }}>
+            {/* 水头分布表格 - 占用一行 */}
+            <Card 
+              title={
+                <Space>
+                  <DatabaseOutlined style={{ color: '#1890ff' }} />
+                  <span style={{ color: '#1890ff' }}>水头分布表格</span>
+                </Space>
+              }
+              size="small" 
+              style={{ marginBottom: '16px' }}
+              extra={
+                <Space>
+                  <Button 
+                    size="small" 
+                    type="primary" 
+                    icon={<PlusOutlined />}
+                    onClick={() => {
+                      // 添加新水头点
+                      message.success('已添加新水头点');
+                    }}
+                  >
+                    添加
+                  </Button>
+                  <Button 
+                    size="small" 
+                    icon={<UploadOutlined />}
+                    onClick={() => {
+                      message.info('批量导入功能开发中');
+                    }}
+                  >
+                    导入
+                  </Button>
+                </Space>
+              }
+            >
+                  <Table
+                    size="small"
+                    scroll={{ y: 400, x: 1200 }}
+                    pagination={{ pageSize: 10, size: 'small' }}
+                    dataSource={[
+                      {
+                        key: '1',
+                        id: 'WH001',
+                        x: 10.5,
+                        y: 15.2,
+                        elevation: 25.0,
+                        waterHead: 20.5,
+                        boundaryType: 'constant_head',
+                        layerName: '粘土层',
+                        permeability: 1e-6,
+                        wellType: 'observation',
+                        isActive: true,
+                        notes: '观测点1'
+                      },
+                      {
+                        key: '2',
+                        id: 'WH002',
+                        x: 25.8,
+                        y: 30.1,
+                        elevation: 24.5,
+                        waterHead: 19.8,
+                        boundaryType: 'specified_flux',
+                        layerName: '砂土层',
+                        permeability: 5e-5,
+                        wellType: 'pumping',
+                        isActive: true,
+                        notes: '抽水井1'
+                      },
+                      {
+                        key: '3',
+                        id: 'WH003',
+                        x: 40.2,
+                        y: 20.8,
+                        elevation: 26.2,
+                        waterHead: 21.0,
+                        boundaryType: 'seepage_face',
+                        layerName: '粉砂层',
+                        permeability: 2e-5,
+                        wellType: null,
+                        isActive: false,
+                        notes: '边界点'
+                      }
+                    ]}
+                    columns={[
+                      {
+                        title: '序号',
+                        width: 60,
+                        render: (_, __, index) => index + 1
+                      },
+                      {
+                        title: '坐标X(m)',
+                        dataIndex: 'x',
+                        width: 100,
+                        render: (value, record) => (
+                          <InputNumber
+                            size="small"
+                            value={value}
+                            min={0}
+                            max={1000}
+                            step={0.1}
+                            style={{ width: '100%' }}
+                            onChange={(val) => console.log('X updated:', val)}
+                          />
+                        )
+                      },
+                      {
+                        title: '坐标Y(m)',
+                        dataIndex: 'y',
+                        width: 100,
+                        render: (value, record) => (
+                          <InputNumber
+                            size="small"
+                            value={value}
+                            min={0}
+                            max={1000}
+                            step={0.1}
+                            style={{ width: '100%' }}
+                            onChange={(val) => console.log('Y updated:', val)}
+                          />
+                        )
+                      },
+                      {
+                        title: '地面标高(m)',
+                        dataIndex: 'elevation',
+                        width: 110,
+                        render: (value, record) => (
+                          <InputNumber
+                            size="small"
+                            value={value}
+                            step={0.1}
+                            style={{ width: '100%' }}
+                            onChange={(val) => console.log('Elevation updated:', val)}
+                          />
+                        )
+                      },
+                      {
+                        title: '水头值(m)',
+                        dataIndex: 'waterHead',
+                        width: 110,
+                        render: (value, record) => (
+                          <InputNumber
+                            size="small"
+                            value={value}
+                            max={record.elevation}
+                            step={0.1}
+                            style={{ width: '100%' }}
+                            onChange={(val) => console.log('Water head updated:', val)}
+                          />
+                        )
+                      },
+                      {
+                        title: '边界类型',
+                        dataIndex: 'boundaryType',
+                        width: 130,
+                        render: (value, record) => (
+                          <Select
+                            size="small"
+                            value={value}
+                            style={{ width: '100%' }}
+                            onChange={(val) => console.log('Boundary type updated:', val)}
+                          >
+                            <Option value="constant_head">
+                              <span style={{ color: '#1890ff' }}>定水头边界</span>
+                            </Option>
+                            <Option value="specified_flux">
+                              <span style={{ color: '#52c41a' }}>定流量边界</span>
+                            </Option>
+                            <Option value="seepage_face">
+                              <span style={{ color: '#fa8c16' }}>渗流面边界</span>
+                            </Option>
+                            <Option value="impermeable">
+                              <span style={{ color: '#f5222d' }}>不透水边界</span>
+                            </Option>
+                          </Select>
+                        )
+                      },
+                      {
+                        title: '含水层',
+                        dataIndex: 'layerName',
+                        width: 120,
+                        render: (value, record) => (
+                          <Select
+                            size="small"
+                            value={value}
+                            style={{ width: '100%' }}
+                            onChange={(val) => console.log('Layer updated:', val)}
+                          >
+                            <Option value="粘土层">粘土层</Option>
+                            <Option value="砂土层">砂土层</Option>
+                            <Option value="粉砂层">粉砂层</Option>
+                            <Option value="岩层">岩层</Option>
+                          </Select>
+                        )
+                      },
+                      {
+                        title: '渗透系数(m/s)',
+                        dataIndex: 'permeability',
+                        width: 120,
+                        render: (value, record) => (
+                          <InputNumber
+                            size="small"
+                            value={value}
+                            min={1e-10}
+                            max={1e-2}
+                            step={1e-6}
+                            formatter={(val) => val ? Number(val).toExponential(2) : ''}
+                            parser={(val) => val ? parseFloat(val) : 0}
+                            style={{ width: '100%' }}
+                            onChange={(val) => console.log('Permeability updated:', val)}
+                          />
+                        )
+                      },
+                      {
+                        title: '井类型',
+                        dataIndex: 'wellType',
+                        width: 100,
+                        render: (value, record) => (
+                          <Select
+                            size="small"
+                            value={value}
+                            allowClear
+                            placeholder="可选"
+                            style={{ width: '100%' }}
+                            onChange={(val) => console.log('Well type updated:', val)}
+                          >
+                            <Option value="pumping">
+                              <span style={{ color: '#722ed1' }}>抽水井</span>
+                            </Option>
+                            <Option value="injection">
+                              <span style={{ color: '#13c2c2' }}>注水井</span>
+                            </Option>
+                            <Option value="observation">
+                              <span style={{ color: '#faad14' }}>观测井</span>
+                            </Option>
+                          </Select>
+                        )
+                      },
+                      {
+                        title: '状态',
+                        dataIndex: 'isActive',
+                        width: 80,
+                        render: (value, record) => (
+                          <Switch
+                            size="small"
+                            checked={value}
+                            onChange={(checked) => console.log('Active status updated:', checked)}
+                          />
+                        )
+                      },
+                      {
+                        title: '操作',
+                        width: 100,
+                        render: (_, record) => (
+                          <Space size="small">
+                            <Button
+                              size="small"
+                              type="link"
+                              icon={<EditOutlined />}
+                              onClick={() => message.info(`编辑 ${record.id}`)}
+                            />
+                            <Button
+                              size="small"
+                              type="link"
+                              danger
+                              icon={<DeleteOutlined />}
+                              onClick={() => message.info(`删除 ${record.id}`)}
+                            />
+                          </Space>
+                        )
+                      }
+                    ]}
+                  />
+            </Card>
+
+            {/* 全局设置 - 占用一行 */}
+            <Card 
+              title={
+                <Space>
+                  <SettingOutlined style={{ color: '#52c41a' }} />
+                  <span style={{ color: '#52c41a' }}>全局设置</span>
+                </Space>
+              }
+              size="small" 
+              style={{ marginBottom: '16px' }}
+            >
+                           <Row gutter={16}>
+               <Col span={12}>
+                 <Form.Item label="初始水位 (m)">
+                   <InputNumber
+                     defaultValue={5.0}
+                     min={0}
+                     max={50}
+                     step={0.1}
+                     style={{ width: '100%' }}
+                   />
+                 </Form.Item>
+               </Col>
+               <Col span={12}>
+                 <Form.Item label="分析类型">
+                   <Select defaultValue="steady" style={{ width: '100%' }}>
+                     <Option value="steady">稳态渗流</Option>
+                     <Option value="transient">非稳态渗流</Option>
+                   </Select>
+                 </Form.Item>
+               </Col>
+             </Row>
+            </Card>
+
+            {/* 边界条件 - 占用一行 */}
+            <Card 
+              title={
+                <Space>
+                  <BorderOutlined style={{ color: '#fa8c16' }} />
+                  <span style={{ color: '#fa8c16' }}>边界条件设置</span>
+                </Space>
+              }
+              size="small" 
+              style={{ marginBottom: '16px' }}
+            >
+              {/* 顶部边界 */}
+              <Row style={{ marginBottom: '12px' }}>
+                <Col span={24}>
+                  <Form.Item label="顶部边界">
+                    <Select defaultValue="seepage_face" style={{ width: '100%' }}>
+                      <Option value="constant_head">定水头边界</Option>
+                      <Option value="seepage_face">渗流面边界</Option>
+                      <Option value="impermeable">不透水边界</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </Row>
+              {/* 底部边界 */}
+              <Row style={{ marginBottom: '12px' }}>
+                <Col span={24}>
+                  <Form.Item label="底部边界">
+                    <Select defaultValue="constant_head" style={{ width: '100%' }}>
+                      <Option value="constant_head">定水头边界</Option>
+                      <Option value="impermeable">不透水边界</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </Row>
+              {/* 侧面边界 */}
+              <Row>
+                <Col span={24}>
+                  <Form.Item label="侧面边界">
+                    <Select defaultValue="specified_flux" style={{ width: '100%' }}>
+                      <Option value="constant_head">定水头边界</Option>
+                      <Option value="specified_flux">定流量边界</Option>
+                      <Option value="impermeable">不透水边界</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </Row>
+            </Card>
+
+            {/* 操作按钮 - 占用一行 */}
+            <Card 
+              title={
+                <Space>
+                  <ThunderboltOutlined style={{ color: '#722ed1' }} />
+                  <span style={{ color: '#722ed1' }}>操作控制</span>
+                </Space>
+              }
+              size="small" 
+              style={{ marginBottom: '16px' }}
+            >
+              {/* 第一行按钮 */}
+              <Row gutter={16} style={{ marginBottom: '12px' }}>
+                <Col span={12}>
+                  <Button 
+                    type="primary" 
+                    block 
+                    size="large"
+                    icon={<CheckOutlined />}
+                    style={{
+                      height: '50px',
+                      fontSize: '14px',
+                      fontWeight: 'bold'
+                    }}
+                    onClick={() => message.success('渗流参数验证通过')}
+                  >
+                    验证参数
+                  </Button>
+                </Col>
+                <Col span={12}>
+                  <Button 
+                    block 
+                    size="large"
+                    icon={<DownloadOutlined />}
+                    style={{
+                      height: '50px',
+                      fontSize: '14px',
+                      fontWeight: 'bold'
+                    }}
+                    onClick={() => message.info('导出数据功能开发中')}
+                  >
+                    导出数据
+                  </Button>
+                </Col>
+              </Row>
+              {/* 第二行按钮 */}
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Button 
+                    block 
+                    size="large"
+                    icon={<EyeOutlined />}
+                    style={{
+                      height: '50px',
+                      fontSize: '14px',
+                      fontWeight: 'bold'
+                    }}
+                    onClick={() => message.info('预览功能开发中')}
+                  >
+                    预览渗流场
+                  </Button>
+                </Col>
+                <Col span={12}>
+                  <Button 
+                    block 
+                    size="large"
+                    icon={<ReloadOutlined />}
+                    style={{
+                      height: '50px',
+                      fontSize: '14px',
+                      fontWeight: 'bold'
+                    }}
+                    onClick={() => message.info('重置所有参数')}
+                  >
+                    重置参数
+                  </Button>
+                </Col>
+              </Row>
+            </Card>
+          </div>
+        </TabPane>
 
         </Tabs>
       </div>
