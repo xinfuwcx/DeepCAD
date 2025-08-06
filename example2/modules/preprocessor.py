@@ -619,16 +619,25 @@ class PreProcessor:
                 
                 group_ids = []
                 
-                # MADD特殊处理: MADD, StageID, Count, StartID
+                # MADD特殊处理: MADD, StageID, Count, StartID  
                 if command == 'MADD' and len(parts) >= 4:
                     count = int(parts[2]) if parts[2] else 0
                     start_id = int(parts[3]) if parts[3] else 1
                     
                     if count > 0:
-                        # 生成连续的材料ID列表
-                        group_ids = list(range(start_id, start_id + count))
+                        # 生成连续的材料ID列表，但只包含实际存在的材料ID (2-12)
+                        all_ids = list(range(start_id, start_id + count))
+                        # 过滤只保留实际存在的材料ID
+                        group_ids = [mid for mid in all_ids if 2 <= mid <= 12]
+                        print(f"MADD原始范围: {all_ids}, 过滤后: {group_ids}")
                     
-                # 其他命令的标准处理
+                # MDEL特殊处理: MDEL, StageID, GroupID_to_delete
+                elif command == 'MDEL' and len(parts) >= 3:
+                    group_id_to_delete = int(parts[2]) if parts[2] else 0
+                    if group_id_to_delete > 0:
+                        group_ids = [group_id_to_delete]
+                    
+                # 其他命令的标准处理（BADD, LADD等）
                 else:
                     for i in range(2, len(parts)):
                         if parts[i] and parts[i].isdigit():
@@ -1988,11 +1997,16 @@ class PreProcessor:
         active_loads = set()
         active_boundaries = set()
         
-        # 获取所有物理组命令，按阶段ID排序
-        physics_commands = fpn_data.get('physics_commands', [])
+        # 收集所有分析步的物理组命令
+        all_physics_commands = []
+        for s in fpn_data.get('analysis_stages', []):
+            stage_commands = s.get('group_commands', [])
+            all_physics_commands.extend(stage_commands)
+        
+        print(f"总共收集到 {len(all_physics_commands)} 个物理组命令")
         
         # 按照阶段顺序应用所有命令到当前阶段
-        for cmd in sorted(physics_commands, key=lambda x: x.get('stage_id', 0)):
+        for cmd in sorted(all_physics_commands, key=lambda x: x.get('stage_id', 0)):
             cmd_stage_id = cmd.get('stage_id', 0)
             
             # 只应用到当前阶段为止的命令
@@ -2063,29 +2077,34 @@ class PreProcessor:
             print(f"所有材料ID: {sorted(list(all_material_ids))}")
             print(f"激活的材料组: {active_materials}")
             
-            # 调整非激活材料的显示透明度
-            for mat_id in all_material_ids:
-                actor_name = f'material_{mat_id}'
-                try:
-                    # 根据是否在激活组中调整透明度
-                    if int(mat_id) in active_materials:
-                        # 激活组：正常显示
-                        opacity = 0.8
-                        print(f"材料{mat_id}: 激活显示 (透明度={opacity})")
-                    else:
-                        # 非激活组：半透明显示
-                        opacity = 0.3
-                        print(f"材料{mat_id}: 淡化显示 (透明度={opacity})")
+            # 重新显示网格以应用物理组过滤
+            try:
+                # 创建材料ID的掩码
+                material_mask = np.isin(self.mesh.cell_data['MaterialID'], active_materials)
+                
+                if hasattr(self, 'plotter') and self.plotter:
+                    # 清除现有显示
+                    self.plotter.clear()
                     
-                    # 如果网格中有这个actor，调整其透明度
-                    if hasattr(self.plotter, 'renderer') and hasattr(self.plotter.renderer, 'actors'):
-                        if actor_name in self.plotter.renderer.actors:
-                            actor = self.plotter.renderer.actors[actor_name]
-                            if hasattr(actor, 'GetProperty'):
-                                actor.GetProperty().SetOpacity(opacity)
-                                
-                except Exception as e:
-                    print(f"调整材料{mat_id}显示时出错: {e}")
+                    # 显示激活的材料（正常颜色）
+                    if np.any(material_mask):
+                        active_mesh = self.mesh.extract_cells(material_mask)
+                        active_scalars = active_mesh.cell_data['MaterialID'] if 'MaterialID' in active_mesh.cell_data else None
+                        self.plotter.add_mesh(active_mesh, scalars=active_scalars, 
+                                            cmap='viridis', opacity=0.8, name='active_materials')
+                        print(f"显示激活材料: {active_materials}")
+                    
+                    # 显示非激活的材料（淡化）
+                    if np.any(~material_mask):
+                        inactive_mesh = self.mesh.extract_cells(~material_mask)
+                        self.plotter.add_mesh(inactive_mesh, color='gray', 
+                                            opacity=0.2, name='inactive_materials')
+                        print(f"淡化显示非激活材料")
+                        
+                    self.plotter.render()
+                    
+            except Exception as e:
+                print(f"应用物理组过滤时出错: {e}")
         
         # 更新显示
         if hasattr(self.plotter, 'render_window'):

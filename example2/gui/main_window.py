@@ -336,9 +336,15 @@ class MainWindow(QMainWindow):
         analysis_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         analysis_layout = QVBoxLayout(analysis_group)
         
-        self.analysis_type_label = QLabel("非线性静力分析")
-        self.analysis_type_label.setStyleSheet("font-weight: bold; color: #007bff;")
+        # 分析类型说明
+        self.analysis_type_label = QLabel("基坑工程专用分析")
+        self.analysis_type_label.setStyleSheet("font-weight: bold; color: #007bff; font-size: 12px;")
         analysis_layout.addWidget(self.analysis_type_label)
+        
+        # 分析详情
+        analysis_details = QLabel("• 非线性静力分析\n• 摩尔-库伦本构模型\n• 多阶段施工序列")
+        analysis_details.setStyleSheet("color: #666; font-size: 10px; margin-left: 10px;")
+        analysis_layout.addWidget(analysis_details)
         
         layout.addWidget(analysis_group)
         
