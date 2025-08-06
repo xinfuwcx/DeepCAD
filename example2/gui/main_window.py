@@ -139,11 +139,10 @@ class MainWindow(QMainWindow):
         geometry_layout = QVBoxLayout(geometry_group)
         
         self.import_fpn_btn = QPushButton("📄 导入FPN文件")
-        self.import_mesh_btn = QPushButton("📥 导入网格")
         self.generate_mesh_btn = QPushButton("🔨 生成网格")
         self.mesh_quality_btn = QPushButton("🔍 网格质量检查")
-        
-        for btn in [self.import_fpn_btn, self.import_mesh_btn, self.generate_mesh_btn, self.mesh_quality_btn]:
+
+        for btn in [self.import_fpn_btn, self.generate_mesh_btn, self.mesh_quality_btn]:
             btn.setMinimumHeight(30)
             geometry_layout.addWidget(btn)
         
@@ -963,7 +962,6 @@ class MainWindow(QMainWindow):
         self.load_project_btn.clicked.connect(self.load_project)
         self.save_project_btn.clicked.connect(self.save_project)
         self.import_fpn_btn.clicked.connect(self.import_fpn)
-        self.import_mesh_btn.clicked.connect(self.import_mesh)
         self.generate_mesh_btn.clicked.connect(self.generate_mesh)
         
         # 物理组和分析步选择连接
@@ -976,6 +974,10 @@ class MainWindow(QMainWindow):
         self.wireframe_btn.clicked.connect(self.set_wireframe_mode)
         self.solid_btn.clicked.connect(self.set_solid_mode)
         self.transparent_btn.clicked.connect(self.set_transparent_mode)
+
+        # 前处理器控制面板按钮连接
+        self.pre_wireframe_btn.clicked.connect(self.set_wireframe_mode)
+        self.pre_solid_btn.clicked.connect(self.set_solid_mode)
         
         # 显示选项连接
         self.show_mesh_cb.stateChanged.connect(self.update_display)
@@ -1156,16 +1158,6 @@ class MainWindow(QMainWindow):
         
         self.status_label.setText("FPN文件导入失败")
     
-    def import_mesh(self):
-        """导入网格"""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "导入网格", "", "网格文件 (*.msh *.vtk *.vtu);;所有文件 (*.*)"
-        )
-        if file_path:
-            self.preprocessor.load_mesh(file_path)
-            self.status_label.setText(f"网格加载完成: {Path(file_path).name}")
-            self.update_model_info()
-            
     def generate_mesh(self):
         """生成网格"""
         self.status_label.setText("正在生成网格...")
@@ -1314,16 +1306,35 @@ class MainWindow(QMainWindow):
         """更新物理组下拉框"""
         if not hasattr(self.preprocessor, 'fpn_data') or not self.preprocessor.fpn_data:
             return
-            
+
         fpn_data = self.preprocessor.fpn_data
-        
-        # 更新材料组
+
+        # 更新分析步下拉框
+        if hasattr(self, 'analysis_stage_combo'):
+            self.analysis_stage_combo.clear()
+            analysis_stages = fpn_data.get('analysis_stages', [])
+            if analysis_stages:
+                for stage in analysis_stages:
+                    self.analysis_stage_combo.addItem(f"{stage['name']} (ID: {stage['id']})")
+            else:
+                self.analysis_stage_combo.addItem("无分析步")
+
+        # 更新材料组（使用网格集合信息）
         self.material_group_combo.clear()
         self.material_group_combo.addItem("所有材料组")
-        material_groups = fpn_data.get('material_groups', {})
-        for group_id, group_info in material_groups.items():
-            self.material_group_combo.addItem(f"材料组 {group_id} ({group_info.get('material_count', 0)} 材料)")
-        
+
+        # 从网格集合获取材料信息
+        mesh_sets = fpn_data.get('mesh_sets', {})
+        if mesh_sets:
+            for mesh_id, mesh_info in mesh_sets.items():
+                material_name = mesh_info.get('name', f'Material_{mesh_id}')
+                self.material_group_combo.addItem(f"{material_name} (ID: {mesh_id})")
+        else:
+            # 回退到材料组
+            material_groups = fpn_data.get('material_groups', {})
+            for group_id, group_info in material_groups.items():
+                self.material_group_combo.addItem(f"材料组 {group_id} ({group_info.get('material_count', 0)} 材料)")
+
         # 更新荷载组
         self.load_group_combo.clear()
         self.load_group_combo.addItem("所有荷载组")
@@ -1371,19 +1382,16 @@ class MainWindow(QMainWindow):
         try:
             print(f"选择分析步: {text}")
             
-            # 提取分析步ID
-            if "ID:" in text:
-                try:
-                    stage_id = int(text.split("ID:")[-1].strip().replace(")", ""))
-                    # 设置预处理器的当前分析步
-                    if hasattr(self.preprocessor, 'set_current_analysis_stage'):
-                        self.preprocessor.set_current_analysis_stage(stage_id)
-                    else:
-                        # 临时存储分析步ID
-                        self.preprocessor.current_stage_id = stage_id
-                except Exception as e:
-                    print(f"解析分析步ID失败: {e}")
-                    return
+            # 获取当前选择的索引
+            current_index = self.analysis_stage_combo.currentIndex()
+
+            if current_index >= 0:
+                # 设置预处理器的当前分析步（通过索引）
+                if hasattr(self.preprocessor, 'set_current_analysis_stage'):
+                    self.preprocessor.set_current_analysis_stage(current_index)
+                    print(f"设置分析步索引: {current_index}")
+                else:
+                    print("预处理器没有set_current_analysis_stage方法")
             
             # 智能更新物理组显示
             self.intelligent_update_physics_groups()
@@ -1397,6 +1405,59 @@ class MainWindow(QMainWindow):
     
     def intelligent_update_physics_groups(self):
         """智能更新物理组选择"""
+        try:
+            if not hasattr(self.preprocessor, 'fpn_data') or not self.preprocessor.fpn_data:
+                return
+
+            # 获取当前分析步
+            current_stage = self.preprocessor.get_current_analysis_stage()
+            if not current_stage:
+                return
+
+            stage_name = current_stage.get('name', '').lower()
+            print(f"根据分析步 '{current_stage['name']}' 智能调整物理组显示")
+
+            # 根据分析步名称智能选择物理组
+            if '初始' in stage_name or 'initial' in stage_name:
+                # 初始应力分析：重点显示土体材料
+                self.select_soil_materials()
+            elif '开挖' in stage_name or 'excavation' in stage_name:
+                # 开挖分析：显示剩余土体和支护结构
+                self.select_excavation_materials()
+            elif '支护' in stage_name or '围护' in stage_name or '墙' in stage_name:
+                # 支护分析：重点显示结构材料
+                self.select_structure_materials()
+            else:
+                # 默认显示所有材料
+                self.material_group_combo.setCurrentIndex(0)  # "所有材料组"
+
+        except Exception as e:
+            print(f"智能物理组更新失败: {e}")
+
+    def select_soil_materials(self):
+        """选择土体材料组"""
+        # 查找包含土体关键词的材料组
+        soil_keywords = ['土', '砂', '粘', '淤', '粉']
+        for i in range(self.material_group_combo.count()):
+            text = self.material_group_combo.itemText(i)
+            if any(keyword in text for keyword in soil_keywords):
+                self.material_group_combo.setCurrentIndex(i)
+                break
+
+    def select_structure_materials(self):
+        """选择结构材料组"""
+        # 查找包含结构关键词的材料组
+        structure_keywords = ['墙', '桩', '支护', '围护', '混凝土', '钢']
+        for i in range(self.material_group_combo.count()):
+            text = self.material_group_combo.itemText(i)
+            if any(keyword in text for keyword in structure_keywords):
+                self.material_group_combo.setCurrentIndex(i)
+                break
+
+    def select_excavation_materials(self):
+        """选择开挖相关材料组"""
+        # 开挖阶段通常需要显示所有材料以观察开挖效果
+        self.material_group_combo.setCurrentIndex(0)  # "所有材料组"
         if not hasattr(self.preprocessor, 'fpn_data') or not self.preprocessor.fpn_data:
             return
             

@@ -33,6 +33,7 @@ import BoundaryConditionConfigPanel from '../components/computation/BoundaryCond
 import LoadConfigPanel from '../components/computation/LoadConfigPanel';
 import RealtimeProgressMonitor from '../components/computation/RealtimeProgressMonitor.simple';
 import MeshInterface from '../components/computation/MeshInterface.simple';
+import AnalysisStepConfiguration from '../components/computation/AnalysisStepConfiguration';
 // 3号计算专家组件集成
 import ComputationControlPanel from '../components/ComputationControlPanel';
 import PhysicsAIEmbeddedPanel from '../components/PhysicsAIEmbeddedPanel_SIMPLIFIED';
@@ -885,6 +886,16 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
       analysis: {
         title: '计算分析控制',
         tabs: [
+          { 
+            key: 'analysis-step', 
+            label: <span>{getActivityBadge('process')}🔧 分析步设置</span>, 
+            children: <AnalysisStepConfiguration 
+              onParametersChange={(params) => console.log('分析步参数更新:', params)}
+              onStartAnalysis={(params) => console.log('启动分析:', params)}
+              onPauseAnalysis={() => console.log('暂停分析')}
+              onStopAnalysis={() => console.log('停止分析')}
+            /> 
+          },
           { 
             key: 'boundary', 
             label: <span>{getActivityBadge('finish')}边界条件</span>, 

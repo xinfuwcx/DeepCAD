@@ -8,7 +8,7 @@
 import os
 import numpy as np
 from pathlib import Path
-from typing import Dict, Any, Iterator, Tuple, Optional
+from typing import Dict, Any, Iterator, Tuple, Optional, List
 from dataclasses import dataclass
 import logging
 
@@ -47,51 +47,34 @@ class OptimizedFPNParser:
         self.coordinate_offset = None
         self.encoding_used = None
         
-        # 支持的编码列表 - 中文FPN文件通常使用GBK编码
-        self.encodings = ['gbk', 'gb2312', 'utf-8', 'latin1', 'cp1252']
+        # 支持的编码列表
+        self.encodings = ['utf-8', 'gbk', 'latin1', 'cp1252']
         
         # 数据缓存
         self.nodes_cache = {}
         self.elements_cache = {}
         
     def detect_file_encoding(self, file_path: str) -> str:
-        """检测文件编码，特别处理中文字符"""
-        # 先尝试读取文件的BOM标记
-        with open(file_path, 'rb') as f:
-            raw_data = f.read(3)
-            if raw_data.startswith(b'\xef\xbb\xbf'):
-                logger.info("检测到UTF-8 BOM，使用UTF-8编码")
-                return 'utf-8'
-        
-        # 测试各种编码
+        """检测文件编码"""
         for encoding in self.encodings:
             try:
-                with open(file_path, 'r', encoding=encoding, errors='strict') as f:
+                with open(file_path, 'r', encoding=encoding) as f:
                     # 读取前1000行进行编码检测
-                    chinese_chars_found = 0
                     for i, line in enumerate(f):
                         if i > 1000:
                             break
-                        # 检查是否包含中文字符
-                        for char in line:
-                            if '\u4e00' <= char <= '\u9fff':  # 中文字符范围
-                                chinese_chars_found += 1
-                                
-                    # 如果找到中文字符且使用GBK/GB2312成功读取，优先使用
-                    if chinese_chars_found > 0 and encoding in ['gbk', 'gb2312']:
-                        logger.info(f"检测到中文字符，使用编码: {encoding}")
-                        return encoding
-                    elif chinese_chars_found == 0:  # 没有中文字符，第一个成功的编码即可
-                        logger.info(f"检测到文件编码: {encoding}")
-                        return encoding
+                        # 尝试解码，如果成功则认为编码正确
+                        line.encode('utf-8')
                 
-            except (UnicodeDecodeError, UnicodeEncodeError) as e:
-                logger.debug(f"编码 {encoding} 测试失败: {e}")
+                logger.info(f"检测到文件编码: {encoding}")
+                return encoding
+                
+            except (UnicodeDecodeError, UnicodeEncodeError):
                 continue
                 
-        # 如果都失败，使用gbk作为fallback（对中文FPN文件最可能）
-        logger.warning("无法检测文件编码，使用gbk作为fallback")
-        return 'gbk'
+        # 如果都失败，使用latin1作为fallback
+        logger.warning("无法检测文件编码，使用latin1作为fallback")
+        return 'latin1'
     
     def count_file_lines(self, file_path: str, encoding: str) -> int:
         """快速统计文件行数"""
@@ -172,119 +155,178 @@ class OptimizedFPNParser:
             return None
     
     def parse_element_line(self, line: str) -> Optional[Dict[str, Any]]:
-        """🔧 修复2：解析单元行并验证数据结构"""
+        """解析单元行"""
         try:
             parts = [p.strip() for p in line.split(',')]
-            if len(parts) < 3:
-                logger.warning(f"单元行数据不足: {line[:50]}...")
-                return None
-                
-            # 验证基本字段
-            try:
-                element_id = int(parts[1])
-                if element_id <= 0:
-                    logger.warning(f"无效的单元ID: {element_id}")
-                    return None
-            except (ValueError, IndexError):
-                logger.warning(f"无法解析单元ID: {parts}")
-                return None
             
-            # 🔧 确保返回字典格式，并验证所有字段
             if parts[0] == 'TETRA' and len(parts) >= 7:
-                try:
-                    material_id = int(parts[2])
-                    nodes = [int(parts[i]) for i in range(3, 7)]
-                    
-                    # 验证节点ID
-                    if any(node_id <= 0 for node_id in nodes):
-                        logger.warning(f"TETRA单元{element_id}包含无效节点ID: {nodes}")
-                        return None
-                    
-                    element_data = {
-                        'id': element_id,
-                        'type': 'tetra',
-                        'material_id': material_id,
-                        'nodes': nodes
-                    }
-                    
-                    # 最终验证：确保返回的是字典且包含必要字段
-                    if not isinstance(element_data, dict):
-                        logger.error(f"element_data不是字典类型: {type(element_data)}")
-                        return None
-                    
-                    required_fields = ['id', 'type', 'material_id', 'nodes']
-                    for field in required_fields:
-                        if field not in element_data:
-                            logger.error(f"缺少必要字段{field}: {element_data}")
-                            return None
-                    
-                    return element_data
-                    
-                except ValueError as e:
-                    logger.warning(f"TETRA单元数据解析错误: {e}")
-                    return None
-                    
+                # 四面体单元
+                return {
+                    'id': int(parts[1]),
+                    'type': 'tetra',
+                    'material_id': int(parts[2]),
+                    'nodes': [int(parts[i]) for i in range(3, 7)]
+                }
             elif parts[0] == 'HEXA' and len(parts) >= 10:
-                try:
-                    material_id = int(parts[2])
-                    nodes = [int(parts[i]) for i in range(3, 11)]
-                    
-                    if any(node_id <= 0 for node_id in nodes):
-                        logger.warning(f"HEXA单元{element_id}包含无效节点ID: {nodes}")
-                        return None
-                    
-                    element_data = {
-                        'id': element_id,
-                        'type': 'hexa',
-                        'material_id': material_id,
-                        'nodes': nodes
-                    }
-                    
-                    # 验证返回数据
-                    if not isinstance(element_data, dict) or not all(field in element_data for field in ['id', 'type', 'material_id', 'nodes']):
-                        logger.error(f"HEXA单元数据结构错误: {element_data}")
-                        return None
-                    
-                    return element_data
-                    
-                except ValueError as e:
-                    logger.warning(f"HEXA单元数据解析错误: {e}")
-                    return None
-                    
+                # 六面体单元
+                return {
+                    'id': int(parts[1]),
+                    'type': 'hexa',
+                    'material_id': int(parts[2]),
+                    'nodes': [int(parts[i]) for i in range(3, 11)]
+                }
             elif parts[0] == 'PENTA' and len(parts) >= 9:
-                try:
-                    material_id = int(parts[2])
-                    nodes = [int(parts[i]) for i in range(3, 9)]
-                    
-                    if any(node_id <= 0 for node_id in nodes):
-                        logger.warning(f"PENTA单元{element_id}包含无效节点ID: {nodes}")
-                        return None
-                    
-                    element_data = {
-                        'id': element_id,
-                        'type': 'penta', 
-                        'material_id': material_id,
-                        'nodes': nodes
-                    }
-                    
-                    # 验证返回数据
-                    if not isinstance(element_data, dict) or not all(field in element_data for field in ['id', 'type', 'material_id', 'nodes']):
-                        logger.error(f"PENTA单元数据结构错误: {element_data}")
-                        return None
-                    
-                    return element_data
-                    
-                except ValueError as e:
-                    logger.warning(f"PENTA单元数据解析错误: {e}")
-                    return None
-            else:
-                logger.debug(f"不支持的单元类型或数据不足: {parts[0]} (长度: {len(parts)})")
+                # 五面体单元
+                return {
+                    'id': int(parts[1]),
+                    'type': 'penta',
+                    'material_id': int(parts[2]),
+                    'nodes': [int(parts[i]) for i in range(3, 9)]
+                }
                 
-        except Exception as e:
-            logger.error(f"解析单元行时发生异常: {line[:50]}... - {e}")
+        except (ValueError, IndexError) as e:
+            logger.debug(f"解析单元行失败: {line[:50]}... - {e}")
             
         return None
-    
+
+    def parse_mesh_set_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """解析网格集合行"""
+        try:
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 3:
+                return {
+                    'id': int(parts[1]),
+                    'name': parts[2].strip() if parts[2] else f"MeshSet_{parts[1]}",
+                    'type': 'mesh_set'
+                }
+        except (ValueError, IndexError) as e:
+            logger.debug(f"解析网格集合行失败: {line[:50]}... - {e}")
+        return None
+
+    def parse_stage_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """解析分析步行"""
+        try:
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 4:
+                return {
+                    'id': int(parts[1]),
+                    'type': int(parts[2]) if parts[2] else 0,
+                    'name': parts[3].strip() if parts[3] else f"Stage_{parts[1]}",
+                    'active_materials': [],
+                    'active_loads': [],
+                    'active_boundaries': []
+                }
+        except (ValueError, IndexError) as e:
+            logger.debug(f"解析分析步行失败: {line[:50]}... - {e}")
+        return None
+
+    def parse_load_group_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """解析荷载组行"""
+        try:
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 3:
+                return {
+                    'id': int(parts[1]),
+                    'name': parts[2].strip() if parts[2] else f"LoadGroup_{parts[1]}",
+                    'type': 'load_group'
+                }
+        except (ValueError, IndexError) as e:
+            logger.debug(f"解析荷载组行失败: {line[:50]}... - {e}")
+        return None
+
+    def parse_madd_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """解析MADD（材料添加）行"""
+        try:
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 3:
+                stage_id = int(parts[1]) if parts[1] else None
+                material_count = int(parts[2]) if parts[2] else 0
+
+                # 解析材料ID列表（从第4个参数开始）
+                materials = []
+                for i in range(3, len(parts)):
+                    if parts[i] and parts[i].isdigit():
+                        materials.append(int(parts[i]))
+
+                return {
+                    'stage_id': stage_id,
+                    'material_count': material_count,
+                    'materials': materials,
+                    'type': 'material_add'
+                }
+        except (ValueError, IndexError) as e:
+            logger.debug(f"解析MADD行失败: {line[:50]}... - {e}")
+        return None
+
+    def parse_mdel_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """解析MDEL（材料删除）行"""
+        try:
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 3:
+                stage_id = int(parts[1]) if parts[1] else None
+
+                # 解析要删除的材料ID列表
+                materials = []
+                for i in range(3, len(parts)):
+                    if parts[i] and parts[i].isdigit():
+                        materials.append(int(parts[i]))
+
+                return {
+                    'stage_id': stage_id,
+                    'materials': materials,
+                    'type': 'material_delete'
+                }
+        except (ValueError, IndexError) as e:
+            logger.debug(f"解析MDEL行失败: {line[:50]}... - {e}")
+        return None
+
+    def parse_ladd_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """解析LADD（荷载添加）行"""
+        try:
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 4:
+                stage_id = int(parts[1]) if parts[1] else None
+                load_group = int(parts[2]) if parts[2] else None
+
+                return {
+                    'stage_id': stage_id,
+                    'loads': [load_group] if load_group else [],
+                    'type': 'load_add'
+                }
+        except (ValueError, IndexError) as e:
+            logger.debug(f"解析LADD行失败: {line[:50]}... - {e}")
+        return None
+
+    def parse_badd_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """解析BADD（边界添加）行"""
+        try:
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 4:
+                stage_id = int(parts[1]) if parts[1] else None
+                boundary_group = int(parts[2]) if parts[2] else None
+
+                return {
+                    'stage_id': stage_id,
+                    'boundaries': [boundary_group] if boundary_group else [],
+                    'type': 'boundary_add'
+                }
+        except (ValueError, IndexError) as e:
+            logger.debug(f"解析BADD行失败: {line[:50]}... - {e}")
+        return None
+
+    def parse_continuation_line(self, line: str) -> List[int]:
+        """解析跨行的材料ID列表"""
+        try:
+            parts = [p.strip() for p in line.split(',')]
+            materials = []
+            for part in parts:
+                if part and part.isdigit():
+                    materials.append(int(part))
+            return materials
+        except (ValueError, IndexError) as e:
+            logger.debug(f"解析跨行数据失败: {line[:50]}... - {e}")
+        return []
+
     def parse_file_streaming(self, file_path: str) -> Dict[str, Any]:
         """
         流式解析FPN文件
@@ -308,10 +350,10 @@ class OptimizedFPNParser:
             'nodes': {},
             'elements': {},
             'material_groups': {},
-            'loads': {},
-            'stages': {},
-            'stage_data': {},
-            'analysis_stages': {},
+            'load_groups': {},
+            'boundary_groups': {},
+            'analysis_stages': [],
+            'mesh_sets': {},
             'metadata': {
                 'encoding': encoding,
                 'coordinate_offset': self.coordinate_offset,
@@ -348,37 +390,74 @@ class OptimizedFPNParser:
                         if element_data:
                             result['elements'][element_data['id']] = element_data
                             progress.elements_count += 1
-                    
-                    # 解析分析步相关数据
-                    elif line.startswith('STGSET'):
-                        current_section = "stage_sets"
-                        stage_set_data = self.parse_stage_set_line(line)
-                        if stage_set_data:
-                            result['stage_data'][stage_set_data['id']] = stage_set_data
-                            
+
+                    elif line.startswith('MSET'):
+                        current_section = "mesh_sets"
+                        mesh_set_data = self.parse_mesh_set_line(line)
+                        if mesh_set_data:
+                            result['mesh_sets'][mesh_set_data['id']] = mesh_set_data
+
                     elif line.startswith('STAGE'):
-                        current_section = "stages"
-                        stage_data = self.parse_stage_line(line) 
-                        if stage_data:
-                            result['stages'][stage_data['id']] = stage_data
-                            
-                    elif line.startswith('ANALSTAG'):
                         current_section = "analysis_stages"
-                        anal_stage_data = self.parse_analysis_stage_line(line)
-                        if anal_stage_data:
-                            result['analysis_stages'][anal_stage_data['id']] = anal_stage_data
-                            
-                    elif line.startswith(('MADD', 'LADD', 'BADD', 'MDEL', 'LDEL', 'BDEL')):
-                        # 解析阶段操作命令
-                        stage_op_data = self.parse_stage_operation_line(line)
-                        if stage_op_data:
-                            # 将操作添加到对应的阶段
-                            stage_id = stage_op_data['stage_id']
-                            if stage_id not in result['stage_data']:
-                                result['stage_data'][stage_id] = {'operations': []}
-                            elif 'operations' not in result['stage_data'][stage_id]:
-                                result['stage_data'][stage_id]['operations'] = []
-                            result['stage_data'][stage_id]['operations'].append(stage_op_data)
+                        stage_data = self.parse_stage_line(line)
+                        if stage_data:
+                            result['analysis_stages'].append(stage_data)
+
+                    elif line.startswith('MADD'):
+                        # 材料添加操作 - 可能跨多行
+                        current_section = "madd_operation"
+                        madd_data = self.parse_madd_line(line)
+                        if madd_data and result['analysis_stages']:
+                            # 添加到最近的分析步
+                            result['analysis_stages'][-1]['active_materials'].extend(madd_data['materials'])
+                            # 存储当前操作以处理后续行
+                            self.current_madd_stage = len(result['analysis_stages']) - 1
+
+                    elif line.startswith('MDEL'):
+                        # 材料删除操作 - 可能跨多行
+                        current_section = "mdel_operation"
+                        mdel_data = self.parse_mdel_line(line)
+                        if mdel_data and result['analysis_stages']:
+                            # 从最近的分析步删除
+                            stage = result['analysis_stages'][-1]
+                            for mat_id in mdel_data['materials']:
+                                if mat_id in stage['active_materials']:
+                                    stage['active_materials'].remove(mat_id)
+                            # 存储当前操作以处理后续行
+                            self.current_mdel_stage = len(result['analysis_stages']) - 1
+
+                    elif line.startswith('LADD'):
+                        # 荷载添加操作
+                        ladd_data = self.parse_ladd_line(line)
+                        if ladd_data and result['analysis_stages']:
+                            result['analysis_stages'][-1]['active_loads'].extend(ladd_data['loads'])
+
+                    elif line.startswith('BADD'):
+                        # 边界添加操作
+                        current_section = "badd_operation"
+                        badd_data = self.parse_badd_line(line)
+                        if badd_data and result['analysis_stages']:
+                            result['analysis_stages'][-1]['active_boundaries'].extend(badd_data['boundaries'])
+
+                    elif current_section in ["madd_operation", "mdel_operation"] and line.strip().startswith(','):
+                        # 处理跨行的材料ID列表
+                        additional_materials = self.parse_continuation_line(line)
+                        if additional_materials and result['analysis_stages']:
+                            if current_section == "madd_operation" and hasattr(self, 'current_madd_stage'):
+                                stage_idx = self.current_madd_stage
+                                result['analysis_stages'][stage_idx]['active_materials'].extend(additional_materials)
+                            elif current_section == "mdel_operation" and hasattr(self, 'current_mdel_stage'):
+                                stage_idx = self.current_mdel_stage
+                                stage = result['analysis_stages'][stage_idx]
+                                for mat_id in additional_materials:
+                                    if mat_id in stage['active_materials']:
+                                        stage['active_materials'].remove(mat_id)
+
+                    elif line.startswith('LSET'):
+                        current_section = "load_groups"
+                        load_group_data = self.parse_load_group_line(line)
+                        if load_group_data:
+                            result['load_groups'][load_group_data['id']] = load_group_data
                     
                     # 定期调用进度回调
                     if self.progress_callback and line_num % 1000 == 0:
@@ -397,98 +476,9 @@ class OptimizedFPNParser:
         result['nodes'] = list(result['nodes'].values())
         result['elements'] = list(result['elements'].values())
         
-        # 🔧 修复分析步：转换为列表格式
-        result['analysis_stages'] = list(result['analysis_stages'].values())
-        result['stages'] = list(result['stages'].values())
-        
-        logger.info(f"解析完成: {len(result['nodes'])}个节点, {len(result['elements'])}个单元, "
-                   f"{len(result['analysis_stages'])}个分析阶段")
+        logger.info(f"解析完成: {len(result['nodes'])}个节点, {len(result['elements'])}个单元")
         
         return result
-    
-    def parse_stage_set_line(self, line: str) -> Optional[Dict[str, Any]]:
-        """解析STGSET行 - 阶段集合定义"""
-        try:
-            parts = [p.strip() for p in line.split(',')]
-            if len(parts) < 4:
-                return None
-                
-            return {
-                'id': int(parts[1]),
-                'type': int(parts[2]),
-                'name': parts[3].strip('"\''),
-                'raw_line': line
-            }
-        except (ValueError, IndexError) as e:
-            logger.warning(f"解析STGSET行失败: {line} - {e}")
-            return None
-    
-    def parse_stage_line(self, line: str) -> Optional[Dict[str, Any]]:
-        """解析STAGE行 - 单个分析阶段定义"""
-        try:
-            parts = [p.strip() for p in line.split(',')]
-            if len(parts) < 4:
-                return None
-                
-            return {
-                'id': int(parts[1]),
-                'type': int(parts[2]),
-                'name': parts[3].strip('"\''),
-                'active': int(parts[4]) if len(parts) > 4 and parts[4].strip() else 1,
-                'raw_line': line
-            }
-        except (ValueError, IndexError) as e:
-            logger.warning(f"解析STAGE行失败: {line} - {e}")
-            return None
-    
-    def parse_analysis_stage_line(self, line: str) -> Optional[Dict[str, Any]]:
-        """解析ANALSTAG行 - 分析阶段设置"""
-        try:
-            parts = [p.strip() for p in line.split(',')]
-            if len(parts) < 4:
-                return None
-                
-            return {
-                'id': int(parts[1]),
-                'name': parts[2].strip('"\''),
-                'start_stage': int(parts[3]) if parts[3].strip() else 1,
-                'end_stage': int(parts[4]) if len(parts) > 4 and parts[4].strip() else 1,
-                'raw_line': line
-            }
-        except (ValueError, IndexError) as e:
-            logger.warning(f"解析ANALSTAG行失败: {line} - {e}")
-            return None
-    
-    def parse_stage_operation_line(self, line: str) -> Optional[Dict[str, Any]]:
-        """解析阶段操作行 - MADD, LADD, BADD, MDEL等"""
-        try:
-            parts = [p.strip() for p in line.split(',')]
-            if len(parts) < 3:
-                return None
-                
-            operation = parts[0].strip()
-            stage_id = int(parts[1])
-            count = int(parts[2]) if parts[2].strip() else 0
-            
-            # 提取ID列表
-            ids = []
-            for part in parts[3:]:
-                if part.strip() and part.strip() != '':
-                    try:
-                        ids.append(int(part))
-                    except ValueError:
-                        continue
-            
-            return {
-                'operation': operation,
-                'stage_id': stage_id,
-                'count': count,
-                'ids': ids,
-                'raw_line': line
-            }
-        except (ValueError, IndexError) as e:
-            logger.warning(f"解析阶段操作行失败: {line} - {e}")
-            return None
 
 
 def create_progress_callback():
@@ -505,7 +495,7 @@ def create_progress_callback():
 # 测试函数
 if __name__ == "__main__":
     # 测试优化解析器
-    fpn_file = Path(__file__).parent.parent / "data" / "基坑两阶段1fpn.fpn"
+    fpn_file = Path(__file__).parent.parent / "data" / "基坑fpn.fpn"
     
     if fpn_file.exists():
         print(f"测试解析文件: {fpn_file}")
@@ -517,7 +507,6 @@ if __name__ == "__main__":
             print(f"\n解析成功!")
             print(f"节点数量: {len(result['nodes'])}")
             print(f"单元数量: {len(result['elements'])}")
-            print(f"分析阶段数量: {len(result['stages'])}")
             print(f"使用编码: {result['metadata']['encoding']}")
             print(f"坐标偏移: {result['metadata']['coordinate_offset']}")
             
