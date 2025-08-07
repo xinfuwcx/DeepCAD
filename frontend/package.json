@@ -15,7 +15,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@amap/amap-jsapi-loader": "^1.0.1",
+    "@amap/amap-jsapi-loader": "1.0.1",
     "@ant-design/icons": "^5.6.1",
     "@deck.gl/aggregation-layers": "9.1.14",
     "@deck.gl/core": "9.1.14",

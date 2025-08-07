@@ -1,14 +1,32 @@
-/* 视口相关样式 */
+/* 现代化3D视口样式 */
 
-/* 视口容器 */
+/* 主视口容器 */
 .viewport3d {
   position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s ease;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.3),
+    0 8px 16px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(20px);
+}
+
+.viewport3d::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 49%, rgba(0, 217, 255, 0.03) 50%, transparent 51%);
+  pointer-events: none;
+  z-index: 1;
 }
 
 .viewport3d.fullscreen {
@@ -21,49 +39,115 @@
   border-radius: 0;
 }
 
-/* 玻璃效果按钮 */
+/* 现代化玻璃效果按钮 */
 .glass-effect {
-  background-color: rgba(255, 255, 255, 0.15) !important;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  color: white !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.2),
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9) !important;
+  border-radius: 8px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-effect::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.6s;
 }
 
 .glass-effect:hover {
-  background-color: rgba(255, 255, 255, 0.25) !important;
-  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  border: 1px solid rgba(0, 217, 255, 0.3) !important;
+  box-shadow: 
+    0 12px 40px rgba(0, 217, 255, 0.15),
+    0 8px 20px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.glass-effect:hover::before {
+  left: 100%;
 }
 
 .glass-effect:active {
-  background-color: rgba(255, 255, 255, 0.35) !important;
-  transform: translateY(1px);
+  background: rgba(255, 255, 255, 0.2) !important;
+  transform: translateY(0);
+  transition: all 0.1s;
 }
 
-/* 视口控制面板 */
+/* 现代化视口控制面板 */
 .viewport-controls {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 20px;
+  right: 20px;
   z-index: 100;
   display: flex;
   flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(20px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.viewport-controls::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 217, 255, 0.5), transparent);
+}
+
+/* 现代化视口状态指示器 */
+.viewport-status {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(20px);
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 12px;
+  font-weight: 500;
+  pointer-events: none;
+  max-width: 300px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
-/* 视口状态指示器 */
-.viewport-status {
-  position: absolute;
-  bottom: 16px;
-  left: 16px;
-  padding: 4px 8px;
-  background-color: rgba(0, 0, 0, 0.5);
-  color: white;
-  border-radius: 4px;
-  font-size: 12px;
-  pointer-events: none;
-  max-width: 300px;
+.viewport-status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: #00d9ff;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #00d9ff;
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.2); }
 }
 
 .viewport-status .error {
@@ -94,18 +178,36 @@
   z-index: 101;
 }
 
-/* 加载动画 */
+/* 现代化加载动画 */
 .viewport-loading {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.3);
+  background: radial-gradient(circle at center, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.8) 100%);
+  backdrop-filter: blur(10px);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 102;
+  border-radius: 12px;
+}
+
+.viewport-loading::after {
+  content: '';
+  width: 60px;
+  height: 60px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top: 3px solid #00d9ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  filter: drop-shadow(0 0 10px #00d9ff);
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* 动画效果 */
@@ -119,45 +221,201 @@
 }
 
 @keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1); }
+  0% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(0, 217, 255, 0.7);
+  }
+  70% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 10px rgba(0, 217, 255, 0);
+  }
+  100% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(0, 217, 255, 0);
+  }
 }
 
 .pulse {
   animation: pulse 2s infinite;
 }
 
-/* 响应式调整 */
+/* 新增动画效果 */
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(0, 217, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(0, 217, 255, 0.6);
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* 响应式调整增强 */
 @media (max-width: 768px) {
+  .viewport-controls {
+    top: 12px;
+    right: 12px;
+    padding: 12px;
+    gap: 8px;
+  }
+  
+  .viewport-status {
+    bottom: 12px;
+    left: 12px;
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+  
+  .viewport3d {
+    border-radius: 8px;
+  }
+  
+  .glass-effect {
+    backdrop-filter: blur(15px) !important;
+  }
+}
+
+@media (max-width: 480px) {
   .viewport-controls {
     top: 8px;
     right: 8px;
+    padding: 8px;
   }
   
   .viewport-status {
     bottom: 8px;
     left: 8px;
+    padding: 6px 10px;
+    font-size: 10px;
   }
 }
 
-/* 暗色主题适配 */
+/* 主题适配增强 */
 .dark-theme .glass-effect {
-  background-color: rgba(0, 0, 0, 0.4) !important;
+  background: rgba(0, 0, 0, 0.6) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .dark-theme .glass-effect:hover {
-  background-color: rgba(0, 0, 0, 0.5) !important;
+  background: rgba(0, 0, 0, 0.7) !important;
+  border: 1px solid rgba(0, 217, 255, 0.4) !important;
+  box-shadow: 
+    0 12px 40px rgba(0, 217, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
-/* 浅色主题适配 */
+.dark-theme .viewport3d {
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #2a2a2a 100%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* 浅色主题适配增强 */
 .light-theme .glass-effect {
-  background-color: rgba(255, 255, 255, 0.7) !important;
+  background: rgba(255, 255, 255, 0.8) !important;
   border: 1px solid rgba(0, 0, 0, 0.1) !important;
   color: rgba(0, 0, 0, 0.85) !important;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .light-theme .glass-effect:hover {
-  background-color: rgba(255, 255, 255, 0.8) !important;
-} 
+  background: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(0, 217, 255, 0.3) !important;
+  box-shadow: 
+    0 12px 40px rgba(0, 217, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+.light-theme .viewport3d {
+  background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 50%, #d0d0d0 100%);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* ViewCube现代化样式 */
+.view-cube {
+  background: rgba(0, 0, 0, 0.4) !important;
+  backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 12px !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.5px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+}
+
+.view-cube:hover {
+  background: rgba(0, 217, 255, 0.2) !important;
+  border: 1px solid rgba(0, 217, 255, 0.4) !important;
+  box-shadow: 0 12px 40px rgba(0, 217, 255, 0.15) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* 工具栏现代化样式 */
+.viewport-toolbar {
+  background: rgba(0, 0, 0, 0.3) !important;
+  backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 12px !important;
+  padding: 8px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+}
+
+.viewport-toolbar button {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  border-radius: 8px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.viewport-toolbar button:hover {
+  background: rgba(0, 217, 255, 0.2) !important;
+  border: 1px solid rgba(0, 217, 255, 0.4) !important;
+  box-shadow: 0 4px 16px rgba(0, 217, 255, 0.15) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* 高性能优化 */
+.viewport3d canvas {
+  image-rendering: auto;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  transform: translateZ(0); /* 启用硬件加速 */
+  will-change: transform;
+}
+
+/* 滚动条美化 */
+.viewport-controls::-webkit-scrollbar {
+  width: 6px;
+}
+
+.viewport-controls::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.viewport-controls::-webkit-scrollbar-thumb {
+  background: rgba(0, 217, 255, 0.3);
+  border-radius: 3px;
+}
+
+.viewport-controls::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 217, 255, 0.5);
+}

@@ -16,7 +16,7 @@ import {
 import TechIcon from '../ui/TechIcon';
 import TechLogo from '../ui/TechLogo';
 import { ProjectControlCenter } from '../control/ProjectControlCenter';
-import { NewEpicControlCenter } from '../control/NewEpicControlCenter';
+import { DeepCADControlCenter } from '../control/DeepCADControlCenter';
 import EnhancedMainWorkspaceView from '../../views/EnhancedMainWorkspaceView';
 import PhysicsAIView from '../../views/PhysicsAIView';
 import MaterialLibraryView from '../../views/MaterialLibraryView';
@@ -226,10 +226,10 @@ const MainLayout: React.FC = () => {
         }}>
           <Routes>
             <Route path="/" element={
-              <NewEpicControlCenter />
+              <DeepCADControlCenter onExit={() => {}} />
             } />
             <Route path="dashboard" element={
-              <NewEpicControlCenter />
+              <DeepCADControlCenter onExit={() => {}} />
             } />
             <Route path="excavation-design" element={<EnhancedMainWorkspaceView activeModule="excavation-design" />} />
             <Route path="support-structure" element={<EnhancedMainWorkspaceView activeModule="support-structure" />} />
@@ -241,7 +241,7 @@ const MainLayout: React.FC = () => {
             <Route path="results" element={<EnhancedMainWorkspaceView activeModule="results" />} />
             <Route path="physics-ai" element={<PhysicsAIView />} />
             <Route path="materials" element={<MaterialLibraryView />} />
-            <Route path="project-management" element={<NewEpicControlCenter />} />
+            <Route path="project-management" element={<DeepCADControlCenter onExit={() => {}} />} />
             <Route path="settings" element={<SettingsView />} />
             {/* 兼容性重定向：避免旧链接404 */}
             <Route path="computation" element={

@@ -17,7 +17,7 @@ import {
   GlobalOutlined
 } from '@ant-design/icons';
 import * as THREE from 'three';
-import * as itowns from 'itowns';
+// import * as itowns from 'itowns'; // 已移除iTowns依赖
 import { openMeteoService } from '../../services/OpenMeteoService';
 
 const { Title, Text } = Typography;

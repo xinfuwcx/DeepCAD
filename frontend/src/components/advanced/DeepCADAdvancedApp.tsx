@@ -21,8 +21,7 @@ import { RealMapEpicCenter } from '../visualization/RealMapEpicCenter';
 import { SelfContainedEpicCenter } from '../visualization/SelfContainedEpicCenter';
 import { ParticleTest } from '../visualization/ParticleTest';
 
-// 1号专家 - 新的项目控制中心系统 
-import { ProjectControlCenter } from '../control/ProjectControlCenter';
+// 1号专家 - 炫酷项目控制中心系统
 import { DeepCADControlCenter } from '../control';
 import { GeoThreeMapController, ProjectMarkerData } from '../../services/GeoThreeMapController';
 import { designTokens } from '../../design/tokens';
@@ -339,12 +338,12 @@ export const DeepCADAdvancedApp: React.FC = () => {
   const executeModuleNavigation = useCallback((moduleId: string) => {
     switch (moduleId) {
       case 'control-center':
-        // 🎛️ 1号专家 - Epic控制中心与地理信息系统
-        setShowProjectControlCenter(true);
-        logger.info('Control Center launched', { 
+        // 🎛️ 1号专家 - Epic控制中心与地理信息系统 - 使用炫酷版本
+        setCurrentView('epic-control-center');
+        logger.info('Control Center launched', {
           expert: '1号专家',
-          features: ['geo-three地图系统', 'Open-Meteo气象', '项目管理', 'AI助手集成'],
-          systems: ['GIS可视化', '嵌入式AI助手', '悬浮DeepCAD AI助手'],
+          features: ['高德地图', 'Deck.gl炫酷可视化', 'OpenMeteo天气', '项目管理'],
+          systems: ['GIS可视化', '实时天气', '炫酷动画效果'],
           impact: '统一项目管理与地理可视化'
         });
         break;
@@ -449,13 +448,22 @@ export const DeepCADAdvancedApp: React.FC = () => {
   // 🚀 五大核心 - 灵动参差布局
   const coreModules = [
     {
+      id: 'control-center',
+      name: '🗺️ 炫酷项目管理中心',
+      icon: FunctionalIcons.MaterialLibrary,
+      color: designTokens.colors.accent.glow,
+      description: '🚀 高德地图 + Deck.gl 炫酷可视化 + OpenMeteo天气集成 + 基坑项目管理',
+      size: 'large', // 大卡片 - 主打功能
+      span: 'col-span-2 row-span-1'
+    },
+    {
       id: 'ai-knowledge',
       name: '专业知识图谱',
       icon: FunctionalIcons.MaterialLibrary,
       color: designTokens.colors.accent.quantum,
       description: '工程计算知识库与标准规范数据库',
-      size: 'large', // 大卡片 - 主打功能
-      span: 'col-span-2 row-span-1'
+      size: 'medium',
+      span: 'col-span-1 row-span-1'
     },
     {
       id: 'smart-optimization',
@@ -544,29 +552,17 @@ export const DeepCADAdvancedApp: React.FC = () => {
 
   if (showEpicDemo) {
     return (
-      <ProjectControlCenter 
-        width={window.innerWidth}
-        height={window.innerHeight}
+      <DeepCADControlCenter
         onExit={() => setShowEpicDemo(false)}
       />
     );
   }
 
-  // 新的Epic控制中心 - 1号专家核心系统
+  // 新的Epic控制中心 - 1号专家核心系统 - 使用炫酷版本
   if (showProjectControlCenter) {
     return (
-      <ProjectControlCenter
-        width={window.innerWidth}
-        height={window.innerHeight}
+      <DeepCADControlCenter
         onExit={() => setShowProjectControlCenter(false)}
-        onSwitchToControlCenter={() => {
-          setShowProjectControlCenter(false);
-          setCurrentView('epic-control-center');
-        }}
-        onProjectSelect={(projectId) => {
-          console.log(`🎯 主应用接收到项目选择: ${projectId}`);
-          // 这里可以处理项目选择后的逻辑
-        }}
       />
     );
   }
@@ -708,21 +704,11 @@ export const DeepCADAdvancedApp: React.FC = () => {
         height: '100vh',
         position: 'relative'
       }}>
-        {/* 1号专家 - Epic控制中心作为默认界面 */}
+        {/* 1号专家 - Epic控制中心作为默认界面 - 使用炫酷版本 */}
         {currentView === 'epic-control-center' && (
           <div style={{ position: 'absolute', inset: '0', top: '-80px' }}>
-            <ProjectControlCenter
-              width={window.innerWidth}
-              height={window.innerHeight}
+            <DeepCADControlCenter
               onExit={() => setCurrentView('launch')}
-              onSwitchToControlCenter={() => {
-                // 从epic-control-center切换到监控界面，这里不需要处理因为已经在监控界面了
-                console.log('已经在控制中心监控界面中');
-              }}
-              onProjectSelect={(projectId) => {
-                console.log(`🎯 主应用接收到项目选择: ${projectId}`);
-                // 这里可以处理项目选择后的逻辑，比如切换到特定的分析模块
-              }}
             />
           </div>
         )}

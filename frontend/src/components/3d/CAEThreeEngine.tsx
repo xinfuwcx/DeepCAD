@@ -97,6 +97,51 @@ export class CAEThreeEngine {
   private onSelectionCallback?: (objects: THREE.Object3D[]) => void;
   private onMeasurementCallback?: (measurement: any) => void;
 
+  // 背景纹理缓存
+  private backgroundTexture: THREE.Texture | null = null;
+
+  // 创建ABAQUS风格的专业背景
+  private createGradientBackground(): THREE.Texture {
+    // 如果已经创建过，直接返回缓存的纹理
+    if (this.backgroundTexture) {
+      return this.backgroundTexture;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const context = canvas.getContext('2d')!;
+    
+    // ABAQUS风格的专业渐变背景
+    const gradient = context.createLinearGradient(0, 0, 0, 512);
+    gradient.addColorStop(0, '#2c3e50');    // 深蓝灰色顶部
+    gradient.addColorStop(0.3, '#34495e');  // 中蓝灰色
+    gradient.addColorStop(0.7, '#2c3e50');  // 深蓝灰色
+    gradient.addColorStop(1, '#1a252f');    // 深色底部
+    
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 512, 512);
+    
+    // 添加细微的网格纹理
+    context.strokeStyle = 'rgba(52, 73, 94, 0.1)';
+    context.lineWidth = 1;
+    for (let i = 0; i < 512; i += 32) {
+      context.beginPath();
+      context.moveTo(i, 0);
+      context.lineTo(i, 512);
+      context.stroke();
+      
+      context.beginPath();
+      context.moveTo(0, i);
+      context.lineTo(512, i);
+      context.stroke();
+    }
+    
+    this.backgroundTexture = new THREE.CanvasTexture(canvas);
+    this.backgroundTexture.needsUpdate = true;
+    return this.backgroundTexture;
+  }
+
   constructor(container: HTMLElement, props: Partial<CAEThreeEngineProps> = {}) {
     console.log('🚀 CAE Three.js引擎构造函数开始...');
     
@@ -106,9 +151,12 @@ export class CAEThreeEngine {
     
     console.log('容器有效，尺寸:', container.offsetWidth, 'x', container.offsetHeight);
     
-    // 初始化场景
+    // 初始化场景 - 现代化设计
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0a0a0a);
+    // ABAQUS风格专业背景
+    const bgTexture = this.createGradientBackground();
+    this.scene.background = bgTexture;
+    this.scene.fog = new THREE.Fog(0x2c3e50, 50, 200); // ABAQUS风格线性雾效
 
     // 初始化相机
     this.camera = new THREE.PerspectiveCamera(
@@ -137,7 +185,9 @@ export class CAEThreeEngine {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.8;
+    this.renderer.toneMappingExposure = 1.2;
+    // 现代化渲染设置
+    this.renderer.useLegacyLights = false; // 使用物理正确的光照
 
     // 启用扩展
     this.renderer.capabilities.logarithmicDepthBuffer = false;
@@ -171,11 +221,13 @@ export class CAEThreeEngine {
     this.onSelectionCallback = props.onSelection;
     this.onMeasurementCallback = props.onMeasurement;
 
-    // 添加基础场景元素
+    // 添加基础场景元素（仅在首次初始化时）
     this.addSceneHelpers();
     
-    // 添加测试几何体
+    // 添加测试几何体（仅在首次初始化时）
     this.addTestGeometry();
+    
+    console.log(`🎯 场景初始化完成，共有 ${this.scene.children.length} 个对象`);
     
     // 确保控制器启用
     this.orbitControls.enabled = true;
@@ -261,64 +313,79 @@ export class CAEThreeEngine {
     console.log('✅ 3D控制器已设置 - 支持鼠标旋转、缩放、平移');
   }
 
-  // 设置专业光照系统
+  // ABAQUS风格专业光照系统
   private setupLighting(): void {
     // 移除现有光源
     const lights = this.scene.children.filter(child => child instanceof THREE.Light);
     lights.forEach(light => this.scene.remove(light));
 
-    // 环境光 - 提供基础照明
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+    // ABAQUS风格环境光 - 均匀的基础照明
+    const ambientLight = new THREE.AmbientLight(0x5a6c7d, 0.4);
     this.scene.add(ambientLight);
 
-    // 主方向光 - 模拟太阳光
-    const mainLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    mainLight.position.set(50, 50, 25);
+    // 主光源 - ABAQUS风格的强定向光
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1.8);
+    mainLight.position.set(20, 30, 15);
     mainLight.castShadow = true;
-    mainLight.shadow.mapSize.setScalar(2048);
+    mainLight.shadow.mapSize.width = 2048;
+    mainLight.shadow.mapSize.height = 2048;
     mainLight.shadow.camera.near = 0.1;
-    mainLight.shadow.camera.far = 200;
+    mainLight.shadow.camera.far = 150;
     mainLight.shadow.camera.left = -50;
     mainLight.shadow.camera.right = 50;
     mainLight.shadow.camera.top = 50;
     mainLight.shadow.camera.bottom = -50;
+    mainLight.shadow.bias = -0.001;
     this.scene.add(mainLight);
 
-    // 补光 - 减少阴影过重
-    const fillLight = new THREE.DirectionalLight(0x6666ff, 0.3);
-    fillLight.position.set(-25, 25, 25);
-    this.scene.add(fillLight);
+    // 辅助光源 - 模拟工作室环境
+    const auxLight1 = new THREE.DirectionalLight(0xa0b4c7, 0.6);
+    auxLight1.position.set(-15, 20, -10);
+    this.scene.add(auxLight1);
 
-    // 底部补光 - 照亮模型底部
-    const bottomLight = new THREE.DirectionalLight(0xffffff, 0.2);
-    bottomLight.position.set(0, -50, 0);
-    this.scene.add(bottomLight);
+    const auxLight2 = new THREE.DirectionalLight(0x7f8c8d, 0.4);
+    auxLight2.position.set(0, -10, 20);
+    this.scene.add(auxLight2);
+
+    // ABAQUS风格的半球光 - 模拟工作室天花板
+    const hemisphereLight = new THREE.HemisphereLight(0x95a5a6, 0x2c3e50, 0.5);
+    this.scene.add(hemisphereLight);
   }
 
-  // 初始化CAE专用材质库
+  // ABAQUS风格CAE材质库
   private initializeMaterials(): void {
-    // 标准实体材质
-    this.materials.set('solid', new THREE.MeshStandardMaterial({
-      color: 0x00d9ff,
-      metalness: 0.1,
-      roughness: 0.3,
+    // ABAQUS风格钢材质
+    this.materials.set('steel', new THREE.MeshStandardMaterial({
+      color: 0x8395a7,
+      metalness: 0.8,
+      roughness: 0.2,
       side: THREE.FrontSide
     }));
 
-    // 线框材质
-    this.materials.set('wireframe', new THREE.MeshBasicMaterial({
-      color: 0x00d9ff,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.8
+    // ABAQUS风格混凝土材质
+    this.materials.set('concrete', new THREE.MeshStandardMaterial({
+      color: 0x95a5a6,
+      metalness: 0.1,
+      roughness: 0.9,
+      side: THREE.FrontSide
     }));
 
-    // 透明材质
-    this.materials.set('transparent', new THREE.MeshStandardMaterial({
-      color: 0x00d9ff,
+    // ABAQUS风格线框材质
+    this.materials.set('wireframe', new THREE.MeshBasicMaterial({
+      color: 0x3498db,
+      wireframe: true,
       transparent: true,
-      opacity: 0.3,
-      side: THREE.DoubleSide
+      opacity: 0.9
+    }));
+
+    // ABAQUS风格透明材质
+    this.materials.set('transparent', new THREE.MeshStandardMaterial({
+      color: 0x74b9ff,
+      transparent: true,
+      opacity: 0.4,
+      side: THREE.DoubleSide,
+      metalness: 0.1,
+      roughness: 0.3
     }));
 
     // 网格边缘材质
@@ -405,34 +472,278 @@ export class CAEThreeEngine {
 
   // 添加场景辅助元素
   private addSceneHelpers(): void {
-    // 网格
-    const gridHelper = new THREE.GridHelper(50, 50, 0x444444, 0x222222);
-    gridHelper.name = 'grid';
-    this.scene.add(gridHelper);
+    // 现代化网格系统
+    const modernGrid = this.createModernGrid();
+    this.scene.add(modernGrid);
 
-    // 坐标轴
-    const axesHelper = new THREE.AxesHelper(10);
-    axesHelper.name = 'axes';
-    this.scene.add(axesHelper);
+    // 现代化坐标轴系统
+    const modernAxes = this.createModernAxes();
+    this.scene.add(modernAxes);
+  }
+
+  // 创建ABAQUS风格工程网格系统
+  private createModernGrid(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'abaqus-grid';
+    
+    // ABAQUS风格主网格 - 粗线条，工程感
+    const mainGrid = new THREE.GridHelper(100, 20, 0x5a6c7d, 0x3d4c5c);
+    mainGrid.material.opacity = 0.8;
+    mainGrid.material.transparent = true;
+    group.add(mainGrid);
+    
+    // ABAQUS风格细网格 - 精确工程网格
+    const fineGrid = new THREE.GridHelper(100, 100, 0x3d4c5c, 0x2c3e50);
+    fineGrid.material.opacity = 0.3;
+    fineGrid.material.transparent = true;
+    group.add(fineGrid);
+    
+    // ABAQUS风格原点标记
+    const originGeometry = new THREE.SphereGeometry(0.5, 8, 6);
+    const originMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xe74c3c,
+      emissive: 0x331111,
+      emissiveIntensity: 0.3
+    });
+    const origin = new THREE.Mesh(originGeometry, originMaterial);
+    origin.position.set(0, 0.5, 0);
+    group.add(origin);
+    
+    // ABAQUS风格坐标平面指示
+    const planeGeometry = new THREE.PlaneGeometry(0.1, 100);
+    const planeMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0x74b9ff, 
+      opacity: 0.1, 
+      transparent: true,
+      side: THREE.DoubleSide
+    });
+    
+    // XY平面指示
+    const xyPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+    xyPlane.rotation.z = Math.PI / 2;
+    group.add(xyPlane);
+    
+    // XZ平面指示
+    const xzPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+    xzPlane.rotation.x = Math.PI / 2;
+    group.add(xzPlane);
+    
+    return group;
+  }
+
+  // 创建ABAQUS风格工程坐标轴系统
+  private createModernAxes(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'abaqus-axes';
+    
+    const axisLength = 15;
+    const arrowLength = 2;
+    const arrowWidth = 0.8;
+    const axisRadius = 0.1;
+    
+    // ABAQUS风格X轴 - 红色，更粗更明显
+    const xGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 12);
+    const xMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xe74c3c,
+      metalness: 0.3,
+      roughness: 0.4
+    });
+    const xAxis = new THREE.Mesh(xGeometry, xMaterial);
+    xAxis.rotation.z = -Math.PI / 2;
+    xAxis.position.x = axisLength / 2;
+    group.add(xAxis);
+    
+    // X轴箭头 - ABAQUS风格
+    const xArrowGeometry = new THREE.ConeGeometry(arrowWidth, arrowLength, 12);
+    const xArrow = new THREE.Mesh(xArrowGeometry, xMaterial);
+    xArrow.rotation.z = -Math.PI / 2;
+    xArrow.position.x = axisLength + arrowLength / 2;
+    group.add(xArrow);
+    
+    // ABAQUS风格Y轴 - 绿色
+    const yGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 12);
+    const yMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x27ae60,
+      metalness: 0.3,
+      roughness: 0.4
+    });
+    const yAxis = new THREE.Mesh(yGeometry, yMaterial);
+    yAxis.position.y = axisLength / 2;
+    group.add(yAxis);
+    
+    // Y轴箭头
+    const yArrowGeometry = new THREE.ConeGeometry(arrowWidth, arrowLength, 12);
+    const yArrow = new THREE.Mesh(yArrowGeometry, yMaterial);
+    yArrow.position.y = axisLength + arrowLength / 2;
+    group.add(yArrow);
+    
+    // ABAQUS风格Z轴 - 蓝色
+    const zGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 12);
+    const zMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x3498db,
+      metalness: 0.3,
+      roughness: 0.4
+    });
+    const zAxis = new THREE.Mesh(zGeometry, zMaterial);
+    zAxis.rotation.x = Math.PI / 2;
+    zAxis.position.z = axisLength / 2;
+    group.add(zAxis);
+    
+    // Z轴箭头
+    const zArrowGeometry = new THREE.ConeGeometry(arrowWidth, arrowLength, 12);
+    const zArrow = new THREE.Mesh(zArrowGeometry, zMaterial);
+    zArrow.rotation.x = Math.PI / 2;
+    zArrow.position.z = axisLength + arrowLength / 2;
+    group.add(zArrow);
+    
+    // 添加轴标签背景
+    const labelBg = new THREE.SphereGeometry(0.3, 8, 6);
+    const labelMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x2c3e50,
+      metalness: 0.1,
+      roughness: 0.8
+    });
+    
+    const xLabel = new THREE.Mesh(labelBg, labelMaterial);
+    xLabel.position.set(axisLength + arrowLength + 1, 0, 0);
+    group.add(xLabel);
+    
+    const yLabel = new THREE.Mesh(labelBg, labelMaterial);
+    yLabel.position.set(0, axisLength + arrowLength + 1, 0);
+    group.add(yLabel);
+    
+    const zLabel = new THREE.Mesh(labelBg, labelMaterial);
+    zLabel.position.set(0, 0, axisLength + arrowLength + 1);
+    group.add(zLabel);
+    
+    return group;
   }
   
   // 添加测试几何体
   private addTestGeometry(): void {
+    // 添加现代化展示对象
+    const showcaseObject = this.createShowcaseObject();
+    this.scene.add(showcaseObject);
 
-
-
-
-    // 添加地面
-    const planeGeometry = new THREE.PlaneGeometry(30, 30);
-    const planeMaterial = new THREE.MeshLambertMaterial({ color: 0x666666 });
-    const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-    plane.rotation.x = -Math.PI / 2;
-    plane.position.y = -0.5;
-    plane.receiveShadow = true;
-    plane.name = 'ground-plane';
-    this.scene.add(plane);
+    // 现代化地面系统
+    const modernGround = this.createModernGround();
+    this.scene.add(modernGround);
     
-    ComponentDevHelper.logDevTip('测试几何体已添加到场景');
+    ComponentDevHelper.logDevTip('现代化展示几何体已添加到场景');
+  }
+
+  // 创建ABAQUS风格工程展示对象
+  private createShowcaseObject(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'abaqus-showcase';
+    
+    // ABAQUS风格主梁结构
+    const beamGeometry = new THREE.BoxGeometry(8, 0.6, 0.8);
+    const steelMaterial = this.materials.get('steel') || new THREE.MeshStandardMaterial({ color: 0x8395a7 });
+    const mainBeam = new THREE.Mesh(beamGeometry, steelMaterial);
+    mainBeam.position.set(0, 3, 0);
+    mainBeam.castShadow = true;
+    mainBeam.receiveShadow = true;
+    group.add(mainBeam);
+    
+    // ABAQUS风格支撑柱
+    const columnGeometry = new THREE.CylinderGeometry(0.3, 0.3, 6, 12);
+    const column1 = new THREE.Mesh(columnGeometry, steelMaterial);
+    column1.position.set(-3, 0, 0);
+    column1.castShadow = true;
+    column1.receiveShadow = true;
+    group.add(column1);
+    
+    const column2 = new THREE.Mesh(columnGeometry, steelMaterial);
+    column2.position.set(3, 0, 0);
+    column2.castShadow = true;
+    column2.receiveShadow = true;
+    group.add(column2);
+    
+    // ABAQUS风格混凝土基础
+    const foundationGeometry = new THREE.BoxGeometry(10, 1, 4);
+    const concreteMaterial = this.materials.get('concrete') || new THREE.MeshStandardMaterial({ color: 0x95a5a6 });
+    const foundation = new THREE.Mesh(foundationGeometry, concreteMaterial);
+    foundation.position.set(0, -3.5, 0);
+    foundation.castShadow = true;
+    foundation.receiveShadow = true;
+    group.add(foundation);
+    
+    // ABAQUS风格网格线条
+    const wireframeMaterial = this.materials.get('wireframe') || new THREE.MeshBasicMaterial({ wireframe: true });
+    const wireframeBeam = new THREE.Mesh(beamGeometry, wireframeMaterial);
+    wireframeBeam.position.copy(mainBeam.position);
+    wireframeBeam.scale.multiplyScalar(1.01);
+    group.add(wireframeBeam);
+    
+    return group;
+  }
+
+  // 创建ABAQUS风格工程地面系统
+  private createModernGround(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'abaqus-ground';
+    
+    // ABAQUS风格工作平面
+    const workPlaneGeometry = new THREE.PlaneGeometry(200, 200);
+    const workPlaneMaterial = new THREE.MeshLambertMaterial({
+      color: 0x34495e,
+      transparent: true,
+      opacity: 0.6
+    });
+    const workPlane = new THREE.Mesh(workPlaneGeometry, workPlaneMaterial);
+    workPlane.rotation.x = -Math.PI / 2;
+    workPlane.position.y = -4;
+    workPlane.receiveShadow = true;
+    group.add(workPlane);
+    
+    // ABAQUS风格基准平面标记
+    const datumGeometry = new THREE.PlaneGeometry(0.5, 100);
+    const datumMaterial = new THREE.MeshBasicMaterial({
+      color: 0x3498db,
+      transparent: true,
+      opacity: 0.3,
+      side: THREE.DoubleSide
+    });
+    
+    // 基准线 - X方向
+    const datumX = new THREE.Mesh(datumGeometry, datumMaterial);
+    datumX.rotation.x = -Math.PI / 2;
+    datumX.position.y = -3.99;
+    group.add(datumX);
+    
+    // 基准线 - Z方向
+    const datumZ = new THREE.Mesh(datumGeometry, datumMaterial);
+    datumZ.rotation.x = -Math.PI / 2;
+    datumZ.rotation.y = Math.PI / 2;
+    datumZ.position.y = -3.99;
+    group.add(datumZ);
+    
+    return group;
+  }
+
+  // ABAQUS风格微妙动画效果
+  private updateAnimations(): void {
+    const time = Date.now() * 0.001;
+    
+    // 微妙的结构展示旋转
+    const showcaseObject = this.scene.getObjectByName('abaqus-showcase');
+    if (showcaseObject) {
+      // ABAQUS风格：非常缓慢的旋转，展示结构细节
+      showcaseObject.rotation.y = time * 0.1;
+      
+      // 微妙的上下浮动，模拟结构分析中的位移
+      showcaseObject.position.y = Math.sin(time * 0.5) * 0.1;
+    }
+    
+    // ABAQUS风格光照微调
+    const mainLight = this.scene.children.find(child => 
+      child.type === 'DirectionalLight' && (child as any).intensity > 1.5
+    );
+    if (mainLight && 'intensity' in mainLight) {
+      // 非常微妙的光强变化，模拟工作室环境
+      (mainLight as any).intensity = 1.8 + Math.sin(time * 0.3) * 0.1;
+    }
   }
 
   // 选择管理
@@ -671,11 +982,24 @@ export class CAEThreeEngine {
   public render(): void {
     const startTime = performance.now();
     
-    // 场景安全检查（仅在必要时重建）
-    if (this.scene.children.length === 0) {
-      console.warn('⚠️ 场景为空，重新初始化基础元素');
-      this.addTestGeometry();
-      this.addSceneHelpers();
+    // 场景安全检查（避免重复初始化）
+    if (this.scene.children.length < 3) { // 至少应该有光照、网格、坐标轴
+      console.warn('⚠️ 场景元素不足，检查初始化状态');
+      // 不要重复添加，而是检查具体缺失的元素
+      const hasGrid = this.scene.getObjectByName('abaqus-grid');
+      const hasAxes = this.scene.getObjectByName('abaqus-axes');
+      const hasShowcase = this.scene.getObjectByName('abaqus-showcase');
+      
+      if (!hasGrid || !hasAxes || !hasShowcase) {
+        console.log('🔧 部分场景元素缺失，重新添加');
+        if (!hasGrid || !hasAxes) this.addSceneHelpers();
+        if (!hasShowcase) {
+          const showcaseObject = this.createShowcaseObject();
+          const modernGround = this.createModernGround();
+          this.scene.add(showcaseObject);
+          this.scene.add(modernGround);
+        }
+      }
     }
     
     // 确保控制器已启用并更新
@@ -687,6 +1011,9 @@ export class CAEThreeEngine {
     if (this.lodManager) {
       this.lodManager.update();
     }
+    
+    // 添加动画效果
+    this.updateAnimations();
     
     // 渲染场景
     this.renderer.render(this.scene, this.camera);
@@ -738,6 +1065,13 @@ export class CAEThreeEngine {
     this.lodManager.dispose();
     this.renderer.dispose();
     this.materials.forEach(material => material.dispose());
+    
+    // 清理背景纹理
+    if (this.backgroundTexture) {
+      this.backgroundTexture.dispose();
+      this.backgroundTexture = null;
+    }
+    
     console.log('🚨 正在清空场景...');
     this.scene.clear();
     console.log('✅ CAE引擎资源清理完成');
@@ -759,12 +1093,18 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
     animationIdRef.current = requestAnimationFrame(animate);
   }, []);
 
-  // 初始化引擎
+  // 初始化引擎 - 防止重复初始化
   useEffect(() => {
-    if (!containerRef.current || isInitialized) return;
+    if (!containerRef.current || isInitialized || engineRef.current) return;
 
     try {
       const container = containerRef.current;
+      
+      // 清理容器内容，防止重复渲染
+      while (container.firstChild) {
+        container.removeChild(container.firstChild);
+      }
+      
       const width = container.offsetWidth;
       const height = container.offsetHeight;
       
@@ -799,8 +1139,9 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
       if (animationIdRef.current) {
         cancelAnimationFrame(animationIdRef.current);
       }
+      setIsInitialized(false);
     };
-  }, [props]);
+  }, []); // 移除props依赖，防止重复初始化
 
   // 动画循环现在由引擎内部管理，不需要在React组件中重复启动
   useEffect(() => {

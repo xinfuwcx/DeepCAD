@@ -8,8 +8,6 @@ import DeepCADAdvancedApp from './components/advanced/DeepCADAdvancedApp';
 import MainLayout from './components/layout/MainLayout';
 import { DeepCADThemeProvider } from './components/ui/DeepCADTheme';
 import { DeepCADControlCenter } from './components/control';
-import ControlCenterDemo from './pages/ControlCenterDemo';
-import AmapControlCenterDemo from './pages/AmapControlCenterDemo';
 import './index.css';
 
 /**
@@ -150,8 +148,8 @@ const App: React.FC = () => {
             
             {/* 控制中心路由 */}
             <Route path="/control-center" element={<DeepCADControlCenter />} />
-            <Route path="/control-center-demo" element={<ControlCenterDemo />} />
-            <Route path="/amap-control-center" element={<AmapControlCenterDemo />} />
+            <Route path="/control-center-demo" element={<DeepCADControlCenter />} />
+            <Route path="/amap-control-center" element={<DeepCADControlCenter />} />
             
             {/* 主工作区路由 */}
             <Route path="/workspace/*" element={<MainLayout />} />

@@ -4,8 +4,236 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Button, Result, Typography } from 'antd';
 import { RocketOutlined } from '@ant-design/icons';
 import { ProfessionalMaterials } from './3d/materials/ProfessionalMaterials';
+import { PostProcessingEffects } from './3d/effects/PostProcessingEffects';
 
 const { Text } = Typography;
+
+// 创建渐变背景纹理
+const createGradientBackground = () => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const context = canvas.getContext('2d')!;
+  
+  // 创建径向渐变
+  const gradient = context.createRadialGradient(256, 256, 0, 256, 256, 256);
+  gradient.addColorStop(0, '#1a1a2e');
+  gradient.addColorStop(0.5, '#16213e');
+  gradient.addColorStop(1, '#0f0f23');
+  
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, 512, 512);
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.mapping = THREE.EquirectangularReflectionMapping;
+  return texture;
+};
+
+// 设置专业级光照系统
+const setupProfessionalLighting = (scene: THREE.Scene) => {
+  // 环境光 - 模拟天空光照
+  const ambientLight = new THREE.AmbientLight(0x4a5568, 0.3);
+  scene.add(ambientLight);
+
+  // 主光源 - 模拟太阳光
+  const mainLight = new THREE.DirectionalLight(0xffffff, 1.5);
+  mainLight.position.set(15, 20, 10);
+  mainLight.castShadow = true;
+  mainLight.shadow.mapSize.width = 4096;
+  mainLight.shadow.mapSize.height = 4096;
+  mainLight.shadow.camera.near = 0.1;
+  mainLight.shadow.camera.far = 100;
+  mainLight.shadow.camera.left = -30;
+  mainLight.shadow.camera.right = 30;
+  mainLight.shadow.camera.top = 30;
+  mainLight.shadow.camera.bottom = -30;
+  mainLight.shadow.bias = -0.0005;
+  scene.add(mainLight);
+
+  // 填充光 - 减少阴影过重
+  const fillLight = new THREE.DirectionalLight(0x87ceeb, 0.4);
+  fillLight.position.set(-10, 5, -10);
+  scene.add(fillLight);
+
+  // 半球光 - 模拟天空和地面反射
+  const hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x2d3748, 0.6);
+  scene.add(hemisphereLight);
+
+  // 点光源 - 增加局部亮点
+  const pointLight = new THREE.PointLight(0x00d9ff, 0.8, 50);
+  pointLight.position.set(5, 10, 5);
+  scene.add(pointLight);
+};
+
+// 创建现代化网格系统
+const createModernGrid = () => {
+  const group = new THREE.Group();
+  
+  // 主网格
+  const mainGrid = new THREE.GridHelper(50, 50, 0x4a5568, 0x2d3748);
+  mainGrid.material.opacity = 0.3;
+  mainGrid.material.transparent = true;
+  group.add(mainGrid);
+  
+  // 子网格
+  const subGrid = new THREE.GridHelper(50, 250, 0x2d3748, 0x1a202c);
+  subGrid.material.opacity = 0.15;
+  subGrid.material.transparent = true;
+  group.add(subGrid);
+  
+  // 中心线强调
+  const centerLineGeometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-25, 0, 0),
+    new THREE.Vector3(25, 0, 0)
+  ]);
+  const centerLineMaterial = new THREE.LineBasicMaterial({ 
+    color: 0x00d9ff, 
+    opacity: 0.6, 
+    transparent: true 
+  });
+  const centerLineX = new THREE.Line(centerLineGeometry, centerLineMaterial);
+  group.add(centerLineX);
+  
+  const centerLineZ = centerLineX.clone();
+  centerLineZ.rotation.y = Math.PI / 2;
+  group.add(centerLineZ);
+  
+  return group;
+};
+
+// 创建现代化坐标轴系统
+const createModernAxes = () => {
+  const group = new THREE.Group();
+  
+  const axisLength = 8;
+  const arrowLength = 1;
+  const arrowWidth = 0.3;
+  
+  // X轴 - 红色
+  const xGeometry = new THREE.CylinderGeometry(0.05, 0.05, axisLength, 8);
+  const xMaterial = new THREE.MeshPhongMaterial({ color: 0xff4757 });
+  const xAxis = new THREE.Mesh(xGeometry, xMaterial);
+  xAxis.rotation.z = -Math.PI / 2;
+  xAxis.position.x = axisLength / 2;
+  group.add(xAxis);
+  
+  // X轴箭头
+  const xArrowGeometry = new THREE.ConeGeometry(arrowWidth, arrowLength, 8);
+  const xArrow = new THREE.Mesh(xArrowGeometry, xMaterial);
+  xArrow.rotation.z = -Math.PI / 2;
+  xArrow.position.x = axisLength + arrowLength / 2;
+  group.add(xArrow);
+  
+  // Y轴 - 绿色
+  const yGeometry = new THREE.CylinderGeometry(0.05, 0.05, axisLength, 8);
+  const yMaterial = new THREE.MeshPhongMaterial({ color: 0x2ed573 });
+  const yAxis = new THREE.Mesh(yGeometry, yMaterial);
+  yAxis.position.y = axisLength / 2;
+  group.add(yAxis);
+  
+  // Y轴箭头
+  const yArrowGeometry = new THREE.ConeGeometry(arrowWidth, arrowLength, 8);
+  const yArrow = new THREE.Mesh(yArrowGeometry, yMaterial);
+  yArrow.position.y = axisLength + arrowLength / 2;
+  group.add(yArrow);
+  
+  // Z轴 - 蓝色
+  const zGeometry = new THREE.CylinderGeometry(0.05, 0.05, axisLength, 8);
+  const zMaterial = new THREE.MeshPhongMaterial({ color: 0x3742fa });
+  const zAxis = new THREE.Mesh(zGeometry, zMaterial);
+  zAxis.rotation.x = Math.PI / 2;
+  zAxis.position.z = axisLength / 2;
+  group.add(zAxis);
+  
+  // Z轴箭头
+  const zArrowGeometry = new THREE.ConeGeometry(arrowWidth, arrowLength, 8);
+  const zArrow = new THREE.Mesh(zArrowGeometry, zMaterial);
+  zArrow.rotation.x = Math.PI / 2;
+  zArrow.position.z = axisLength + arrowLength / 2;
+  group.add(zArrow);
+  
+  return group;
+};
+
+// 创建现代化展示对象
+const createShowcaseObject = () => {
+  const group = new THREE.Group();
+  
+  // 主要几何体 - 使用玻璃材质
+  const geometry = new THREE.IcosahedronGeometry(1.5, 1);
+  const material = new THREE.MeshPhysicalMaterial({
+    color: 0x00d9ff,
+    metalness: 0.1,
+    roughness: 0.1,
+    transmission: 0.9,
+    transparent: true,
+    opacity: 0.8,
+    ior: 1.5,
+    thickness: 0.5,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.1
+  });
+  
+  const mainObject = new THREE.Mesh(geometry, material);
+  mainObject.position.set(0, 2, 0);
+  mainObject.castShadow = true;
+  mainObject.receiveShadow = true;
+  group.add(mainObject);
+  
+  // 装饰环
+  const ringGeometry = new THREE.TorusGeometry(2.5, 0.1, 8, 32);
+  const ringMaterial = new THREE.MeshPhongMaterial({ 
+    color: 0xff6b6b, 
+    emissive: 0x331111,
+    transparent: true,
+    opacity: 0.7
+  });
+  const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+  ring.name = 'ring';
+  ring.position.set(0, 2, 0);
+  ring.rotation.x = Math.PI / 3;
+  group.add(ring);
+  
+  group.name = 'showcase';
+  
+  return group;
+};
+
+// 创建现代化地面系统
+const createModernGround = () => {
+  const group = new THREE.Group();
+  
+  // 主地面
+  const groundGeometry = new THREE.PlaneGeometry(100, 100);
+  const groundMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0x1a202c,
+    metalness: 0.1,
+    roughness: 0.8,
+    transparent: true,
+    opacity: 0.3
+  });
+  const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  group.add(ground);
+  
+  // 反射平面
+  const reflectionGeometry = new THREE.PlaneGeometry(20, 20);
+  const reflectionMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0x2d3748,
+    metalness: 0.9,
+    roughness: 0.1,
+    transparent: true,
+    opacity: 0.5
+  });
+  const reflection = new THREE.Mesh(reflectionGeometry, reflectionMaterial);
+  reflection.rotation.x = -Math.PI / 2;
+  reflection.position.y = 0.01;
+  reflection.receiveShadow = true;
+  group.add(reflection);
+  
+  return group;
+};
 
 interface ViewPort3DProps {
   title?: string;
@@ -42,11 +270,11 @@ const ViewPort3D: React.FC<ViewPort3DProps> = ({
     support: null
   });
   
-  // 移除现代化坐标轴引用 - 使用简单坐标轴
-  // const modernAxisRef = useRef<ModernAxisHelper | null>(null);
-  
   // 专业材质系统
   const materialsRef = useRef<ProfessionalMaterials>(ProfessionalMaterials.getInstance());
+  
+  // 后处理效果系统
+  const postProcessingRef = useRef<PostProcessingEffects | null>(null);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -58,10 +286,12 @@ const ViewPort3D: React.FC<ViewPort3DProps> = ({
       const width = container.clientWidth;
       const height = container.clientHeight;
 
-      // 创建场景
+      // 创建场景 - 现代化设计
       const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x0a0a0a);
-      scene.fog = new THREE.Fog(0x0a0a0a, 50, 200);
+      // 创建渐变背景
+      const bgTexture = createGradientBackground();
+      scene.background = bgTexture;
+      scene.fog = new THREE.FogExp2(0x0d1b2a, 0.008); // 指数雾效更自然
       sceneRef.current = scene;
 
       // 创建相机
@@ -70,11 +300,13 @@ const ViewPort3D: React.FC<ViewPort3DProps> = ({
       camera.lookAt(0, 0, 0);
       cameraRef.current = camera;
 
-      // 创建渲染器
+      // 创建现代化渲染器
       const renderer = new THREE.WebGLRenderer({ 
         antialias: true, 
         alpha: true,
-        powerPreference: 'default'
+        powerPreference: 'high-performance',
+        precision: 'highp',
+        logarithmicDepthBuffer: true
       });
       renderer.setSize(width, height);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -82,7 +314,10 @@ const ViewPort3D: React.FC<ViewPort3DProps> = ({
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1;
+      renderer.toneMappingExposure = 1.2;
+      // 现代化渲染设置
+      renderer.useLegacyLights = false; // 使用物理正确的光照
+      renderer.autoClear = false;
       container.appendChild(renderer.domElement);
       rendererRef.current = renderer;
 
@@ -95,63 +330,29 @@ const ViewPort3D: React.FC<ViewPort3DProps> = ({
       controls.maxDistance = 100;
       controlsRef.current = controls;
 
-      // 添加光照
-      const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
-      scene.add(ambientLight);
+      // 专业级光照系统
+      setupProfessionalLighting(scene);
 
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-      directionalLight.position.set(10, 10, 5);
-      directionalLight.castShadow = true;
-      directionalLight.shadow.mapSize.width = 2048;
-      directionalLight.shadow.mapSize.height = 2048;
-      directionalLight.shadow.camera.near = 0.5;
-      directionalLight.shadow.camera.far = 50;
-      directionalLight.shadow.camera.left = -20;
-      directionalLight.shadow.camera.right = 20;
-      directionalLight.shadow.camera.top = 20;
-      directionalLight.shadow.camera.bottom = -20;
-      scene.add(directionalLight);
+      // 现代化网格系统
+      const modernGrid = createModernGrid();
+      scene.add(modernGrid);
 
-      const hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x1e1e1e, 0.4);
-      scene.add(hemisphereLight);
+      // 现代化坐标轴系统
+      const modernAxes = createModernAxes();
+      scene.add(modernAxes);
 
-      // 添加网格
-      const gridHelper = new THREE.GridHelper(20, 20, 0x666666, 0x333333);
-      gridHelper.material.opacity = 0.5;
-      gridHelper.material.transparent = true;
-      scene.add(gridHelper);
+      // 添加现代化展示对象
+      const showcaseObject = createShowcaseObject();
+      scene.add(showcaseObject);
 
-      // 临时使用简单坐标轴 - 避免性能问题
-      const axesHelper = new THREE.AxesHelper(6);
-      axesHelper.setColors(
-        new THREE.Color(0xff3333), // X轴 - 红色
-        new THREE.Color(0x33ff33), // Y轴 - 绿色
-        new THREE.Color(0x3333ff)  // Z轴 - 蓝色
-      );
-      scene.add(axesHelper);
+      // 现代化地面系统
+      const modernGround = createModernGround();
+      scene.add(modernGround);
 
-      // 添加测试立方体以确保场景可见
-      const testCube = new THREE.Mesh(
-        new THREE.BoxGeometry(1, 1, 1),
-        new THREE.MeshBasicMaterial({ 
-          color: 0x00ff00, 
-          wireframe: true 
-        })
-      );
-      testCube.position.set(0, 2, 0);
-      scene.add(testCube);
-
-      // 添加地面
-      const groundGeometry = new THREE.PlaneGeometry(40, 40);
-      const groundMaterial = new THREE.MeshLambertMaterial({ 
-        color: 0x111111, 
-        transparent: true, 
-        opacity: 0.1 
-      });
-      const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-      ground.rotation.x = -Math.PI / 2;
-      ground.receiveShadow = true;
-      scene.add(ground);
+      // 初始化后处理效果
+      postProcessingRef.current = new PostProcessingEffects(renderer, scene, camera);
+      postProcessingRef.current.init();
+      postProcessingRef.current.addEnvironmentReflection();
 
       // 根据模式添加不同的对象
       if (mode === 'geometry') {
@@ -246,27 +447,28 @@ const ViewPort3D: React.FC<ViewPort3DProps> = ({
         scene.add(cube);
       }
 
-      // 创建ViewCube
+      // 创建现代化ViewCube
       const createViewCube = () => {
         const cubeContainer = document.createElement('div');
+        cubeContainer.className = 'view-cube';
         cubeContainer.style.position = 'absolute';
-        cubeContainer.style.top = '50px';
-        cubeContainer.style.right = '10px';
-        cubeContainer.style.width = '80px';
-        cubeContainer.style.height = '80px';
+        cubeContainer.style.top = '60px';
+        cubeContainer.style.right = '20px';
+        cubeContainer.style.width = '90px';
+        cubeContainer.style.height = '90px';
         cubeContainer.style.zIndex = '1000';
         cubeContainer.style.pointerEvents = 'auto';
-        cubeContainer.style.background = 'rgba(0, 0, 0, 0.3)';
-        cubeContainer.style.borderRadius = '8px';
-        cubeContainer.style.border = '1px solid rgba(255, 255, 255, 0.1)';
         cubeContainer.style.cursor = 'pointer';
         cubeContainer.style.display = 'flex';
         cubeContainer.style.alignItems = 'center';
         cubeContainer.style.justifyContent = 'center';
-        cubeContainer.style.color = 'white';
-        cubeContainer.style.fontSize = '12px';
-        cubeContainer.style.fontWeight = 'bold';
-        cubeContainer.textContent = 'VIEW';
+        cubeContainer.style.fontSize = '11px';
+        cubeContainer.innerHTML = `
+          <div style="text-align: center; line-height: 1.2;">
+            <div style="font-size: 14px; margin-bottom: 2px;">⚡</div>
+            <div>VIEW</div>
+          </div>
+        `;
         
         cubeContainer.addEventListener('click', () => {
           camera.position.set(10, 8, 10);
@@ -492,10 +694,33 @@ const ViewPort3D: React.FC<ViewPort3DProps> = ({
           controls.update();
         }
         
-        // 简单坐标轴无需更新
-        // if (modernAxisRef.current) {
-        //   modernAxisRef.current.update(0.016); // 约60fps
-        // }
+        // 添加动画效果
+        if (scene) {
+          const time = Date.now() * 0.001;
+          
+          // 旋转展示对象
+          const showcaseObject = scene.getObjectByName('showcase');
+          if (showcaseObject) {
+            showcaseObject.rotation.y = time * 0.5;
+            showcaseObject.children.forEach((child, index) => {
+              if (child.name === 'ring') {
+                child.rotation.x = time * 0.3 + index;
+                child.rotation.z = time * 0.2;
+              }
+            });
+          }
+          
+          // 脉动效果
+          const pointLight = scene.children.find(child => child.type === 'PointLight');
+          if (pointLight && 'intensity' in pointLight) {
+            (pointLight as any).intensity = 0.8 + Math.sin(time * 2) * 0.2;
+          }
+          
+          // 更新后处理效果
+          if (postProcessingRef.current) {
+            postProcessingRef.current.update(0.016);
+          }
+        }
         
         if (renderer && scene && camera) {
           renderer.render(scene, camera);
@@ -540,11 +765,11 @@ const ViewPort3D: React.FC<ViewPort3DProps> = ({
           }
         }
         
-        // 简单坐标轴无需特殊清理
-        // if (modernAxisRef.current) {
-        //   modernAxisRef.current.dispose();
-        //   modernAxisRef.current = null;
-        // }
+        // 清理后处理效果
+        if (postProcessingRef.current) {
+          postProcessingRef.current.dispose();
+          postProcessingRef.current = null;
+        }
         
         if (sceneRef.current) {
           sceneRef.current.clear();
@@ -671,24 +896,22 @@ const ViewPort3D: React.FC<ViewPort3DProps> = ({
         }}
       />
 
-      {/* 工具栏 */}
+      {/* 现代化工具栏 */}
       <div
+        className="viewport-toolbar"
         style={{
           position: 'absolute',
-          bottom: '10px',
-          left: '10px',
+          bottom: '20px',
+          left: '20px',
           display: 'flex',
-          gap: '8px',
+          gap: '12px',
           zIndex: 100
         }}
       >
         <Button 
           size="small" 
-          style={{ 
-            background: 'rgba(0, 0, 0, 0.7)', 
-            border: '1px solid var(--border-color)',
-            color: 'var(--text-primary)'
-          }}
+          className="glass-effect"
+          icon={<span style={{ fontSize: '12px' }}>🔄</span>}
           onClick={() => {
             if (cameraRef.current && controlsRef.current) {
               cameraRef.current.position.set(10, 8, 10);
@@ -702,14 +925,26 @@ const ViewPort3D: React.FC<ViewPort3DProps> = ({
         </Button>
         <Button 
           size="small" 
-          style={{ 
-            background: 'rgba(0, 0, 0, 0.7)', 
-            border: '1px solid var(--border-color)',
-            color: 'var(--text-primary)'
-          }}
+          className="glass-effect"
+          icon={<span style={{ fontSize: '12px' }}>📸</span>}
           onClick={() => onAction?.('screenshot')}
         >
           截图
+        </Button>
+        <Button 
+          size="small" 
+          className="glass-effect"
+          icon={<span style={{ fontSize: '12px' }}>🎯</span>}
+          onClick={() => {
+            if (cameraRef.current && controlsRef.current) {
+              cameraRef.current.position.set(0, 15, 0);
+              cameraRef.current.lookAt(0, 0, 0);
+              controlsRef.current.update();
+            }
+            onAction?.('top-view');
+          }}
+        >
+          俯视图
         </Button>
       </div>
 
