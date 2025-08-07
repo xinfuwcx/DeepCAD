@@ -19,6 +19,7 @@ import {
 import CAEThreeEngineComponent from '../components/3d/CAEThreeEngine';
 
 import GeologyModule from '../components/geology/GeologyModule';
+import EnhancedGeologyReconstructionPanel from '../components/geology/EnhancedGeologyReconstructionPanel';
 import TunnelModelingModule from '../components/tunnel/TunnelModelingModule';
 import ExcavationModule from '../components/excavation/ExcavationModule';
 import SupportModule from '../components/support/SupportModule';
@@ -806,8 +807,24 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
         title: '地质重建',
         tabs: [
           { 
-            key: 'geology-data', 
-            label: <span>{getActivityBadge(geologyStatus)}地质数据</span>, 
+            key: 'geology-reconstruction', 
+            label: <span>{getActivityBadge(geologyStatus)}地质重建</span>, 
+            children: <EnhancedGeologyReconstructionPanel 
+              onModelGenerated={(result) => {
+                console.log('地质模型生成完成:', result);
+                message.success('地质重建完成！');
+              }}
+              onStatusChange={(status) => {
+                console.log('地质重建状态变更:', status);
+              }}
+              onQualityReport={(report) => {
+                console.log('质量报告:', report);
+              }}
+            />
+          },
+          { 
+            key: 'geology-legacy', 
+            label: <span>{getActivityBadge('wait')}传统模式</span>, 
             children: <GeologyModule 
               params={geologyParams}
               onParamsChange={(key, value) => handleParamsChange('geology', key, value)}

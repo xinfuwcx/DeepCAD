@@ -4,9 +4,7 @@
  */
 
 // 导出现有的控制中心组件
-export { ControlCenter as EpicControlCenter } from './EpicControlCenter';
-export { ProjectControlCenter } from './ProjectControlCenter';
-export { EnhancedEpicControlCenter } from './EnhancedEpicControlCenter';
+// EnhancedEpicControlCenter 已删除，使用 DeepCADControlCenter 替代
 
 // 导出新版控制中心 v3.0 - MapLibre + deck.gl
 export { DeepCADControlCenter } from './DeepCADControlCenter';

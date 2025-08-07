@@ -253,15 +253,21 @@ DeepCAD 性能报告
     // 监控Fetch请求
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {
+      const url = typeof args[0] === 'string' ? args[0] : args[0].url;
+
+      // 过滤掉不需要监控的请求
+      if (this.shouldSkipMonitoring(url)) {
+        return originalFetch(...args);
+      }
+
       const startTime = performance.now();
       try {
         const response = await originalFetch(...args);
         const endTime = performance.now();
         const duration = endTime - startTime;
-        
-        const url = typeof args[0] === 'string' ? args[0] : args[0].url;
+
         const apiName = this.extractApiName(url);
-        
+
         if (!this.networkMetrics.has(apiName)) {
           this.networkMetrics.set(apiName, []);
         }
@@ -276,10 +282,24 @@ DeepCAD 性能报告
         return response;
       } catch (error) {
         const endTime = performance.now();
-        console.warn(`[DeepCAD Performance] API请求失败: ${args[0]} - ${endTime - startTime}ms`);
+        console.warn(`[DeepCAD Performance] API请求失败: ${url} - ${endTime - startTime}ms`);
         throw error;
       }
     };
+  }
+
+  // 判断是否应该跳过监控
+  private shouldSkipMonitoring(url: string): boolean {
+    // 跳过根路径和静态资源
+    const skipPatterns = [
+      /^https?:\/\/[^\/]+\/?$/,  // 根路径
+      /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf)$/i,  // 静态资源
+      /\/static\//,  // 静态文件目录
+      /chrome-extension:/,  // 浏览器扩展
+      /moz-extension:/,  // Firefox扩展
+    ];
+
+    return skipPatterns.some(pattern => pattern.test(url));
   }
 
   // 初始化用户交互跟踪

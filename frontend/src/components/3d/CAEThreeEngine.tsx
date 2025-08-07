@@ -13,6 +13,7 @@ import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 import { ComponentDevHelper } from '../../utils/developmentTools';
 import { GeometryData, MaterialZone } from '../../core/InterfaceProtocol';
 import { LODManager } from './performance/LODManager.simple';
+import { safeRemoveRenderer, handleWebGLContextLoss, disposeMaterial, safeEmptyContainer } from '../../utils/threejsCleanup';
 
 // CAE特定材质类型
 export enum CAEMaterialType {
@@ -44,7 +45,7 @@ export enum CAEViewPreset {
   BOTTOM = 'bottom'
 }
 
-interface CAEThreeEngineProps {
+export interface CAEThreeEngineProps {
   onModelLoad?: (model: THREE.Object3D) => void;
   onSelection?: (objects: THREE.Object3D[]) => void;
   onMeasurement?: (measurement: { distance: number; points: THREE.Vector3[] }) => void;
@@ -62,7 +63,7 @@ interface CAEThreeEngineProps {
   analysisProgress?: number;
 }
 
-export class CAEThreeEngine {
+export class CAEThreeEngineCore {
   // 核心Three.js组件
   public scene: THREE.Scene;
   public camera: THREE.PerspectiveCamera;
@@ -75,6 +76,7 @@ export class CAEThreeEngine {
   private mouse: THREE.Vector2 = new THREE.Vector2();
   private selectedObjects: THREE.Object3D[] = [];
   private interactionMode: CAEInteractionMode = CAEInteractionMode.ORBIT;
+  private animationFrameId: number | null = null;
   
   // 加载器
   private stlLoader: STLLoader = new STLLoader();
@@ -139,6 +141,10 @@ export class CAEThreeEngine {
     
     this.backgroundTexture = new THREE.CanvasTexture(canvas);
     this.backgroundTexture.needsUpdate = true;
+    // 防止纹理重复创建警告
+    this.backgroundTexture.generateMipmaps = false;
+    this.backgroundTexture.minFilter = THREE.LinearFilter;
+    this.backgroundTexture.magFilter = THREE.LinearFilter;
     return this.backgroundTexture;
   }
 
@@ -1062,9 +1068,20 @@ export class CAEThreeEngine {
   // 清理资源
   public dispose(): void {
     console.log('🗑️ CAE引擎开始清理资源...');
+    
+    // 停止渲染循环
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+    
     this.lodManager.dispose();
-    this.renderer.dispose();
-    this.materials.forEach(material => material.dispose());
+    
+    // 清理材质
+    this.materials.forEach(material => {
+      disposeMaterial(material);
+    });
+    this.materials.clear();
     
     // 清理背景纹理
     if (this.backgroundTexture) {
@@ -1072,8 +1089,22 @@ export class CAEThreeEngine {
       this.backgroundTexture = null;
     }
     
+    // 清理WebGL上下文
+    handleWebGLContextLoss(this.renderer);
+    
+    // 安全地清理渲染器（注意：这里不移除DOM，因为是类方法，没有容器引用）
+    try {
+      this.renderer.dispose();
+    } catch (error) {
+      console.warn('渲染器清理警告:', error);
+    }
+    
     console.log('🚨 正在清空场景...');
-    this.scene.clear();
+    try {
+      this.scene.clear();
+    } catch (error) {
+      console.warn('场景清理警告:', error);
+    }
     console.log('✅ CAE引擎资源清理完成');
   }
 }
@@ -1081,7 +1112,7 @@ export class CAEThreeEngine {
 // React组件封装
 const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const engineRef = useRef<CAEThreeEngine | null>(null);
+  const engineRef = useRef<CAEThreeEngineCore | null>(null);
   const animationIdRef = useRef<number>(0);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
@@ -1100,10 +1131,8 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
     try {
       const container = containerRef.current;
       
-      // 清理容器内容，防止重复渲染
-      while (container.firstChild) {
-        container.removeChild(container.firstChild);
-      }
+      // 安全地清理容器内容，防止重复渲染
+      safeEmptyContainer(container);
       
       const width = container.offsetWidth;
       const height = container.offsetHeight;
@@ -1118,7 +1147,7 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
         container.style.minHeight = '300px';
       }
       
-      engineRef.current = new CAEThreeEngine(container, props);
+              engineRef.current = new CAEThreeEngineCore(container, props);
       setIsInitialized(true);
 
       console.log('✅ CAE Three.js引擎组件初始化完成');
@@ -1131,15 +1160,35 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
 
     return () => {
       console.log('🧹 CAE组件清理函数被调用');
-      if (engineRef.current) {
-        console.log('⚠️ 注意：清理函数调用了dispose()，这会清空场景');
-        engineRef.current.dispose();
-        engineRef.current = null;
-      }
+      
+      // 停止动画循环
       if (animationIdRef.current) {
         cancelAnimationFrame(animationIdRef.current);
+        animationIdRef.current = 0;
       }
-      setIsInitialized(false);
+      
+      // 清理引擎和DOM
+      if (engineRef.current) {
+        try {
+          console.log('⚠️ 注意：清理函数调用了dispose()，这会清空场景');
+          // 先安全移除DOM元素
+          safeRemoveRenderer(engineRef.current.renderer, containerRef.current);
+          // 再清理引擎
+          engineRef.current.dispose();
+        } catch (error) {
+          console.warn('引擎清理警告:', error);
+        }
+        engineRef.current = null;
+      }
+      
+      // 延迟重置状态，避免与React的卸载过程冲突
+      setTimeout(() => {
+        try {
+          setIsInitialized(false);
+        } catch (error) {
+          // 组件可能已经卸载，忽略此错误
+        }
+      }, 0);
     };
   }, []); // 移除props依赖，防止重复初始化
 

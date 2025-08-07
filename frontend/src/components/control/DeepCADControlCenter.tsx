@@ -14,14 +14,90 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// 超级炫酷的CSS动画样式
+const dreamyStyles = `
+  @keyframes dreamyBackground {
+    0% { filter: brightness(1); }
+    50% { filter: brightness(1.05); }
+    100% { filter: brightness(1); }
+  }
+
+  @keyframes particleFloat {
+    0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
+  }
+
+  @keyframes neonGlow {
+    0%, 100% {
+      box-shadow: 0 0 8px rgba(0, 170, 255, 0.6);
+      border-color: rgba(0, 170, 255, 0.8);
+    }
+  }
+
+  @keyframes dataFlow {
+    0% { transform: translateX(-100%); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: translateX(100vw); opacity: 0; }
+  }
+
+  @keyframes hologramFlicker {
+    0%, 100% { opacity: 0.95; }
+  }
+
+  .particle {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    background: radial-gradient(circle, #00ffff 0%, transparent 70%);
+    border-radius: 50%;
+    animation: particleFloat linear infinite;
+    pointer-events: none;
+  }
+
+  .neon-border {
+    animation: neonGlow 2s ease-in-out infinite alternate;
+    border: 1px solid rgba(0, 255, 255, 0.5);
+  }
+
+  .data-stream {
+    position: absolute;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, #00ffff 50%, transparent 100%);
+    animation: dataFlow 3s linear infinite;
+    pointer-events: none;
+  }
+
+  .hologram-effect {
+    animation: hologramFlicker 0.1s ease-in-out infinite;
+    background: linear-gradient(45deg, rgba(0, 255, 255, 0.1) 0%, rgba(255, 0, 255, 0.1) 100%);
+  }
+`;
+
+// 注入样式到页面
+if (typeof document !== 'undefined' && !document.getElementById('dreamy-styles')) {
+  const styleSheet = document.createElement('style');
+  styleSheet.id = 'dreamy-styles';
+  styleSheet.textContent = dreamyStyles;
+  document.head.appendChild(styleSheet);
+}
+
 // 高德地图和可视化相关
 import AMapLoader from '@amap/amap-jsapi-loader';
 import { Deck } from '@deck.gl/core';
-import { ScatterplotLayer, ArcLayer } from '@deck.gl/layers';
+import {
+  ScatterplotLayer,
+  ArcLayer,
+  ColumnLayer,
+  LineLayer,
+  IconLayer,
+  TextLayer
+} from '@deck.gl/layers';
 import { HeatmapLayer } from '@deck.gl/aggregation-layers';
 
 // 服务和工具
-import { openMeteoService, WeatherData } from '../../services/OpenMeteoService';
+import { amapWeatherService, WeatherData } from '../../services/AmapWeatherService';
 
 interface DeepCADControlCenterProps {
   onExit: () => void;
@@ -62,6 +138,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
 
   // 状态管理
   const [isInitialized, setIsInitialized] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
   const [selectedProject, setSelectedProject] = useState<ExcavationProject | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -83,6 +160,26 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     memoryUsage: 0,
     renderTime: 0
   });
+  const [is3DMode, setIs3DMode] = useState(true);
+  const [currentPitch, setCurrentPitch] = useState(30);
+  const [particles, setParticles] = useState<Array<{id: number, x: number, y: number, delay: number}>>([]);
+
+  // 生成粒子效果
+  useEffect(() => {
+    const generateParticles = () => {
+      const newParticles = Array.from({ length: 50 }, (_, i) => ({
+        id: i,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        delay: Math.random() * 10
+      }));
+      setParticles(newParticles);
+    };
+
+    generateParticles();
+    const interval = setInterval(generateParticles, 15000); // 每15秒重新生成粒子
+    return () => clearInterval(interval);
+  }, []);
 
   // 生成示例项目数据 - 模拟真实的基坑项目分布
   const generateProjects = useCallback((): ExcavationProject[] => {
@@ -182,64 +279,127 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       // 加载高德地图JS API
       const AMap = await AMapLoader.load({
         key: import.meta.env.VITE_AMAP_API_KEY || '4a7c8d1adf162d30d8a29941ee5de12f', // 高德地图API Key
-        version: '2.0',
+        version: '2.0', // 使用最新版本
         plugins: [
           'AMap.Scale',
           'AMap.ToolBar',
           'AMap.MapType',
           'AMap.Geolocation',
           'AMap.Marker',
-          'AMap.InfoWindow'
+          'AMap.InfoWindow',
+          'AMap.Buildings',
+          'AMap.DistrictLayer',
+          'AMap.Object3DLayer', // 3D对象图层
+          'AMap.GLCustomLayer' // WebGL自定义图层
         ]
       });
 
-      // 创建高德地图实例 - 暗色科技风配置
+      // 创建高德地图实例 - 强制3D模式
       const map = new AMap.Map(mapContainerRef.current, {
         center: [116.4074, 39.9042], // 北京中心
-        zoom: 6, // 适合全国项目展示的缩放级别
-        pitch: 0, // 平面视角，适合大屏展示
-        viewMode: '2D', // 2D视图，性能更好
-        mapStyle: 'amap://styles/dark', // 暗色主题
+        zoom: 17, // 更高缩放级别
+        pitch: 70, // 更强烈的3D倾斜视角
+        viewMode: '3D', // 强制3D视图
+        mapStyle: 'amap://styles/normal', // 使用标准样式，确保3D兼容性
         showLabel: true,
         showIndoorMap: false,
         features: ['bg', 'road', 'building', 'point'],
-        // 自定义样式
-        customMapStyle: {
-          styleId: 'dark',
-          styleJson: [
-            {
-              featureType: 'background',
-              elementType: 'geometry',
-              stylers: { color: '#0a0a0a' }
-            },
-            {
-              featureType: 'road',
-              elementType: 'geometry',
-              stylers: { color: '#1a1a1a' }
-            },
-            {
-              featureType: 'water',
-              elementType: 'geometry',
-              stylers: { color: '#001122' }
-            }
-          ]
-        }
+        // 强制3D配置
+        showBuildingBlock: true,
+        buildingAnimation: false,
+        expandZoomRange: true,
+        terrain: true,
+        // 额外的3D配置
+        rotateEnable: true,
+        pitchEnable: true,
+        buildingTopColor: '#ffffff',
+        buildingSideColor: '#ddeeff'
       });
 
       mapRef.current = map;
 
-      // 添加地图控件 - 最小化UI
+      // 添加地图控件 - 3D控制
       const scale = new AMap.Scale({ position: 'LB' });
       map.addControl(scale);
 
-      console.log('✅ 高德地图暗色主题加载完成');
+      // 添加3D控制工具条（正确的API调用）
+      const toolBar = new AMap.ToolBar({
+        position: {
+          top: '10px',
+          right: '10px'
+        },
+        ruler: true,
+        direction: true,
+        autoPosition: false
+      });
+      map.addControl(toolBar);
+
+      // 强制启用3D建筑物图层
+      map.on('complete', () => {
+        console.log('🗺️ 地图加载完成，开始设置3D效果...');
+
+        // 强制设置3D视角
+        map.setPitch(70);
+        map.setZoom(17);
+
+        // 添加3D建筑物图层
+        const buildings = new AMap.Buildings({
+          zooms: [10, 20],
+          zIndex: 10,
+          heightFactor: 3.0, // 建筑物高度放大3倍
+          visible: true,
+          // 3D建筑物样式
+          topColor: '#ffffff',
+          sideColor: '#ccddff'
+        });
+        map.add(buildings);
+
+        // 强制显示建筑物
+        buildings.show();
+
+        // 强制设置3D视角 - 多重确保
+        setTimeout(() => {
+          map.setPitch(60);
+          map.setZoom(16);
+          map.setCenter([116.4074, 39.9042]);
+          setCurrentPitch(60);
+          setIs3DMode(true);
+          console.log('🏢 3D视角已强制设置: pitch=60, zoom=16');
+        }, 1000);
+
+        // 再次确保3D效果
+        setTimeout(() => {
+          map.setPitch(60); // 保持60度，不要降低到45度
+          map.setZoom(17); // 提高缩放级别
+          setCurrentPitch(60);
+          setIs3DMode(true);
+          console.log('🏢 3D效果二次确认完成: pitch=60');
+        }, 3000);
+
+        // 添加定期检查机制，确保3D状态不被重置
+        const maintain3D = setInterval(() => {
+          const currentPitch = map.getPitch();
+          if (currentPitch < 30) {
+            map.setPitch(60);
+            setCurrentPitch(60);
+            setIs3DMode(true);
+            console.log('🔄 自动恢复3D视角: pitch=60');
+          }
+        }, 5000);
+
+        // 清理定时器
+        return () => clearInterval(maintain3D);
+
+        console.log('🏢 强制3D建筑物图层已加载，视角已设置');
+      });
+
+      console.log('✅ 高德地图3D暗色主题加载完成');
 
       // 初始化Deck.gl可视化层
       await initializeDeck();
 
-      // 暂时禁用天气数据加载，避免API限制
-      // await loadProjectsWeatherData();
-      console.log('⚠️ 天气数据加载已禁用，避免API频率限制');
+      // 使用高德天气API加载项目天气数据
+      await loadProjectsWeatherData();
 
       // 设置默认选中项目
       if (filteredProjects.length > 0) {
@@ -251,28 +411,8 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
 
     } catch (error) {
       console.error('❌ 地图初始化失败:', error);
-      // 创建科技风备用界面
-      if (mapContainerRef.current) {
-        mapContainerRef.current.innerHTML = `
-          <div style="
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            background: radial-gradient(circle at center, #001122 0%, #000000 100%);
-            color: #00ffff;
-            text-align: center;
-            font-family: 'Courier New', monospace;
-          ">
-            <div>
-              <div style="font-size: 64px; margin-bottom: 20px; animation: pulse 2s infinite;">🗺️</div>
-              <div style="font-size: 24px; margin-bottom: 10px; text-shadow: 0 0 10px #00ffff;">地图引擎离线</div>
-              <div style="font-size: 16px; opacity: 0.7;">正在尝试重新连接...</div>
-              <div style="margin-top: 20px; font-size: 12px; opacity: 0.5;">DeepCAD控制中心 v3.0</div>
-            </div>
-          </div>
-        `;
-      }
+      // 不直接操作DOM，让React处理错误状态
+      setMapError(error instanceof Error ? error.message : '地图初始化失败');
     }
   }, [filteredProjects]);
 
@@ -320,8 +460,8 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         initialViewState: {
           longitude: 116.4074,
           latitude: 39.9042,
-          zoom: 6,
-          pitch: 0,
+          zoom: 17,
+          pitch: 60, // 保持3D视角
           bearing: 0
         },
         controller: false, // 禁用Deck.gl控制器，使用高德地图的控制器
@@ -377,11 +517,94 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
               [255, 150, 0, 100],  // 橙色
               [255, 50, 0, 150]    // 红色
             ]
+          }),
+
+          // 🌤️ 天气温度热力图 - 科技感天气可视化
+          new HeatmapLayer({
+            id: 'weather-temperature',
+            data: filteredProjects.map(project => {
+              const weather = weatherDataMap.get(project.id);
+              return weather ? {
+                position: [project.location.lng, project.location.lat],
+                weight: weather.temperature
+              } : null;
+            }).filter(Boolean),
+            getPosition: (d: any) => d.position,
+            getWeight: (d: any) => d.weight,
+            radiusPixels: 100,
+            intensity: 1.2,
+            threshold: 0.02,
+            colorRange: [
+              [0, 100, 255, 120],   // 冷 - 深蓝
+              [0, 200, 255, 140],   // 凉 - 蓝色
+              [100, 255, 200, 160], // 适中 - 青绿
+              [255, 255, 100, 180], // 暖 - 黄色
+              [255, 150, 0, 200],   // 热 - 橙色
+              [255, 50, 50, 220]    // 很热 - 红色
+            ]
+          }),
+
+          // 🏗️ 项目深度3D柱状图
+          new ColumnLayer({
+            id: 'project-depth-columns',
+            data: filteredProjects.slice(0, 20), // 限制数量避免性能问题
+            getPosition: (d: ExcavationProject) => [d.location.lng, d.location.lat],
+            getElevation: (d: ExcavationProject) => Math.max(500, d.depth * 100), // 更高的柱子
+            getFillColor: (d: ExcavationProject) => {
+              // 根据深度设置颜色 - 更鲜艳
+              const depth = d.depth;
+              if (depth > 20) return [255, 50, 50, 255];  // 深红 - 很深
+              if (depth > 15) return [255, 150, 0, 255];  // 橙色 - 深
+              if (depth > 10) return [255, 255, 0, 255];  // 黄色 - 中等
+              return [0, 255, 100, 255];                  // 绿色 - 浅
+            },
+            getLineColor: [255, 255, 255, 200],
+            radius: 150, // 更大的半径
+            elevationScale: 2, // 放大高度
+            pickable: true,
+            onClick: (info) => {
+              if (info.object) {
+                setSelectedProject(info.object);
+                console.log('🎯 3D柱状图项目被选中:', info.object.name);
+              }
+            }
+          }),
+
+          // ⚡ 项目连接线 - 数据流效果
+          new ArcLayer({
+            id: 'project-data-flow',
+            data: filteredProjects.slice(0, 8).map((project, index) => {
+              const nextIndex = (index + 1) % Math.min(8, filteredProjects.length);
+              const nextProject = filteredProjects[nextIndex];
+              return {
+                source: [project.location.lng, project.location.lat],
+                target: [nextProject.location.lng, nextProject.location.lat],
+                value: project.progress
+              };
+            }),
+            getSourcePosition: (d: any) => d.source,
+            getTargetPosition: (d: any) => d.target,
+            getSourceColor: [0, 170, 255, 80],
+            getTargetColor: [0, 100, 200, 80],
+            getWidth: (d: any) => Math.max(1, d.value / 25),
+            getHeight: 0.2
           })
         ]
       });
 
       deckRef.current = deck;
+
+      // 强制重绘Deck.gl
+      setTimeout(() => {
+        if (deckRef.current) {
+          deckRef.current.redraw();
+          console.log('🎨 Deck.gl强制重绘完成');
+        }
+      }, 2000);
+
+      console.log('🎨 Deck.gl图层数量:', deck.props.layers?.length || 0);
+      console.log('🎨 项目数据数量:', filteredProjects.length);
+      console.log('🎨 天气数据数量:', weatherDataMap.size);
 
       // 同步高德地图和Deck.gl的视图状态
       if (mapRef.current) {
@@ -412,18 +635,25 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     try {
       const center = mapRef.current.getCenter();
       const zoom = mapRef.current.getZoom();
-      const pitch = mapRef.current.getPitch() || 0;
+      const pitch = mapRef.current.getPitch() || 60; // 默认保持3D视角
       const rotation = mapRef.current.getRotation() || 0;
+
+      // 确保最小pitch值，保持3D效果
+      const safePitch = Math.max(pitch, 30);
 
       deckRef.current.setProps({
         viewState: {
           longitude: center.lng,
           latitude: center.lat,
           zoom: zoom,
-          pitch: pitch,
+          pitch: safePitch, // 使用安全的pitch值
           bearing: -rotation // 高德地图的旋转方向与Deck.gl相反
         }
       });
+
+      // 更新状态
+      setCurrentPitch(safePitch);
+      setIs3DMode(safePitch > 20);
     } catch (error) {
       console.warn('地图视图同步失败:', error);
     }
@@ -436,6 +666,14 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     if (!mapRef.current) return;
 
     mapRef.current.setZoomAndCenter(6, [116.4074, 39.9042], false, 1000);
+    // 确保重置后仍保持3D视角
+    setTimeout(() => {
+      if (mapRef.current) {
+        mapRef.current.setPitch(45);
+        setCurrentPitch(45);
+        setIs3DMode(true);
+      }
+    }, 1200);
     setSelectedProject(null);
     setShowProjectDetails(false);
   }, []);
@@ -474,64 +712,89 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     try {
       const weatherMap = new Map<string, WeatherData>();
 
-      // 分批处理，避免API限制
-      const batchSize = 10;
-      const batches = [];
-
-      for (let i = 0; i < projects.length; i += batchSize) {
-        batches.push(projects.slice(i, i + batchSize));
-      }
+      // 只为前3个项目加载真实天气数据，避免API限制
+      const priorityProjects = projects.slice(0, 3);
+      const otherProjects = projects.slice(3);
 
       let loadedCount = 0;
 
-      for (const batch of batches) {
-        const promises = batch.map(async (project) => {
-          try {
-            const weather = await openMeteoService.getWeatherData(
-              project.location.lat,
-              project.location.lng
-            );
-            weatherMap.set(project.id, weather);
-            loadedCount++;
+      // 串行加载优先项目的天气数据，避免并发限制
+      for (const project of priorityProjects) {
+        try {
+          console.log(`🌤️ 加载项目 ${project.name} 的天气数据...`);
+          const weather = await amapWeatherService.getWeatherByLocation(
+            project.location.lat,
+            project.location.lng
+          );
+          weatherMap.set(project.id, weather);
+          loadedCount++;
+          console.log(`✅ 项目 ${project.name} 天气数据加载完成`);
 
-            // 更新进度
-            if (loadedCount % 50 === 0) {
-              console.log(`🌤️ 已加载 ${loadedCount}/${projects.length} 个项目的天气数据`);
-            }
-          } catch (error) {
-            // 使用默认天气数据
-            weatherMap.set(project.id, {
-              location: { latitude: project.location.lat, longitude: project.location.lng },
-              current: {
-                temperature: 20 + Math.random() * 15,
-                humidity: 50 + Math.random() * 30,
-                windSpeed: Math.round(5 + Math.random() * 15),
-                windDirection: Math.round(Math.random() * 360),
-                pressure: 1013,
-                weatherCode: 0,
-                description: '晴朗',
-                icon: '☀️'
-              },
-              lastUpdated: new Date()
-            });
+          // 添加2秒延迟避免API限制
+          if (loadedCount < priorityProjects.length) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
           }
-        });
-
-        await Promise.all(promises);
-
-        // 避免API频率限制
-        if (batches.indexOf(batch) < batches.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (error) {
+          console.warn(`⚠️ 项目 ${project.name} 天气数据加载失败，使用默认数据:`, error);
+          weatherMap.set(project.id, this.getDefaultWeatherData());
         }
       }
 
+      // 为其他项目使用模拟天气数据
+      otherProjects.forEach((project, index) => {
+        const simulatedWeather = getSimulatedWeatherData(index);
+        weatherMap.set(project.id, simulatedWeather);
+        console.log(`🎭 项目 ${project.name} 使用模拟天气数据`);
+      });
+
       setWeatherDataMap(weatherMap);
-      console.log(`✅ 天气数据加载完成: ${weatherMap.size}/${projects.length} 个项目`);
+      console.log(`🎉 天气数据加载完成: ${priorityProjects.length} 真实 + ${otherProjects.length} 模拟`);
 
     } catch (error) {
-      console.error('❌ 批量天气数据加载失败:', error);
+      console.error('❌ 天气数据加载失败:', error);
+      // 全部使用默认数据
+      const weatherMap = new Map<string, WeatherData>();
+      projects.forEach(project => {
+        weatherMap.set(project.id, getDefaultWeatherData());
+      });
+      setWeatherDataMap(weatherMap);
     }
   }, [projects]);
+
+  // 获取默认天气数据
+  const getDefaultWeatherData = (): WeatherData => ({
+    temperature: 22,
+    humidity: 65,
+    windSpeed: 8,
+    weatherCode: 1,
+    description: '晴朗',
+    icon: '☀️',
+    location: {
+      city: '北京市',
+      province: '北京市'
+    },
+    lastUpdated: new Date()
+  });
+
+  // 获取模拟天气数据
+  const getSimulatedWeatherData = (index: number): WeatherData => {
+    const weatherTypes = [
+      { temperature: 25, humidity: 70, windSpeed: 12, weatherCode: 2, description: '多云', icon: '⛅', city: '上海市', province: '上海市' },
+      { temperature: 18, humidity: 80, windSpeed: 15, weatherCode: 3, description: '阴天', icon: '☁️', city: '广州市', province: '广东省' },
+      { temperature: 28, humidity: 60, windSpeed: 6, weatherCode: 1, description: '晴朗', icon: '☀️', city: '深圳市', province: '广东省' },
+      { temperature: 20, humidity: 85, windSpeed: 18, weatherCode: 61, description: '小雨', icon: '🌦️', city: '杭州市', province: '浙江省' },
+      { temperature: 24, humidity: 75, windSpeed: 10, weatherCode: 2, description: '多云', icon: '⛅', city: '南京市', province: '江苏省' }
+    ];
+    const weather = weatherTypes[index % weatherTypes.length];
+    return {
+      ...weather,
+      location: {
+        city: weather.city,
+        province: weather.province
+      },
+      lastUpdated: new Date()
+    };
+  };
 
   /**
    * 飞行到指定项目 - 带炫酷动画
@@ -662,6 +925,15 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       if (event.key >= '1' && event.key <= '9') {
         const zoomLevel = parseInt(event.key) + 5; // 6-14级缩放
         mapRef.current?.setZoom(zoomLevel);
+        // 确保缩放后保持3D效果
+        setTimeout(() => {
+          if (mapRef.current) {
+            const pitch = zoomLevel > 12 ? 65 : zoomLevel > 8 ? 55 : 45;
+            mapRef.current.setPitch(pitch);
+            setCurrentPitch(pitch);
+            setIs3DMode(true);
+          }
+        }, 300);
       }
     };
 
@@ -717,41 +989,250 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
 
   return (
     <div style={{
-      width: '100vw',
-      height: '100vh',
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      background: 'radial-gradient(circle at center, #001122 0%, #000000 100%)',
+      width: '100%',
+      height: '100%',
+      position: 'relative',
+      background: `
+        radial-gradient(circle at 20% 80%, rgba(0, 100, 200, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(0, 150, 255, 0.2) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(0, 170, 255, 0.25) 0%, transparent 50%),
+        linear-gradient(135deg, #000011 0%, #001133 30%, #002255 60%, #003377 100%)
+      `,
       overflow: 'hidden',
-      fontFamily: '"Courier New", monospace'
+      fontFamily: '"Orbitron", "Courier New", monospace',
+      animation: 'dreamyBackground 12s ease-in-out infinite alternate'
     }}>
-      {/* 地图容器 - 占据中央50%区域 */}
-      <div
-        ref={mapContainerRef}
+      {/* 🌟 粒子星空背景效果 */}
+      {particles.map(particle => (
+        <div
+          key={particle.id}
+          className="particle"
+          style={{
+            left: `${particle.x}%`,
+            animationDelay: `${particle.delay}s`,
+            animationDuration: `${8 + Math.random() * 4}s`
+          }}
+        />
+      ))}
+
+      {/* ⚡ 数据流动画效果 */}
+      {Array.from({ length: 8 }, (_, i) => (
+        <div
+          key={`stream-${i}`}
+          className="data-stream"
+          style={{
+            top: `${10 + i * 12}%`,
+            width: '200px',
+            animationDelay: `${i * 0.5}s`,
+            animationDuration: `${3 + Math.random() * 2}s`
+          }}
+        />
+      ))}
+
+      {/* 🔮 能量波纹效果 */}
+      <div style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        width: '300px',
+        height: '300px',
+        transform: 'translate(-50%, -50%)',
+        border: '1px solid rgba(0, 255, 255, 0.3)',
+        borderRadius: '50%',
+        animation: 'neonGlow 3s ease-in-out infinite alternate',
+        pointerEvents: 'none'
+      }} />
+
+      {/* 🚀 DeepCAD Logo - 左上角 */}
+      <motion.div
+        initial={{ opacity: 0, x: -50 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 1, ease: 'easeOut' }}
         style={{
           position: 'absolute',
-          left: '25%',
-          top: '5%',
-          width: '50%',
-          height: '85%',
-          border: '2px solid rgba(0, 255, 255, 0.3)',
-          borderRadius: '10px',
-          overflow: 'hidden'
+          top: '20px',
+          left: '20px',
+          zIndex: 1000
         }}
-      />
+      >
+        <div style={{
+          fontSize: '24px',
+          fontWeight: 'bold',
+          background: 'linear-gradient(45deg, #00aaff, #0066cc)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          textShadow: '0 0 10px rgba(0, 170, 255, 0.5)',
+          letterSpacing: '1px'
+        }}>
+          控制中心
+        </div>
+      </motion.div>
+
+      {/* 🎮 3D视角控制 - 右上角 */}
+      <motion.div
+        initial={{ opacity: 0, x: 50 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 1, ease: 'easeOut', delay: 0.2 }}
+        style={{
+          position: 'absolute',
+          top: '20px',
+          right: '20px',
+          zIndex: 1000
+        }}
+      >
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
+        }}>
+          <button
+            onClick={() => {
+              if (mapRef.current) {
+                const currentPitch = mapRef.current.getPitch();
+                const newPitch = currentPitch < 35 ? 70 : 45; // 在45度和70度之间切换，保持3D效果
+                mapRef.current.setPitch(newPitch);
+                mapRef.current.setZoom(17); // 确保缩放级别足够看到3D效果
+                setCurrentPitch(newPitch);
+                setIs3DMode(true); // 确保3D模式状态
+                console.log(`🏢 3D视角切换: ${currentPitch}° → ${newPitch}°`);
+              }
+            }}
+            className="neon-border"
+            style={{
+              background: 'linear-gradient(45deg, rgba(0, 255, 255, 0.3) 0%, rgba(255, 0, 255, 0.3) 100%)',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#fff',
+              padding: '8px 12px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              transition: 'all 0.3s ease',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 0 15px rgba(0, 255, 255, 0.3)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.05)';
+              e.currentTarget.style.boxShadow = '0 0 25px rgba(0, 255, 255, 0.6)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = '0 0 15px rgba(0, 255, 255, 0.3)';
+            }}
+          >
+            🏢 3D视角: {currentPitch}°
+          </button>
+
+          <button
+            onClick={() => {
+              if (mapRef.current) {
+                mapRef.current.setZoom(mapRef.current.getZoom() + 1);
+              }
+            }}
+            className="neon-border"
+            style={{
+              background: 'linear-gradient(45deg, rgba(0, 255, 255, 0.3) 0%, rgba(255, 0, 255, 0.3) 100%)',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#fff',
+              padding: '8px 12px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              transition: 'all 0.3s ease',
+              backdropFilter: 'blur(10px)'
+            }}
+          >
+            🔍 放大
+          </button>
+
+          <button
+            onClick={() => {
+              if (mapRef.current) {
+                mapRef.current.setZoom(mapRef.current.getZoom() - 1);
+              }
+            }}
+            className="neon-border"
+            style={{
+              background: 'linear-gradient(45deg, rgba(0, 255, 255, 0.3) 0%, rgba(255, 0, 255, 0.3) 100%)',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#fff',
+              padding: '8px 12px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              transition: 'all 0.3s ease',
+              backdropFilter: 'blur(10px)'
+            }}
+          >
+            🔍 缩小
+          </button>
+        </div>
+      </motion.div>
+
+      {/* 🗺️ 3D地图容器 - 占据大部分区域 */}
+      <div
+        ref={mapContainerRef}
+        className="neon-border"
+        style={{
+          position: 'absolute',
+          left: '20px',
+          top: '80px', // 为顶部Logo留出空间
+          right: '20px',
+          bottom: '20px',
+          borderRadius: '10px',
+          overflow: 'hidden',
+          boxShadow: '0 0 50px rgba(0, 255, 255, 0.5)',
+          zIndex: 10,
+          minHeight: '400px' // 确保最小高度
+        }}
+      >
+        {/* 地图错误状态显示 */}
+        {mapError && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'radial-gradient(circle at center, #001122 0%, #000000 100%)',
+            color: '#00ffff',
+            textAlign: 'center',
+            fontFamily: 'Courier New, monospace',
+            zIndex: 20
+          }}>
+            <div>
+              <div style={{ fontSize: '64px', marginBottom: '20px' }}>🗺️</div>
+              <div style={{ fontSize: '24px', marginBottom: '10px', textShadow: '0 0 10px #00ffff' }}>
+                地图引擎离线
+              </div>
+              <div style={{ fontSize: '16px', opacity: 0.7 }}>
+                {mapError}
+              </div>
+              <div style={{ marginTop: '20px', fontSize: '12px', opacity: 0.5 }}>
+                DeepCAD控制中心 v3.0
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+
 
       {/* Deck.gl画布 - 覆盖在地图上 */}
       <canvas
         id="deck-canvas"
         style={{
           position: 'absolute',
-          left: '25%',
-          top: '5%',
-          width: '50%',
-          height: '85%',
-          pointerEvents: 'none',
-          borderRadius: '10px'
+          left: '20px',
+          top: '80px',
+          right: '20px',
+          bottom: '20px',
+          pointerEvents: 'auto', // 允许交互
+          borderRadius: '10px',
+          zIndex: 15 // 确保在地图上方
         }}
       />
 
@@ -775,39 +1256,9 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           zIndex: 2000
         }}
       >
-        {/* 左侧 - 系统标题 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10
-          }}>
-            <div style={{
-              width: 32,
-              height: 32,
-              background: 'linear-gradient(45deg, #00ffff, #0080ff)',
-              borderRadius: 8,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 16
-            }}>
-              🏗️
-            </div>
-            <div>
-              <div style={{ color: '#00ffff', fontSize: 16, fontWeight: 'bold' }}>
-                DeepCAD 基坑项目管理中心
-              </div>
-              <div style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 10 }}>
-                大屏可视化系统 v3.0
-              </div>
-            </div>
-          </div>
-
-          {/* 系统时间 */}
-          <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 14 }}>
-            {new Date().toLocaleString('zh-CN')}
-          </div>
+        {/* 系统时间 */}
+        <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 14 }}>
+          {new Date().toLocaleString('zh-CN')}
         </div>
 
         {/* 中央 - 系统统计 */}
@@ -1138,11 +1589,13 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
               key={selectedProject.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
+              className="neon-border hologram-effect"
               style={{
-                background: 'rgba(0, 255, 255, 0.1)',
-                border: '1px solid rgba(0, 255, 255, 0.3)',
+                background: 'linear-gradient(135deg, rgba(0, 255, 255, 0.15) 0%, rgba(255, 0, 255, 0.15) 100%)',
                 borderRadius: '10px',
-                padding: '15px'
+                padding: '15px',
+                backdropFilter: 'blur(10px)',
+                boxShadow: '0 8px 32px rgba(0, 255, 255, 0.3)'
               }}
             >
               <div style={{ color: '#fff', fontSize: '16px', fontWeight: 'bold', marginBottom: '10px' }}>
@@ -1229,23 +1682,26 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           {selectedProject && weatherDataMap.has(selectedProject.id) ? (
             <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.8)', lineHeight: 1.5 }}>
               {(() => {
-                const weather = weatherDataMap.get(selectedProject.id)!;
+                const weather = weatherDataMap.get(selectedProject.id);
+                if (!weather) {
+                  return <div style={{ color: 'rgba(255, 255, 255, 0.6)' }}>天气数据加载中...</div>;
+                }
                 return (
                   <>
                     <div style={{ marginBottom: '6px' }}>
-                      🌡️ 温度: {weather.current.temperature}°C
+                      🌡️ 温度: {weather.temperature}°C
                     </div>
                     <div style={{ marginBottom: '6px' }}>
-                      💨 风速: {weather.current.windSpeed} km/h
+                      💨 风速: {weather.windSpeed} km/h
                     </div>
                     <div style={{ marginBottom: '6px' }}>
-                      💧 湿度: {weather.current.humidity}%
+                      💧 湿度: {weather.humidity}%
                     </div>
                     <div style={{ marginBottom: '6px' }}>
-                      📊 气压: {weather.current.pressure} hPa
+                      📍 位置: {weather.location?.city || '未知'}
                     </div>
                     <div style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.6)', marginTop: '8px' }}>
-                      {weather.current.description} {weather.current.icon}
+                      {weather.description} {weather.icon}
                     </div>
                   </>
                 );
@@ -1305,43 +1761,100 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
                 color: 'rgba(255, 255, 255, 0.6)'
               }}>
                 <button
-                  onClick={() => mapRef.current?.setZoom(6)}
+                  onClick={() => {
+                    if (mapRef.current) {
+                      mapRef.current.setZoom(6);
+                      setTimeout(() => {
+                        mapRef.current?.setPitch(45);
+                        setCurrentPitch(45);
+                        setIs3DMode(true);
+                      }, 500);
+                    }
+                  }}
+                  className="neon-border"
                   style={{
-                    background: 'rgba(0, 255, 255, 0.2)',
-                    border: '1px solid rgba(0, 255, 255, 0.3)',
+                    background: 'linear-gradient(45deg, rgba(0, 255, 255, 0.3) 0%, rgba(255, 0, 255, 0.3) 100%)',
                     borderRadius: '4px',
                     color: '#fff',
                     padding: '4px 8px',
                     cursor: 'pointer',
-                    fontSize: '10px'
+                    fontSize: '10px',
+                    transition: 'all 0.3s ease',
+                    backdropFilter: 'blur(5px)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'scale(1.1)';
+                    e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 255, 255, 0.8)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = '';
                   }}
                 >
                   全国
                 </button>
                 <button
-                  onClick={() => mapRef.current?.setZoom(10)}
+                  onClick={() => {
+                    if (mapRef.current) {
+                      mapRef.current.setZoom(10);
+                      setTimeout(() => {
+                        mapRef.current?.setPitch(55);
+                        setCurrentPitch(55);
+                        setIs3DMode(true);
+                      }, 500);
+                    }
+                  }}
+                  className="neon-border"
                   style={{
-                    background: 'rgba(0, 255, 255, 0.2)',
-                    border: '1px solid rgba(0, 255, 255, 0.3)',
+                    background: 'linear-gradient(45deg, rgba(0, 255, 255, 0.3) 0%, rgba(255, 0, 255, 0.3) 100%)',
                     borderRadius: '4px',
                     color: '#fff',
                     padding: '4px 8px',
                     cursor: 'pointer',
-                    fontSize: '10px'
+                    fontSize: '10px',
+                    transition: 'all 0.3s ease',
+                    backdropFilter: 'blur(5px)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'scale(1.1)';
+                    e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 255, 255, 0.8)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = '';
                   }}
                 >
                   城市
                 </button>
                 <button
-                  onClick={() => mapRef.current?.setZoom(15)}
+                  onClick={() => {
+                    if (mapRef.current) {
+                      mapRef.current.setZoom(15);
+                      setTimeout(() => {
+                        mapRef.current?.setPitch(65);
+                        setCurrentPitch(65);
+                        setIs3DMode(true);
+                      }, 500);
+                    }
+                  }}
+                  className="neon-border"
                   style={{
-                    background: 'rgba(0, 255, 255, 0.2)',
-                    border: '1px solid rgba(0, 255, 255, 0.3)',
+                    background: 'linear-gradient(45deg, rgba(0, 255, 255, 0.3) 0%, rgba(255, 0, 255, 0.3) 100%)',
                     borderRadius: '4px',
                     color: '#fff',
                     padding: '4px 8px',
                     cursor: 'pointer',
-                    fontSize: '10px'
+                    fontSize: '10px',
+                    transition: 'all 0.3s ease',
+                    backdropFilter: 'blur(5px)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'scale(1.1)';
+                    e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 255, 255, 0.8)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = '';
                   }}
                 >
                   详细
@@ -1401,12 +1914,14 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
+            className="neon-border hologram-effect"
             style={{
-              background: 'rgba(0, 255, 255, 0.1)',
-              border: '1px solid rgba(0, 255, 255, 0.3)',
+              background: 'linear-gradient(135deg, rgba(0, 255, 255, 0.15) 0%, rgba(255, 0, 255, 0.15) 100%)',
               borderRadius: '8px',
               padding: '10px 15px',
-              textAlign: 'center'
+              textAlign: 'center',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 8px 32px rgba(0, 255, 255, 0.3)'
             }}
           >
             <div style={{ color: '#00ffff', fontSize: '12px', fontWeight: 'bold', marginBottom: '2px' }}>

@@ -23,7 +23,7 @@ import { ParticleTest } from '../visualization/ParticleTest';
 
 // 1号专家 - 炫酷项目控制中心系统
 import { DeepCADControlCenter } from '../control';
-import { GeoThreeMapController, ProjectMarkerData } from '../../services/GeoThreeMapController';
+// GeoThreeMapController 已删除，使用高德地图替代
 import { designTokens } from '../../design/tokens';
 
 // 1号的专业UI组件库集成

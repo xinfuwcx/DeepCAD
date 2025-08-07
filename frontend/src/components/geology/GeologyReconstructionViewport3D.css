@@ -1,0 +1,253 @@
+/* 地质重建3D视口样式 */
+
+.geology-reconstruction-viewport-3d {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%);
+  overflow: hidden;
+}
+
+/* 控制面板样式 */
+.geology-control-panel {
+  backdrop-filter: blur(20px);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.geology-control-panel .ant-card-head {
+  background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+  border-bottom: 1px solid rgba(0, 217, 255, 0.3);
+  border-radius: 12px 12px 0 0;
+}
+
+.geology-control-panel .ant-card-head-title {
+  color: #00d9ff;
+  font-weight: 600;
+}
+
+.geology-control-panel .ant-card-body {
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 0 0 12px 12px;
+}
+
+/* 滑块样式 */
+.geology-control-panel .ant-slider {
+  margin: 8px 0;
+}
+
+.geology-control-panel .ant-slider-track {
+  background: linear-gradient(90deg, #00d9ff 0%, #0099cc 100%);
+}
+
+.geology-control-panel .ant-slider-handle {
+  border-color: #00d9ff;
+  background: #ffffff;
+}
+
+.geology-control-panel .ant-slider-handle:hover {
+  border-color: #00b8e6;
+  box-shadow: 0 0 8px rgba(0, 217, 255, 0.4);
+}
+
+/* 选择器样式 */
+.geology-control-panel .ant-select {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.geology-control-panel .ant-select-selector {
+  background: rgba(0, 0, 0, 0.6) !important;
+  border-color: rgba(0, 217, 255, 0.3) !important;
+  color: #ffffff !important;
+}
+
+.geology-control-panel .ant-select-selector:hover {
+  border-color: rgba(0, 217, 255, 0.6) !important;
+}
+
+.geology-control-panel .ant-select-selection-item {
+  color: #ffffff !important;
+}
+
+/* 开关样式 */
+.geology-control-panel .ant-switch-checked {
+  background-color: #00d9ff;
+}
+
+.geology-control-panel .ant-switch-checked:hover {
+  background-color: #00b8e6;
+}
+
+/* 状态栏样式 */
+.geology-status-bar {
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 217, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.8);
+}
+
+/* 工具栏集成样式 */
+.geology-reconstruction-viewport-3d .vertical-toolbar {
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 217, 255, 0.4);
+  border-radius: 12px;
+  background: rgba(26, 26, 46, 0.85);
+  box-shadow: 0 0 20px rgba(0, 217, 255, 0.2);
+}
+
+/* 钻孔可视化样式 */
+.borehole-visualization {
+  transition: all 0.3s ease;
+}
+
+.borehole-visualization:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(0, 217, 255, 0.5);
+}
+
+/* 地层图层样式 */
+.geology-layer {
+  transition: opacity 0.3s ease;
+}
+
+.geology-layer.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.geology-layer.transparent {
+  opacity: 0.5;
+}
+
+/* 剖面模式样式 */
+.section-mode-active {
+  border: 2px solid #ff6b6b;
+  box-shadow: 0 0 20px rgba(255, 107, 107, 0.3);
+}
+
+/* 渲染模式指示器 */
+.render-mode-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: #00d9ff;
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(0, 217, 255, 0.3);
+  font-size: 14px;
+  font-weight: 600;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.render-mode-indicator.visible {
+  opacity: 1;
+}
+
+/* 加载动画 */
+.geology-loading-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.geology-loading-content {
+  text-align: center;
+  color: #ffffff;
+}
+
+.geology-loading-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  animation: geologySpin 2s linear infinite;
+}
+
+@keyframes geologySpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.geology-loading-text {
+  font-size: 18px;
+  margin-bottom: 8px;
+  color: #00d9ff;
+}
+
+.geology-loading-subtext {
+  font-size: 14px;
+  color: #999;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+  .geology-control-panel {
+    width: 240px;
+  }
+}
+
+@media (max-width: 768px) {
+  .geology-control-panel {
+    width: 200px;
+    font-size: 12px;
+  }
+  
+  .geology-reconstruction-viewport-3d .vertical-toolbar {
+    width: 50px;
+  }
+}
+
+/* 性能优化 */
+.geology-reconstruction-viewport-3d canvas {
+  image-rendering: auto;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  transform: translateZ(0); /* 启用硬件加速 */
+  will-change: transform;
+}
+
+/* 交互反馈 */
+.geology-interactive-element {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.geology-interactive-element:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 217, 255, 0.2);
+}
+
+/* 数据统计显示 */
+.geology-stats {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(0, 217, 255, 0.3);
+  border-radius: 20px;
+  padding: 8px 16px;
+  color: #ffffff;
+  font-size: 12px;
+  z-index: 1000;
+}
+
+.geology-stats .stat-item {
+  display: inline-block;
+  margin: 0 8px;
+  color: #00d9ff;
+}
+
+.geology-stats .stat-separator {
+  color: #666;
+  margin: 0 4px;
+}

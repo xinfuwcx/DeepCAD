@@ -139,6 +139,8 @@ const MainLayout: React.FC = () => {
     return path.replace('/', '') || 'dashboard';
   };
 
+
+
   return (
     <Layout style={{ height: '100vh', background: '#000011' }}>
       {/* 左侧导航面板 */}
@@ -226,7 +228,7 @@ const MainLayout: React.FC = () => {
         }}>
           <Routes>
             <Route path="/" element={
-              <DeepCADControlCenter onExit={() => {}} />
+              <EnhancedMainWorkspaceView activeModule="excavation-design" />
             } />
             <Route path="dashboard" element={
               <DeepCADControlCenter onExit={() => {}} />

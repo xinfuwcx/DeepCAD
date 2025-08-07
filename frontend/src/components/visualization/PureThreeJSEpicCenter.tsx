@@ -344,8 +344,15 @@ export const PureThreeJSEpicCenter: React.FC<PureThreeJSEpicCenterProps> = ({
         cancelAnimationFrame(frameIdRef.current);
       }
       if (rendererRef.current && mountRef.current) {
-        mountRef.current.removeChild(rendererRef.current.domElement);
-        rendererRef.current.dispose();
+        try {
+          const canvas = rendererRef.current.domElement;
+          if (canvas && canvas.parentNode === mountRef.current) {
+            mountRef.current.removeChild(canvas);
+          }
+          rendererRef.current.dispose();
+        } catch (error) {
+          console.warn('Three.js渲染器清理警告:', error);
+        }
       }
     };
   }, [initThreeJS]);

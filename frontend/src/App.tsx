@@ -3,7 +3,7 @@
  * 深基坑CAE平台的根组件
  */
 import React, { useEffect, Component, ReactNode, ErrorInfo } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import DeepCADAdvancedApp from './components/advanced/DeepCADAdvancedApp';
 import MainLayout from './components/layout/MainLayout';
 import { DeepCADThemeProvider } from './components/ui/DeepCADTheme';

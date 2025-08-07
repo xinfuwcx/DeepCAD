@@ -1,0 +1,444 @@
+{
+  "project": "深基坑地质建模测试",
+  "metadata": {
+    "coordinate": "WGS84",
+    "elevation": "absolute",
+    "unit": "m"
+  },
+  "holes": [
+    {
+      "id": "BH001",
+      "name": "基坑中心钻孔",
+      "x": 0,
+      "y": 0,
+      "elevation": 10.5,
+      "layers": [
+        {
+          "name": "填土层",
+          "topDepth": 0,
+          "bottomDepth": 2.5,
+          "soilType": "填土",
+          "properties": {
+            "density": 1750,
+            "cohesion": 8,
+            "frictionAngle": 15,
+            "elasticModulus": 12000,
+            "poissonRatio": 0.35,
+            "permeability": 2e-5
+          }
+        },
+        {
+          "name": "粘土层",
+          "topDepth": 2.5,
+          "bottomDepth": 8.5,
+          "soilType": "粘土",
+          "properties": {
+            "density": 1850,
+            "cohesion": 25,
+            "frictionAngle": 18,
+            "elasticModulus": 18000,
+            "poissonRatio": 0.32,
+            "permeability": 8e-7
+          }
+        },
+        {
+          "name": "粉砂层",
+          "topDepth": 8.5,
+          "bottomDepth": 15.0,
+          "soilType": "粉砂",
+          "properties": {
+            "density": 1900,
+            "cohesion": 12,
+            "frictionAngle": 28,
+            "elasticModulus": 25000,
+            "poissonRatio": 0.28,
+            "permeability": 3e-5
+          }
+        },
+        {
+          "name": "细砂层",
+          "topDepth": 15.0,
+          "bottomDepth": 25.0,
+          "soilType": "细砂",
+          "properties": {
+            "density": 1950,
+            "cohesion": 5,
+            "frictionAngle": 32,
+            "elasticModulus": 35000,
+            "poissonRatio": 0.25,
+            "permeability": 1e-4
+          }
+        }
+      ],
+      "waterLevel": 3.2
+    },
+    {
+      "id": "BH002", 
+      "name": "基坑东侧钻孔",
+      "x": 30,
+      "y": 0,
+      "elevation": 10.8,
+      "layers": [
+        {
+          "name": "填土层",
+          "topDepth": 0,
+          "bottomDepth": 2.0,
+          "soilType": "填土",
+          "properties": {
+            "density": 1700,
+            "cohesion": 6,
+            "frictionAngle": 12,
+            "elasticModulus": 10000,
+            "poissonRatio": 0.36,
+            "permeability": 2.5e-5
+          }
+        },
+        {
+          "name": "粘土层",
+          "topDepth": 2.0,
+          "bottomDepth": 9.2,
+          "soilType": "粘土",
+          "properties": {
+            "density": 1880,
+            "cohesion": 28,
+            "frictionAngle": 20,
+            "elasticModulus": 20000,
+            "poissonRatio": 0.30,
+            "permeability": 6e-7
+          }
+        },
+        {
+          "name": "粉砂层",
+          "topDepth": 9.2,
+          "bottomDepth": 16.5,
+          "soilType": "粉砂",
+          "properties": {
+            "density": 1920,
+            "cohesion": 15,
+            "frictionAngle": 30,
+            "elasticModulus": 28000,
+            "poissonRatio": 0.27,
+            "permeability": 2.5e-5
+          }
+        },
+        {
+          "name": "细砂层",
+          "topDepth": 16.5,
+          "bottomDepth": 28.0,
+          "soilType": "细砂",
+          "properties": {
+            "density": 1980,
+            "cohesion": 3,
+            "frictionAngle": 35,
+            "elasticModulus": 40000,
+            "poissonRatio": 0.24,
+            "permeability": 1.2e-4
+          }
+        }
+      ],
+      "waterLevel": 3.5
+    },
+    {
+      "id": "BH003",
+      "name": "基坑西侧钻孔",
+      "x": -30,
+      "y": 0,
+      "elevation": 10.2,
+      "layers": [
+        {
+          "name": "填土层",
+          "topDepth": 0,
+          "bottomDepth": 3.0,
+          "soilType": "填土",
+          "properties": {
+            "density": 1720,
+            "cohesion": 10,
+            "frictionAngle": 16,
+            "elasticModulus": 13000,
+            "poissonRatio": 0.34,
+            "permeability": 1.8e-5
+          }
+        },
+        {
+          "name": "粘土层",
+          "topDepth": 3.0,
+          "bottomDepth": 7.8,
+          "soilType": "粘土",
+          "properties": {
+            "density": 1820,
+            "cohesion": 22,
+            "frictionAngle": 16,
+            "elasticModulus": 16000,
+            "poissonRatio": 0.33,
+            "permeability": 1e-6
+          }
+        },
+        {
+          "name": "粉砂层",
+          "topDepth": 7.8,
+          "bottomDepth": 14.2,
+          "soilType": "粉砂",
+          "properties": {
+            "density": 1890,
+            "cohesion": 10,
+            "frictionAngle": 26,
+            "elasticModulus": 22000,
+            "poissonRatio": 0.29,
+            "permeability": 3.5e-5
+          }
+        },
+        {
+          "name": "细砂层",
+          "topDepth": 14.2,
+          "bottomDepth": 23.0,
+          "soilType": "细砂",
+          "properties": {
+            "density": 1930,
+            "cohesion": 7,
+            "frictionAngle": 30,
+            "elasticModulus": 32000,
+            "poissonRatio": 0.26,
+            "permeability": 9e-5
+          }
+        }
+      ],
+      "waterLevel": 2.8
+    },
+    {
+      "id": "BH004",
+      "name": "基坑南侧钻孔",
+      "x": 0,
+      "y": 25,
+      "elevation": 10.7,
+      "layers": [
+        {
+          "name": "填土层",
+          "topDepth": 0,
+          "bottomDepth": 2.2,
+          "soilType": "填土",
+          "properties": {
+            "density": 1780,
+            "cohesion": 9,
+            "frictionAngle": 14,
+            "elasticModulus": 11000,
+            "poissonRatio": 0.35,
+            "permeability": 2.2e-5
+          }
+        },
+        {
+          "name": "粘土层",
+          "topDepth": 2.2,
+          "bottomDepth": 8.8,
+          "soilType": "粘土",
+          "properties": {
+            "density": 1860,
+            "cohesion": 26,
+            "frictionAngle": 19,
+            "elasticModulus": 19000,
+            "poissonRatio": 0.31,
+            "permeability": 7e-7
+          }
+        },
+        {
+          "name": "粉砂层",
+          "topDepth": 8.8,
+          "bottomDepth": 15.5,
+          "soilType": "粉砂",
+          "properties": {
+            "density": 1910,
+            "cohesion": 13,
+            "frictionAngle": 29,
+            "elasticModulus": 26000,
+            "poissonRatio": 0.28,
+            "permeability": 2.8e-5
+          }
+        },
+        {
+          "name": "细砂层",
+          "topDepth": 15.5,
+          "bottomDepth": 26.5,
+          "soilType": "细砂",
+          "properties": {
+            "density": 1960,
+            "cohesion": 4,
+            "frictionAngle": 33,
+            "elasticModulus": 37000,
+            "poissonRatio": 0.25,
+            "permeability": 1.1e-4
+          }
+        }
+      ],
+      "waterLevel": 3.0
+    },
+    {
+      "id": "BH005",
+      "name": "基坑北侧钻孔",
+      "x": 0,
+      "y": -25,
+      "elevation": 10.3,
+      "layers": [
+        {
+          "name": "填土层",
+          "topDepth": 0,
+          "bottomDepth": 2.8,
+          "soilType": "填土",
+          "properties": {
+            "density": 1740,
+            "cohesion": 7,
+            "frictionAngle": 13,
+            "elasticModulus": 12000,
+            "poissonRatio": 0.36,
+            "permeability": 2.3e-5
+          }
+        },
+        {
+          "name": "粘土层",
+          "topDepth": 2.8,
+          "bottomDepth": 8.0,
+          "soilType": "粘土",
+          "properties": {
+            "density": 1840,
+            "cohesion": 24,
+            "frictionAngle": 17,
+            "elasticModulus": 17000,
+            "poissonRatio": 0.32,
+            "permeability": 9e-7
+          }
+        },
+        {
+          "name": "粉砂层",
+          "topDepth": 8.0,
+          "bottomDepth": 14.8,
+          "soilType": "粉砂",
+          "properties": {
+            "density": 1895,
+            "cohesion": 11,
+            "frictionAngle": 27,
+            "elasticModulus": 24000,
+            "poissonRatio": 0.29,
+            "permeability": 3.2e-5
+          }
+        },
+        {
+          "name": "细砂层",
+          "topDepth": 14.8,
+          "bottomDepth": 24.5,
+          "soilType": "细砂",
+          "properties": {
+            "density": 1940,
+            "cohesion": 6,
+            "frictionAngle": 31,
+            "elasticModulus": 33000,
+            "poissonRatio": 0.26,
+            "permeability": 9.5e-5
+          }
+        }
+      ],
+      "waterLevel": 2.9
+    },
+    {
+      "id": "BH006",
+      "name": "远场钻孔1",
+      "x": 50,
+      "y": 50,
+      "elevation": 11.0,
+      "layers": [
+        {
+          "name": "填土层",
+          "topDepth": 0,
+          "bottomDepth": 1.8,
+          "soilType": "填土",
+          "properties": {
+            "density": 1760,
+            "cohesion": 5,
+            "frictionAngle": 12,
+            "elasticModulus": 9000,
+            "poissonRatio": 0.37,
+            "permeability": 2.8e-5
+          }
+        },
+        {
+          "name": "粘土层",
+          "topDepth": 1.8,
+          "bottomDepth": 10.5,
+          "soilType": "粘土",
+          "properties": {
+            "density": 1900,
+            "cohesion": 30,
+            "frictionAngle": 22,
+            "elasticModulus": 22000,
+            "poissonRatio": 0.29,
+            "permeability": 5e-7
+          }
+        },
+        {
+          "name": "粉砂层",
+          "topDepth": 10.5,
+          "bottomDepth": 18.0,
+          "soilType": "粉砂",
+          "properties": {
+            "density": 1950,
+            "cohesion": 18,
+            "frictionAngle": 32,
+            "elasticModulus": 30000,
+            "poissonRatio": 0.26,
+            "permeability": 2e-5
+          }
+        }
+      ],
+      "waterLevel": 3.8
+    },
+    {
+      "id": "BH007",
+      "name": "远场钻孔2",
+      "x": -50,
+      "y": -50,
+      "elevation": 9.8,
+      "layers": [
+        {
+          "name": "填土层",
+          "topDepth": 0,
+          "bottomDepth": 3.5,
+          "soilType": "填土",
+          "properties": {
+            "density": 1720,
+            "cohesion": 4,
+            "frictionAngle": 10,
+            "elasticModulus": 8000,
+            "poissonRatio": 0.38,
+            "permeability": 3e-5
+          }
+        },
+        {
+          "name": "粘土层",
+          "topDepth": 3.5,
+          "bottomDepth": 12.0,
+          "soilType": "粘土",
+          "properties": {
+            "density": 1820,
+            "cohesion": 20,
+            "frictionAngle": 15,
+            "elasticModulus": 15000,
+            "poissonRatio": 0.34,
+            "permeability": 1.2e-6
+          }
+        },
+        {
+          "name": "粉砂层",
+          "topDepth": 12.0,
+          "bottomDepth": 20.0,
+          "soilType": "粉砂",
+          "properties": {
+            "density": 1880,
+            "cohesion": 8,
+            "frictionAngle": 25,
+            "elasticModulus": 20000,
+            "poissonRatio": 0.30,
+            "permeability": 4e-5
+          }
+        }
+      ],
+      "waterLevel": 2.5
+    }
+  ]
+}
