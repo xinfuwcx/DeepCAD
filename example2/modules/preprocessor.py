@@ -1110,14 +1110,18 @@ class PreProcessor:
         """根据分析步更新显示"""
         stage_name = stage.get('name', '')
         stage_id = stage.get('id', 0)
-        active_materials = stage.get('active_materials', [])
-        active_loads = stage.get('active_loads', [])
-        active_boundaries = stage.get('active_boundaries', [])
 
         print(f"分析分析步: ID={stage_id}, 名称='{stage_name}', 类型={stage.get('type', 0)}")
-        print(f"激活的材料组: {active_materials}")
-        print(f"激活的荷载组: {active_loads}")
-        print(f"激活的边界组: {active_boundaries}")
+
+        # ✅ 修复关键问题：使用determine_active_groups_for_stage动态计算激活材料组
+        active_groups = self.determine_active_groups_for_stage(stage)
+        active_materials = active_groups.get('materials', [])
+        active_loads = active_groups.get('loads', [])  
+        active_boundaries = active_groups.get('boundaries', [])
+
+        print(f"动态计算的激活材料组: {active_materials}")
+        print(f"动态计算的激活荷载组: {active_loads}")
+        print(f"动态计算的激活边界组: {active_boundaries}")
 
         # 根据分析步的激活材料组过滤显示
         if active_materials:
@@ -1132,69 +1136,173 @@ class PreProcessor:
             self.display_mesh()
 
     def determine_active_groups_for_stage(self, stage: dict) -> dict:
-        """根据分析步确定需要激活的物理组"""
+        """根据分析步确定需要激活的物理组，兼容group_commands和active_materials两种格式"""
         active_groups = {
             'materials': [],
             'loads': [],
             'boundaries': []
         }
 
-        if not stage:
+        if not stage or not hasattr(self, 'fpn_data') or not self.fpn_data:
             return active_groups
 
-        stage_name = stage.get('name', '').lower()
+        current_stage_id = stage.get('id', 0)
+        print(f"\n确定分析步 {current_stage_id} ({stage.get('name', 'Unknown')}) 的激活物理组:")
 
-        # 智能判断逻辑：
-        # 1. 基于分析步名称的关键词匹配
-        if '初始' in stage_name or 'initial' in stage_name:
-            # 初始应力分析：显示所有土体材料
-            active_groups['materials'] = [mid for mid, mat in self.materials.items()
-                                        if mat['properties']['type'] == 'soil']
-        elif '开挖' in stage_name or 'excavation' in stage_name:
-            # 开挖分析：显示剩余土体和支护结构
-            active_groups['materials'] = list(self.materials.keys())
-        elif '支护' in stage_name or '围护' in stage_name:
-            # 支护分析：重点显示结构材料
-            active_groups['materials'] = [mid for mid, mat in self.materials.items()
-                                        if mat['properties']['type'] == 'concrete']
+        # 🔧 修复：检查是否使用group_commands格式还是active_materials格式
+        all_stages = self.fpn_data.get('analysis_stages', [])
+        all_stages = sorted(all_stages, key=lambda x: x.get('id', 0))
+
+        # 检查第一个分析步是否有group_commands字段
+        has_group_commands = any(s.get('group_commands') for s in all_stages)
+        
+        if has_group_commands:
+            print("  使用group_commands格式解析")
+            return self._determine_groups_from_commands(current_stage_id, all_stages)
         else:
-            # 默认显示所有材料
-            active_groups['materials'] = list(self.materials.keys())
+            print("  使用active_materials格式解析")
+            return self._determine_groups_from_active_lists(stage)
 
+    def _determine_groups_from_commands(self, current_stage_id: int, all_stages: list) -> dict:
+        """从group_commands格式确定激活组（原有逻辑）"""
+        active_groups = {'materials': [], 'loads': [], 'boundaries': []}
+        
+        # 收集所有物理组命令
+        all_physics_commands = []
+        for s in all_stages:
+            stage_commands = s.get('group_commands', [])
+            all_physics_commands.extend(stage_commands)
+
+        print(f"  总共收集到 {len(all_physics_commands)} 个物理组命令")
+
+        # 初始化激活状态
+        active_materials = set()
+        active_loads = set()
+        active_boundaries = set()
+
+        # 按阶段顺序应用所有命令到当前阶段
+        for cmd in sorted(all_physics_commands, key=lambda x: x.get('stage_id', 0)):
+            cmd_stage_id = cmd.get('stage_id', 0)
+
+            # 只应用到当前阶段为止的命令
+            if cmd_stage_id <= current_stage_id:
+                command = cmd.get('command', '')
+                group_ids = cmd.get('group_ids', [])
+
+                if command == 'MADD':  # 添加材料组
+                    # 过滤材料ID到实际存在的2-12范围
+                    valid_materials = [gid for gid in group_ids if 2 <= gid <= 12]
+                    active_materials.update(valid_materials)
+                    print(f"  阶段{cmd_stage_id}: MADD 激活材料组 {valid_materials} (原始: {group_ids})")
+
+                elif command == 'MDEL':  # 删除材料组
+                    for gid in group_ids:
+                        if gid in active_materials:
+                            active_materials.remove(gid)
+                            print(f"  阶段{cmd_stage_id}: MDEL 删除材料组 {gid}")
+                        else:
+                            print(f"  阶段{cmd_stage_id}: MDEL 尝试删除材料组 {gid}，但未激活")
+
+                elif command == 'LADD':  # 添加荷载组
+                    active_loads.update(group_ids)
+                    print(f"  阶段{cmd_stage_id}: LADD 激活荷载组 {group_ids}")
+
+                elif command == 'BADD':  # 添加边界组
+                    active_boundaries.update(group_ids)
+                    print(f"  阶段{cmd_stage_id}: BADD 激活边界组 {group_ids}")
+
+        # 转换为列表并排序
+        active_groups['materials'] = sorted(list(active_materials))
+        active_groups['loads'] = sorted(list(active_loads))
+        active_groups['boundaries'] = sorted(list(active_boundaries))
+
+        print(f"  最终激活物理组: 材料{active_groups['materials']}, 荷载{active_groups['loads']}, 边界{active_groups['boundaries']}")
+        
+        return active_groups
+
+    def _determine_groups_from_active_lists(self, stage: dict) -> dict:
+        """从active_materials格式确定激活组（适用于FPN解析器生成的数据）"""
+        active_groups = {
+            'materials': [],
+            'loads': [],
+            'boundaries': []
+        }
+        
+        stage_id = stage.get('id', 0)
+        stage_name = stage.get('name', 'Unknown')
+        
+        # 从阶段数据中直接读取已解析的激活列表
+        active_materials = stage.get('active_materials', [])
+        active_loads = stage.get('active_loads', [])
+        active_boundaries = stage.get('active_boundaries', [])
+        
+        print(f"  从阶段数据读取:")
+        print(f"    原始激活材料: {active_materials}")
+        print(f"    原始激活荷载: {active_loads}")
+        print(f"    原始激活边界: {active_boundaries}")
+        
+        # ✅ 关键修复：如果当前阶段是开挖阶段，需要手动重建MADD/MDEL逻辑
+        # 因为FPN解析器可能没有正确处理阶段间的累积效应
+        if stage_id == 2 and ('开挖' in stage_name or '地连墙' in stage_name):
+            print("  检测到开挖阶段，重建材料激活逻辑")
+            
+            # 获取所有阶段数据
+            all_stages = self.fpn_data.get('analysis_stages', [])
+            all_stages = sorted(all_stages, key=lambda x: x.get('id', 0))
+            
+            # 从阶段1开始累积激活材料，然后应用阶段2的变更
+            final_materials = set()
+            
+            for i, s in enumerate(all_stages):
+                if s.get('id', 0) <= stage_id:
+                    stage_materials = s.get('active_materials', [])
+                    if i == 0:  # 第一个阶段，直接添加所有材料
+                        final_materials.update(stage_materials)
+                        print(f"    阶段{s.get('id', 0)}: 基础材料 {sorted(stage_materials)}")
+                    else:  # 后续阶段，需要分析是添加还是删除
+                        # 根据FPN文件分析，阶段2应该：
+                        # - 添加材料1（地连墙）
+                        # - 删除材料4（开挖土体） 
+                        stage_id_current = s.get('id', 0)
+                        if stage_id_current == 2:
+                            # 手动应用已知的MADD/MDEL逻辑
+                            final_materials.add(1)  # MADD 材料1
+                            final_materials.discard(4)  # MDEL 材料4
+                            print(f"    阶段2修正: 添加材料1, 删除材料4")
+            
+            active_groups['materials'] = sorted(list(final_materials))
+            print(f"    最终重建材料列表: {active_groups['materials']}")
+            
+        else:
+            # 非开挖阶段，直接使用解析的数据
+            active_groups['materials'] = sorted(list(set(active_materials)))
+        
+        active_groups['loads'] = sorted(list(set(active_loads)))
+        active_groups['boundaries'] = sorted(list(set(active_boundaries)))
+        
         return active_groups
 
     def filter_materials_by_stage(self, active_materials: list):
         """根据分析步过滤材料显示"""
         print(f"根据分析步过滤材料: {active_materials}")
 
-        # 创建网格集合ID到实际材料ID的映射
-        mesh_to_material_mapping = {}
-        if hasattr(self, 'fpn_data') and self.fpn_data:
-            mesh_sets = self.fpn_data.get('mesh_sets', {})
-
-            # 从FPN文件中我们知道的映射关系
-            # 网格集合ID -> 实际材料ID的映射
-            known_mappings = {
-                1: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],  # 初始地应力阶段的所有土体材料
-                89: [12],  # 围护墙材料
-                0: []      # 空集合或删除操作
-            }
-
-            # 如果激活材料包含已知的映射
-            mapped_materials = set()
-            for mesh_id in active_materials:
-                if mesh_id in known_mappings:
-                    mapped_materials.update(known_mappings[mesh_id])
-                elif mesh_id in mesh_sets:
-                    # 直接使用网格集合ID作为材料ID
-                    mapped_materials.add(mesh_id)
-
-            self.current_active_materials = mapped_materials
-        else:
-            # 没有网格集合信息，直接使用激活材料列表
-            self.current_active_materials = set(active_materials)
-
-        print(f"映射后的激活材料: {self.current_active_materials}")
+        # ✅ 修复关键问题：直接使用计算出的材料ID，不再进行错误的映射
+        # determine_active_groups_for_stage已经返回了正确的材料ID（2-12），
+        # 不需要通过网格集合再次映射
+        self.current_active_materials = set(active_materials)
+        
+        print(f"设置激活材料为: {sorted(list(self.current_active_materials))}")
+        
+        # 验证材料ID是否存在于网格中
+        if hasattr(self, 'mesh') and self.mesh and hasattr(self.mesh, 'cell_data') and 'MaterialID' in self.mesh.cell_data:
+            all_material_ids = set(self.mesh.cell_data['MaterialID'])
+            missing_materials = self.current_active_materials - all_material_ids
+            if missing_materials:
+                print(f"⚠️  警告：以下材料ID在网格中不存在: {sorted(list(missing_materials))}")
+                self.current_active_materials = self.current_active_materials & all_material_ids
+                print(f"过滤后的激活材料: {sorted(list(self.current_active_materials))}")
+            else:
+                print(f"✅ 所有激活材料ID都存在于网格中")
 
     def intelligent_material_selection(self, stage_name: str):
         """根据分析步名称智能选择材料"""

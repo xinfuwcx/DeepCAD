@@ -1,7 +1,7 @@
 /**
- * Epic控制中心 - 1号专家的核心界面组件
+ * 控制中心 - 核心界面组件
  * 集成geo-three地图、Open-Meteo气象、项目管理
- * 实现0号架构师设计的完整控制中心
+ * 深基坑工程可视化控制系统
  * 
  * 🚀 优化特性:
  * - 内存泄漏防护
@@ -171,7 +171,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
 
   const initializeEpicControlCenter = async (): Promise<void> => {
     try {
-      console.log('🚀 初始化Epic控制中心...');
+      console.log('🚀 初始化控制中心...');
       
       // 初始化1号专家架构 (暂时跳过，直接设为连接状态)
       setSystemStatus(prev => ({ ...prev, architectureStatus: 'connecting' }));
@@ -382,7 +382,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
       }}
     >
       <h4 style={{ color: '#00ffff', margin: '0 0 8px 0', fontSize: '14px' }}>
-        🎮 Epic控制中心状态
+        🎮 控制中心状态
       </h4>
       
       <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
@@ -512,7 +512,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
               ease: "linear"
             }}
           >
-            EPIC控制中心
+            控制中心
           </motion.span>
           <div style={{ 
             color: 'rgba(255, 255, 255, 0.7)', 
@@ -520,7 +520,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
             marginTop: '2px',
             letterSpacing: '1px'
           }}>
-            ⚡ HYPER FUTURE SYSTEM
+            ⚡ 深基坑分析系统
           </div>
         </div>
       </motion.div>
@@ -760,7 +760,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
             }}
             transition={{ duration: 1, repeat: Infinity }}
           >
-            {isFlying ? '🚁 FLYING' : '✈️ EPIC FLIGHT'}
+            {isFlying ? '🚁 导航中' : '✈️ 项目导航'}
           </motion.span>
         </motion.button>
 
@@ -1395,7 +1395,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = memo(({
           </motion.div>
           
           <div style={{ fontSize: '18px', marginBottom: '8px', color: '#00ffff' }}>
-            Epic飞行导航
+            项目导航
           </div>
           <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '10px' }}>
             飞往 {selectedProject.name}

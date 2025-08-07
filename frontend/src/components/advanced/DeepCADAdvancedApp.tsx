@@ -23,6 +23,7 @@ import { ParticleTest } from '../visualization/ParticleTest';
 
 // 1号专家 - 新的项目控制中心系统 
 import { ProjectControlCenter } from '../control/ProjectControlCenter';
+import { DeepCADControlCenter } from '../control';
 import { GeoThreeMapController, ProjectMarkerData } from '../../services/GeoThreeMapController';
 import { designTokens } from '../../design/tokens';
 
@@ -82,6 +83,7 @@ export const DeepCADAdvancedApp: React.FC = () => {
   const [showParticleTest, setShowParticleTest] = useState(false);
   const [showMapboxDebug, setShowMapboxDebug] = useState(false);
   const [showProjectControlCenter, setShowProjectControlCenter] = useState(false);
+  const [showNewControlCenter, setShowNewControlCenter] = useState(false);
   const [isFlying, setIsFlying] = useState(false);
   const [flightTarget, setFlightTarget] = useState<string | null>(null);
   
@@ -346,6 +348,17 @@ export const DeepCADAdvancedApp: React.FC = () => {
           impact: '统一项目管理与地理可视化'
         });
         break;
+
+      case 'new-control-center':
+        // 🚀 新版控制中心 - MapLibre + deck.gl 炫酷可视化
+        setShowNewControlCenter(true);
+        logger.info('New Control Center v3.0 launched', { 
+          expert: 'DeepCAD v3.0',
+          features: ['MapLibre地图引擎', 'deck.gl炫酷可视化', 'OpenMeteo气象', '项目管理'],
+          systems: ['免费数据源', 'WebGL渲染', '务实工程导向'],
+          impact: '平淡中前进，炫酷但实用'
+        });
+        break;
         
       case 'ai-knowledge':
         // 📚 专业知识图谱 - 工程计算知识库与标准规范数据库
@@ -481,6 +494,15 @@ export const DeepCADAdvancedApp: React.FC = () => {
       span: 'col-span-2 row-span-1' // 横长卡片
     },
     {
+      id: 'new-control-center',
+      name: '工程控制中心 v3.0',
+      icon: FunctionalIcons.GeologyModeling,
+      color: designTokens.colors.accent.quantum,
+      description: '🚀 MapLibre + deck.gl 炫酷可视化 • 免费数据源 • 务实工程导向',
+      size: 'large',
+      span: 'col-span-2 row-span-1'
+    },
+    {
       id: 'computation-control',
       name: '深基坑计算控制',
       icon: FunctionalIcons.GPUComputing,
@@ -545,6 +567,15 @@ export const DeepCADAdvancedApp: React.FC = () => {
           console.log(`🎯 主应用接收到项目选择: ${projectId}`);
           // 这里可以处理项目选择后的逻辑
         }}
+      />
+    );
+  }
+
+  // 新版控制中心 v3.0 - MapLibre + deck.gl
+  if (showNewControlCenter) {
+    return (
+      <DeepCADControlCenter 
+        onExit={() => setShowNewControlCenter(false)}
       />
     );
   }

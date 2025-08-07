@@ -78,8 +78,8 @@ python-dotenv>=1.1.1
 # ====================
 # 可选依赖 (高级功能)
 # ====================
-# 地质建模高级功能 (有RBF回退机制)
-# gempy>=2025.1.0
+# 地质建模核心依赖 (必需) - 使用最新稳定版本
+gempy>=2025.1.0
 
 # AI模块 (PINN/DeepONet等)
 # torch>=2.0.0+cu121 --index-url https://download.pytorch.org/whl/cu121

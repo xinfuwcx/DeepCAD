@@ -1,6 +1,6 @@
 /**
- * DeepCAD 史诗级飞行演示
- * 1号架构师 - 震撼的"从地球到基坑"大屏体验
+ * DeepCAD 项目导航演示
+ * 深基坑工程可视化导航系统
  */
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
@@ -13,7 +13,7 @@ import { designTokens } from '../../design/tokens';
 
 // ==================== 类型定义 ====================
 
-export interface EpicFlightDemoProps {
+export interface FlightDemoProps {
   className?: string;
   style?: React.CSSProperties;
   width?: number;

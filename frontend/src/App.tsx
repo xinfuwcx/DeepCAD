@@ -7,6 +7,9 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import DeepCADAdvancedApp from './components/advanced/DeepCADAdvancedApp';
 import MainLayout from './components/layout/MainLayout';
 import { DeepCADThemeProvider } from './components/ui/DeepCADTheme';
+import { DeepCADControlCenter } from './components/control';
+import ControlCenterDemo from './pages/ControlCenterDemo';
+import AmapControlCenterDemo from './pages/AmapControlCenterDemo';
 import './index.css';
 
 /**
@@ -144,6 +147,12 @@ const App: React.FC = () => {
             <Route path="/" element={<DeepCADAdvancedApp />} />
             <Route path="/welcome" element={<DeepCADAdvancedApp />} />
             <Route path="/landing" element={<DeepCADAdvancedApp />} />
+            
+            {/* 控制中心路由 */}
+            <Route path="/control-center" element={<DeepCADControlCenter />} />
+            <Route path="/control-center-demo" element={<ControlCenterDemo />} />
+            <Route path="/amap-control-center" element={<AmapControlCenterDemo />} />
+            
             {/* 主工作区路由 */}
             <Route path="/workspace/*" element={<MainLayout />} />
           </Routes>

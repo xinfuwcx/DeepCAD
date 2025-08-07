@@ -1,7 +1,7 @@
 /**
- * Epic控制中心完整组件导出
- * 基于1号专家技术规范和0号架构师开发指令
- * 统一导出所有Epic控制中心相关组件和服务
+ * 控制中心完整组件导出
+ * 深基坑工程可视化控制系统
+ * 统一导出所有控制中心相关组件和服务
  */
 
 // ==================== 主要组件导出 ====================
@@ -32,7 +32,7 @@ export {
 
 // 从其他目录导出相关服务
 export { default as GeoThreeMapController } from '../../services/GeoThreeMapController';
-export { default as EpicFlightNavigationSystem } from '../../services/EpicFlightNavigationSystem';
+export { default as FlightNavigationSystem } from '../../services/EpicFlightNavigationSystem';
 export { default as AIAssistantWithRAG } from '../../services/AIAssistantWithRAG';
 export { default as WeatherEffectsRenderer } from '../../services/WeatherEffectsRenderer';
 export { default as Expert1UnifiedArchitecture } from '../../services/Expert1UnifiedArchitecture';
@@ -228,7 +228,7 @@ export const EPIC_SYSTEM_STATUS = {
   },
   
   // 最终评估
-  overallStatus: '🚀 Epic控制中心100%完成 - 达到国际领先水平'
+  overallStatus: '🚀 控制中心100%完成 - 达到专业级水平'
 };
 
 // ==================== 版本信息 ====================

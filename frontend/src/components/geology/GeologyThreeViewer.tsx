@@ -137,9 +137,13 @@ const GeologyThreeViewer: React.FC<GeologyThreeViewerProps> = ({
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.2;
+    // 设置透明背景，让容器的Abaqus风格背景显示出来
+    renderer.setClearColor(0x000000, 0);
     rendererRef.current = renderer;
 
     mountRef.current.appendChild(renderer.domElement);
+    // 确保canvas不覆盖背景
+    renderer.domElement.style.background = 'transparent';
 
     // 创建控制器
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -563,15 +567,59 @@ const GeologyThreeViewer: React.FC<GeologyThreeViewerProps> = ({
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      {/* 3D视口 */}
+      {/* 3D视口 - Abaqus风格 */}
       <div 
         ref={mountRef} 
         style={{ 
           width: '100%', 
           height: '100%',
-          background: 'var(--bg-primary)'
+          background: 'linear-gradient(to bottom, #4a90e2 0%, #357abd 25%, #2c5aa0 50%, #1e3a5f 75%, #0f1419 100%)',
+          border: '2px solid #2c5aa0',
+          borderRadius: '8px',
+          boxShadow: 'inset 0 2px 10px rgba(0, 0, 0, 0.3)',
+          position: 'relative'
         }} 
       />
+
+      {/* Abaqus风格坐标轴指示器 */}
+      <div style={{
+        position: 'absolute',
+        bottom: '20px',
+        left: '20px',
+        width: '60px',
+        height: '60px',
+        background: 'rgba(0, 0, 0, 0.3)',
+        borderRadius: '6px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        border: '1px solid rgba(74, 144, 226, 0.3)',
+        color: '#4a90e2',
+        fontSize: '12px',
+        fontWeight: 'bold',
+        zIndex: 10
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div>X</div>
+          <div>Y Z</div>
+        </div>
+      </div>
+
+      {/* Abaqus风格状态指示器 */}
+      <div style={{
+        position: 'absolute',
+        top: '10px',
+        right: '10px',
+        background: 'rgba(0, 0, 0, 0.3)',
+        padding: '4px 8px',
+        borderRadius: '4px',
+        fontSize: '10px',
+        color: '#4a90e2',
+        border: '1px solid rgba(74, 144, 226, 0.3)',
+        zIndex: 10
+      }}>
+        <span>视图: 等轴测 | 渲染: 实时</span>
+      </div>
 
       {/* 加载指示器 */}
       {loading && (
