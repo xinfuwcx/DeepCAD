@@ -257,6 +257,21 @@ export class GeologicalThreeJSRenderer {
   }
 
   /**
+   * 为所有地质体材质应用裁剪平面
+   */
+  public applyClippingPlanes(planes: THREE.Plane[] | null): void {
+    this.formationMeshes.forEach((mesh) => {
+      if (mesh.material instanceof THREE.Material) {
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        materials.forEach((mat: any) => {
+          mat.clippingPlanes = planes || null;
+          mat.needsUpdate = true;
+        });
+      }
+    });
+  }
+
+  /**
    * 显示/隐藏特定地质体
    */
   public setFormationVisibility(formationName: string, visible: boolean): void {
@@ -332,5 +347,19 @@ export class GeologicalThreeJSRenderer {
   public dispose(): void {
     this.clearGeologicalModel();
     this.scene.remove(this.geologicalGroup);
+  }
+
+  /**
+   * 简易爆炸视图：按组中心向外偏移
+   */
+  public applyExplode(offset: number): void {
+    const box = new THREE.Box3().setFromObject(this.geologicalGroup);
+    const center = box.getCenter(new THREE.Vector3());
+    this.formationMeshes.forEach((mesh) => {
+      const meshCenter = new THREE.Box3().setFromObject(mesh).getCenter(new THREE.Vector3());
+      const dir = meshCenter.clone().sub(center).normalize();
+      if (!isFinite(dir.length())) return;
+      mesh.position.copy(dir.multiplyScalar(offset));
+    });
   }
 }

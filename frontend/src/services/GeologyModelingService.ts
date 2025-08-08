@@ -20,6 +20,7 @@ export class GeologyModelingService {
   private initialized = false;
   private rbfWorker?: Worker;
   private interpolationCache = new Map<string, InterpolationResult>();
+  private apiBaseUrl = '/api/geology'; // API基础URL
 
   constructor() {}
 
@@ -664,6 +665,157 @@ export class GeologyModelingService {
     console.error('❌ RBF Worker错误:', error);
   }
 
+  // ============== 新增：GemPy完整显示链路API调用 ==============
+  public async createGemPyModel(
+    boreholeData: BoreholeData,
+    options: {
+      resolutionX: number;
+      resolutionY: number;
+      interpolationMethod: string;
+      faultSmoothing: number;
+    }
+  ): Promise<{
+    success: boolean;
+    method: string;
+    display_chain: any;
+    threejs_data: any;
+    native_visualization: any;
+    model_stats: any;
+    model_id: string;
+  }> {
+    console.log('🚀 调用GemPy完整显示链路API...');
+    
+    try {
+      // 转换数据格式为API期望的格式
+      const requestPayload = {
+        borehole_data: boreholeData.holes.map(hole => ({
+          x: hole.location.x,
+          y: hole.location.y,  
+          z: hole.location.z,
+          formation: hole.layers[0]?.soilType || 'unknown',
+          properties: hole.layers[0]?.properties || {}
+        })),
+        formations: {
+          // 从钻孔数据中提取地层映射
+          ...boreholeData.holes.reduce((acc, hole) => {
+            hole.layers.forEach(layer => {
+              if (layer.soilType) {
+                acc[layer.soilType] = layer.soilType;
+              }
+            });
+            return acc;
+          }, {} as Record<string, string>)
+        },
+        options: {
+          resolution_x: options.resolutionX,
+          resolution_y: options.resolutionY,
+          alpha: options.faultSmoothing
+        }
+      };
+
+      console.log('📦 请求数据:', requestPayload);
+
+      // 调用后端GemPy API
+      const response = await fetch(`${this.apiBaseUrl}/gempy-modeling`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestPayload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`API调用失败: ${response.status} ${response.statusText} - ${errorData.detail || ''}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ GemPy API响应:', result);
+
+      return result;
+
+    } catch (error) {
+      console.error('❌ GemPy API调用失败:', error);
+      throw error;
+    }
+  }
+
+  // ============== GemPy直接到Three.js显示链路 ==============
+  public async createGemPyDirectModel(
+    boreholeData: BoreholeData,
+    options: {
+      resolutionX: number;
+      resolutionY: number;
+      interpolationMethod: string;
+      faultSmoothing: number;
+    }
+  ): Promise<{
+    success: boolean;
+    method: string;
+    conversion_method: string;
+    performance_metrics: any;
+    threejs_data: any;
+    model_stats: any;
+    model_id: string;
+  }> {
+    console.log('⚡ 调用GemPy → Three.js 直接显示链路API...');
+    
+    try {
+      // 转换数据格式为API期望的格式
+      const requestPayload = {
+        borehole_data: boreholeData.holes.map(hole => ({
+          x: hole.location.x,
+          y: hole.location.y,  
+          z: hole.location.z,
+          formation: hole.layers[0]?.soilType || 'unknown',
+          properties: hole.layers[0]?.properties || {}
+        })),
+        formations: {
+          // 从钻孔数据中提取地层映射
+          ...boreholeData.holes.reduce((acc, hole) => {
+            hole.layers.forEach(layer => {
+              if (layer.soilType) {
+                acc[layer.soilType] = layer.soilType;
+              }
+            });
+            return acc;
+          }, {} as Record<string, string>)
+        },
+        options: {
+          resolution_x: options.resolutionX,
+          resolution_y: options.resolutionY,
+          alpha: options.faultSmoothing
+        }
+      };
+
+      console.log('📦 直接显示链路请求数据:', requestPayload);
+
+      // 调用GemPy直接显示链路API
+      const response = await fetch(`${this.apiBaseUrl}/gempy-direct`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestPayload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`直接显示链路API调用失败: ${response.status} ${response.statusText} - ${errorData.detail || ''}`);
+      }
+
+      const result = await response.json();
+      console.log('⚡ GemPy直接显示链路API响应:', result);
+
+      return result;
+
+    } catch (error) {
+      console.error('❌ GemPy直接显示链路API调用失败:', error);
+      throw error;
+    }
+  }
+
+  // ============== 工具方法 ==============
   public async dispose(): Promise<void> {
     if (this.rbfWorker) {
       this.rbfWorker.terminate();

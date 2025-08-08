@@ -41,6 +41,18 @@ except ImportError:
     logger.warning("⚠️ PyVista not available")
     pv = None
 
+# GemPy-Viewer导入 (可视化组件)
+GEMPY_VIEWER_AVAILABLE = False
+gpv = None
+try:
+    import gempy_viewer as gpv
+    GEMPY_VIEWER_AVAILABLE = True
+    logger.info("✓ GemPy-Viewer available")
+except ImportError:
+    GEMPY_VIEWER_AVAILABLE = False
+    logger.warning("⚠️ GemPy-Viewer not available")
+    gpv = None
+
 class EnhancedRBFInterpolator:
     """
     增强型RBF插值器 - 2号核心算法
@@ -289,6 +301,7 @@ class GemPyIntegrationService:
         return {
             'gempy': GEMPY_AVAILABLE,
             'pyvista': PYVISTA_AVAILABLE,
+            'gempy_viewer': GEMPY_VIEWER_AVAILABLE,
             'scipy': True,  # 必须有
             'numpy': True,  # 必须有
             'sklearn': True  # 通常都有
@@ -486,19 +499,44 @@ class GemPyIntegrationService:
             # 3. 计算地质模型
             gempy_solution = geo_model.compute_model()
             
-            # 4. 转换为PyVista格式
-            pyvista_meshes = self._convert_gempy_to_pyvista(geo_model, gempy_solution)
+            # 4. 生成GemPy原生可视化
+            native_viz = self.generate_gempy_native_visualization(geo_model)
             
-            # 5. 导出Three.js格式
-            threejs_data = self._export_pyvista_to_threejs(pyvista_meshes)
+            # 5A. GemPy → Three.js 直接转换 (新方法)
+            threejs_data_direct = self._export_gempy_to_threejs_direct(geo_model, gempy_solution)
+            
+            # 5B. 传统PyVista转换 (备用方法)
+            pyvista_meshes = self._convert_gempy_to_pyvista(geo_model, gempy_solution)
+            threejs_data_pyvista = self._export_pyvista_to_threejs(pyvista_meshes)
+            
+            # 6. 选择最佳转换结果
+            if threejs_data_direct and len(threejs_data_direct) > 0:
+                threejs_data = threejs_data_direct
+                conversion_method = "direct"
+                logger.info("🚀 使用GemPy → Three.js 直接转换")
+            else:
+                threejs_data = threejs_data_pyvista
+                conversion_method = "via_pyvista"
+                logger.info("🔄 回退到PyVista转换方法")
             
             result = {
                 'success': True,
                 'method': 'GemPy_Implicit_Modeling',
                 'geo_model': geo_model,
                 'solution': gempy_solution,
+                'native_visualization': native_viz,  # 新增：GemPy原生可视化
                 'pyvista_meshes': pyvista_meshes,
                 'threejs_data': threejs_data,
+                'display_chain': {  # 新增：完整显示链路信息
+                    'gempy_available': GEMPY_AVAILABLE,
+                    'gempy_viewer_available': GEMPY_VIEWER_AVAILABLE,
+                    'pyvista_available': PYVISTA_AVAILABLE,
+                    'native_viz_success': native_viz.get('success', False),
+                    'pyvista_meshes_count': len(pyvista_meshes),
+                    'threejs_objects_count': len(threejs_data),
+                    'conversion_method': conversion_method,  # 新增：转换方法标识
+                    'direct_conversion_success': len(threejs_data_direct) > 0
+                },
                 'model_stats': {
                     'n_formations': len(np.unique(borehole_data['formations'])),
                     'model_extent': domain_config.get('extent', []),
@@ -587,7 +625,7 @@ class GemPyIntegrationService:
                 bounds.get('z_min', -50), bounds.get('z_max', 0)
             ]
             
-            # 创建GeoModel
+            # 创建GeoModel (GemPy v3+兼容)
             geo_model = gp.create_geomodel(
                 project_name=f'DeepCAD_Geological_{int(time.time())}',
                 extent=extent,
@@ -616,11 +654,32 @@ class GemPyIntegrationService:
             raise
     
     def _convert_gempy_to_pyvista(self, geo_model: Any, solution: Any) -> Dict[str, Any]:
-        """GemPy结果转换为PyVista格式"""
+        """GemPy结果转换为PyVista格式 - 使用GemPy原生可视化"""
         if not PYVISTA_AVAILABLE:
             return {}
         
         try:
+            # 方法1: 使用GemPy-Viewer原生转换
+            if GEMPY_VIEWER_AVAILABLE:
+                logger.info("🎨 使用GemPy-Viewer原生可视化转换")
+                try:
+                    # 获取GemPy原生PyVista对象
+                    pyvista_mesh = gpv.plot_3d(geo_model, show=False, return_plotter=True)
+                    
+                    formations = {}
+                    if hasattr(pyvista_mesh, 'actors'):
+                        for i, actor in enumerate(pyvista_mesh.actors.values()):
+                            formations[f'formation_{i}'] = actor.mapper.GetInput()
+                    
+                    logger.info(f"✓ GemPy原生转换完成: {len(formations)}个地层")
+                    return formations
+                    
+                except Exception as e:
+                    logger.warning(f"GemPy-Viewer转换失败，使用备用方法: {e}")
+            
+            # 方法2: 传统方法 - 从solution提取
+            logger.info("🔄 使用传统PyVista转换")
+            
             # 获取地质图
             geological_map = solution.geological_map
             
@@ -645,6 +704,179 @@ class GemPyIntegrationService:
         except Exception as e:
             logger.warning(f"GemPy到PyVista转换失败: {e}")
             return {}
+    
+    def generate_gempy_native_visualization(self, geo_model: Any) -> Dict[str, Any]:
+        """生成GemPy原生可视化结果"""
+        if not GEMPY_VIEWER_AVAILABLE:
+            logger.warning("GemPy-Viewer不可用，跳过原生可视化")
+            return {'success': False, 'reason': 'gempy_viewer_not_available'}
+        
+        try:
+            logger.info("🎨 生成GemPy原生可视化...")
+            
+            # 生成3D可视化
+            plotter = gpv.plot_3d(geo_model, show=False, return_plotter=True)
+            
+            # 获取截图
+            screenshot_path = f"/tmp/gempy_model_{int(time.time())}.png"
+            plotter.screenshot(screenshot_path)
+            
+            # 获取相机参数
+            camera_info = {
+                'position': plotter.camera.position,
+                'focal_point': plotter.camera.focal_point,
+                'view_up': plotter.camera.up
+            }
+            
+            # 获取渲染统计
+            render_info = {
+                'n_actors': len(plotter.actors),
+                'n_points': sum(actor.GetMapper().GetInput().GetNumberOfPoints() 
+                              for actor in plotter.actors.values() 
+                              if hasattr(actor, 'GetMapper')),
+                'screenshot_path': screenshot_path,
+                'camera': camera_info
+            }
+            
+            logger.info(f"✓ GemPy原生可视化完成: {render_info['n_actors']}个对象")
+            
+            return {
+                'success': True,
+                'render_info': render_info,
+                'plotter': plotter
+            }
+            
+        except Exception as e:
+            logger.error(f"GemPy原生可视化生成失败: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def _export_gempy_to_threejs_direct(self, geo_model: Any, solution: Any) -> Dict[str, Any]:
+        """GemPy结果直接转换为Three.js格式 - 跳过PyVista中间层"""
+        if not GEMPY_AVAILABLE:
+            return {}
+            
+        try:
+            logger.info("🚀 GemPy → Three.js 直接转换开始...")
+            
+            threejs_data = {}
+            
+            # 方法1: 从geological_map直接提取等值面
+            if hasattr(solution, 'geological_map'):
+                geological_map = solution.geological_map
+                logger.info(f"📊 地质图数据形状: {geological_map.shape}")
+                
+                # 获取网格坐标
+                if hasattr(geo_model, 'grid'):
+                    grid = geo_model.grid
+                    if hasattr(grid, 'regular_grid'):
+                        regular_grid = grid.regular_grid
+                        
+                        # 提取网格坐标
+                        if hasattr(regular_grid, 'values'):
+                            grid_points = regular_grid.values.reshape(-1, 3)
+                            logger.info(f"🌐 网格点数: {len(grid_points)}")
+                            
+                            # 按地层ID分组
+                            unique_formations = np.unique(geological_map)
+                            logger.info(f"🏔️ 发现地层: {unique_formations}")
+                            
+                            for formation_id in unique_formations:
+                                if formation_id == 0:  # 跳过背景
+                                    continue
+                                    
+                                # 提取该地层的点
+                                mask = (geological_map == formation_id)
+                                formation_points = grid_points[mask.flatten()]
+                                
+                                if len(formation_points) > 3:
+                                    # 直接构造Three.js几何数据
+                                    threejs_geometry = self._create_threejs_geometry_from_points(
+                                        formation_points, 
+                                        formation_id
+                                    )
+                                    
+                                    if threejs_geometry:
+                                        threejs_data[f'formation_{formation_id}'] = threejs_geometry
+                                        logger.info(f"✅ 地层{formation_id}: {len(formation_points)}个点 → Three.js")
+            
+            # 方法2: 从surfaces直接提取（如果可用）
+            if hasattr(solution, 'surfaces'):
+                logger.info("🎯 尝试从surfaces直接提取...")
+                surfaces = solution.surfaces
+                # 这里可以添加surfaces的直接处理逻辑
+                
+            logger.info(f"🎉 GemPy → Three.js 直接转换完成: {len(threejs_data)}个对象")
+            return threejs_data
+            
+        except Exception as e:
+            logger.error(f"❌ GemPy → Three.js 直接转换失败: {e}")
+            return {}
+    
+    def _create_threejs_geometry_from_points(self, points: np.ndarray, formation_id: int) -> Dict[str, Any]:
+        """从点云创建Three.js几何体数据"""
+        try:
+            # 使用Delaunay三角化创建网格
+            from scipy.spatial import ConvexHull
+            
+            if len(points) < 4:
+                return {}
+                
+            # 计算凸包
+            hull = ConvexHull(points)
+            
+            # 提取顶点和面
+            vertices = points[hull.vertices].astype(np.float32)
+            faces = hull.simplices.astype(np.uint32)
+            
+            # 计算法向量
+            normals = np.zeros_like(vertices)
+            for i, face in enumerate(faces):
+                if len(face) >= 3:
+                    v0, v1, v2 = vertices[face[0]], vertices[face[1]], vertices[face[2]]
+                    normal = np.cross(v1 - v0, v2 - v0)
+                    norm = np.linalg.norm(normal)
+                    if norm > 0:
+                        normal = normal / norm
+                        # 为该面的所有顶点分配法向量
+                        for vertex_idx in face:
+                            normals[vertex_idx] += normal
+            
+            # 归一化法向量
+            for i in range(len(normals)):
+                norm = np.linalg.norm(normals[i])
+                if norm > 0:
+                    normals[i] = normals[i] / norm
+            
+            # 生成颜色（基于地层ID）
+            colors = self._generate_formation_colors(formation_id, len(vertices))
+            
+            return {
+                'vertices': vertices.flatten().tolist(),
+                'normals': normals.flatten().tolist(), 
+                'colors': colors.flatten().tolist(),
+                'indices': faces.flatten().tolist(),
+                'formation_id': int(formation_id),
+                'vertex_count': len(vertices),
+                'face_count': len(faces)
+            }
+            
+        except Exception as e:
+            logger.error(f"点云几何体创建失败: {e}")
+            return {}
+    
+    def _generate_formation_colors(self, formation_id: int, vertex_count: int) -> np.ndarray:
+        """为地层生成颜色"""
+        # 地层颜色映射
+        formation_colors = {
+            1: [0.8, 0.5, 0.3],  # 棕色 - 粘土
+            2: [0.9, 0.8, 0.4],  # 黄色 - 砂土
+            3: [0.6, 0.6, 0.6],  # 灰色 - 岩石
+            4: [0.4, 0.7, 0.4],  # 绿色 - 其他
+            5: [0.5, 0.5, 0.8],  # 蓝色 - 地下水
+        }
+        
+        color = formation_colors.get(formation_id, [0.7, 0.7, 0.7])  # 默认灰色
+        return np.tile(color, (vertex_count, 1)).astype(np.float32)
     
     def _export_pyvista_to_threejs(self, pyvista_meshes: Dict[str, Any]) -> Dict[str, Any]:
         """PyVista网格转换为Three.js ArrayBuffer格式"""
