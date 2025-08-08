@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../../utils/safeThreeDetach';
 import { EnhancedRenderer } from '../../core/rendering/enhancedRenderer';
 import { StabilizedControls } from '../../core/rendering/stabilizedControls';
 import { RenderQualityManager, QualityPreset } from '../../core/rendering/renderQualityManager';
@@ -81,8 +82,8 @@ const AdvancedViewport: React.FC = () => {
     return () => {
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animationFrameId);
-      currentMount.removeChild(renderer.domElement);
-      renderer.dispose();
+      deepDispose(scene);
+      safeDetachRenderer(renderer);
       MaterialOptimizer.clearCache();
     };
   }, [quality]);

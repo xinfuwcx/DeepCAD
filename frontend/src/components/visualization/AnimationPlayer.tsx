@@ -21,6 +21,7 @@ import {
   ClockCircleOutlined
 } from '@ant-design/icons';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../../utils/safeThreeDetach';
 
 const { Text, Title } = Typography;
 const { Option } = Select;
@@ -178,7 +179,7 @@ const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
 
   // 帧插值函数
   const interpolateFrames = useCallback((frame1: any, frame2: any, t: number) => {
-    const interpolationStart = performance.now();
+  const interpolationStart = (typeof window !== 'undefined' && window.performance ? window.performance.now() : Date.now());
     
     if (!frame1 || !frame2 || t <= 0) return frame1;
     if (t >= 1) return frame2;
@@ -209,7 +210,7 @@ const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
       };
     });
     
-    const interpolationTime = performance.now() - interpolationStart;
+  const interpolationTime = (typeof window !== 'undefined' && window.performance ? window.performance.now() : Date.now()) - interpolationStart;
     
     setPerformance(prev => ({
       ...prev,
@@ -401,9 +402,11 @@ const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
   const updateMeshRender = useCallback((frameData: any) => {
     if (!sceneRef.current || !frameData) return;
     
-    const renderStart = performance.now();
+  const renderStart = (typeof window !== 'undefined' && window.performance ? window.performance.now() : Date.now());
     
-    // 更新原始网格
+  // 更新原始网格
+  let originalGeometry: THREE.BufferGeometry | null = null;
+  let deformedGeometry: THREE.BufferGeometry | null = null;
     if (config.showOriginalMesh) {
       if (originalMeshRef.current) {
         sceneRef.current.remove(originalMeshRef.current);
@@ -415,8 +418,8 @@ const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
         }
       }
       
-      const originalGeometry = createMeshGeometry(frameData, false);
-      if (originalGeometry) {
+  originalGeometry = createMeshGeometry(frameData, false);
+  if (originalGeometry) {
         const originalMaterial = new THREE.MeshLambertMaterial({
           vertexColors: true,
           transparent: true,
@@ -441,8 +444,8 @@ const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
         }
       }
       
-      const deformedGeometry = createMeshGeometry(frameData, true);
-      if (deformedGeometry) {
+  deformedGeometry = createMeshGeometry(frameData, true);
+  if (deformedGeometry) {
         const deformedMaterial = new THREE.MeshLambertMaterial({
           vertexColors: true,
           transparent: false,
@@ -461,12 +464,12 @@ const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
       updateTrails(frameData);
     }
     
-    const renderTime = performance.now() - renderStart;
+  const renderTime = (typeof window !== 'undefined' && window.performance ? window.performance.now() : Date.now()) - renderStart;
     
     setPerformance(prev => ({
       ...prev,
       renderTime,
-      trianglesRendered: (originalGeometry?.index?.count || 0) + (deformedGeometry?.index?.count || 0)
+  trianglesRendered: ((originalGeometry?.getIndex()?.count || 0) + (deformedGeometry?.getIndex()?.count || 0))
     }));
   }, [config.showOriginalMesh, config.showDeformedMesh, config.showTrails, createMeshGeometry]);
 
@@ -524,7 +527,7 @@ const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
       return;
     }
     
-    const now = performance.now();
+  const now = (typeof window !== 'undefined' && window.performance ? window.performance.now() : Date.now());
     const deltaTime = now - lastFrameTimeRef.current;
     
     if (deltaTime >= 1000 / playbackState.frameRate) {
@@ -579,15 +582,15 @@ const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
   // 初始化场景
   useEffect(() => {
     initializeScene();
-    lastFrameTimeRef.current = performance.now();
+  lastFrameTimeRef.current = (typeof window !== 'undefined' && window.performance ? window.performance.now() : Date.now());
     
     return () => {
       if (animationIdRef.current) {
         cancelAnimationFrame(animationIdRef.current);
       }
-      if (rendererRef.current && mountRef.current) {
-        mountRef.current.removeChild(rendererRef.current.domElement);
-        rendererRef.current.dispose();
+      deepDispose(sceneRef.current as any);
+      if (rendererRef.current) {
+        safeDetachRenderer(rendererRef.current as any);
       }
     };
   }, [initializeScene]);

@@ -6,9 +6,10 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../../utils/safeThreeDetach';
 import { designTokens } from '../../design/tokens';
 import { WeatherVisualization } from './WeatherVisualization';
-import { openMeteoService, WeatherData } from '../../services/OpenMeteoService';
+import openMeteoService, { WeatherData } from '../../services/OpenMeteoService';
 
 // ==================== 类型定义 ====================
 
@@ -214,7 +215,8 @@ export const EnhancedEpicFlightDemo: React.FC<{
   autoStart = true
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
+  // 预留 mapbox 集成引用（当前未启用）
+  const mapRef = useRef<any>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -304,11 +306,9 @@ export const EnhancedEpicFlightDemo: React.FC<{
     animate();
     
     return () => {
-      if (containerRef.current && renderer.domElement) {
-        containerRef.current.removeChild(renderer.domElement);
-      }
-      cloudSystem.dispose();
-      renderer.dispose();
+      try { cloudSystem.dispose(); } catch (_) {}
+      deepDispose(scene);
+      safeDetachRenderer(renderer);
     };
   }, [width, height]);
 

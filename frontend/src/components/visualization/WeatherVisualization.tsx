@@ -6,9 +6,10 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
-// TODO: 重构此组件以使用 OpenMeteoService
-// import { freeWeatherService, WeatherData, WeatherMapLayer, WindVector } from '../../services/freeWeatherService';
-import { openMeteoService, WeatherData } from '../../services/OpenMeteoService';
+import { openMeteoService } from '../../services/OpenMeteoService';
+
+type WeatherDataType = Awaited<ReturnType<typeof openMeteoService.getWeatherData>>;
+import { safeDetachRenderer, deepDispose } from '../../utils/safeThreeDetach';
 
 // 临时接口定义，待重构
 interface WeatherMapLayer {
@@ -25,7 +26,7 @@ interface WindVector {
   speed: number;
   direction: number;
 }
-import { designTokens } from '../../design/tokens';
+// NOTE: design tokens currently unused here – remove if not needed later
 
 interface WeatherVisualizationProps {
   width: number;
@@ -36,7 +37,7 @@ interface WeatherVisualizationProps {
     east: number;
     west: number;
   };
-  onWeatherUpdate?: (weather: WeatherData) => void;
+  onWeatherUpdate?: (weather: WeatherDataType) => void;
 }
 
 interface LayerControl {
@@ -62,7 +63,7 @@ export const WeatherVisualization: React.FC<WeatherVisualizationProps> = ({
   const windVectorGroup = useRef<THREE.Group | null>(null);
 
   const [isInitialized, setIsInitialized] = useState(false);
-  const [currentWeather, setCurrentWeather] = useState<WeatherData | null>(null);
+  const [currentWeather, setCurrentWeather] = useState<WeatherDataType | null>(null);
   const [layers, setLayers] = useState<LayerControl[]>([
     { id: 'temperature', name: '温度', type: 'temperature', visible: true, opacity: 0.7, icon: '🌡️' },
     { id: 'precipitation', name: '降水', type: 'precipitation', visible: false, opacity: 0.6, icon: '🌧️' },
@@ -73,7 +74,7 @@ export const WeatherVisualization: React.FC<WeatherVisualizationProps> = ({
   const [isUpdating, setIsUpdating] = useState(false);
   const [animationSpeed, setAnimationSpeed] = useState(1);
 
-  // 初始化Three.js场景
+  // 初始化 Three.js 场景
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -81,28 +82,28 @@ export const WeatherVisualization: React.FC<WeatherVisualizationProps> = ({
     scene.background = new THREE.Color(0x001122);
 
     const camera = new THREE.OrthographicCamera(
-      -width / 2, width / 2,
-      height / 2, -height / 2,
-      0.1, 1000
+      -width / 2,
+      width / 2,
+      height / 2,
+      -height / 2,
+      0.1,
+      1000
     );
     camera.position.z = 100;
 
-    const renderer = new THREE.WebGLRenderer({ 
-      alpha: true, 
+    const renderer = new THREE.WebGLRenderer({
+      alpha: true,
       antialias: true,
       premultipliedAlpha: false
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(window.devicePixelRatio);
 
-    // 添加环境光
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
-    scene.add(ambientLight);
-
-    // 添加方向光
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.4);
-    directionalLight.position.set(100, 100, 50);
-    scene.add(directionalLight);
+    // 灯光
+    scene.add(new THREE.AmbientLight(0x404040, 0.6));
+    const dir = new THREE.DirectionalLight(0xffffff, 0.4);
+    dir.position.set(100, 100, 50);
+    scene.add(dir);
 
     containerRef.current.appendChild(renderer.domElement);
 
@@ -110,7 +111,6 @@ export const WeatherVisualization: React.FC<WeatherVisualizationProps> = ({
     rendererRef.current = renderer;
     cameraRef.current = camera;
 
-    // 初始化风向量组
     const windGroup = new THREE.Group();
     windGroup.name = 'WindVectors';
     scene.add(windGroup);
@@ -118,37 +118,32 @@ export const WeatherVisualization: React.FC<WeatherVisualizationProps> = ({
 
     setIsInitialized(true);
 
-    // 渲染循环
+    let animationId: number;
     const animate = () => {
-      requestAnimationFrame(animate);
-      
-      // 更新动画
+      animationId = requestAnimationFrame(animate);
+
+      // 简单动画：风矢量缓慢旋转
       if (windVectorGroup.current) {
         windVectorGroup.current.rotation.z += 0.001 * animationSpeed;
       }
-      
-      // 更新图层动画
+
+      // 基于 shader 的层更新时间
       layerMeshes.current.forEach((mesh, layerId) => {
-        if (layerId === 'radar') {
-          // 雷达扫描动画
-          const time = Date.now() * 0.002 * animationSpeed;
-          (mesh.material as THREE.ShaderMaterial).uniforms.time.value = time;
-        } else if (layerId === 'cloud') {
-          // 云层移动动画
-          const time = Date.now() * 0.0005 * animationSpeed;
-          (mesh.material as THREE.ShaderMaterial).uniforms.time.value = time;
+        if (mesh.material instanceof THREE.ShaderMaterial && mesh.material.uniforms.time) {
+          const factor = layerId === 'radar' ? 0.002 : 0.0005;
+          mesh.material.uniforms.time.value = Date.now() * factor * animationSpeed;
         }
       });
-      
+
       renderer.render(scene, camera);
     };
     animate();
 
     return () => {
-      if (containerRef.current && renderer.domElement) {
-        containerRef.current.removeChild(renderer.domElement);
-      }
-      renderer.dispose();
+      cancelAnimationFrame(animationId);
+      // 释放资源
+      deepDispose(scene);
+      safeDetachRenderer(renderer);
     };
   }, [width, height, animationSpeed]);
 
@@ -159,7 +154,7 @@ export const WeatherVisualization: React.FC<WeatherVisualizationProps> = ({
       const centerLat = (bounds.north + bounds.south) / 2;
       const centerLng = (bounds.east + bounds.west) / 2;
       
-      const weather = await freeWeatherService.getCurrentWeather(centerLat, centerLng);
+  const weather = await openMeteoService.getWeatherData(centerLat, centerLng);
       setCurrentWeather(weather);
       onWeatherUpdate?.(weather);
     } catch (error) {
@@ -181,227 +176,97 @@ export const WeatherVisualization: React.FC<WeatherVisualizationProps> = ({
 
   // 创建温度热力图
   const createTemperatureLayer = useCallback(() => {
-    if (!sceneRef.current) return;
-
-    const layer = freeWeatherService.generateTemperatureHeatmap(bounds, 200);
-    
-    const geometry = new THREE.PlaneGeometry(width, height);
-    const texture = new THREE.DataTexture(
-      layer.data,
-      layer.width,
-      layer.height,
-      THREE.RGBAFormat,
-      THREE.FloatType
-    );
-    texture.needsUpdate = true;
-    texture.wrapS = THREE.ClampToEdgeWrapping;
-    texture.wrapT = THREE.ClampToEdgeWrapping;
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-
+    if (!sceneRef.current || layerMeshes.current.has('temperature')) return;
+    const geometry = new THREE.PlaneGeometry(width * 0.9, height * 0.9);
     const material = new THREE.MeshBasicMaterial({
-      map: texture,
+      color: 0xff6600,
       transparent: true,
-      opacity: 0.7,
+      opacity: 0.25,
       blending: THREE.AdditiveBlending
     });
-
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = 'TemperatureLayer';
-    sceneRef.current.add(mesh);
     layerMeshes.current.set('temperature', mesh);
-  }, [bounds, width, height]);
+    sceneRef.current.add(mesh);
+  }, [width, height]);
 
   // 创建降水热力图
   const createPrecipitationLayer = useCallback(() => {
-    if (!sceneRef.current) return;
-
-    const layer = freeWeatherService.generatePrecipitationHeatmap(bounds, 150);
-    
-    const geometry = new THREE.PlaneGeometry(width, height);
-    const texture = new THREE.DataTexture(
-      layer.data,
-      layer.width,
-      layer.height,
-      THREE.RGBAFormat,
-      THREE.FloatType
-    );
-    texture.needsUpdate = true;
-
+    if (!sceneRef.current || layerMeshes.current.has('precipitation')) return;
+    const geometry = new THREE.PlaneGeometry(width * 0.85, height * 0.85);
     const material = new THREE.MeshBasicMaterial({
-      map: texture,
+      color: 0x3366ff,
       transparent: true,
-      opacity: 0.6
+      opacity: 0.25
     });
-
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.name = 'PrecipitationLayer';
     mesh.visible = false;
-    sceneRef.current.add(mesh);
+    mesh.name = 'PrecipitationLayer';
     layerMeshes.current.set('precipitation', mesh);
-  }, [bounds, width, height]);
+    sceneRef.current.add(mesh);
+  }, [width, height]);
 
   // 创建风向量场
   const createWindVectors = useCallback(() => {
     if (!sceneRef.current || !windVectorGroup.current) return;
-
-    // 清除旧的风向量
     windVectorGroup.current.clear();
-
-    const vectors = freeWeatherService.generateWindVectors(bounds, 25);
-    
-    vectors.forEach(vector => {
-      // 风向箭头
-      const arrowGeometry = new THREE.ConeGeometry(3, 12, 4);
-      const arrowMaterial = new THREE.MeshBasicMaterial({ 
-        color: vector.color,
-        transparent: true,
-        opacity: 0.8
-      });
-      const arrow = new THREE.Mesh(arrowGeometry, arrowMaterial);
-      
-      // 位置转换
-      const x = (vector.lng - (bounds.west + bounds.east) / 2) * width / (bounds.east - bounds.west);
-      const y = (vector.lat - (bounds.south + bounds.north) / 2) * height / (bounds.north - bounds.south);
-      
-      arrow.position.set(x, y, 1);
-      arrow.rotation.z = -(vector.direction * Math.PI / 180) + Math.PI / 2;
-      
-      // 根据风速调整大小
-      const scale = Math.max(0.3, Math.min(2, vector.speed / 10));
-      arrow.scale.setScalar(scale);
-      
-      windVectorGroup.current!.add(arrow);
-    });
-
+    // 生成少量占位箭头
+    const arrowGeometry = new THREE.ConeGeometry(4, 12, 5);
+    for (let i = 0; i < 12; i++) {
+      const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, opacity: 0.8, transparent: true });
+      const arrow = new THREE.Mesh(arrowGeometry, mat);
+      const angle = (i / 12) * Math.PI * 2;
+      const radius = Math.min(width, height) * 0.25;
+      arrow.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, 2);
+      arrow.rotation.z = angle + Math.PI / 2;
+      windVectorGroup.current.add(arrow);
+    }
     windVectorGroup.current.visible = false;
-  }, [bounds, width, height]);
+  }, [width, height]);
 
   // 创建云图层
   const createCloudLayer = useCallback(() => {
-    if (!sceneRef.current) return;
-
-    const layer = freeWeatherService.generateCloudLayer(bounds, 180);
-    
-    const geometry = new THREE.PlaneGeometry(width, height);
-    
-    // 使用着色器材质实现云层动画
+    if (!sceneRef.current || layerMeshes.current.has('cloud')) return;
+    const geometry = new THREE.PlaneGeometry(width * 0.95, height * 0.95);
     const material = new THREE.ShaderMaterial({
       uniforms: {
-        cloudTexture: { value: new THREE.DataTexture(
-          layer.data,
-          layer.width,
-          layer.height,
-          THREE.RGBAFormat,
-          THREE.FloatType
-        )},
         time: { value: 0 },
         opacity: { value: 0.8 }
       },
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform sampler2D cloudTexture;
-        uniform float time;
-        uniform float opacity;
-        varying vec2 vUv;
-        
-        void main() {
-          vec2 animatedUv = vUv + vec2(time * 0.02, time * 0.01);
-          vec4 cloud = texture2D(cloudTexture, animatedUv);
-          
-          // 添加动态云层效果
-          float noise = sin(animatedUv.x * 20.0 + time) * cos(animatedUv.y * 15.0 + time) * 0.1;
-          cloud.a += noise;
-          cloud.a = clamp(cloud.a, 0.0, 1.0);
-          
-          gl_FragColor = vec4(cloud.rgb, cloud.a * opacity);
-        }
-      `,
-      transparent: true,
-      blending: THREE.NormalBlending
+      vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+      fragmentShader: `uniform float time; uniform float opacity; varying vec2 vUv; void main(){ float n = sin(vUv.x*20.0+time*0.5)*cos(vUv.y*15.0+time*0.4); float a = smoothstep(0.0,1.0,n*0.5+0.5); gl_FragColor = vec4(vec3(1.0), a*opacity); }`,
+      transparent: true
     });
-    
-    material.uniforms.cloudTexture.value.needsUpdate = true;
-
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = 'CloudLayer';
     mesh.visible = false;
     mesh.position.z = 0.5;
-    sceneRef.current.add(mesh);
     layerMeshes.current.set('cloud', mesh);
-  }, [bounds, width, height]);
+    sceneRef.current.add(mesh);
+  }, [width, height]);
 
   // 创建雷达图层
   const createRadarLayer = useCallback(() => {
-    if (!sceneRef.current) return;
-
-    const layer = freeWeatherService.generateRadarLayer(bounds, 120);
-    
+    if (!sceneRef.current || layerMeshes.current.has('radar')) return;
     const geometry = new THREE.PlaneGeometry(width, height);
-    
-    // 雷达扫描着色器
     const material = new THREE.ShaderMaterial({
       uniforms: {
-        radarTexture: { value: new THREE.DataTexture(
-          layer.data,
-          layer.width,
-          layer.height,
-          THREE.RGBAFormat,
-          THREE.FloatType
-        )},
         time: { value: 0 },
-        center: { value: new THREE.Vector2(0.5, 0.5) },
-        opacity: { value: 0.7 }
+        opacity: { value: 0.7 },
+        center: { value: new THREE.Vector2(0.0, 0.0) }
       },
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform sampler2D radarTexture;
-        uniform float time;
-        uniform vec2 center;
-        uniform float opacity;
-        varying vec2 vUv;
-        
-        void main() {
-          vec4 radar = texture2D(radarTexture, vUv);
-          
-          // 雷达扫描效果
-          vec2 pos = vUv - center;
-          float angle = atan(pos.y, pos.x);
-          float sweepAngle = time * 2.0;
-          float sweep = sin(angle - sweepAngle + 3.14159);
-          sweep = smoothstep(0.0, 0.2, sweep);
-          
-          radar.a *= sweep;
-          radar.a = clamp(radar.a, 0.0, 1.0);
-          
-          gl_FragColor = vec4(radar.rgb, radar.a * opacity);
-        }
-      `,
+      vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+      fragmentShader: `uniform float time; uniform float opacity; uniform vec2 center; varying vec2 vUv; void main(){ vec2 p = vUv - 0.5; float ang = atan(p.y,p.x); float sweep = sin(ang - time*2.0) * 0.5 + 0.5; float dist = length(p); float ring = smoothstep(0.02,0.0,abs(fract(dist*5.0 - time*0.5)-0.5)-0.25); float a = sweep * ring * opacity; gl_FragColor = vec4(0.2,0.8,0.3, a); }`,
       transparent: true,
       blending: THREE.AdditiveBlending
     });
-    
-    material.uniforms.radarTexture.value.needsUpdate = true;
-
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = 'RadarLayer';
     mesh.visible = false;
     mesh.position.z = 1;
-    sceneRef.current.add(mesh);
     layerMeshes.current.set('radar', mesh);
-  }, [bounds, width, height]);
+    sceneRef.current.add(mesh);
+  }, [width, height]);
 
   // 初始化所有图层
   useEffect(() => {

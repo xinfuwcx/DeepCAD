@@ -17,7 +17,9 @@ export function safeRemoveRenderer(
   try {
     const canvas = renderer.domElement;
     if (canvas && canvas.parentNode === container) {
-      container.removeChild(canvas);
+      if (container.contains(canvas)) {
+        container.removeChild(canvas);
+      }
     }
     renderer.dispose();
   } catch (error) {
@@ -33,7 +35,9 @@ export function safeEmptyContainer(container: HTMLElement | null): void {
 
   while (container.firstChild) {
     try {
-      container.removeChild(container.firstChild);
+      if (container.firstChild && container.contains(container.firstChild)) {
+        container.removeChild(container.firstChild);
+      }
     } catch (error) {
       console.warn('DOM节点清理警告:', error);
       break;
@@ -50,16 +54,17 @@ export function disposeMaterial(material: THREE.Material | THREE.Material[]): vo
   materials.forEach(mat => {
     try {
       // 清理纹理
-      if ('map' in mat && mat.map) mat.map.dispose();
-      if ('normalMap' in mat && mat.normalMap) mat.normalMap.dispose();
-      if ('roughnessMap' in mat && mat.roughnessMap) mat.roughnessMap.dispose();
-      if ('metalnessMap' in mat && mat.metalnessMap) mat.metalnessMap.dispose();
-      if ('envMap' in mat && mat.envMap) mat.envMap.dispose();
-      if ('aoMap' in mat && mat.aoMap) mat.aoMap.dispose();
-      if ('emissiveMap' in mat && mat.emissiveMap) mat.emissiveMap.dispose();
-      if ('bumpMap' in mat && mat.bumpMap) mat.bumpMap.dispose();
-      if ('displacementMap' in mat && mat.displacementMap) mat.displacementMap.dispose();
-      if ('alphaMap' in mat && mat.alphaMap) mat.alphaMap.dispose();
+  const mAny = mat as any;
+  try { if (mAny.map) mAny.map.dispose(); } catch { }
+  try { if (mAny.normalMap) mAny.normalMap.dispose(); } catch { }
+  try { if (mAny.roughnessMap) mAny.roughnessMap.dispose(); } catch { }
+  try { if (mAny.metalnessMap) mAny.metalnessMap.dispose(); } catch { }
+  try { if (mAny.envMap) mAny.envMap.dispose(); } catch { }
+  try { if (mAny.aoMap) mAny.aoMap.dispose(); } catch { }
+  try { if (mAny.emissiveMap) mAny.emissiveMap.dispose(); } catch { }
+  try { if (mAny.bumpMap) mAny.bumpMap.dispose(); } catch { }
+  try { if (mAny.displacementMap) mAny.displacementMap.dispose(); } catch { }
+  try { if (mAny.alphaMap) mAny.alphaMap.dispose(); } catch { }
       
       // 清理材质
       mat.dispose();
@@ -86,11 +91,12 @@ export function disposeGeometry(geometry: THREE.BufferGeometry): void {
 export function disposeObject3D(object: THREE.Object3D): void {
   try {
     object.traverse((child) => {
-      if ('geometry' in child && child.geometry) {
-        disposeGeometry(child.geometry);
+      const cAny = child as any;
+      if (cAny.geometry) {
+        try { disposeGeometry(cAny.geometry); } catch { }
       }
-      if ('material' in child && child.material) {
-        disposeMaterial(child.material);
+      if (cAny.material) {
+        try { disposeMaterial(cAny.material); } catch { }
       }
     });
     

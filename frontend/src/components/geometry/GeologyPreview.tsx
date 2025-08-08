@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../../utils/safeThreeDetach';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Card, Slider, Select, Switch, Space, Typography, Button, Form, InputNumber, Row, Col } from 'antd';
 import { EnvironmentOutlined, ReloadOutlined, EyeOutlined } from '@ant-design/icons';
@@ -175,13 +176,9 @@ const GeologyPreview: React.FC<GeologyPreviewProps> = ({
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (frameRef.current) {
-        cancelAnimationFrame(frameRef.current);
-      }
-      if (renderer.domElement.parentNode) {
-        renderer.domElement.parentNode.removeChild(renderer.domElement);
-      }
-      renderer.dispose();
+      if (frameRef.current) cancelAnimationFrame(frameRef.current);
+      deepDispose(scene);
+      safeDetachRenderer(renderer);
     };
   }, []);
 

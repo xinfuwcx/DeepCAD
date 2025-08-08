@@ -43,6 +43,7 @@ import {
 } from '@ant-design/icons';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../utils/safeThreeDetach';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { ExcavationCanvas2D } from '../components/ExcavationCanvas2D';
 import DxfParser from 'dxf-parser';
@@ -116,7 +117,8 @@ const ExcavationView: React.FC = () => {
         window.addEventListener('resize', handleResize);
         return () => {
             window.removeEventListener('resize', handleResize);
-            if(rendererRef.current) mount.removeChild(rendererRef.current.domElement);
+            deepDispose(sceneRef.current);
+            safeDetachRenderer(rendererRef.current!);
         };
     }, []);
 

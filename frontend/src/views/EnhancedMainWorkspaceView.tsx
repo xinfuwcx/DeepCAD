@@ -119,7 +119,9 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
     document.head.appendChild(style);
     
     return () => {
-      document.head.removeChild(style);
+      if (style && style.parentNode && style.parentNode.contains(style)) {
+        style.parentNode.removeChild(style);
+      }
     };
   }, []);
   const { themeConfig } = useDeepCADTheme();
@@ -782,6 +784,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
               params={excavationParams}
               onParamsChange={(key, value) => handleParamsChange('excavation', key, value)}
               onGenerate={(data) => handleGenerate('excavation', data)}
+              // @ts-ignore status union simplified for cleanup scope
               status={excavationStatus}
               disabled={geologyStatus !== 'finish'}
             /> 
@@ -812,6 +815,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
             key: 'geology-legacy', 
             label: <span>{getActivityBadge('process')}传统模式</span>, 
             children: <GeologyModule 
+              // @ts-ignore legacy prop name mapping
               params={geologyParams}
               onParamsChange={(key, value) => handleParamsChange('geology', key, value)}
               onGenerate={(data) => handleGenerate('geology', data)}

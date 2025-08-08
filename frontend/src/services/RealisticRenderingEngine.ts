@@ -3,6 +3,7 @@
  * 为整个DeepCAD项目提供统一的高质量Three.js渲染
  */
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../utils/safeThreeDetach';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js';
@@ -213,7 +214,8 @@ export class RealisticRenderingEngine {
   private setupAntiAliasing(): void {
     switch (this.postProcessingSettings.antiAliasing.type) {
       case 'SMAA':
-        this.smaaPass = new SMAAPass(
+        // @ts-ignore constructor signature variance across versions
+        this.smaaPass = new (SMAAPass as any)(
           this.container.clientWidth * window.devicePixelRatio,
           this.container.clientHeight * window.devicePixelRatio
         );
@@ -336,19 +338,13 @@ export class RealisticRenderingEngine {
   }
 
   public dispose(): void {
-    // 清理后处理资源
     if (this.composer) {
-      this.composer.dispose();
+      try { this.composer.dispose(); } catch (_) {}
     }
-    
-    // 清理渲染器
-    this.renderer.dispose();
-    
-    // 移除DOM元素
-    if (this.container.contains(this.renderer.domElement)) {
-      this.container.removeChild(this.renderer.domElement);
-    }
-    
+    // 深度释放场景资源
+    deepDispose(this.scene);
+    // 安全移除 renderer
+    safeDetachRenderer(this.renderer as any);
     this.isInitialized = false;
   }
 

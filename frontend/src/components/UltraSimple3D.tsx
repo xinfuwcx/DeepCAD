@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../utils/safeThreeDetach';
 import { ModernAxisHelper } from './3d/core/ModernAxisHelper';
 
 const UltraSimple3D: React.FC = () => {
@@ -61,10 +62,8 @@ const UltraSimple3D: React.FC = () => {
     console.log('Canvas DOM:', renderer.domElement);
 
     return () => {
-      if (container.contains(renderer.domElement)) {
-        container.removeChild(renderer.domElement);
-      }
-      renderer.dispose();
+      deepDispose(scene);
+      safeDetachRenderer(renderer);
     };
   }, []);
 

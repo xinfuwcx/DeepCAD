@@ -5,6 +5,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../../utils/safeThreeDetach';
 
 export const ParticleTest: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -95,10 +96,8 @@ export const ParticleTest: React.FC = () => {
 
       return () => {
         cancelAnimationFrame(animationId);
-        renderer.dispose();
-        if (containerRef.current && renderer.domElement) {
-          containerRef.current.removeChild(renderer.domElement);
-        }
+        deepDispose(scene);
+        safeDetachRenderer(renderer);
       };
 
     } catch (err) {

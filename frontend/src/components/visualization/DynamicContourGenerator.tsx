@@ -17,6 +17,7 @@ import {
   FunctionOutlined
 } from '@ant-design/icons';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../../utils/safeThreeDetach';
 
 const { Text, Title } = Typography;
 const { Option } = Select;
@@ -131,7 +132,7 @@ const DynamicContourGenerator: React.FC<DynamicContourGeneratorProps> = ({
 
   // Marching Squares算法实现
   const calculateContourLines = useCallback((data: ContourData, levels: number[]): ContourLine[] => {
-    const startTime = performance.now();
+  const startTime = (typeof window !== 'undefined' && window.performance ? window.performance.now() : Date.now());
     setIsCalculating(true);
     
     const contourLines: ContourLine[] = [];
@@ -151,7 +152,7 @@ const DynamicContourGenerator: React.FC<DynamicContourGeneratorProps> = ({
         });
       });
       
-      const calculationTime = performance.now() - startTime;
+  const calculationTime = (typeof window !== 'undefined' && window.performance ? window.performance.now() : Date.now()) - startTime;
       
       setPerformance(prev => ({
         ...prev,
@@ -392,7 +393,7 @@ const DynamicContourGenerator: React.FC<DynamicContourGeneratorProps> = ({
   const renderContourLines = useCallback((contourLines: ContourLine[]) => {
     if (!contourGroupRef.current) return;
     
-    const renderStart = performance.now();
+  const renderStart = (typeof window !== 'undefined' && window.performance ? window.performance.now() : Date.now());
     
     // 清除旧的等值线
     contourGroupRef.current.clear();
@@ -429,7 +430,7 @@ const DynamicContourGenerator: React.FC<DynamicContourGeneratorProps> = ({
       }
     });
     
-    const renderTime = performance.now() - renderStart;
+  const renderTime = (typeof window !== 'undefined' && window.performance ? window.performance.now() : Date.now()) - renderStart;
     
     setPerformance(prev => ({
       ...prev,
@@ -475,13 +476,13 @@ const DynamicContourGenerator: React.FC<DynamicContourGeneratorProps> = ({
       return;
     }
     
-    const frameStart = performance.now();
+  const frameStart = (typeof window !== 'undefined' && window.performance ? window.performance.now() : Date.now());
     
     // 渲染场景
     rendererRef.current.render(sceneRef.current, cameraRef.current);
     
     // 计算FPS
-    const frameTime = performance.now() - frameStart;
+  const frameTime = (typeof window !== 'undefined' && window.performance ? window.performance.now() : Date.now()) - frameStart;
     const fps = 1000 / frameTime;
     
     setPerformance(prev => ({
@@ -507,9 +508,9 @@ const DynamicContourGenerator: React.FC<DynamicContourGeneratorProps> = ({
       if (animationIdRef.current) {
         cancelAnimationFrame(animationIdRef.current);
       }
-      if (rendererRef.current && mountRef.current) {
-        mountRef.current.removeChild(rendererRef.current.domElement);
-        rendererRef.current.dispose();
+      deepDispose(sceneRef.current as any);
+      if (rendererRef.current) {
+        safeDetachRenderer(rendererRef.current as any);
       }
     };
   }, [initializeScene]);

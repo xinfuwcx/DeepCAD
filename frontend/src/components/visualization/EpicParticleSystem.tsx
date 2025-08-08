@@ -5,6 +5,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../../utils/safeThreeDetach';
 
 interface EpicParticleSystemProps {
   width: number;
@@ -183,12 +184,12 @@ export const EpicParticleSystem: React.FC<EpicParticleSystemProps> = ({
     animate();
 
     return () => {
-      if (containerRef.current && renderer.domElement) {
-        containerRef.current.removeChild(renderer.domElement);
-      }
-      geometry.dispose();
-      material.dispose();
-      renderer.dispose();
+      // 深度释放场景对象
+      deepDispose(scene);
+      // 安全移除 renderer
+      safeDetachRenderer(renderer as any);
+      try { geometry.dispose(); } catch (_) {}
+      try { material.dispose(); } catch (_) {}
     };
   }, [width, height, intensity, color, weatherEffect]);
 

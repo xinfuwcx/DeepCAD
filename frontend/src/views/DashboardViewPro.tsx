@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../utils/safeThreeDetach';
 import * as d3 from 'd3';
 import { useNavigate } from 'react-router-dom';
 import { designTokens } from '../design/tokens';
@@ -182,10 +183,8 @@ const Globe3DBackground: React.FC = () => {
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (mountRef.current && renderer.domElement) {
-        mountRef.current.removeChild(renderer.domElement);
-      }
-      renderer.dispose();
+      deepDispose(scene);
+      safeDetachRenderer(renderer);
     };
   }, []);
 
