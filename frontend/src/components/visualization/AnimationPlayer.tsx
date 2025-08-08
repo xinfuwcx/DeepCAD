@@ -584,10 +584,23 @@ const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
     return () => {
       if (animationIdRef.current) {
         cancelAnimationFrame(animationIdRef.current);
+        animationIdRef.current = null;
       }
-      if (rendererRef.current && mountRef.current) {
-        mountRef.current.removeChild(rendererRef.current.domElement);
-        rendererRef.current.dispose();
+      
+      // 安全卸载 renderer.domElement（仅当确为其父节点时）
+      try {
+        const mountNode = mountRef.current;
+        const renderer = rendererRef.current;
+        const dom = renderer?.domElement;
+        if (mountNode && dom && dom.parentNode === mountNode) {
+          mountNode.removeChild(dom);
+        }
+        renderer?.dispose?.();
+      } catch (e) {
+        // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
+        console.warn('[AnimationPlayer] cleanup warning:', e);
+      } finally {
+        rendererRef.current = undefined;
       }
     };
   }, [initializeScene]);

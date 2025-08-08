@@ -291,8 +291,16 @@ const GeologyThreeViewer: React.FC<GeologyThreeViewerProps> = ({
       window.removeEventListener('resize', handleResize);
       renderer.domElement.removeEventListener('click', handleMouseClick);
       
-      if (mountRef.current && renderer.domElement) {
-        mountRef.current.removeChild(renderer.domElement);
+      // 安全卸载 renderer.domElement（仅当确为其父节点时）
+      try {
+        const mountNode = mountRef.current;
+        const dom = renderer?.domElement;
+        if (mountNode && dom && dom.parentNode === mountNode) {
+          mountNode.removeChild(dom);
+        }
+      } catch (e) {
+        // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
+        console.warn('[GeologyThreeViewer] cleanup warning:', e);
       }
       
       // 清理资源

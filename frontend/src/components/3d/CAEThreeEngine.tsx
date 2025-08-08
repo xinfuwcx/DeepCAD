@@ -13,7 +13,22 @@ import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 import { ComponentDevHelper } from '../../utils/developmentTools';
 import { GeometryData, MaterialZone } from '../../core/InterfaceProtocol';
 import { LODManager } from './performance/LODManager.simple';
-import { safeRemoveRenderer, handleWebGLContextLoss, disposeMaterial, safeEmptyContainer } from '../../utils/threejsCleanup';
+// 导入必需的清理工具函数
+import { safeEmptyContainer } from '../../utils/threejsCleanup';
+
+// 临时本地定义以避免导入问题
+function localSafeEmptyContainer(container: HTMLElement | null): void {
+  if (!container) return;
+  
+  while (container.firstChild) {
+    try {
+      container.removeChild(container.firstChild);
+    } catch (error) {
+      console.warn('DOM节点清理警告:', error);
+      break;
+    }
+  }
+}
 
 // CAE特定材质类型
 export enum CAEMaterialType {
@@ -1132,7 +1147,7 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
       const container = containerRef.current;
       
       // 安全地清理容器内容，防止重复渲染
-      safeEmptyContainer(container);
+      localSafeEmptyContainer(container);
       
       const width = container.offsetWidth;
       const height = container.offsetHeight;

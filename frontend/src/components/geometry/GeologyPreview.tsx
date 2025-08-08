@@ -178,8 +178,16 @@ const GeologyPreview: React.FC<GeologyPreviewProps> = ({
       if (frameRef.current) {
         cancelAnimationFrame(frameRef.current);
       }
-      if (renderer.domElement.parentNode) {
-        renderer.domElement.parentNode.removeChild(renderer.domElement);
+      // 安全卸载 renderer.domElement（仅当确为其父节点时）
+      try {
+        const dom = renderer?.domElement;
+        const parentNode = dom?.parentNode;
+        if (parentNode && dom && parentNode.contains(dom)) {
+          parentNode.removeChild(dom);
+        }
+      } catch (e) {
+        // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
+        console.warn('[GeologyPreview] cleanup warning:', e);
       }
       renderer.dispose();
     };

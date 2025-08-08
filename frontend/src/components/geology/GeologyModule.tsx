@@ -833,7 +833,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
         >
           {/* 土层计算域 */}
         <TabPane tab="土体计算域" key="results" style={{ flex: 1, overflow: 'hidden' }}>
-          <div style={{ height: '100%', overflow: 'auto', paddingBottom: '40px' }}>
+          <div style={{ height: '100%', overflow: 'auto', paddingBottom: '140px' }}>
             <Row gutter={[16, 20]}>
             {/* 计算域设置区域 */}
             <Col span={24}>
@@ -1080,7 +1080,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
         </TabPane>
         {/* 数据管理 */}
         <TabPane tab="钻孔数据" key="data" style={{ flex: 1, overflow: 'hidden' }}>
-          <div style={{ height: '100%', overflow: 'auto', paddingBottom: '40px' }}>
+          <div style={{ height: '100%', overflow: 'auto', paddingBottom: '140px' }}>
             <Row gutter={16}>
             <Col span={24}>
               <Card title="数据上传" size="small">
@@ -1144,7 +1144,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
 
         {/* 算法配置 */}
         <TabPane tab="参数配置" key="config" style={{ flex: 1, overflow: 'hidden' }}>
-          <div style={{ height: '100%', overflow: 'auto', paddingBottom: '40px' }}>
+          <div style={{ height: '100%', overflow: 'auto', paddingBottom: '140px' }}>
             <Row gutter={16}>
             <Col span={24}>
               <Card title="建模配置" size="small" style={{ marginBottom: '16px' }}>

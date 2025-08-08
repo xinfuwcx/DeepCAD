@@ -79,15 +79,30 @@ export const ModelingDiagram: React.FC<DiagramProps> = ({
     animate();
 
     return () => {
-      if (containerRef.current) {
-        if (renderer.domElement.parentNode) {
-          containerRef.current.removeChild(renderer.domElement);
+      // 安全卸载 renderer.domElement（仅当确为其父节点时）
+      try {
+        const container = containerRef.current;
+        const dom = renderer?.domElement;
+        if (container && dom && dom.parentNode === container) {
+          container.removeChild(dom);
         }
-        if (cssRenderer.domElement.parentNode) {
-          containerRef.current.removeChild(cssRenderer.domElement);
-        }
+        renderer?.dispose?.();
+      } catch (e) {
+        // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
+        console.warn('[ModelingDiagrams] renderer cleanup warning:', e);
       }
-      renderer.dispose();
+      
+      // 安全卸载 cssRenderer.domElement（仅当确为其父节点时）
+      try {
+        const container = containerRef.current;
+        const cssDom = cssRenderer?.domElement;
+        if (container && cssDom && cssDom.parentNode === container) {
+          container.removeChild(cssDom);
+        }
+      } catch (e) {
+        // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
+        console.warn('[ModelingDiagrams] cssRenderer cleanup warning:', e);
+      }
     };
   }, [type, width, height, interactive, isHovered]);
 

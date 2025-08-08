@@ -144,8 +144,17 @@ const DiagramRenderer: React.FC<DiagramRendererProps> = ({
             }
             
             resizeObserver.disconnect();
-            if (mountNode && renderer.domElement) {
-                mountNode.removeChild(renderer.domElement);
+            
+            // 安全卸载 renderer.domElement（仅当确为其父节点时）
+            try {
+                const dom = renderer?.domElement;
+                if (mountNode && dom && dom.parentNode === mountNode) {
+                    mountNode.removeChild(dom);
+                }
+                renderer?.dispose?.();
+            } catch (e) {
+                // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
+                console.warn('[DiagramRenderer] cleanup warning:', e);
             }
         };
     }, [type, data]);

@@ -748,13 +748,20 @@ const ViewPort3D: React.FC<ViewPort3DProps> = ({
           controlsRef.current.dispose();
         }
         
-        if (rendererRef.current && mountRef.current) {
-          try {
-            mountRef.current.removeChild(rendererRef.current.domElement);
-          } catch (e) {
-            console.warn('Failed to remove renderer DOM element:', e);
+        // 安全卸载 renderer.domElement（仅当确为其父节点时）
+        try {
+          const mountNode = mountRef.current;
+          const renderer = rendererRef.current;
+          const dom = renderer?.domElement;
+          if (mountNode && dom && dom.parentNode === mountNode) {
+            mountNode.removeChild(dom);
           }
-          rendererRef.current.dispose();
+          renderer?.dispose?.();
+        } catch (e) {
+          // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
+          console.warn('[Viewport3D] cleanup warning:', e);
+        } finally {
+          rendererRef.current = undefined;
         }
         
         if (viewCube && mountRef.current) {

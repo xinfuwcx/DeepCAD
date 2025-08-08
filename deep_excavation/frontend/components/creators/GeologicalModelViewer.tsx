@@ -49,10 +49,20 @@ const GeologicalModelViewer: React.FC<GeologicalModelViewerProps> = ({
   useEffect(() => {
     if (!containerRef.current || !modelId) return;
     
-    // 清理之前的渲染器
-    if (rendererRef.current) {
-      containerRef.current.removeChild(rendererRef.current.domElement);
-      rendererRef.current.dispose();
+    // 安全清理之前的渲染器
+    try {
+      const container = containerRef.current;
+      const renderer = rendererRef.current;
+      const dom = renderer?.domElement;
+      if (container && dom && dom.parentNode === container) {
+        container.removeChild(dom);
+      }
+      renderer?.dispose?.();
+    } catch (e) {
+      // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
+      console.warn('[GeologicalModelViewer] cleanup warning:', e);
+    } finally {
+      rendererRef.current = undefined;
     }
     
     // 取消之前的动画帧

@@ -81,7 +81,18 @@ const AdvancedViewport: React.FC = () => {
     return () => {
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animationFrameId);
-      currentMount.removeChild(renderer.domElement);
+      
+      // 安全卸载 renderer.domElement（仅当确为其父节点时）
+      try {
+        const dom = renderer?.domElement;
+        if (currentMount && dom && dom.parentNode === currentMount) {
+          currentMount.removeChild(dom);
+        }
+      } catch (e) {
+        // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
+        console.warn('[AdvancedViewport] cleanup warning:', e);
+      }
+      
       renderer.dispose();
       MaterialOptimizer.clearCache();
     };

@@ -492,8 +492,21 @@ const CSS3DSchematic: React.FC<CSS3DSchematicProps> = ({
       if (controlsRef.current) {
         controlsRef.current.dispose();
       }
-      if (rendererRef.current && containerRef.current) {
-        containerRef.current.removeChild(rendererRef.current.domElement);
+      
+      // 安全卸载 renderer.domElement（仅当确为其父节点时）
+      try {
+        const mountNode = containerRef.current;
+        const renderer = rendererRef.current;
+        const dom = renderer?.domElement;
+        if (mountNode && dom && dom.parentNode === mountNode) {
+          mountNode.removeChild(dom);
+        }
+        renderer?.dispose?.();
+      } catch (e) {
+        // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
+        console.warn('[CSS3DSchematic] cleanup warning:', e);
+      } finally {
+        rendererRef.current = undefined;
       }
     };
   }, [type, width, height]);

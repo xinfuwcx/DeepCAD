@@ -302,10 +302,19 @@ const Professional3DViewport: React.FC<{
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (mountRef.current && renderer.domElement) {
-        mountRef.current.removeChild(renderer.domElement);
+      
+      // 安全卸载 renderer.domElement（仅当确为其父节点时）
+      try {
+        const mountNode = mountRef.current;
+        const dom = renderer?.domElement;
+        if (mountNode && dom && dom.parentNode === mountNode) {
+          mountNode.removeChild(dom);
+        }
+        renderer?.dispose?.();
+      } catch (e) {
+        // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
+        console.warn('[ResultsView] cleanup warning:', e);
       }
-      renderer.dispose();
     };
   }, [animationState]);
 

@@ -116,7 +116,18 @@ const ExcavationView: React.FC = () => {
         window.addEventListener('resize', handleResize);
         return () => {
             window.removeEventListener('resize', handleResize);
-            if(rendererRef.current) mount.removeChild(rendererRef.current.domElement);
+            // 安全卸载 renderer.domElement（仅当确为其父节点时）
+            try {
+                const renderer = rendererRef.current;
+                const dom = renderer?.domElement;
+                if (mount && dom && dom.parentNode === mount) {
+                    mount.removeChild(dom);
+                }
+                renderer?.dispose?.();
+            } catch (e) {
+                // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
+                console.warn('[ExcavationView] cleanup warning:', e);
+            }
         };
     }, []);
 

@@ -540,8 +540,16 @@ class Earth3DRenderer {
 
   public dispose() {
     this.stopAnimation();
-    if (this.renderer.domElement.parentNode) {
-      this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
+    // 安全卸载 renderer.domElement（仅当确为其父节点时）
+    try {
+      const dom = this.renderer?.domElement;
+      const parentNode = dom?.parentNode;
+      if (parentNode && dom && parentNode.contains(dom)) {
+        parentNode.removeChild(dom);
+      }
+    } catch (e) {
+      // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
+      console.warn('[EarthRenderer] cleanup warning:', e);
     }
     this.renderer.dispose();
   }
