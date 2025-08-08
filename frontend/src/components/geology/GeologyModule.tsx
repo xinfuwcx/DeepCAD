@@ -29,6 +29,7 @@ import VerticalToolbar, { VerticalToolType } from '@/components/geometry/Vertica
 import * as THREE from 'three';
 import { traditionalPreset } from '@/config/geologyPresets';
 import { RBFConfig } from '../../services/GeometryArchitectureService';
+import { useSeepageParameters } from './hooks/useSeepageParameters';
 
 const { Title, Text, Paragraph } = Typography;
 const { Panel } = Collapse;
@@ -395,8 +396,8 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
         duration: 6
       });
 
-      setProcessingStatus('failed');
-      onStatusChange?.('failed');
+      setProcessingStatus('error');
+      onStatusChange?.('error');
     }
   }, [boreholeFile, boreholeData, gemPyConfig, onStatusChange]);
 
@@ -472,8 +473,8 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
         duration: 6
       });
 
-      setProcessingStatus('failed');
-      onStatusChange?.('failed');
+      setProcessingStatus('error');
+      onStatusChange?.('error');
     }
   }, [boreholeFile, boreholeData, gemPyConfig, onStatusChange]);
 
@@ -497,7 +498,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
 
       const rbfConfig: RBFConfig = {
         kernelType: gemPyConfig.interpolationMethod === 'ordinary_kriging' ? 'gaussian' : 
-                   gemPyConfig.interpolationMethod === 'rbf_multiquadric' ? 'multiquadric' : 'linear', // Map to valid kernel
+                   gemPyConfig.interpolationMethod === 'rbf_multiquadric' ? 'multiquadric' : 'cubic', // Map to valid kernel
         kernelParameter: 1.0, // Default value
         smoothingFactor: gemPyConfig.faultSmoothing,
         maxIterations: 100, // Default
@@ -587,6 +588,26 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
     beforeUpload: handleBoreholeUpload,
     showUploadList: false,
   };
+
+  const { points: seepagePoints, addPoint: addSeepagePoint, updatePoint: updateSeepagePoint, removePoint: removeSeepagePoint } = useSeepageParameters({
+    initial: [
+      {
+        key: 'init1', id: 'WH001', x: 10.5, y: 15.2, elevation: 25.0, waterHead: 20.5,
+        boundaryType: 'constant_head', layerName: '粘土层', permeability: 1e-6,
+        wellType: 'observation', isActive: true, notes: '观测点1'
+      },
+      {
+        key: 'init2', id: 'WH002', x: 25.8, y: 30.1, elevation: 24.5, waterHead: 19.8,
+        boundaryType: 'specified_flux', layerName: '砂土层', permeability: 5e-5,
+        wellType: 'pumping', isActive: true, notes: '抽水井1'
+      },
+      {
+        key: 'init3', id: 'WH003', x: 40.2, y: 20.8, elevation: 26.2, waterHead: 21.0,
+        boundaryType: 'seepage_face', layerName: '粉砂层', permeability: 2e-5,
+        wellType: null, isActive: false, notes: '边界点'
+      }
+    ]
+  });
 
   return (
     <div 
@@ -1323,7 +1344,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                               step={10}
                               addonAfter="m"
                               style={{ 
-                                width: '100%', 
+                                width: '100%',
                                 backgroundColor: 'rgba(26, 26, 46, 0.8)',
                                 borderColor: 'rgba(74, 144, 226, 0.3)'
                               }}
@@ -1555,7 +1576,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                     type="primary" 
                     icon={<PlusOutlined />}
                     onClick={() => {
-                      // 添加新水头点
+                      addSeepagePoint({ elevation: 20, waterHead: 19 });
                       message.success('已添加新水头点');
                     }}
                   >
@@ -1577,50 +1598,8 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                     size="small"
                     scroll={{ y: 400, x: 1200 }}
                     pagination={{ pageSize: 10, size: 'small' }}
-                    dataSource={[
-                      {
-                        key: '1',
-                        id: 'WH001',
-                        x: 10.5,
-                        y: 15.2,
-                        elevation: 25.0,
-                        waterHead: 20.5,
-                        boundaryType: 'constant_head',
-                        layerName: '粘土层',
-                        permeability: 1e-6,
-                        wellType: 'observation',
-                        isActive: true,
-                        notes: '观测点1'
-                      },
-                      {
-                        key: '2',
-                        id: 'WH002',
-                        x: 25.8,
-                        y: 30.1,
-                        elevation: 24.5,
-                        waterHead: 19.8,
-                        boundaryType: 'specified_flux',
-                        layerName: '砂土层',
-                        permeability: 5e-5,
-                        wellType: 'pumping',
-                        isActive: true,
-                        notes: '抽水井1'
-                      },
-                      {
-                        key: '3',
-                        id: 'WH003',
-                        x: 40.2,
-                        y: 20.8,
-                        elevation: 26.2,
-                        waterHead: 21.0,
-                        boundaryType: 'seepage_face',
-                        layerName: '粉砂层',
-                        permeability: 2e-5,
-                        wellType: null,
-                        isActive: false,
-                        notes: '边界点'
-                      }
-                    ]}
+                    dataSource={seepagePoints}
+                    rowKey="key"
                     columns={[
                       {
                         title: '序号',
@@ -1639,7 +1618,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                             max={1000}
                             step={0.1}
                             style={{ width: '100%' }}
-                            onChange={(val) => console.log('X updated:', val)}
+                            onChange={(val) => updateSeepagePoint(record.key, { x: val || 0 })}
                           />
                         )
                       },
@@ -1655,7 +1634,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                             max={1000}
                             step={0.1}
                             style={{ width: '100%' }}
-                            onChange={(val) => console.log('Y updated:', val)}
+                            onChange={(val) => updateSeepagePoint(record.key, { y: val || 0 })}
                           />
                         )
                       },
@@ -1669,7 +1648,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                             value={value}
                             step={0.1}
                             style={{ width: '100%' }}
-                            onChange={(val) => console.log('Elevation updated:', val)}
+                            onChange={(val) => updateSeepagePoint(record.key, { elevation: val || 0 })}
                           />
                         )
                       },
@@ -1684,7 +1663,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                             max={record.elevation}
                             step={0.1}
                             style={{ width: '100%' }}
-                            onChange={(val) => console.log('Water head updated:', val)}
+                            onChange={(val) => updateSeepagePoint(record.key, { waterHead: val || 0 })}
                           />
                         )
                       },
@@ -1697,7 +1676,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                             size="small"
                             value={value}
                             style={{ width: '100%' }}
-                            onChange={(val) => console.log('Boundary type updated:', val)}
+                            onChange={(val) => updateSeepagePoint(record.key, { boundaryType: val })}
                           >
                             <Option value="constant_head">
                               <span style={{ color: '#1890ff' }}>定水头边界</span>
@@ -1723,7 +1702,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                             size="small"
                             value={value}
                             style={{ width: '100%' }}
-                            onChange={(val) => console.log('Layer updated:', val)}
+                            onChange={(val) => updateSeepagePoint(record.key, { layerName: val })}
                           >
                             <Option value="粘土层">粘土层</Option>
                             <Option value="砂土层">砂土层</Option>
@@ -1746,7 +1725,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                             formatter={(val) => val ? Number(val).toExponential(2) : ''}
                             parser={(val) => val ? parseFloat(val) : 0}
                             style={{ width: '100%' }}
-                            onChange={(val) => console.log('Permeability updated:', val)}
+                            onChange={(val) => updateSeepagePoint(record.key, { permeability: val || 0 })}
                           />
                         )
                       },
@@ -1761,7 +1740,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                             allowClear
                             placeholder="可选"
                             style={{ width: '100%' }}
-                            onChange={(val) => console.log('Well type updated:', val)}
+                            onChange={(val) => updateSeepagePoint(record.key, { wellType: val || null })}
                           >
                             <Option value="pumping">
                               <span style={{ color: '#722ed1' }}>抽水井</span>
@@ -1783,7 +1762,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                           <Switch
                             size="small"
                             checked={value}
-                            onChange={(checked) => console.log('Active status updated:', checked)}
+                            onChange={(checked) => updateSeepagePoint(record.key, { isActive: checked })}
                           />
                         )
                       },
@@ -1803,7 +1782,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                               type="link"
                               danger
                               icon={<DeleteOutlined />}
-                              onClick={() => message.info(`删除 ${record.id}`)}
+                              onClick={() => removeSeepagePoint(record.key)}
                             />
                           </Space>
                         )

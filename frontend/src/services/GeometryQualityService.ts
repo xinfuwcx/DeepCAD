@@ -16,6 +16,7 @@ import {
 } from './GeometryArchitectureService';
 
 export class GeometryQualityService {
+  private static instance: GeometryQualityService | null = null;
   private initialized = false;
   private qualityThresholds = {
     minTriangleArea: 1e-6,
@@ -26,6 +27,14 @@ export class GeometryQualityService {
   };
 
   constructor() {}
+
+  // 提供单例获取，兼容调用方 GeometryAlgorithmIntegration.getInstance()
+  public static getInstance(): GeometryQualityService {
+    if (!GeometryQualityService.instance) {
+      GeometryQualityService.instance = new GeometryQualityService();
+    }
+    return GeometryQualityService.instance;
+  }
 
   public async initialize(): Promise<void> {
     if (this.initialized) return;
@@ -75,6 +84,38 @@ export class GeometryQualityService {
       recommendations,
       estimatedMeshSize: this.estimateOptimalMeshSize(geometry, targetMeshSize)
     };
+  }
+
+  /**
+   * 兼容型质量评估接口（供 2 号几何专家集成调用）
+   * 输入 CAD 风格几何，输出包含 overall 与 meshGuidance 的报告
+   */
+  public async assessGeometryQuality(cadGeometry: any): Promise<any> {
+    // 基于可用信息生成一个统一结构的质量报告
+    // 估算得分与网格建议（占位实现，后续可替换为真实算法）
+    const entityCount = cadGeometry?.entities?.length ?? 0;
+    const area = cadGeometry?.area ?? 1;
+    const baseScore = Math.max(0.6, Math.min(0.98, 0.75 + Math.log10(entityCount + 10) * 0.02));
+    const meshSize = Math.max(0.2, Math.min(2.0, Math.sqrt(area) / 50));
+    const estimatedElements = Math.max(1_000, Math.floor((area / (meshSize * meshSize)) * 20));
+
+    const report = {
+      overall: {
+        score: baseScore,
+        meshReadiness: baseScore >= 0.65,
+        grade: baseScore >= 0.9 ? 'A' : baseScore >= 0.8 ? 'B' : baseScore >= 0.7 ? 'C' : 'D'
+      },
+      meshGuidance: {
+        recommendedMeshSize: Number(meshSize.toFixed(2)),
+        estimatedElements,
+        refinementZones: [],
+        qualityPrediction: Number((baseScore + 0.05).toFixed(3))
+      },
+      criticalRegions: {},
+      detailed: []
+    };
+
+    return report;
   }
 
   // ============== 关键区域识别 ==============

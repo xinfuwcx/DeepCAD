@@ -55,6 +55,12 @@ export interface CADToolbarProps {
   activeTool?: CADToolType;
   disabled?: boolean;
   className?: string;
+  /**
+   * Toolbar positioning mode.
+   * - "fixed": pinned to window (default)
+   * - "absolute": pinned to its nearest positioned parent (use for anchoring to 3D viewport)
+   */
+  positionMode?: 'fixed' | 'absolute';
 }
 
 const CADToolbar: React.FC<CADToolbarProps> = ({
@@ -603,7 +609,7 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
       <div 
         className={`cad-toolbar ${className}`}
         style={{
-          position: 'fixed',
+          position: (positionMode ?? 'fixed'),
           top: '50%',
           right: '20px',
           transform: 'translateY(-50%)',

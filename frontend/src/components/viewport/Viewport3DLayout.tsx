@@ -49,7 +49,7 @@ const Viewport3DLayout: React.FC<Viewport3DLayoutProps> = ({
   style
 }) => {
   // 状态管理
-  const [leftPanelVisible, setLeftPanelVisible] = useState(false);
+  const [leftPanelVisible, setLeftPanelVisible] = useState(false); // permanently disabled
   const [rightPanelVisible, setRightPanelVisible] = useState(false);
   const [selectedTool, setSelectedTool] = useState<string>('select');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -92,9 +92,6 @@ const Viewport3DLayout: React.FC<Viewport3DLayoutProps> = ({
     if (['measurement', 'annotation', 'sectioning'].includes(tool)) {
       setRightPanelVisible(true);
       setToolbarConfig(prev => ({ ...prev, rightPanelContent: 'interaction' }));
-    } else if (['cube', 'cylinder', 'sphere'].includes(tool)) {
-      setLeftPanelVisible(true);
-      setToolbarConfig(prev => ({ ...prev, leftPanelContent: 'geometry' }));
     }
   };
 
@@ -157,7 +154,6 @@ const Viewport3DLayout: React.FC<Viewport3DLayoutProps> = ({
         switch (event.key) {
           case '1':
             event.preventDefault();
-            setLeftPanelVisible(!leftPanelVisible);
             break;
           case '2':
             event.preventDefault();
@@ -201,7 +197,8 @@ const Viewport3DLayout: React.FC<Viewport3DLayoutProps> = ({
   const renderLeftPanelContent = () => {
     switch (toolbarConfig.leftPanelContent) {
       case 'geometry':
-        return <CADToolbar />;
+        // 几何模式下不在左侧渲染 CAD 工具栏，避免与右侧固定栏冲突
+        return null;
       case 'meshing':
         return <MeshingVerticalToolbar />;
       case 'computation':
@@ -503,36 +500,19 @@ const Viewport3DLayout: React.FC<Viewport3DLayoutProps> = ({
         </div>
       )}
 
-      {/* 左侧面板切换按钮 */}
-      {!leftPanelVisible && (
-        <motion.button
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          onClick={() => setLeftPanelVisible(true)}
+      {/* 左侧面板切换按钮已禁用，统一使用右侧工具栏 */}
+      {/* 在几何模式下，将 CAD 工具栏固定到视口右侧（组件内部已使用 position: fixed; right: 20px） */}
+      {currentMode === 'geometry' && (
+        <div
           style={{
             position: 'absolute',
-            left: '8px',
-            top: '60px',
-            width: '32px',
-            height: '48px',
-            background: 'rgba(30, 30, 30, 0.9)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            borderLeft: 'none',
-            borderRadius: '0 8px 8px 0',
-            color: '#00d9ff',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '14px',
-            zIndex: 80,
-            backdropFilter: 'blur(10px)'
+            inset: 0,
+            pointerEvents: 'none'
           }}
-          whileHover={{ x: 4 }}
-          title="展开工具面板"
         >
-          ▶
-        </motion.button>
+          {/* Anchor the toolbar to the 3D viewport's right edge */}
+          <CADToolbar onToolSelect={() => {}} positionMode="absolute" />
+        </div>
       )}
 
       {/* 右侧面板切换按钮 */}

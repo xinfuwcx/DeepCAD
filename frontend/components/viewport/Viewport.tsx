@@ -46,7 +46,7 @@ const STABILIZATION_CONFIG = {
   performanceMode: false
 };
 
-// 视口样式
+// 视口样式 - Abaqus风格专业渐变背景
 const viewportStyles: React.CSSProperties = {
   position: 'absolute',
   top: 0,
@@ -54,8 +54,13 @@ const viewportStyles: React.CSSProperties = {
   width: '100%',
   height: '100%',
   overflow: 'hidden',
-  background: 'linear-gradient(180deg, #1a2035 0%, #121828 100%)', // 深色渐变背景
-  boxShadow: 'inset 0 0 50px rgba(0,0,0,0.3)', // 内阴影增加深度感
+  // Abaqus风格的专业渐变：从浅灰蓝到深灰蓝
+  background: 'linear-gradient(180deg, #e8f0f5 0%, #7d94a6 35%, #4a5e6b 65%, #2d3e47 100%)',
+  // 替代选项1：经典CAD软件风格（更亮一些）
+  // background: 'linear-gradient(180deg, #f5f7fa 0%, #b8c6db 50%, #6c7b84 100%)',
+  // 替代选项2：现代工程软件风格（蓝色调）
+  // background: 'linear-gradient(180deg, #e3f2fd 0%, #90caf9 30%, #42a5f5 70%, #1976d2 100%)',
+  boxShadow: 'inset 0 0 30px rgba(0,0,0,0.1)', // 更轻柔的内阴影
 };
 
 /**
@@ -145,7 +150,7 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
       
       // 设置场景
       const scene = sceneRef.current;
-      scene.background = new THREE.Color(0x121828); // 深蓝色背景
+      scene.background = null; // 使用透明背景，让CSS渐变背景显示出来
       
       // 添加环境光和方向光
       const ambientLight = new THREE.AmbientLight(0x404040, 0.6); // 增加环境光强度

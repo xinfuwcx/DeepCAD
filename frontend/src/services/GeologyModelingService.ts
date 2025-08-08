@@ -695,6 +695,11 @@ export class GeologyModelingService {
           formation: hole.layers[0]?.soilType || 'unknown',
           properties: hole.layers[0]?.properties || {}
         })),
+        domain: {
+          // 兼容后端参数名，发送 domain(bounds/resolution)
+          bounds: this.inferBoundsFromHoles(boreholeData),
+          resolution: [options.resolutionX, options.resolutionY, Math.max(10, Math.round(options.resolutionY/2))]
+        },
         formations: {
           // 从钻孔数据中提取地层映射
           ...boreholeData.holes.reduce((acc, hole) => {
