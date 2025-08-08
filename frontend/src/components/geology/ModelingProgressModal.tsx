@@ -299,6 +299,17 @@ const ModelingProgressModal: React.FC<ModelingProgressModalProps> = ({
       open={visible}
       onCancel={handleCancel}
       width={600}
+      centered
+      style={{ 
+        top: 20,
+        maxHeight: 'calc(100vh - 40px)',
+        paddingBottom: 0
+      }}
+      bodyStyle={{
+        maxHeight: 'calc(100vh - 200px)',
+        overflowY: 'auto',
+        paddingBottom: 16
+      }}
       footer={
         <div className="flex justify-between items-center">
           <div className="flex gap-4">

@@ -31,6 +31,13 @@ const SupportModule: React.FC<SupportModuleProps> = ({
   const [anchorCount, setAnchorCount] = useState(20);
   const [beamEnabled, setBeamEnabled] = useState(false);
 
+  // 统一的内容容器样式，避免被底部操作区遮挡
+  const contentContainerStyle: React.CSSProperties = {
+    padding: '16px',
+    paddingBottom: '96px', // 预留底部空间给固定操作条
+    overflow: 'auto'
+  };
+
   // 生成锚杆表格数据
   const generateAnchorTableData = (count: number) => {
     return Array.from({ length: count }, (_, index) => ({
@@ -336,7 +343,7 @@ const SupportModule: React.FC<SupportModuleProps> = ({
           tab={<span><SafetyOutlined /> 墙参数</span>}
           key="wall_anchor"
         >
-          <div style={{ padding: '16px' }}>
+          <div style={contentContainerStyle}>
             {/* 地连墙参数 */}
             <Card
               title="地连墙参数"
@@ -466,7 +473,7 @@ const SupportModule: React.FC<SupportModuleProps> = ({
           tab={<span><NodeExpandOutlined /> 桩参数</span>}
           key="pile_anchor"
         >
-          <div style={{ padding: '16px' }}>
+          <div style={contentContainerStyle}>
             {/* 桩参数配置 */}
             <Card
               title="桩参数"
@@ -654,7 +661,7 @@ const SupportModule: React.FC<SupportModuleProps> = ({
           tab={<span><AimOutlined /> 锚杆参数</span>}
           key="anchor"
         >
-          <div style={{ padding: '16px', height: 'calc(100vh - 200px)', overflow: 'auto' }}>
+          <div style={{ ...contentContainerStyle, height: 'calc(100vh - 200px)' }}>
             {/* 锚杆参数 */}
             <Card
               title="锚杆参数"
@@ -777,9 +784,6 @@ const SupportModule: React.FC<SupportModuleProps> = ({
             </Card>
 
             <Divider />
-
-            {/* 增加底部空白区域，防止内容被遮挡 */}
-            <div style={{ height: '80px' }}></div>
 
           </div>
         </TabPane>

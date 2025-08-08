@@ -333,10 +333,23 @@ const CAE3DViewport: React.FC<CAE3DViewportProps> = ({
       window.removeEventListener('resize', handleResize);
       if (frameIdRef.current) {
         cancelAnimationFrame(frameIdRef.current);
+        frameIdRef.current = null;
       }
-      if (rendererRef.current && mountRef.current) {
-        mountRef.current.removeChild(rendererRef.current.domElement);
-        rendererRef.current.dispose();
+      
+      // 安全卸载 renderer.domElement（仅当确为其父节点时）
+      try {
+        const mountNode = mountRef.current;
+        const renderer = rendererRef.current;
+        const dom = renderer?.domElement;
+        if (mountNode && dom && dom.parentNode === mountNode) {
+          mountNode.removeChild(dom);
+        }
+        renderer?.dispose?.();
+      } catch (e) {
+        // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
+        console.warn('[CAE3DViewport] cleanup warning:', e);
+      } finally {
+        rendererRef.current = undefined;
       }
     };
   }, [initThreeJS, handleResize]);

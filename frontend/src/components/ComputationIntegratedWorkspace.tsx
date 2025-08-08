@@ -662,11 +662,29 @@ const ComputationIntegratedWorkspace: React.FC<ComputationIntegratedWorkspacePro
     init3DComputationScene();
     
     return () => {
+      // 停止动画帧
       if (frameIdRef.current) {
         cancelAnimationFrame(frameIdRef.current);
+        frameIdRef.current = null;
       }
-      if (rendererRef.current && mountRef.current) {
-        mountRef.current.removeChild(rendererRef.current.domElement);
+
+      // 安全卸载 renderer.domElement（仅当确为其父节点时）
+      try {
+        const mountNode = mountRef.current;
+        const renderer = rendererRef.current;
+        const dom = renderer?.domElement;
+        if (mountNode && dom && dom.parentNode === mountNode) {
+          mountNode.removeChild(dom);
+        }
+        // 释放 WebGL 资源
+        renderer?.dispose?.();
+      } catch (e) {
+        // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
+        console.warn('[ComputationIntegratedWorkspace] cleanup warning:', e);
+      } finally {
+        rendererRef.current = undefined;
+        sceneRef.current = undefined;
+        cameraRef.current = undefined;
       }
     };
   }, [init3DComputationScene]);

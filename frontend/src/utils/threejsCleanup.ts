@@ -16,12 +16,19 @@ export function safeRemoveRenderer(
 
   try {
     const canvas = renderer.domElement;
-    if (canvas && canvas.parentNode === container) {
+    // More robust check: verify the canvas exists, has a parent, and the parent is our container
+    if (canvas && canvas.parentNode && canvas.parentNode === container && container.contains(canvas)) {
       container.removeChild(canvas);
     }
     renderer.dispose();
   } catch (error) {
     console.warn('Three.js渲染器清理警告:', error);
+    // Don't re-throw the error, just dispose the renderer
+    try {
+      renderer.dispose();
+    } catch (disposeError) {
+      console.warn('Renderer dispose error:', disposeError);
+    }
   }
 }
 

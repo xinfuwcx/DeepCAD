@@ -152,17 +152,23 @@ export const ThreeProvider: React.FC<ThreeProviderProps> = ({ children, viewport
       if (rendererRef.current && viewportRef.current) {
         try {
           const canvas = rendererRef.current.domElement;
-          if (canvas && canvas.parentNode === viewportRef.current) {
+          // Check if canvas still exists and has the expected parent
+          if (canvas && canvas.parentNode && canvas.parentNode === viewportRef.current) {
             viewportRef.current.removeChild(canvas);
           }
           rendererRef.current.dispose();
         } catch (error) {
           console.warn('Three.js渲染器清理警告:', error);
+          // Don't re-throw, just log the warning
         }
       }
       
       if (controlsRef.current) {
-        controlsRef.current.dispose();
+        try {
+          controlsRef.current.dispose();
+        } catch (error) {
+          console.warn('Controls清理警告:', error);
+        }
       }
     };
   }, [viewportRef]);

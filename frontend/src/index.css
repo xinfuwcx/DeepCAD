@@ -45,6 +45,37 @@ html, body, #root {
   overflow: hidden;
 }
 
+/* Antd Modal 全局样式修复 - 防止底部按钮被遮挡 */
+.ant-modal {
+  max-height: calc(100vh - 40px) !important;
+  margin: 20px auto !important;
+  top: 20px !important;
+}
+
+.ant-modal-body {
+  max-height: calc(100vh - 200px) !important;
+  overflow-y: auto !important;
+}
+
+.ant-modal-footer {
+  position: sticky !important;
+  bottom: 0 !important;
+  background: white !important;
+  border-top: 1px solid #f0f0f0 !important;
+  z-index: 1 !important;
+}
+
+/* 确认对话框样式 */
+.ant-modal-confirm {
+  max-height: calc(100vh - 40px) !important;
+  margin: 20px auto !important;
+}
+
+.ant-modal-confirm .ant-modal-body {
+  max-height: calc(100vh - 160px) !important;
+  overflow-y: auto !important;
+}
+
 /* 字体配置 */
 body {
   font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;

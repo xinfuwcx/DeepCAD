@@ -111,6 +111,7 @@ const MeshGenerationModule: React.FC<MeshGenerationModuleProps> = ({
   const [meshResult, setMeshResult] = useState<MeshGenerationResult | null>(null);
   const [currentStage, setCurrentStage] = useState<string>('idle');
   const [showPyVistaResults, setShowPyVistaResults] = useState(false);
+  const animationFrameRef = useRef<number | null>(null);
 
   // 初始化3D网格场景
   const init3DMeshScene = useCallback(() => {
@@ -145,7 +146,7 @@ const MeshGenerationModule: React.FC<MeshGenerationModuleProps> = ({
 
     // 渲染循环
     const animate = () => {
-      requestAnimationFrame(animate);
+      animationFrameRef.current = requestAnimationFrame(animate);
       if (renderer && scene && camera) {
         renderer.render(scene, camera);
       }
@@ -477,8 +478,29 @@ const MeshGenerationModule: React.FC<MeshGenerationModuleProps> = ({
     init3DMeshScene();
     
     return () => {
-      if (rendererRef.current && mountRef.current) {
-        mountRef.current.removeChild(rendererRef.current.domElement);
+      // 停止动画帧
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+
+      // 安全卸载 renderer.domElement（仅当确为其父节点时）
+      try {
+        const mountNode = mountRef.current;
+        const renderer = rendererRef.current;
+        const dom = renderer?.domElement;
+        if (mountNode && dom && dom.parentNode === mountNode) {
+          mountNode.removeChild(dom);
+        }
+        // 释放 WebGL 资源
+        renderer?.dispose?.();
+      } catch (e) {
+        // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
+        console.warn('[MeshGenerationModule] cleanup warning:', e);
+      } finally {
+        rendererRef.current = undefined;
+        sceneRef.current = undefined;
+        cameraRef.current = undefined;
       }
     };
   }, [init3DMeshScene]);
