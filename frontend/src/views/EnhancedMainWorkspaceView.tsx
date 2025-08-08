@@ -30,6 +30,7 @@ import PhysicalGroupManager from '../components/meshing/PhysicalGroupManager';
 import IntegratedMeshControl from '../components/meshing/IntegratedMeshControl';
 import VerticalToolbar from '../components/geometry/VerticalToolbar';
 import type { VerticalToolType } from '../components/geometry/VerticalToolbar';
+import CADToolbar from '../components/geometry/CADToolbar';
 import BoundaryConditionConfigPanel from '../components/computation/BoundaryConditionConfigPanel';
 import LoadConfigPanel from '../components/computation/LoadConfigPanel';
 import RealtimeProgressMonitor from '../components/computation/RealtimeProgressMonitor.simple';
@@ -803,36 +804,20 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           }
         ]
       },
+      // 仅保留传统模式（按方案移除“地质重建”Tab）
       'geology-reconstruction': {
-        title: '地质重建',
+        title: '传统模式',
         tabs: [
           { 
-            key: 'geology-reconstruction', 
-            label: <span>{getActivityBadge(geologyStatus)}地质重建</span>, 
-            children: <EnhancedGeologyReconstructionPanel 
-              onModelGenerated={(result) => {
-                console.log('地质模型生成完成:', result);
-                message.success('地质重建完成！');
-              }}
-              onStatusChange={(status) => {
-                console.log('地质重建状态变更:', status);
-              }}
-              onQualityReport={(report) => {
-                console.log('质量报告:', report);
-              }}
-            />
-          },
-          { 
             key: 'geology-legacy', 
-            label: <span>{getActivityBadge('wait')}传统模式</span>, 
+            label: <span>{getActivityBadge('process')}传统模式</span>, 
             children: <GeologyModule 
               params={geologyParams}
               onParamsChange={(key, value) => handleParamsChange('geology', key, value)}
               onGenerate={(data) => handleGenerate('geology', data)}
               status={geologyStatus}
             />
-          },
-
+          }
         ]
       },
       'tunnel-modeling': {
@@ -1235,6 +1220,12 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                   onMeasurement={(measurement) => ComponentDevHelper.logDevTip(`地质环境测量: ${JSON.stringify(measurement)}`)}
                   style={{ flex: 1, minHeight: '400px' }}
                 />
+                {/* 工具栏锚定在3D视口右侧 */}
+                <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                  <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, pointerEvents: 'auto' }}>
+                    <CADToolbar onToolSelect={() => {}} positionMode="absolute" />
+                  </div>
+                </div>
                 
                 {/* 地质环境信息面板 */}
                 <div style={{ 
@@ -1280,6 +1271,12 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                   onMeasurement={(measurement) => ComponentDevHelper.logDevTip(`几何测量: ${JSON.stringify(measurement)}`)}
                   style={{ flex: 1, minHeight: '400px' }}
                 />
+                {/* 工具栏锚定在3D视口右侧 */}
+                <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                  <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, pointerEvents: 'auto' }}>
+                    <CADToolbar onToolSelect={() => {}} positionMode="absolute" />
+                  </div>
+                </div>
               </div>
             </div>
           );
@@ -2080,7 +2077,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
         <div style={{ 
           flex: 1, 
           display: 'flex', 
-          padding: '12px',
+          padding: ['meshing','analysis','physics-ai','results'].includes(activeModule) ? '12px' : '12px 0 12px 12px',
           gap: '12px',
           overflow: 'hidden'
         }}>
@@ -2098,122 +2095,115 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
               {renderMainViewport()}
             </div>
             
-            {/* 右侧专家工具栏区域 */}
-            <div style={{ width: '80px', display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '8px' }}>
-              {/* 2号专家几何工具栏 */}
-              {(activeModule === 'geology-modeling' || activeModule === 'borehole-visualization' || activeModule === 'excavation-design' || activeModule === 'support-structure') && (
-                <VerticalToolbar
-                  activeTool={activeGeometryTool}
-                  onToolSelect={handleGeometryToolSelect}
-                />
-              )}
-              
-              
-              {/* 3号专家网格工具栏 */}
-              {activeModule === 'meshing' && (
-                <MeshingToolbar 
-                  geometryLoaded={true}
-                  meshGenerated={expert3State.meshingStatus === 'completed'}
-                  onGenerateMesh={() => {
-                    handleExpert3Action('start_meshing', {});
-                    message.info('开始生成网格...');
-                  }}
-                  onMeshSettings={() => {
-                    console.log('打开网格设置');
-                    message.info('网格设置面板');
-                  }}
-                  onMeshValidation={() => {
-                    console.log('执行网格验证');
-                    message.info('正在验证网格质量...');
-                    setTimeout(() => {
-                      message.success('网格验证完成，质量良好');
-                    }, 2000);
-                  }}
-                  onMeshPreview={() => {
-                    console.log('预览网格');
-                    message.info('网格预览模式已激活');
-                  }}
-                  onMeshStart={() => {
-                    console.log('开始网格生成');
-                    message.info('开始网格生成过程');
-                  }}
-                  onMeshPause={() => {
-                    console.log('暂停网格生成');
-                    message.warning('网格生成已暂停');
-                  }}
-                  onMeshReset={() => {
-                    console.log('重置网格');
-                    message.info('网格已重置');
-                  }}
-                  onOpenAlgorithmConfig={() => {
-                    console.log('打开算法配置');
-                    message.info('算法配置面板');
-                  }}
-                  onShowQualityAnalysis={() => {
-                    console.log('显示质量分析');
-                    message.info('质量分析报告');
-                  }}
-                  onOpenPhysicalGroups={() => {
-                    console.log('打开物理组');
-                    message.info('物理组管理面板');
-                  }}
-                  onExportMesh={(format) => {
-                    console.log('导出网格:', format);
-                    message.info('正在导出网格文件...');
-                    setTimeout(() => {
-                      message.success('网格文件导出完成');
-                    }, 2000);
-                  }}
-                  onRefreshGeometry={() => {
-                    console.log('刷新几何');
-                    message.info('几何模型已刷新');
-                  }}
-                  onShowMeshStatistics={() => {
-                    console.log('显示网格统计');
-                    message.info('网格统计信息面板');
-                  }}
-                />
-              )}
-              
-              {/* 3号专家分析工具栏 */}
-              {activeModule === 'analysis' && (
-                <AnalysisToolbar 
-                  computationStatus={expert3State.computationActive ? 'running' : 'idle'}
-                  meshingStatus={expert3State.meshingStatus}
-                  analysisProgress={expert3State.analysisProgress}
-                  onStartComputation={() => handleExpert3Action('start_computation')}
-                  onStopComputation={() => handleExpert3Action('stop_computation')}
-                  onShowMonitor={() => setRightPanelTab('computation-monitor')}
-                  onOpenSolverConfig={() => console.log('打开求解器配置')}
-                />
-              )}
-              
-              {/* 3号专家物理AI工具栏 */}
-              {activeModule === 'physics-ai' && (
-                <PhysicsAIToolbar 
-                  aiOptimizationActive={expert3State.physicsAIEnabled}
-                  aiAnalysisComplete={expert3State.optimizationRunning}
-                  currentRecommendations={expert3State.aiRecommendations}
-                  analysisDataReady={true}
-                  onStartAIOptimization={() => handleExpert3Action('start_optimization')}
-                  onShowAISuggestions={() => console.log('显示AI建议')}
-                  onOpenParameterTuning={() => console.log('参数调优')}
-                  onToggleAIAssistant={(enabled) => handleExpert3Action('enable_physics_ai', { enabled })}
-                />
-              )}
-              
-              {/* 3号专家结果工具栏 */}
-              {activeModule === 'results' && (
-                <ResultsToolbar 
-                  visualizationMode={expert3State.resultVisualizationMode}
-                  resultsAvailable={expert3State.currentResults !== null}
-                  onVisualizationChange={(mode) => handleExpert3Action('change_visualization', { mode })}
-                  onExportResults={(format) => console.log('导出结果:', format)}
-                  onShowAnimation={() => console.log('显示动画')}
-                  onToggle3DView={() => console.log('切换3D视图')}
-                />
-              )}
-            </div>
+            {/* 右侧专家工具栏区域（仅在需要时占位，否则不保留宽度，确保3D视口充满） */}
+            {(['meshing', 'analysis', 'physics-ai', 'results'].includes(activeModule)) && (
+              <div style={{ width: '80px', display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '8px' }}>
+                {/* 3号专家网格工具栏 */}
+                {activeModule === 'meshing' && (
+                  <MeshingToolbar 
+                    geometryLoaded={true}
+                    meshGenerated={expert3State.meshingStatus === 'completed'}
+                    onGenerateMesh={() => {
+                      handleExpert3Action('start_meshing', {});
+                      message.info('开始生成网格...');
+                    }}
+                    onMeshSettings={() => {
+                      console.log('打开网格设置');
+                      message.info('网格设置面板');
+                    }}
+                    onMeshValidation={() => {
+                      console.log('执行网格验证');
+                      message.info('正在验证网格质量...');
+                      setTimeout(() => {
+                        message.success('网格验证完成，质量良好');
+                      }, 2000);
+                    }}
+                    onMeshPreview={() => {
+                      console.log('预览网格');
+                      message.info('网格预览模式已激活');
+                    }}
+                    onMeshStart={() => {
+                      console.log('开始网格生成');
+                      message.info('开始网格生成过程');
+                    }}
+                    onMeshPause={() => {
+                      console.log('暂停网格生成');
+                      message.warning('网格生成已暂停');
+                    }}
+                    onMeshReset={() => {
+                      console.log('重置网格');
+                      message.info('网格已重置');
+                    }}
+                    onOpenAlgorithmConfig={() => {
+                      console.log('打开算法配置');
+                      message.info('算法配置面板');
+                    }}
+                    onShowQualityAnalysis={() => {
+                      console.log('显示质量分析');
+                      message.info('质量分析报告');
+                    }}
+                    onOpenPhysicalGroups={() => {
+                      console.log('打开物理组');
+                      message.info('物理组管理面板');
+                    }}
+                    onExportMesh={(format) => {
+                      console.log('导出网格:', format);
+                      message.info('正在导出网格文件...');
+                      setTimeout(() => {
+                        message.success('网格文件导出完成');
+                      }, 2000);
+                    }}
+                    onRefreshGeometry={() => {
+                      console.log('刷新几何');
+                      message.info('几何模型已刷新');
+                    }}
+                    onShowMeshStatistics={() => {
+                      console.log('显示网格统计');
+                      message.info('网格统计信息面板');
+                    }}
+                  />
+                )}
+                
+                {/* 3号专家分析工具栏 */}
+                {activeModule === 'analysis' && (
+                  <AnalysisToolbar 
+                    computationStatus={expert3State.computationActive ? 'running' : 'idle'}
+                    meshingStatus={expert3State.meshingStatus}
+                    analysisProgress={expert3State.analysisProgress}
+                    onStartComputation={() => handleExpert3Action('start_computation')}
+                    onStopComputation={() => handleExpert3Action('stop_computation')}
+                    onShowMonitor={() => setRightPanelTab('computation-monitor')}
+                    onOpenSolverConfig={() => console.log('打开求解器配置')}
+                  />
+                )}
+                
+                {/* 3号专家物理AI工具栏 */}
+                {activeModule === 'physics-ai' && (
+                  <PhysicsAIToolbar 
+                    aiOptimizationActive={expert3State.physicsAIEnabled}
+                    aiAnalysisComplete={expert3State.optimizationRunning}
+                    currentRecommendations={expert3State.aiRecommendations}
+                    analysisDataReady={true}
+                    onStartAIOptimization={() => handleExpert3Action('start_optimization')}
+                    onShowAISuggestions={() => console.log('显示AI建议')}
+                    onOpenParameterTuning={() => console.log('参数调优')}
+                    onToggleAIAssistant={(enabled) => handleExpert3Action('enable_physics_ai', { enabled })}
+                  />
+                )}
+                
+                {/* 3号专家结果工具栏 */}
+                {activeModule === 'results' && (
+                  <ResultsToolbar 
+                    visualizationMode={expert3State.resultVisualizationMode}
+                    resultsAvailable={expert3State.currentResults !== null}
+                    onVisualizationChange={(mode) => handleExpert3Action('change_visualization', { mode })}
+                    onExportResults={(format) => console.log('导出结果:', format)}
+                    onShowAnimation={() => console.log('显示动画')}
+                    onToggle3DView={() => console.log('切换3D视图')}
+                  />
+                )}
+              </div>
+            )}
           </div>
 
           {/* 右侧数据面板 - 特定模块显示 */}

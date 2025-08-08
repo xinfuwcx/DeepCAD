@@ -26,6 +26,7 @@ import { GeologyModelingService } from '../../services/GeologyModelingService';
 import GempyDirectService from '@/services/GempyDirectService';
 import GeologyReconstructionViewport3D from '@/components/geology/GeologyReconstructionViewport3D';
 import VerticalToolbar, { VerticalToolType } from '@/components/geometry/VerticalToolbar';
+import CADToolbar from '@/components/geometry/CADToolbar';
 import * as THREE from 'three';
 import { traditionalPreset } from '@/config/geologyPresets';
 import { RBFConfig } from '../../services/GeometryArchitectureService';
@@ -149,6 +150,11 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
   const [extraSectionAxis, setExtraSectionAxis] = useState<'x' | 'y' | 'z'>('x');
   const [explodeOffset, setExplodeOffset] = useState<number>(0);
   const [screenshotNonce, setScreenshotNonce] = useState<number>(0);
+  // 手动计算域开关与边界（缺省采用手动指定）
+  const [useManualDomain, setUseManualDomain] = useState<boolean>(true);
+  const [domainBounds, setDomainBounds] = useState<{ xMin: number; xMax: number; yMin: number; yMax: number; zMin: number; zMax: number }>(
+    { xMin: -50, xMax: 50, yMin: -50, yMax: 50, zMin: -20, zMax: 0 }
+  );
 
   // 服务引用
   const gemPyServiceRef = useRef<GeologyModelingService | null>(null);
@@ -356,14 +362,16 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
         });
 
         // 更新统计信息
-        setRealTimeStats({
-          vertexCount: result.model_stats?.vertex_count || 0,
-          triangleCount: result.model_stats?.triangle_count || 0,
-          qualityScore: 0.95, // GemPy通常质量很高
-          processingTime: result.processing_time || 0,
-          interpolationMethod: result.method,
-          memoryUsage: Math.round(Math.random() * 500 + 100)
-        });
+        {
+          const anyResult: any = result as any;
+          setRealTimeStats({
+            interpolationTime: Number(anyResult?.processing_time ?? 0),
+            dataPoints: Number(anyResult?.model_stats?.vertex_count ?? 0),
+            gridPoints: Number(anyResult?.model_stats?.triangle_count ?? 0),
+            memoryUsage: Math.round(Math.random() * 500 + 100),
+            qualityScore: 0.95
+          });
+        }
 
         // 如果有Three.js数据，可以传递给3D查看器
         if (result.threejs_data && Object.keys(result.threejs_data).length > 0) {
@@ -377,7 +385,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
         onStatusChange?.('completed');
 
       } else {
-        throw new Error(`建模失败: ${result.error || '未知错误'}`);
+        throw new Error(`建模失败: ${(result as any)?.error || '未知错误'}`);
       }
 
     } catch (error) {
@@ -423,16 +431,30 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
 
       setProcessingProgress(40);
 
-      // 使用直连服务（传统模式预设）
-      const payload = {
-        boreholes: boreholeData?.holes || [],
-        domain: { resolution: traditionalPreset.domain.resolution },
+      // 使用直连服务（带上计算域范围与分辨率）
+      const holes = boreholeData?.holes || [];
+      const autoInferBounds = () => {
+        const xs = holes.map((h: any) => h.x ?? h.location?.x ?? 0);
+        const ys = holes.map((h: any) => h.y ?? h.location?.y ?? 0);
+        const zs = holes.map((h: any) => h.z ?? h.location?.z ?? -(h.elevation ?? 0));
+        const min = (arr: number[]) => (arr.length ? Math.min(...arr) : -50);
+        const max = (arr: number[]) => (arr.length ? Math.max(...arr) : 50);
+        const b = { x_min: min(xs), x_max: max(xs), y_min: min(ys), y_max: max(ys), z_min: min(zs), z_max: max(zs) };
+        const expand = 0.2; const expandRange = (lo: number, hi: number) => { const r = hi - lo; return { lo: lo - r * expand, hi: hi + r * expand }; };
+        const xr = expandRange(b.x_min, b.x_max); const yr = expandRange(b.y_min, b.y_max); const zr = expandRange(b.z_min, b.z_max);
+        return { x_min: xr.lo, x_max: xr.hi, y_min: yr.lo, y_max: yr.hi, z_min: zr.lo, z_max: zr.hi };
       };
+      const manual = { x_min: domainBounds.xMin, x_max: domainBounds.xMax, y_min: domainBounds.yMin, y_max: domainBounds.yMax, z_min: domainBounds.zMin, z_max: domainBounds.zMax };
+      const domain = {
+        bounds: useManualDomain ? manual : autoInferBounds(),
+        resolution: [gemPyConfig.resolutionX, gemPyConfig.resolutionY, gemPyConfig.resolutionZ]
+      };
+      const payload = { boreholes: holes, domain } as any;
       const three = await GempyDirectService.buildModel(payload as any);
 
       setProcessingProgress(90);
 
-      console.log('⚡ GemPy直接显示链路结果:', result);
+      console.log('⚡ GemPy直接显示链路结果:', three);
 
       message.destroy();
 
@@ -831,31 +853,44 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                 }}
               >
                 <Form layout="vertical">
+              <Row gutter={[16, 12]}>
+                <Col xs={24} sm={8}>
+                  <Form.Item label="X 最小 (m)">
+                    <InputNumber value={domainBounds.xMin} onChange={(v) => setDomainBounds(prev => ({ ...prev, xMin: v ?? prev.xMin }))} style={{ width: '100%' }} />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={8}>
+                  <Form.Item label="X 最大 (m)">
+                    <InputNumber value={domainBounds.xMax} onChange={(v) => setDomainBounds(prev => ({ ...prev, xMax: v ?? prev.xMax }))} style={{ width: '100%' }} />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={8}>
+                  <Form.Item label="使用手动域">
+                    <Switch checked={useManualDomain} onChange={setUseManualDomain} />
+                  </Form.Item>
+                </Col>
+              </Row>
                   <Row gutter={[16, 12]}>
                     <Col xs={24} sm={12}>
-                      <Form.Item label="X方向范围 (m)">
-                        <InputNumber placeholder="例如: 50" defaultValue="50" />
+                  <Form.Item label="Y 最小 (m)">
+                    <InputNumber value={domainBounds.yMin} onChange={(v) => setDomainBounds(prev => ({ ...prev, yMin: v ?? prev.yMin }))} style={{ width: '100%' }} />
                       </Form.Item>
                     </Col>
                     <Col xs={24} sm={12}>
-                      <Form.Item label="Y方向范围 (m)">
-                        <InputNumber placeholder="例如: 50" defaultValue="50" />
+                  <Form.Item label="Y 最大 (m)">
+                    <InputNumber value={domainBounds.yMax} onChange={(v) => setDomainBounds(prev => ({ ...prev, yMax: v ?? prev.yMax }))} style={{ width: '100%' }} />
                       </Form.Item>
                     </Col>
                   </Row>
                   <Row gutter={[16, 12]}>
                     <Col xs={24} sm={12}>
-                      <Form.Item label="Z方向范围 (m)">
-                        <InputNumber placeholder="例如: 5" defaultValue="5" />
+                  <Form.Item label="Z 最小 (m)">
+                    <InputNumber value={domainBounds.zMin} onChange={(v) => setDomainBounds(prev => ({ ...prev, zMin: v ?? prev.zMin }))} style={{ width: '100%' }} />
                       </Form.Item>
                     </Col>
                     <Col xs={24} sm={12}>
-                      <Form.Item label="网格密度">
-                        <Select defaultValue="medium" style={{ width: '100%' }}>
-                          <Option value="coarse">粗糙</Option>
-                          <Option value="medium">中等</Option>
-                          <Option value="fine">精细</Option>
-                        </Select>
+                  <Form.Item label="Z 最大 (m)">
+                    <InputNumber value={domainBounds.zMax} onChange={(v) => setDomainBounds(prev => ({ ...prev, zMax: v ?? prev.zMax }))} style={{ width: '100%' }} />
                       </Form.Item>
                     </Col>
                   </Row>
@@ -1124,8 +1159,8 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                       >
                         <Option value="rbf_multiquadric">
                           <div style={{ padding: '8px 0' }}>
-                            <div style={{ fontWeight: 'bold', color: '#4a90e2', marginBottom: '4px' }}>
-                              RBF多二次插值 <Tag color="green" size="small">推荐</Tag>
+                             <div style={{ fontWeight: 'bold', color: '#4a90e2', marginBottom: '4px' }}>
+                               RBF多二次插值 <Tag color="green">推荐</Tag>
                             </div>
                             <div style={{ fontSize: '11px', color: '#999', lineHeight: '1.4' }}>
                               全局插值·适合密集+稀疏混合分布·基坑场景首选
@@ -1144,8 +1179,8 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                         </Option>
                         <Option value="adaptive_idw">
                           <div style={{ padding: '8px 0' }}>
-                            <div style={{ fontWeight: 'bold', color: '#1890ff', marginBottom: '4px' }}>
-                              自适应反距离权重 <Tag color="blue" size="small">快速</Tag>
+                             <div style={{ fontWeight: 'bold', color: '#1890ff', marginBottom: '4px' }}>
+                               自适应反距离权重 <Tag color="blue">快速</Tag>
                             </div>
                             <div style={{ fontSize: '11px', color: '#999', lineHeight: '1.4' }}>
                               计算快速·局部精度高·适合实时预览验证
@@ -1344,7 +1379,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                               step={10}
                               addonAfter="m"
                               style={{ 
-                                width: '100%',
+                                width: '100%', 
                                 backgroundColor: 'rgba(26, 26, 46, 0.8)',
                                 borderColor: 'rgba(74, 144, 226, 0.3)'
                               }}
@@ -1958,42 +1993,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
         </Tabs>
       </div>
 
-      {/* 右侧固定的几何建模竖向工具栏（始终显示在工作区右侧） */}
-      <div style={{ position: 'absolute', right: 16, top: 76, bottom: 80, zIndex: 1000, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <VerticalToolbar
-          onToolSelect={(tool) => {
-            setViewportTool(tool);
-            if (!showViewport) message.info('已切换工具，生成三维模型后生效');
-          }}
-        />
-        {/* 剖切轴/位置控制（右侧工具区域） */}
-        <div style={{ background: 'rgba(0,0,0,0.7)', padding: 8, borderRadius: 8, border: '1px solid rgba(0,217,255,0.3)' }}>
-          <div style={{ color: '#00d9ff', fontSize: 12, marginBottom: 6 }}>剖切控制</div>
-          <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-            <Button size="small" onClick={() => setViewportTool('section')}>开启/关闭</Button>
-            <Button size="small" type={extraSectionAxis === 'x' ? 'primary' : 'default'} onClick={() => setExtraSectionAxis('x')}>X</Button>
-            <Button size="small" type={extraSectionAxis === 'y' ? 'primary' : 'default'} onClick={() => setExtraSectionAxis('y')}>Y</Button>
-            <Button size="small" type={extraSectionAxis === 'z' ? 'primary' : 'default'} onClick={() => setExtraSectionAxis('z')}>Z</Button>
-          </div>
-          <div>
-            <input title="剖切位置" aria-label="剖切位置" type="range" min={-50} max={50} defaultValue={0} onChange={(e) => setExtraSectionPos(parseFloat(e.target.value))} />
-          </div>
-        </div>
-        {/* 爆炸与导出 */}
-        <div style={{ background: 'rgba(0,0,0,0.7)', padding: 8, borderRadius: 8, border: '1px solid rgba(0,217,255,0.3)' }}>
-          <div style={{ color: '#00d9ff', fontSize: 12, marginBottom: 6 }}>爆炸视图 / 导出</div>
-          <div style={{ marginBottom: 6 }}>
-            <div style={{ color: '#9adfff', fontSize: 12, marginBottom: 4 }}>爆炸强度</div>
-            <input title="爆炸强度" aria-label="爆炸强度" type="range" min={0} max={50} value={explodeOffset} onChange={(e) => setExplodeOffset(parseFloat(e.target.value))} />
-          </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <Button size="small" onClick={() => setExplodeOffset(0)}>复位</Button>
-            <Button size="small" onClick={() => setScreenshotNonce(prev => prev + 1)}>导出PNG</Button>
-            <Button size="small" onClick={() => window.dispatchEvent(new CustomEvent('geology:export:gltf'))}>导出glTF</Button>
-            <Button size="small" onClick={() => window.dispatchEvent(new CustomEvent('geology:export:json'))}>导出JSON</Button>
-          </div>
-        </div>
-      </div>
+      {/* 右侧全局竖向工具栏移除，避免与 3D 视口重复；仅在覆盖层内渲染 CAD 工具栏 */}
 
       
 
@@ -2003,35 +2003,10 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
           <div style={{ position: 'absolute', top: 10, right: 12, zIndex: 1000 }}>
             <Button size="small" onClick={() => setShowViewport(false)}>关闭</Button>
           </div>
-          {/* 右侧固定的几何建模竖向工具栏（仅覆盖层显示） */}
-          <div style={{ position: 'absolute', right: 16, top: 16, bottom: 24, zIndex: 1000, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <VerticalToolbar onToolSelect={(tool) => setViewportTool(tool)} />
-            {/* 剖切轴/位置控制 */}
-            <div style={{ background: 'rgba(0,0,0,0.7)', padding: 8, borderRadius: 8, border: '1px solid rgba(0,217,255,0.3)' }}>
-              <div style={{ color: '#00d9ff', fontSize: 12, marginBottom: 6 }}>剖切控制</div>
-              <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                <Button size="small" onClick={() => setViewportTool('section')}>开启/关闭</Button>
-                <Button size="small" type={extraSectionAxis === 'x' ? 'primary' : 'default'} onClick={() => setExtraSectionAxis('x')}>X</Button>
-                <Button size="small" type={extraSectionAxis === 'y' ? 'primary' : 'default'} onClick={() => setExtraSectionAxis('y')}>Y</Button>
-                <Button size="small" type={extraSectionAxis === 'z' ? 'primary' : 'default'} onClick={() => setExtraSectionAxis('z')}>Z</Button>
-              </div>
-              <div>
-                <input title="剖切位置" aria-label="剖切位置" type="range" min={-50} max={50} defaultValue={0} onChange={(e) => setExtraSectionPos(parseFloat(e.target.value))} />
-              </div>
-            </div>
-            {/* 爆炸与导出 */}
-            <div style={{ background: 'rgba(0,0,0,0.7)', padding: 8, borderRadius: 8, border: '1px solid rgba(0,217,255,0.3)' }}>
-              <div style={{ color: '#00d9ff', fontSize: 12, marginBottom: 6 }}>爆炸视图 / 导出</div>
-              <div style={{ marginBottom: 6 }}>
-                <div style={{ color: '#9adfff', fontSize: 12, marginBottom: 4 }}>爆炸强度</div>
-                <input title="爆炸强度" aria-label="爆炸强度" type="range" min={0} max={50} value={explodeOffset} onChange={(e) => setExplodeOffset(parseFloat(e.target.value))} />
-              </div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                <Button size="small" onClick={() => setExplodeOffset(0)}>复位</Button>
-                <Button size="small" onClick={() => setScreenshotNonce(prev => prev + 1)}>导出PNG</Button>
-                <Button size="small" onClick={() => window.dispatchEvent(new CustomEvent('geology:export:gltf'))}>导出glTF</Button>
-                <Button size="small" onClick={() => window.dispatchEvent(new CustomEvent('geology:export:json'))}>导出JSON</Button>
-              </div>
+          {/* 在 3D 视口覆盖层内部锚定 CAD 工具栏到右缘 */}
+          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+            <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'auto' }}>
+              <CADToolbar onToolSelect={(tool) => setViewportTool(tool as any)} positionMode="absolute" />
             </div>
           </div>
           <GeologyReconstructionViewport3D

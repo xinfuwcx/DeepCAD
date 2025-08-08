@@ -67,7 +67,8 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
   onToolSelect,
   activeTool,
   disabled = false,
-  className = ''
+  className = '',
+  positionMode = 'fixed'
 }) => {
   const [selectedObjects, setSelectedObjects] = useState<CADObject[]>([]);
   const [allObjects, setAllObjects] = useState<CADObject[]>([]);
