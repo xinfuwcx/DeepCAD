@@ -6,6 +6,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../../utils/safeThreeDetach';
 import { designTokens } from '../../design/tokens';
 
 // ==================== 类型定义 ====================
@@ -87,7 +88,8 @@ class Earth3DRenderer {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.outputEncoding = THREE.sRGBEncoding;
+  // @ts-ignore legacy three typings compatibility
+  this.renderer.outputEncoding = (THREE as any).sRGBEncoding;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.2;
 
@@ -516,7 +518,8 @@ class Earth3DRenderer {
         const pulse = group.children[1];
         if (pulse) {
           pulse.scale.setScalar(1 + Math.sin(time * 0.003) * 0.3);
-          (pulse.material as THREE.MeshBasicMaterial).opacity = 0.3 + Math.sin(time * 0.005) * 0.2;
+          // @ts-ignore pulse is Mesh
+          (pulse as any).material.opacity = 0.3 + Math.sin(time * 0.005) * 0.2;
         }
       });
 
@@ -540,18 +543,10 @@ class Earth3DRenderer {
 
   public dispose() {
     this.stopAnimation();
-    // 安全卸载 renderer.domElement（仅当确为其父节点时）
-    try {
-      const dom = this.renderer?.domElement;
-      const parentNode = dom?.parentNode;
-      if (parentNode && dom && parentNode.contains(dom)) {
-        parentNode.removeChild(dom);
-      }
-    } catch (e) {
-      // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
-      console.warn('[EarthRenderer] cleanup warning:', e);
-    }
-    this.renderer.dispose();
+    // 深度释放场景资源
+    deepDispose(this.scene);
+    // 安全移除 renderer
+    safeDetachRenderer(this.renderer as any);
   }
 
   public getRenderer() {

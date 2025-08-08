@@ -69,6 +69,7 @@ import Toolbar, { ToolType } from '../components/geometry/Toolbar';
 // PyVista后处理功能已整合到CAE后处理模块中
 import ErrorBoundary from '../components/ErrorBoundary';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../utils/safeThreeDetach';
 import StatusBar from '../components/layout/StatusBar';
 import { useModernAxis } from '../hooks/useModernAxis';
 
@@ -302,19 +303,9 @@ const Professional3DViewport: React.FC<{
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      
-      // 安全卸载 renderer.domElement（仅当确为其父节点时）
-      try {
-        const mountNode = mountRef.current;
-        const dom = renderer?.domElement;
-        if (mountNode && dom && dom.parentNode === mountNode) {
-          mountNode.removeChild(dom);
-        }
-        renderer?.dispose?.();
-      } catch (e) {
-        // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
-        console.warn('[ResultsView] cleanup warning:', e);
-      }
+      // 统一安全清理
+      deepDispose(scene);
+      safeDetachRenderer(renderer);
     };
   }, [animationState]);
 

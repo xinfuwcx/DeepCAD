@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../../utils/safeThreeDetach';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Card, Slider, Select, Switch, Space, Typography, Button, Form, InputNumber, Row, Col } from 'antd';
 import { EnvironmentOutlined, ReloadOutlined, EyeOutlined } from '@ant-design/icons';
@@ -175,21 +176,9 @@ const GeologyPreview: React.FC<GeologyPreviewProps> = ({
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (frameRef.current) {
-        cancelAnimationFrame(frameRef.current);
-      }
-      // 安全卸载 renderer.domElement（仅当确为其父节点时）
-      try {
-        const dom = renderer?.domElement;
-        const parentNode = dom?.parentNode;
-        if (parentNode && dom && parentNode.contains(dom)) {
-          parentNode.removeChild(dom);
-        }
-      } catch (e) {
-        // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
-        console.warn('[GeologyPreview] cleanup warning:', e);
-      }
-      renderer.dispose();
+      if (frameRef.current) cancelAnimationFrame(frameRef.current);
+      deepDispose(scene);
+      safeDetachRenderer(renderer);
     };
   }, []);
 

@@ -16,6 +16,7 @@ import {
   BarChartOutlined
 } from '@ant-design/icons';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../../utils/safeThreeDetach';
 
 const { Text, Title } = Typography;
 const { Option } = Select;
@@ -308,7 +309,7 @@ const RealtimeCloudRenderer: React.FC<RealtimeCloudRendererProps> = ({
   const updateMeshRender = useCallback((data: VisualizationData) => {
     if (!sceneRef.current) return;
     
-    const startTime = performance.now();
+  const startTime = (typeof window !== 'undefined' && window.performance ? window.performance.now() : Date.now());
     
     // 移除旧网格
     if (meshRef.current) {
@@ -342,14 +343,15 @@ const RealtimeCloudRenderer: React.FC<RealtimeCloudRendererProps> = ({
     sceneRef.current.add(mesh);
     
     // 更新性能指标
-    const updateTime = performance.now() - startTime;
+  const updateTime = (typeof window !== 'undefined' && window.performance ? window.performance.now() : Date.now()) - startTime;
+    const triCount = geometry.getIndex() ? geometry.getIndex()!.count / 3 : 0;
     setPerformance(prev => ({
       ...prev,
-      triangles: indices.length / 3,
+      triangles: triCount,
       lastUpdateTime: updateTime
     }));
     
-    console.log(`🎨 云图更新完成: ${geometry.attributes.position.count}顶点, ${indices.length/3}三角形, ${updateTime.toFixed(2)}ms`);
+    console.log(`🎨 云图更新完成: ${geometry.attributes.position.count}顶点, ${triCount}三角形, ${updateTime.toFixed(2)}ms`);
   }, [createMeshGeometry, renderConfig.transparency, renderConfig.wireframe, renderConfig.renderQuality]);
 
   // 渲染循环
@@ -358,7 +360,7 @@ const RealtimeCloudRenderer: React.FC<RealtimeCloudRendererProps> = ({
       return;
     }
     
-    const frameStart = performance.now();
+  const frameStart = (typeof window !== 'undefined' && window.performance ? window.performance.now() : Date.now());
     
     // 自动旋转
     if (autoRotate && meshRef.current) {
@@ -369,7 +371,7 @@ const RealtimeCloudRenderer: React.FC<RealtimeCloudRendererProps> = ({
     rendererRef.current.render(sceneRef.current, cameraRef.current);
     
     // 性能统计
-    const frameTime = performance.now() - frameStart;
+  const frameTime = (typeof window !== 'undefined' && window.performance ? window.performance.now() : Date.now()) - frameStart;
     const fps = 1000 / frameTime;
     
     setPerformance(prev => {
@@ -395,23 +397,10 @@ const RealtimeCloudRenderer: React.FC<RealtimeCloudRendererProps> = ({
     return () => {
       if (animationIdRef.current) {
         cancelAnimationFrame(animationIdRef.current);
-        animationIdRef.current = null;
       }
-      
-      // 安全卸载 renderer.domElement（仅当确为其父节点时）
-      try {
-        const mountNode = mountRef.current;
-        const renderer = rendererRef.current;
-        const dom = renderer?.domElement;
-        if (mountNode && dom && dom.parentNode === mountNode) {
-          mountNode.removeChild(dom);
-        }
-        renderer?.dispose?.();
-      } catch (e) {
-        // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
-        console.warn('[RealtimeCloudRenderer] cleanup warning:', e);
-      } finally {
-        rendererRef.current = undefined;
+      deepDispose(sceneRef.current as any);
+      if (rendererRef.current) {
+        safeDetachRenderer(rendererRef.current as any);
       }
     };
   }, [initializeScene]);

@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../utils/safeThreeDetach';
 import * as d3 from 'd3';
 import { useNavigate } from 'react-router-dom';
 import { designTokens } from '../design/tokens';
@@ -182,19 +183,8 @@ const Globe3DBackground: React.FC = () => {
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      
-      // 安全卸载 renderer.domElement（仅当确为其父节点时）
-      try {
-        const mountNode = mountRef.current;
-        const dom = renderer?.domElement;
-        if (mountNode && dom && dom.parentNode === mountNode) {
-          mountNode.removeChild(dom);
-        }
-        renderer?.dispose?.();
-      } catch (e) {
-        // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
-        console.warn('[DashboardViewPro] cleanup warning:', e);
-      }
+      deepDispose(scene);
+      safeDetachRenderer(renderer);
     };
   }, []);
 

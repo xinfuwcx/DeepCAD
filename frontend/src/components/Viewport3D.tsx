@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../utils/safeThreeDetach';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Button, Result, Typography } from 'antd';
 import { RocketOutlined } from '@ant-design/icons';
@@ -316,7 +317,8 @@ const ViewPort3D: React.FC<ViewPort3DProps> = ({
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.2;
       // 现代化渲染设置
-      renderer.useLegacyLights = false; // 使用物理正确的光照
+  // @ts-ignore legacy typings
+  renderer.useLegacyLights = false; // 使用物理正确的光照
       renderer.autoClear = false;
       container.appendChild(renderer.domElement);
       rendererRef.current = renderer;
@@ -748,28 +750,13 @@ const ViewPort3D: React.FC<ViewPort3DProps> = ({
           controlsRef.current.dispose();
         }
         
-        // 安全卸载 renderer.domElement（仅当确为其父节点时）
-        try {
-          const mountNode = mountRef.current;
-          const renderer = rendererRef.current;
-          const dom = renderer?.domElement;
-          if (mountNode && dom && dom.parentNode === mountNode) {
-            mountNode.removeChild(dom);
-          }
-          renderer?.dispose?.();
-        } catch (e) {
-          // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
-          console.warn('[Viewport3D] cleanup warning:', e);
-        } finally {
-          rendererRef.current = undefined;
+        if (rendererRef.current) {
+          deepDispose(sceneRef.current || undefined);
+          safeDetachRenderer(rendererRef.current);
         }
         
-        if (viewCube && mountRef.current) {
-          try {
-            mountRef.current.removeChild(viewCube);
-          } catch (e) {
-            console.warn('Failed to remove view cube:', e);
-          }
+        if (viewCube && mountRef.current && mountRef.current.contains(viewCube)) {
+          try { mountRef.current.removeChild(viewCube); } catch (e) { /* noop */ }
         }
         
         // 清理后处理效果

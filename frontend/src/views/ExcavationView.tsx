@@ -43,6 +43,7 @@ import {
 } from '@ant-design/icons';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../utils/safeThreeDetach';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { ExcavationCanvas2D } from '../components/ExcavationCanvas2D';
 import DxfParser from 'dxf-parser';
@@ -116,18 +117,8 @@ const ExcavationView: React.FC = () => {
         window.addEventListener('resize', handleResize);
         return () => {
             window.removeEventListener('resize', handleResize);
-            // 安全卸载 renderer.domElement（仅当确为其父节点时）
-            try {
-                const renderer = rendererRef.current;
-                const dom = renderer?.domElement;
-                if (mount && dom && dom.parentNode === mount) {
-                    mount.removeChild(dom);
-                }
-                renderer?.dispose?.();
-            } catch (e) {
-                // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
-                console.warn('[ExcavationView] cleanup warning:', e);
-            }
+            deepDispose(sceneRef.current);
+            safeDetachRenderer(rendererRef.current!);
         };
     }, []);
 

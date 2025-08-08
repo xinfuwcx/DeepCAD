@@ -5,6 +5,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../../utils/safeThreeDetach';
 
 interface EpicParticleSystemProps {
   width: number;
@@ -183,20 +184,12 @@ export const EpicParticleSystem: React.FC<EpicParticleSystemProps> = ({
     animate();
 
     return () => {
-      // 安全卸载 renderer.domElement（仅当确为其父节点时）
-      try {
-        const mountNode = containerRef.current;
-        const dom = renderer?.domElement;
-        if (mountNode && dom && dom.parentNode === mountNode) {
-          mountNode.removeChild(dom);
-        }
-        geometry?.dispose?.();
-        material?.dispose?.();
-        renderer?.dispose?.();
-      } catch (e) {
-        // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
-        console.warn('[EpicParticleSystem] cleanup warning:', e);
-      }
+      // 深度释放场景对象
+      deepDispose(scene);
+      // 安全移除 renderer
+      safeDetachRenderer(renderer as any);
+      try { geometry.dispose(); } catch (_) {}
+      try { material.dispose(); } catch (_) {}
     };
   }, [width, height, intensity, color, weatherEffect]);
 

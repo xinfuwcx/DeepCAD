@@ -5,6 +5,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../../utils/safeThreeDetach';
 
 export const ParticleTest: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -95,19 +96,8 @@ export const ParticleTest: React.FC = () => {
 
       return () => {
         cancelAnimationFrame(animationId);
-        
-        // 安全卸载 renderer.domElement（仅当确为其父节点时）
-        try {
-          const mountNode = containerRef.current;
-          const dom = renderer?.domElement;
-          if (mountNode && dom && dom.parentNode === mountNode) {
-            mountNode.removeChild(dom);
-          }
-          renderer?.dispose?.();
-        } catch (e) {
-          // 忽略卸载期间的偶发性错误，避免 NotFoundError 影响卸载流程
-          console.warn('[ParticleTest] cleanup warning:', e);
-        }
+        deepDispose(scene);
+        safeDetachRenderer(renderer);
       };
 
     } catch (err) {

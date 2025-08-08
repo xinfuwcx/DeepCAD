@@ -6,6 +6,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
+import { safeDetachRenderer, deepDispose } from '../../utils/safeThreeDetach';
 import { designTokens } from '../../design/tokens';
 
 interface PureThreeJSEpicCenterProps {
@@ -321,7 +322,8 @@ export const PureThreeJSEpicCenter: React.FC<PureThreeJSEpicCenterProps> = ({
     const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     
     const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera({ x, y }, cameraRef.current);
+  // 使用显式 Vector2 以满足类型要求
+  raycaster.setFromCamera(new THREE.Vector2(x, y), cameraRef.current);
     
     const markers = sceneRef.current.children.filter(child => 
       child.name.startsWith('marker-')
@@ -343,16 +345,10 @@ export const PureThreeJSEpicCenter: React.FC<PureThreeJSEpicCenterProps> = ({
       if (frameIdRef.current) {
         cancelAnimationFrame(frameIdRef.current);
       }
-      if (rendererRef.current && mountRef.current) {
-        try {
-          const canvas = rendererRef.current.domElement;
-          if (canvas && canvas.parentNode === mountRef.current) {
-            mountRef.current.removeChild(canvas);
-          }
-          rendererRef.current.dispose();
-        } catch (error) {
-          console.warn('Three.js渲染器清理警告:', error);
-        }
+      // 统一使用深度释放与安全分离
+      deepDispose(sceneRef.current as any);
+      if (rendererRef.current) {
+        safeDetachRenderer(rendererRef.current as any);
       }
     };
   }, [initThreeJS]);
