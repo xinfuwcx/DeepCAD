@@ -29,6 +29,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { useUIStore } from '../../stores/useUIStore';
 import { ModernAxisHelper } from './core/ModernAxisHelper';
+import ViewportAxes from './ViewportAxes';
 
 const { Option } = Select;
 
@@ -240,23 +241,23 @@ const CAE3DViewport: React.FC<CAE3DViewportProps> = ({
     scene.add(modernAxis);
   };
 
-  // 添加示例几何体
+  // 移除示例几何体
   const addSampleGeometry = (scene: THREE.Scene) => {
-    // 创建一个简单的立方体作为示例
-    const geometry = new THREE.BoxGeometry(2, 2, 2);
-    const material = new THREE.MeshStandardMaterial({ 
-      color: 0x00ff88,
-      metalness: 0.1,
-      roughness: 0.3
-    });
-    const cube = new THREE.Mesh(geometry, material);
-    cube.castShadow = true;
-    cube.receiveShadow = true;
-    cube.position.y = 1;
-    cube.name = 'sample-cube';
-    scene.add(cube);
+    // 移除立方体模型
+    // const geometry = new THREE.BoxGeometry(2, 2, 2);
+    // const material = new THREE.MeshStandardMaterial({ 
+    //   color: 0x00ff88,
+    //   metalness: 0.1,
+    //   roughness: 0.3
+    // });
+    // const cube = new THREE.Mesh(geometry, material);
+    // cube.castShadow = true;
+    // cube.receiveShadow = true;
+    // cube.position.y = 1;
+    // cube.name = 'sample-cube';
+    // scene.add(cube);
 
-    // 添加地面
+    // 保留地面
     const planeGeometry = new THREE.PlaneGeometry(20, 20);
     const planeMaterial = new THREE.MeshStandardMaterial({ 
       color: 0xdddddd,
@@ -452,6 +453,17 @@ const CAE3DViewport: React.FC<CAE3DViewportProps> = ({
           background: '#f0f2f5'
         }} 
       />
+
+      {/* 左下角坐标轴（随主相机旋转） */}
+      {viewConfig.showAxes && cameraRef.current && (
+        <ViewportAxes 
+          camera={cameraRef.current}
+          size={96}
+          position="absolute"
+          offset={{ left: 16, bottom: 16 }}
+          zIndex={300}
+        />
+      )}
 
       {/* 加载状态 */}
       {isLoading && (

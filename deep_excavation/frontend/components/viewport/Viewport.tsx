@@ -171,8 +171,12 @@ const Viewport = forwardRef<ViewportHandles, {}>((props, ref) => {
 
     // --- Professional Grid ---
     // Replaced custom grid with standard THREE.GridHelper for robustness and simplicity.
-    const gridHelper = new THREE.GridHelper(1000, 20, 0xffffff, 0x888888);
-    gridHelper.material.opacity = 0.5;
+    const gridHelper = new THREE.GridHelper(1000, 20, 0x2e3b4e, 0x2e3b4e);
+    // 统一颜色，避免中心线出现高亮色差
+    if ((gridHelper as any).setColors) {
+      (gridHelper as any).setColors(new THREE.Color(0x2e3b4e), new THREE.Color(0x2e3b4e));
+    }
+    gridHelper.material.opacity = 0.4;
     gridHelper.material.transparent = true;
     scene.add(gridHelper);
     gridRef.current = gridHelper;

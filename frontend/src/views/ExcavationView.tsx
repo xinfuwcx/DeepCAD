@@ -48,6 +48,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { ExcavationCanvas2D } from '../components/ExcavationCanvas2D';
 import DxfParser from 'dxf-parser';
 import { apiClient } from '../api/client';
+import ViewportAxes from '../components/3d/ViewportAxes';
 
 const { Content } = Layout;
 const { Dragger } = Upload;
@@ -524,6 +525,15 @@ const ExcavationView: React.FC = () => {
                         }
                     >
                         <div ref={mountRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+                            {cameraRef.current && (
+                                <ViewportAxes 
+                                    camera={cameraRef.current}
+                                    size={96}
+                                    position="absolute"
+                                    offset={{ left: 16, bottom: 16 }}
+                                    zIndex={5}
+                                />
+                            )}
                             {loading && (
                                 <div style={{ 
                                     position: 'absolute', 

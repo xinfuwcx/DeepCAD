@@ -69,6 +69,11 @@ export class CAEThreeEngineCore {
   public scene: THREE.Scene;
   public camera: THREE.PerspectiveCamera;
   public renderer: THREE.WebGLRenderer;
+  
+  // 坐标轴独立渲染系统
+  private axesRenderer?: THREE.WebGLRenderer;
+  private axesScene?: THREE.Scene;
+  private axesCamera?: THREE.PerspectiveCamera;
   public orbitControls: OrbitControls;
   public transformControls: TransformControls;
 
@@ -246,6 +251,8 @@ export class CAEThreeEngineCore {
     this.setInteractionMode(CAEInteractionMode.ORBIT);
 
     ComponentDevHelper.logDevTip('CAE Three.js引擎初始化完成 - 控制器已启用');
+    
+    // 坐标轴现在由React组件管理
     
     // 立即启动渲染循环
     this.startRenderLoop();
@@ -496,9 +503,7 @@ export class CAEThreeEngineCore {
     const modernGrid = this.createModernGrid();
     this.scene.add(modernGrid);
 
-    // 现代化坐标轴系统
-    const modernAxes = this.createModernAxes();
-    this.scene.add(modernAxes);
+    // 坐标轴系统现在独立渲染，不添加到主场景
   }
 
   // 创建ABAQUS风格工程网格系统
@@ -519,15 +524,15 @@ export class CAEThreeEngineCore {
     group.add(fineGrid);
     
     // ABAQUS风格原点标记
-    const originGeometry = new THREE.SphereGeometry(0.5, 8, 6);
-    const originMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xe74c3c,
-      emissive: 0x331111,
-      emissiveIntensity: 0.3
-    });
-    const origin = new THREE.Mesh(originGeometry, originMaterial);
-    origin.position.set(0, 0.5, 0);
-    group.add(origin);
+    // const originGeometry = new THREE.SphereGeometry(0.5, 8, 6);
+    // const originMaterial = new THREE.MeshStandardMaterial({ 
+    //   color: 0xe74c3c,
+    //   emissive: 0x331111,
+    //   emissiveIntensity: 0.3
+    // });
+    // const origin = new THREE.Mesh(originGeometry, originMaterial);
+    // origin.position.set(0, 0.5, 0);
+    // group.add(origin);
     
     // ABAQUS风格坐标平面指示
     const planeGeometry = new THREE.PlaneGeometry(0.1, 100);
@@ -551,58 +556,176 @@ export class CAEThreeEngineCore {
     return group;
   }
 
-  // 创建ABAQUS风格工程坐标轴系统
+  // 初始化独立的坐标轴系统
+  private initAxesSystem(container: HTMLElement): void {
+    try {
+      // 创建坐标轴独立场景
+      this.axesScene = new THREE.Scene();
+      this.axesScene.background = new THREE.Color(0x000000);
+      this.axesScene.background.setAlpha(0);
+      
+      // 创建坐标轴独立相机
+      this.axesCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+      this.axesCamera.position.set(0, 0, 8);
+      this.axesCamera.lookAt(0, 0, 0);
+      
+      // 创建坐标轴独立渲染器（小尺寸）
+      this.axesRenderer = new THREE.WebGLRenderer({ 
+        alpha: true, 
+        antialias: true,
+        premultipliedAlpha: false
+      });
+      this.axesRenderer.setSize(120, 120);
+      this.axesRenderer.setClearColor(0x000000, 0);
+      
+      // 设置DOM样式
+      const axesElement = this.axesRenderer.domElement;
+      axesElement.style.position = 'fixed';
+      axesElement.style.bottom = '20px';
+      axesElement.style.left = '20px';
+      axesElement.style.zIndex = '9999';
+      axesElement.style.pointerEvents = 'none';
+      axesElement.style.border = '2px solid rgba(255,255,255,0.5)';
+      axesElement.style.borderRadius = '8px';
+      axesElement.style.backgroundColor = 'rgba(30,30,30,0.8)';
+      axesElement.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)';
+      
+      // 强制添加到DOM
+      document.body.appendChild(axesElement);
+      
+      // 创建并添加小坐标轴到独立场景
+      const axes = this.createCompactAxes();
+      this.axesScene.add(axes);
+      
+      // 添加光照到坐标轴场景
+      const light = new THREE.DirectionalLight(0xffffff, 2);
+      light.position.set(5, 5, 5);
+      this.axesScene.add(light);
+      
+      const ambientLight = new THREE.AmbientLight(0x404040, 1);
+      this.axesScene.add(ambientLight);
+      
+      console.log('🎯 坐标轴系统初始化完成:', {
+        scene: this.axesScene.children.length,
+        camera: this.axesCamera.position,
+        renderer: axesElement,
+        inDOM: document.body.contains(axesElement)
+      });
+      
+    } catch (error) {
+      console.error('❌ 坐标轴系统初始化失败:', error);
+    }
+  }
+
+  // 创建紧凑的坐标轴（用于独立渲染）
+  private createCompactAxes(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'compact-axes';
+    
+    const axisLength = 3.5;
+    const arrowLength = 0.5;
+    const arrowWidth = 0.25;
+    const axisRadius = 0.05;
+    
+    // X轴 - 红色
+    const xGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8);
+    const xMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const xAxis = new THREE.Mesh(xGeometry, xMaterial);
+    xAxis.rotation.z = -Math.PI / 2;
+    xAxis.position.x = axisLength / 2;
+    group.add(xAxis);
+    
+    // X轴箭头
+    const xArrowGeometry = new THREE.ConeGeometry(arrowWidth, arrowLength, 8);
+    const xArrow = new THREE.Mesh(xArrowGeometry, xMaterial);
+    xArrow.rotation.z = -Math.PI / 2;
+    xArrow.position.x = axisLength + arrowLength / 2;
+    group.add(xArrow);
+    
+    // Y轴 - 绿色
+    const yGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8);
+    const yMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    const yAxis = new THREE.Mesh(yGeometry, yMaterial);
+    yAxis.position.y = axisLength / 2;
+    group.add(yAxis);
+    
+    // Y轴箭头
+    const yArrowGeometry = new THREE.ConeGeometry(arrowWidth, arrowLength, 8);
+    const yArrow = new THREE.Mesh(yArrowGeometry, yMaterial);
+    yArrow.position.y = axisLength + arrowLength / 2;
+    group.add(yArrow);
+    
+    // Z轴 - 蓝色
+    const zGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8);
+    const zMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+    const zAxis = new THREE.Mesh(zGeometry, zMaterial);
+    zAxis.rotation.x = Math.PI / 2;
+    zAxis.position.z = axisLength / 2;
+    group.add(zAxis);
+    
+    // Z轴箭头
+    const zArrowGeometry = new THREE.ConeGeometry(arrowWidth, arrowLength, 8);
+    const zArrow = new THREE.Mesh(zArrowGeometry, zMaterial);
+    zArrow.rotation.x = Math.PI / 2;
+    zArrow.position.z = axisLength + arrowLength / 2;
+    group.add(zArrow);
+    
+    return group;
+  }
+
+  // 创建工业软件风格的小坐标轴（左下角）
   private createModernAxes(): THREE.Group {
     const group = new THREE.Group();
     group.name = 'abaqus-axes';
     
-    const axisLength = 15;
-    const arrowLength = 2;
-    const arrowWidth = 0.8;
-    const axisRadius = 0.1;
+    // 缩小尺寸，适合放在左下角
+    const axisLength = 3;
+    const arrowLength = 0.5;
+    const arrowWidth = 0.2;
+    const axisRadius = 0.03;
     
-    // ABAQUS风格X轴 - 红色，更粗更明显
-    const xGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 12);
-    const xMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xe74c3c,
-      metalness: 0.3,
-      roughness: 0.4
+    // X轴 - 红色
+    const xGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8);
+    const xMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0xff0000,
+      transparent: true,
+      opacity: 0.9
     });
     const xAxis = new THREE.Mesh(xGeometry, xMaterial);
     xAxis.rotation.z = -Math.PI / 2;
     xAxis.position.x = axisLength / 2;
     group.add(xAxis);
     
-    // X轴箭头 - ABAQUS风格
-    const xArrowGeometry = new THREE.ConeGeometry(arrowWidth, arrowLength, 12);
+    // X轴箭头
+    const xArrowGeometry = new THREE.ConeGeometry(arrowWidth, arrowLength, 8);
     const xArrow = new THREE.Mesh(xArrowGeometry, xMaterial);
     xArrow.rotation.z = -Math.PI / 2;
     xArrow.position.x = axisLength + arrowLength / 2;
     group.add(xArrow);
     
-    // ABAQUS风格Y轴 - 绿色
-    const yGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 12);
-    const yMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x27ae60,
-      metalness: 0.3,
-      roughness: 0.4
+    // Y轴 - 绿色
+    const yGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8);
+    const yMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0x00ff00,
+      transparent: true,
+      opacity: 0.9
     });
     const yAxis = new THREE.Mesh(yGeometry, yMaterial);
     yAxis.position.y = axisLength / 2;
     group.add(yAxis);
     
     // Y轴箭头
-    const yArrowGeometry = new THREE.ConeGeometry(arrowWidth, arrowLength, 12);
+    const yArrowGeometry = new THREE.ConeGeometry(arrowWidth, arrowLength, 8);
     const yArrow = new THREE.Mesh(yArrowGeometry, yMaterial);
     yArrow.position.y = axisLength + arrowLength / 2;
     group.add(yArrow);
     
-    // ABAQUS风格Z轴 - 蓝色
-    const zGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 12);
-    const zMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x3498db,
-      metalness: 0.3,
-      roughness: 0.4
+    // Z轴 - 蓝色
+    const zGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8);
+    const zMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0x0000ff,
+      transparent: true,
+      opacity: 0.9
     });
     const zAxis = new THREE.Mesh(zGeometry, zMaterial);
     zAxis.rotation.x = Math.PI / 2;
@@ -610,31 +733,17 @@ export class CAEThreeEngineCore {
     group.add(zAxis);
     
     // Z轴箭头
-    const zArrowGeometry = new THREE.ConeGeometry(arrowWidth, arrowLength, 12);
+    const zArrowGeometry = new THREE.ConeGeometry(arrowWidth, arrowLength, 8);
     const zArrow = new THREE.Mesh(zArrowGeometry, zMaterial);
     zArrow.rotation.x = Math.PI / 2;
     zArrow.position.z = axisLength + arrowLength / 2;
     group.add(zArrow);
     
-    // 添加轴标签背景
-    const labelBg = new THREE.SphereGeometry(0.3, 8, 6);
-    const labelMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x2c3e50,
-      metalness: 0.1,
-      roughness: 0.8
-    });
+    // 设置坐标轴为固定大小，不受场景缩放影响
+    group.scale.set(1, 1, 1);
     
-    const xLabel = new THREE.Mesh(labelBg, labelMaterial);
-    xLabel.position.set(axisLength + arrowLength + 1, 0, 0);
-    group.add(xLabel);
-    
-    const yLabel = new THREE.Mesh(labelBg, labelMaterial);
-    yLabel.position.set(0, axisLength + arrowLength + 1, 0);
-    group.add(yLabel);
-    
-    const zLabel = new THREE.Mesh(labelBg, labelMaterial);
-    zLabel.position.set(0, 0, axisLength + arrowLength + 1);
-    group.add(zLabel);
+    // 定位到左下角（相对于相机）
+    group.position.set(-8, -5, 0);
     
     return group;
   }
@@ -642,8 +751,8 @@ export class CAEThreeEngineCore {
   // 添加测试几何体
   private addTestGeometry(): void {
     // 添加现代化展示对象
-    const showcaseObject = this.createShowcaseObject();
-    this.scene.add(showcaseObject);
+    // const showcaseObject = this.createShowcaseObject();
+    // this.scene.add(showcaseObject);
 
     // 现代化地面系统
     const modernGround = this.createModernGround();
@@ -1007,18 +1116,16 @@ export class CAEThreeEngineCore {
       console.warn('⚠️ 场景元素不足，检查初始化状态');
       // 不要重复添加，而是检查具体缺失的元素
       const hasGrid = this.scene.getObjectByName('abaqus-grid');
-      const hasAxes = this.scene.getObjectByName('abaqus-axes');
-      const hasShowcase = this.scene.getObjectByName('abaqus-showcase');
       
-      if (!hasGrid || !hasAxes || !hasShowcase) {
-        console.log('🔧 部分场景元素缺失，重新添加');
-        if (!hasGrid || !hasAxes) this.addSceneHelpers();
-        if (!hasShowcase) {
-          const showcaseObject = this.createShowcaseObject();
-          const modernGround = this.createModernGround();
-          this.scene.add(showcaseObject);
-          this.scene.add(modernGround);
-        }
+      if (!hasGrid) {
+        console.log('🔧 场景网格缺失，重新添加');
+        this.addSceneHelpers();
+        // if (!hasShowcase) {
+        //   const showcaseObject = this.createShowcaseObject();
+        //   const modernGround = this.createModernGround();
+        //   this.scene.add(showcaseObject);
+        //   this.scene.add(modernGround);
+        // }
       }
     }
     
@@ -1035,8 +1142,10 @@ export class CAEThreeEngineCore {
     // 添加动画效果
     this.updateAnimations();
     
-    // 渲染场景
+    // 渲染主场景
     this.renderer.render(this.scene, this.camera);
+    
+    // 坐标轴现在由React组件渲染
     
     // 性能监控（减少频率）
     const endTime = performance.now();
@@ -1117,6 +1226,8 @@ export class CAEThreeEngineCore {
       this.backgroundTexture.dispose();
       this.backgroundTexture = null;
     }
+    
+    // 坐标轴现在由React组件管理，无需手动清理
     
   // 不再强制触发 WebGL 上下文丢失 (避免误判为异常)，仅正常 dispose
     

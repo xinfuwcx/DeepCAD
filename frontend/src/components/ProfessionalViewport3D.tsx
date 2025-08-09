@@ -8,6 +8,7 @@ import { eventBus } from '../core/eventBus';
 import { geometryAlgorithmIntegration } from '../services';
 import { localGeometryRegistry } from '../services/LocalGeometryRegistry';
 import { isFeatureEnabled } from '../config/featureFlags';
+import ViewportAxes from './3d/ViewportAxes';
 // @ts-ignore - optional local CSG lib (may be absent during initial dev)
 // dynamic import used later
 // import { CSG } from 'three-csg-ts';
@@ -354,24 +355,74 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
         return gridGroup;
       };
 
+      // 首先完全清空场景
+      console.log('🧹 开始清空场景...');
+      scene.clear(); // 完全清空场景
+      
+      // 重新添加基础元素
+      console.log('🔧 重新添加基础元素...');
+      
       const modernGrid = createModernGrid();
       addToScene(modernGrid);
 
       // 注意：现代化坐标轴将通过 useModernAxis hook 添加
 
-      // 添加示例几何体
-      if (mode === 'geometry') {
-        const addSample = (x:number,color:number) => {
-          const g = new THREE.BoxGeometry(2,2,2);
-          const m = RealisticRenderingEngine.createPBRMaterial({color,metalness:0.2,roughness:0.5});
-          const mesh = new THREE.Mesh(g,m);
-          mesh.position.set(x,1,0);
-          mesh.castShadow = true; mesh.receiveShadow = true; addToScene(mesh);
-          registerMesh(mesh,'sample');
-        };
-        addSample(0,0x00d9ff);
-        addSample(3,0xff6b35);
-      }
+      // 持续监控并阻止任何不需要的对象被添加
+      let clearIntervalId = setInterval(() => {
+        const toRemove: THREE.Object3D[] = [];
+        scene.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            // 只允许网格和坐标轴
+            const allowedNames = ['ground', 'simple-axes'];
+            const isGrid = child.name && child.name.includes('grid');
+            const isAxis = child.name && (child.name.includes('axis') || child.name.includes('helper'));
+            const isAllowed = child.name && allowedNames.includes(child.name);
+            
+            if (!isGrid && !isAxis && !isAllowed) {
+              toRemove.push(child);
+              console.log(`🚫 阻止加载不需要的对象: ${child.type} - ${child.name || '(无名称)'} - ${child.constructor.name}`);
+            }
+          }
+        });
+        
+        toRemove.forEach(obj => {
+          if (obj.parent) {
+            obj.parent.remove(obj);
+          }
+          if (obj instanceof THREE.Mesh) {
+            if (obj.geometry) obj.geometry.dispose();
+            if (obj.material) {
+              if (Array.isArray(obj.material)) {
+                obj.material.forEach(m => m.dispose());
+              } else {
+                obj.material.dispose();
+              }
+            }
+          }
+        });
+      }, 100); // 每100ms检查一次
+      
+      // 10秒后停止监控（应该足够阻止初始加载）
+      setTimeout(() => {
+        if (clearIntervalId) {
+          clearInterval(clearIntervalId);
+          console.log('⏰ 停止场景监控');
+        }
+      }, 10000);
+
+      // 移除示例几何体
+      // if (mode === 'geometry') {
+      //   const addSample = (x:number,color:number) => {
+      //     const g = new THREE.BoxGeometry(2,2,2);
+      //     const m = RealisticRenderingEngine.createPBRMaterial({color,metalness:0.2,roughness:0.5});
+      //     const mesh = new THREE.Mesh(g,m);
+      //     mesh.position.set(x,1,0);
+      //     mesh.castShadow = true; mesh.receiveShadow = true; addToScene(mesh);
+      //     registerMesh(mesh,'sample');
+      //   };
+      //   addSample(0,0x00d9ff);
+      //   addSample(3,0xff6b35);
+      // }
 
       // 创建动画循环
       const animate = () => {
@@ -379,6 +430,46 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
           cancelAnimationFrame(frameRef.current);
         }
         frameRef.current = requestAnimationFrame(animate);
+        
+        // 强力清理所有不需要的模型（防止任何形式的异步模型加载）
+        if (scene) {
+          const toRemove: THREE.Object3D[] = [];
+          scene.traverse((child) => {
+            // 移除所有Mesh对象，除了明确允许的类型
+            if (child instanceof THREE.Mesh) {
+              const allowedNames = ['ground', 'simple-axes'];
+              const allowedTypes = ['GridHelper', 'AxesHelper'];
+              
+              const isAllowedByName = child.name && allowedNames.includes(child.name);
+              const isAllowedByType = allowedTypes.includes(child.constructor.name);
+              const isGridOrAxis = child.name && (child.name.includes('grid') || child.name.includes('axis') || child.name.includes('helper'));
+              
+              if (!isAllowedByName && !isAllowedByType && !isGridOrAxis) {
+                toRemove.push(child);
+                console.log(`🗑️ 移除不需要的对象: ${child.type} - ${child.name || '(无名称)'} - ${child.constructor.name}`);
+              }
+            }
+          });
+          
+          toRemove.forEach(obj => {
+            if (obj.parent) {
+              obj.parent.remove(obj);
+            }
+            // 强制销毁几何体和材质
+            if (obj instanceof THREE.Mesh) {
+              if (obj.geometry) {
+                obj.geometry.dispose();
+              }
+              if (obj.material) {
+                if (Array.isArray(obj.material)) {
+                  obj.material.forEach(m => m.dispose());
+                } else {
+                  obj.material.dispose();
+                }
+              }
+            }
+          });
+        }
         
         // 更新控制器
         if (controlsRef.current) {
@@ -391,7 +482,12 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
 
       animate();
       
+      // 调试: 列出场景中的所有对象
       console.log('🎉 SimpleViewport3D: 真实级渲染场景初始化成功');
+      console.log('📋 场景中的对象列表:');
+      scene.traverse((child) => {
+        console.log(`- ${child.type}: ${child.name || '(无名称)'} - ${child.constructor.name}`);
+      });
 
       // 清理函数
       return () => {
@@ -404,6 +500,11 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
         if (controlsRef.current) {
           controlsRef.current.dispose();
           controlsRef.current = null;
+        }
+        
+        // 清理定时器
+        if (clearIntervalId) {
+          clearInterval(clearIntervalId);
         }
       };
     } catch (err) {
@@ -1119,6 +1220,14 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
           <button onClick={alignCameraToSelectedFaces} style={{background:'#455a64', color:'#fff', border:'1px solid #607d8b', borderRadius:4, padding:'4px 8px', fontSize:12, cursor:'pointer'}}>对齐视图(V)</button>
           <div style={{color:'#777', fontSize:10}}>Shift+点击 多/减选</div>
         </div>
+      )}
+      
+      {/* 坐标轴组件 */}
+      {camera && (
+        <ViewportAxes 
+          camera={camera} 
+          size={120} 
+        />
       )}
     </div>
   );

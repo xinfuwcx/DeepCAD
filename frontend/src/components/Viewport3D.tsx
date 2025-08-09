@@ -343,9 +343,9 @@ const ViewPort3D: React.FC<ViewPort3DProps> = ({
       const modernAxes = createModernAxes();
       scene.add(modernAxes);
 
-      // 添加现代化展示对象
-      const showcaseObject = createShowcaseObject();
-      scene.add(showcaseObject);
+      // 移除中心展示对象
+      // const showcaseObject = createShowcaseObject();
+      // scene.add(showcaseObject);
 
       // 现代化地面系统
       const modernGround = createModernGround();
@@ -356,98 +356,98 @@ const ViewPort3D: React.FC<ViewPort3DProps> = ({
       postProcessingRef.current.init();
       postProcessingRef.current.addEnvironmentReflection();
 
-      // 根据模式添加不同的对象
-      if (mode === 'geometry') {
-        // 几何建模模式 - 添加基础形状
-        const cubeGeometry = new THREE.BoxGeometry(2, 2, 2);
-        const cubeMaterial = new THREE.MeshPhongMaterial({ 
-          color: 0x00d9ff, 
-          shininess: 100,
-          transparent: true,
-          opacity: 0.8
-        });
-        const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-        cube.position.set(0, 1, 0);
-        cube.castShadow = true;
-        cube.receiveShadow = true;
-        scene.add(cube);
+      // 移除所有模式下的示例对象
+      // if (mode === 'geometry') {
+      //   // 几何建模模式 - 添加基础形状
+      //   const cubeGeometry = new THREE.BoxGeometry(2, 2, 2);
+      //   const cubeMaterial = new THREE.MeshPhongMaterial({ 
+      //     color: 0x00d9ff, 
+      //     shininess: 100,
+      //     transparent: true,
+      //     opacity: 0.8
+      //   });
+      //   const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+      //   cube.position.set(0, 1, 0);
+      //   cube.castShadow = true;
+      //   cube.receiveShadow = true;
+      //   scene.add(cube);
 
-        const sphereGeometry = new THREE.SphereGeometry(1, 32, 32);
-        const sphereMaterial = new THREE.MeshPhongMaterial({ 
-          color: 0xff6b6b,
-          shininess: 100,
-          transparent: true,
-          opacity: 0.8
-        });
-        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-        sphere.position.set(4, 1, 0);
-        sphere.castShadow = true;
-        sphere.receiveShadow = true;
-        scene.add(sphere);
-      } else if (mode === 'mesh') {
-        // 网格模式 - 添加网格化的几何体
-        const torusGeometry = new THREE.TorusGeometry(2, 0.5, 16, 32);
-        const torusMaterial = new THREE.MeshPhongMaterial({ 
-          color: 0x52c41a,
-          wireframe: true,
-          transparent: true,
-          opacity: 0.8
-        });
-        const torus = new THREE.Mesh(torusGeometry, torusMaterial);
-        torus.position.set(0, 2, 0);
-        scene.add(torus);
-      } else if (mode === 'analysis') {
-        // 分析模式 - 添加彩色网格表示结果
-        const planeGeometry = new THREE.PlaneGeometry(8, 8, 32, 32);
-        const planeMaterial = new THREE.MeshPhongMaterial({ 
-          color: 0xff7875,
-          transparent: true,
-          opacity: 0.8,
-          side: THREE.DoubleSide
-        });
-        const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-        plane.rotation.x = -Math.PI / 4;
-        plane.position.set(0, 2, 0);
-        scene.add(plane);
+      //   const sphereGeometry = new THREE.SphereGeometry(1, 32, 32);
+      //   const sphereMaterial = new THREE.MeshPhongMaterial({ 
+      //     color: 0xff6b6b,
+      //     shininess: 100,
+      //     transparent: true,
+      //     opacity: 0.8
+      //   });
+      //   const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+      //   sphere.position.set(4, 1, 0);
+      //   sphere.castShadow = true;
+      //   sphere.receiveShadow = true;
+      //   scene.add(sphere);
+      // } else if (mode === 'mesh') {
+      //   // 网格模式 - 添加网格化的几何体
+      //   const torusGeometry = new THREE.TorusGeometry(2, 0.5, 16, 32);
+      //   const torusMaterial = new THREE.MeshPhongMaterial({ 
+      //     color: 0x52c41a,
+      //     wireframe: true,
+      //     transparent: true,
+      //     opacity: 0.8
+      //   });
+      //   const torus = new THREE.Mesh(torusGeometry, torusMaterial);
+      //   torus.position.set(0, 2, 0);
+      //   scene.add(torus);
+      // } else if (mode === 'analysis') {
+      //   // 分析模式 - 添加彩色网格表示结果
+      //   const planeGeometry = new THREE.PlaneGeometry(8, 8, 32, 32);
+      //   const planeMaterial = new THREE.MeshPhongMaterial({ 
+      //     color: 0xff7875,
+      //     transparent: true,
+      //     opacity: 0.8,
+      //     side: THREE.DoubleSide
+      //   });
+      //   const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+      //   plane.rotation.x = -Math.PI / 4;
+      //   plane.position.set(0, 2, 0);
+      //   scene.add(plane);
 
-        // 添加应力点
-        const pointsGeometry = new THREE.BufferGeometry();
-        const positions = [];
-        const colors = [];
+      //   // 添加应力点
+      //   const pointsGeometry = new THREE.BufferGeometry();
+      //   const positions = [];
+      //   const colors = [];
         
-        for (let i = 0; i < 100; i++) {
-          positions.push(
-            (Math.random() - 0.5) * 10,
-            Math.random() * 5,
-            (Math.random() - 0.5) * 10
-          );
-          colors.push(Math.random(), Math.random() * 0.5, 0.2);
-        }
+      //   for (let i = 0; i < 100; i++) {
+      //     positions.push(
+      //       (Math.random() - 0.5) * 10,
+      //       Math.random() * 5,
+      //       (Math.random() - 0.5) * 10
+      //     );
+      //     colors.push(Math.random(), Math.random() * 0.5, 0.2);
+      //   }
         
-        pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        pointsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      //   pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      //   pointsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
         
-        const pointsMaterial = new THREE.PointsMaterial({ 
-          size: 0.1,
-          vertexColors: true,
-          transparent: true,
-          opacity: 0.8
-        });
-        const points = new THREE.Points(pointsGeometry, pointsMaterial);
-        scene.add(points);
-      } else {
-        // 默认模式 - 添加基本对象
-        const cubeGeometry = new THREE.BoxGeometry(2, 2, 2);
-        const cubeMaterial = new THREE.MeshPhongMaterial({ 
-          color: 0x0077ff,
-          shininess: 100
-        });
-        const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-        cube.position.set(0, 1, 0);
-        cube.castShadow = true;
-        cube.receiveShadow = true;
-        scene.add(cube);
-      }
+      //   const pointsMaterial = new THREE.PointsMaterial({ 
+      //     size: 0.1,
+      //     vertexColors: true,
+      //     transparent: true,
+      //     opacity: 0.8
+      //   });
+      //   const points = new THREE.Points(pointsGeometry, pointsMaterial);
+      //   scene.add(points);
+      // } else {
+      //   // 默认模式 - 添加基本对象
+      //   const cubeGeometry = new THREE.BoxGeometry(2, 2, 2);
+      //   const cubeMaterial = new THREE.MeshPhongMaterial({ 
+      //     color: 0x0077ff,
+      //     shininess: 100
+      //   });
+      //   const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+      //   cube.position.set(0, 1, 0);
+      //   cube.castShadow = true;
+      //   cube.receiveShadow = true;
+      //   scene.add(cube);
+      // }
 
       // 创建现代化ViewCube
       const createViewCube = () => {
@@ -696,21 +696,21 @@ const ViewPort3D: React.FC<ViewPort3DProps> = ({
           controls.update();
         }
         
-        // 添加动画效果
+        // 简化动画效果
         if (scene) {
           const time = Date.now() * 0.001;
           
-          // 旋转展示对象
-          const showcaseObject = scene.getObjectByName('showcase');
-          if (showcaseObject) {
-            showcaseObject.rotation.y = time * 0.5;
-            showcaseObject.children.forEach((child, index) => {
-              if (child.name === 'ring') {
-                child.rotation.x = time * 0.3 + index;
-                child.rotation.z = time * 0.2;
-              }
-            });
-          }
+          // 移除展示对象旋转动画
+          // const showcaseObject = scene.getObjectByName('showcase');
+          // if (showcaseObject) {
+          //   showcaseObject.rotation.y = time * 0.5;
+          //   showcaseObject.children.forEach((child, index) => {
+          //     if (child.name === 'ring') {
+          //       child.rotation.x = time * 0.3 + index;
+          //       child.rotation.z = time * 0.2;
+          //     }
+          //   });
+          // }
           
           // 脉动效果
           const pointLight = scene.children.find(child => child.type === 'PointLight');
