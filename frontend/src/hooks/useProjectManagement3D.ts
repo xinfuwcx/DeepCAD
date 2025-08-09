@@ -6,9 +6,8 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import maplibregl from 'maplibre-gl';
-import { MapboxOverlay } from '@deck.gl/mapbox';
-import { IconLayer } from '@deck.gl/layers';
-import { HeatmapLayer } from '@deck.gl/aggregation-layers';
+// 移除直接静态导入 deck.gl 图层，改为统一懒加载
+import { getDeckLayers } from '../utils/mapLayersUtil';
 
 // MapLibre 样式
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -214,13 +213,20 @@ export const useProjectManagement3D = (
   }, [mapConfig]);
 
   // 初始化Deck.gl图层
-  const initializeDeckGL = useCallback(() => {
+  const initializeDeckGL = useCallback(async () => {
     if (!isInitialized || !mapRef.current || !projects.length) return;
+    console.log('🎯 初始化Deck.gl数据可视化 (lazy load)...');
 
-    console.log('🎯 初始化Deck.gl数据可视化...');
+    let IconLayer: any, HeatmapLayer: any, MapboxOverlay: any;
+    try {
+      ({ IconLayer, HeatmapLayer, MapboxOverlay } = await getDeckLayers());
+    } catch (e) {
+      console.error('❌ deck.gl 模块加载失败:', e);
+      return;
+    }
 
     // 创建项目图标层
-    const projectIconLayer = new IconLayer({
+  const projectIconLayer = new IconLayer({
       id: 'projects-icon',
       data: projects,
       getIcon: (d: Project) => ({
@@ -246,7 +252,7 @@ export const useProjectManagement3D = (
         return baseSize * scale;
       },
       pickable: true,
-      onHover: ({ object, x, y }: any) => {
+  onHover: ({ object }: any) => {
         if (object) {
           setHoveredProject(object);
           // 可以在这里添加工具提示逻辑
@@ -266,7 +272,7 @@ export const useProjectManagement3D = (
     });
 
     // 创建项目热力图层（显示项目密度）
-    const projectHeatmapLayer = new HeatmapLayer({
+  const projectHeatmapLayer = new HeatmapLayer({
       id: 'project-density',
       data: projects,
       getPosition: (d: Project) => [d.longitude, d.latitude],
@@ -285,17 +291,18 @@ export const useProjectManagement3D = (
     });
 
     // 创建Deck.gl叠加层
-    const deckOverlay = new MapboxOverlay({
+  const deckOverlay = new MapboxOverlay({
       layers: [projectHeatmapLayer, projectIconLayer], // 热力图在下，图标在上
       getTooltip: ({ object }: any) => {
         if (object) {
+          const proj = object as Project;
           return {
             html: `
-              <div style="background: rgba(26, 35, 50, 0.95); padding: 12px; border-radius: 8px; border: 1px solid ${PROJECT_COLORS[object.status]};">
-                <div style="color: white; font-weight: bold; margin-bottom: 4px;">${object.name}</div>
-                <div style="color: #ffffff80; font-size: 12px; margin-bottom: 4px;">${object.location}</div>
-                <div style="color: ${PROJECT_COLORS[object.status]}; font-size: 12px;">
-                  进度: ${object.progress}% | 深度: ${object.depth}m | 面积: ${object.area}m²
+              <div style="background: rgba(26, 35, 50, 0.95); padding: 12px; border-radius: 8px; border: 1px solid ${PROJECT_COLORS[proj.status]};">
+                <div style="color: white; font-weight: bold; margin-bottom: 4px;">${proj.name}</div>
+                <div style="color: #ffffff80; font-size: 12px; margin-bottom: 4px;">${proj.location}</div>
+                <div style="color: ${PROJECT_COLORS[proj.status]}; font-size: 12px;">
+                  进度: ${proj.progress}% | 深度: ${proj.depth}m | 面积: ${proj.area}m²
                 </div>
               </div>
             `
@@ -630,11 +637,4 @@ export const useProjectManagement3D = (
 };
 
 // 辅助函数：十六进制颜色转RGB
-function hexToRgb(hex: string): [number, number, number] {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? [
-    parseInt(result[1], 16),
-    parseInt(result[2], 16), 
-    parseInt(result[3], 16)
-  ] : [0, 0, 0];
-}
+// The hexToRgb function has been removed to satisfy noUnusedLocals.
