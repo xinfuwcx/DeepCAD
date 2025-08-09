@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Card, Button, Space, Typography, Tabs, List, Select, Slider, Switch, Tag, Progress } from 'antd';
+import React, { useState, useMemo } from 'react';
+import { Button, Space, Typography, Tabs, Select, Slider, Switch, Tag, Progress } from 'antd';
 import {
   BarChartOutlined,
   EyeOutlined,
@@ -16,6 +16,10 @@ import {
   VideoCameraOutlined,
   LineChartOutlined
 } from '@ant-design/icons';
+// Unified layout components
+import UnifiedModuleLayout from '../ui/layout/UnifiedModuleLayout';
+import Panel from '../ui/layout/Panel';
+import MetricCard from '../ui/layout/MetricCard';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -75,448 +79,192 @@ export const ResultsModule: React.FC = () => {
     { name: 'Cool', colors: ['#00ffff', '#0080ff', '#0000ff'] }
   ];
 
+  const metrics = useMemo(() => (
+    analysisResults.map(r => ({
+      label: r.metric,
+      value: r.value + ' ' + r.unit,
+      accent: r.status === 'warning' ? 'orange' : r.status === 'good' ? 'green' : 'blue' as const
+    }))
+  ), [analysisResults]);
+
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
-      {/* 全屏3D视口背景 */}
-      <div style={{ 
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'linear-gradient(135deg, rgba(26, 26, 26, 0.95) 0%, rgba(40, 40, 40, 0.95) 100%)',
-        zIndex: 1
-      }}>
-        {/* 结果可视化背景效果 */}
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundImage: `
-            radial-gradient(circle at 25% 25%, rgba(52, 199, 89, 0.1) 0%, transparent 50%),
-            radial-gradient(circle at 75% 75%, rgba(255, 107, 104, 0.1) 0%, transparent 50%),
-            radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.1) 0%, transparent 50%)
-          `,
-          opacity: 0.6
-        }} />
-
-        {/* 3D视口中心提示 */}
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          textAlign: 'center',
-          color: 'var(--text-secondary)',
-          zIndex: 2,
-          userSelect: 'none'
-        }}>
-          <div style={{ fontSize: '64px', marginBottom: '24px', opacity: 0.2 }}>📊</div>
-          <div style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '12px', opacity: 0.6 }}>3D结果可视化视口</div>
-          <div style={{ fontSize: '16px', opacity: 0.4 }}>
-            ✅ 云图可视化
-            <br />
-            ✅ 动画播放
-            <br />
-            ✅ 交互式分析
-            <br />
-            ✅ 等值线显示
-          </div>
-        </div>
-      </div>
-
-      {/* 悬浮左侧工具面板 */}
-      <div style={{ 
-        position: 'absolute',
-        top: '20px',
-        left: '20px',
-        width: '380px',
-        maxHeight: 'calc(100% - 40px)',
-        zIndex: 10
-      }}>
-        <Card 
-          className="glass-card" 
-          title={
-            <Space>
-              <BarChartOutlined style={{ color: 'var(--primary-color)' }} />
-              <span style={{ color: 'white', fontSize: '14px' }}>结果后处理工具</span>
-            </Space>
-          }
-          style={{ 
-            background: 'rgba(26, 26, 26, 0.75)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(52, 199, 89, 0.2)',
-            borderRadius: '16px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(52, 199, 89, 0.1)'
-          }}
-          styles={{ 
-            body: { 
-              padding: '16px', 
-              maxHeight: 'calc(100vh - 200px)',
-              overflowY: 'auto',
-              background: 'transparent'
-            },
-            header: {
-              background: 'transparent',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-              padding: '12px 16px'
-            }
-          }}
-        >
-          <Tabs defaultActiveKey="1" >
-            <TabPane tab="结果类型" key="1">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
-                {resultTypes.map((type, index) => (
-                  <Button
-                    key={index}
-                    className="glass-card"
-                    style={{
-                      height: '85px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      border: '1px solid var(--border-color)',
-                      position: 'relative'
-                    }}
-                    onClick={() => console.log('Select result', type.name)}
-                  >
-                    <div style={{ fontSize: '20px', marginBottom: '4px' }}>{type.icon}</div>
-                    <div style={{ fontSize: '11px', fontWeight: 'bold', textAlign: 'center', marginBottom: '2px' }}>
-                      {type.name}
-                    </div>
-                    <div style={{ fontSize: '9px', color: 'var(--text-secondary)', textAlign: 'center' }}>
-                      {type.description}
-                    </div>
-                    <Tag 
-                       
-                      color="blue"
-                      style={{ position: 'absolute', top: '4px', right: '4px', fontSize: '8px' }}
+    <UnifiedModuleLayout
+      left={
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <Panel title="结果后处理" subtitle="类型/显示/动画/工具" dense>
+            <Tabs defaultActiveKey="1" size="small">
+              <TabPane tab="结果类型" key="1">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  {resultTypes.map((type, i) => (
+                    <Button
+                      key={i}
+                      style={{
+                        height: 80,
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        border: '1px solid var(--border-color)', position: 'relative', background: 'rgba(255,255,255,0.02)'
+                      }}
+                      onClick={() => setResultSettings({ ...resultSettings, resultType: type.name })}
                     >
-                      {type.unit}
-                    </Tag>
-                  </Button>
-                ))}
-              </div>
-            </TabPane>
-            
-            <TabPane tab="可视化设置" key="2">
-              <div style={{ marginBottom: '16px' }}>
-                <Text style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>颜色映射</Text>
-                <Select 
-                  value={resultSettings.colorScale} 
-                  onChange={(value) => setResultSettings({...resultSettings, colorScale: value})}
-                  style={{ width: '100%', marginTop: '4px' }}
-                >
-                  {colorMaps.map((map, index) => (
-                    <Option key={index} value={map.name.toLowerCase()}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ 
-                          width: '40px', 
-                          height: '8px', 
-                          background: `linear-gradient(to right, ${map.colors.join(', ')})`,
-                          borderRadius: '2px'
-                        }} />
-                        {map.name}
-                      </div>
-                    </Option>
+                      <div style={{ fontSize: 20, marginBottom: 4 }}>{type.icon}</div>
+                      <div style={{ fontSize: 11, fontWeight: 'bold' }}>{type.name}</div>
+                      <div style={{ fontSize: 9, opacity: 0.6 }}>{type.description}</div>
+                      <Tag color="blue" style={{ position: 'absolute', top: 4, right: 4, fontSize: 8 }}>{type.unit}</Tag>
+                    </Button>
                   ))}
-                </Select>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <Text style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>等值线级数</Text>
-                <Slider
-                  min={5}
-                  max={50}
-                  value={resultSettings.contourLevels}
-                  onChange={(value) => setResultSettings({...resultSettings, contourLevels: value})}
-                  marks={{
-                    5: '5',
-                    20: '20',
-                    35: '35',
-                    50: '50'
-                  }}
-                />
-                <Text style={{ color: 'var(--primary-color)', fontSize: '12px' }}>
-                  级数: {resultSettings.contourLevels}
-                </Text>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>显示变形</Text>
-                  <Switch
-                    checked={resultSettings.showDeformation}
-                    onChange={(checked) => setResultSettings({
-                      ...resultSettings, 
-                      showDeformation: checked
-                    })}
-                  />
                 </div>
-              </div>
-
-              {resultSettings.showDeformation && (
-                <div style={{ marginBottom: '16px' }}>
-                  <Text style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>变形缩放系数</Text>
+              </TabPane>
+              <TabPane tab="可视化设置" key="2">
+                <div style={{ marginBottom: 12 }}>
+                  <Text style={{ fontSize: 12, opacity: 0.7 }}>颜色映射</Text>
+                  <Select
+                    value={resultSettings.colorScale}
+                    onChange={(value) => setResultSettings({ ...resultSettings, colorScale: value })}
+                    style={{ width: '100%', marginTop: 4 }}
+                    size="small"
+                  >
+                    {colorMaps.map((map, idx) => (
+                      <Option key={idx} value={map.name.toLowerCase()}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 40, height: 8, background: `linear-gradient(to right, ${map.colors.join(', ')})`, borderRadius: 2 }} />
+                          {map.name}
+                        </div>
+                      </Option>
+                    ))}
+                  </Select>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <Text style={{ fontSize: 12, opacity: 0.7 }}>等值线级数</Text>
+                  <Slider
+                    min={5}
+                    max={50}
+                    value={resultSettings.contourLevels}
+                    onChange={(value) => setResultSettings({ ...resultSettings, contourLevels: value })}
+                    marks={{ 5: '5', 20: '20', 35: '35', 50: '50' }}
+                  />
+                  <Text style={{ fontSize: 12, color: 'var(--primary-color)' }}>级数: {resultSettings.contourLevels}</Text>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 12, opacity: 0.7 }}>显示变形</Text>
+                    <Switch checked={resultSettings.showDeformation} onChange={(checked) => setResultSettings({ ...resultSettings, showDeformation: checked })} size="small" />
+                  </div>
+                </div>
+                {resultSettings.showDeformation && (
+                  <div style={{ marginBottom: 8 }}>
+                    <Text style={{ fontSize: 12, opacity: 0.7 }}>变形缩放系数</Text>
+                    <Slider
+                      min={1}
+                      max={100}
+                      value={resultSettings.animationSpeed * 50}
+                      onChange={(value) => setResultSettings({ ...resultSettings, animationSpeed: value / 50 })}
+                      marks={{ 1: '1x', 25: '25x', 50: '50x', 100: '100x' }}
+                    />
+                    <Text style={{ fontSize: 12, color: 'var(--accent-color)' }}>缩放: {(resultSettings.animationSpeed * 50).toFixed(0)}x</Text>
+                  </div>
+                )}
+              </TabPane>
+              <TabPane tab="动画控制" key="3">
+                <div style={{ marginBottom: 12 }}>
+                  <Text style={{ fontSize: 12, fontWeight: 600 }}>时步动画播放</Text>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <Text style={{ fontSize: 12, opacity: 0.7 }}>当前时步</Text>
                   <Slider
                     min={1}
-                    max={100}
-                    value={resultSettings.animationSpeed * 50}
-                    onChange={(value) => setResultSettings({
-                      ...resultSettings, 
-                      animationSpeed: value / 50
-                    })}
-                    marks={{
-                      1: '1x',
-                      25: '25x',
-                      50: '50x',
-                      100: '100x'
-                    }}
+                    max={animationStatus.totalFrames}
+                    value={animationStatus.currentFrame}
+                    onChange={(value) => setAnimationStatus({ ...animationStatus, currentFrame: value })}
+                    marks={{ 1: '1', 25: '25', 50: '50', 75: '75', 100: '100' }}
                   />
-                  <Text style={{ color: 'var(--accent-color)', fontSize: '12px' }}>
-                    缩放: {(resultSettings.animationSpeed * 50).toFixed(0)}x
-                  </Text>
+                  <Text style={{ fontSize: 12, color: 'var(--primary-color)' }}>步骤: {animationStatus.currentFrame}/{animationStatus.totalFrames}</Text>
                 </div>
-              )}
-            </TabPane>
-
-            <TabPane tab="动画控制" key="3">
-              <div style={{ marginBottom: '16px' }}>
-                <Text style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 'bold' }}>
-                  时步动画播放
-                </Text>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <Text style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>当前时步</Text>
-                <Slider
-                  min={1}
-                  max={animationStatus.totalFrames}
-                  value={animationStatus.currentFrame}
-                  onChange={(value) => setAnimationStatus({
-                    ...animationStatus, 
-                    currentFrame: value
-                  })}
-                  marks={{
-                    1: '1',
-                    25: '25',
-                    50: '50',
-                    75: '75',
-                    100: '100'
-                  }}
-                />
-                <Text style={{ color: 'var(--primary-color)', fontSize: '12px' }}>
-                  步骤: {animationStatus.currentFrame}/{animationStatus.totalFrames}
-                </Text>
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                <Button 
-                  icon={<StepBackwardOutlined />}
-                  
-                  onClick={() => setAnimationStatus({
-                    ...animationStatus,
-                    currentFrame: Math.max(1, animationStatus.currentFrame - 1)
-                  })}
-                />
-                <Button 
-                  type="primary"
-                  icon={animationStatus.isPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
-                  
-                  onClick={() => setAnimationStatus({
-                    ...animationStatus,
-                    isPlaying: !animationStatus.isPlaying
-                  })}
-                  style={{ flex: 1 }}
-                >
-                  {animationStatus.isPlaying ? '暂停' : '播放'}
-                </Button>
-                <Button 
-                  icon={<StepForwardOutlined />}
-                  
-                  onClick={() => setAnimationStatus({
-                    ...animationStatus,
-                    currentFrame: Math.min(animationStatus.totalFrames, animationStatus.currentFrame + 1)
-                  })}
-                />
-              </div>
-
-              <div style={{ 
-                padding: '12px', 
-                background: 'var(--bg-secondary)', 
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)'
-              }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
-                  <div>
-                    <Text style={{ color: 'var(--text-secondary)' }}>播放状态:</Text>
-                    <Text style={{ color: animationStatus.isPlaying ? 'var(--success-color)' : 'var(--text-secondary)', fontWeight: 'bold', marginLeft: '4px' }}>
-                      {animationStatus.isPlaying ? '播放中' : '已暂停'}
-                    </Text>
-                  </div>
-                  <div>
-                    <Text style={{ color: 'var(--text-secondary)' }}>帧间隔:</Text>
-                    <Text style={{ color: 'var(--accent-color)', fontWeight: 'bold', marginLeft: '4px' }}>
-                      {animationStatus.frameDuration}
-                    </Text>
-                  </div>
-                </div>
-              </div>
-            </TabPane>
-
-            <TabPane tab="分析工具" key="4">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                {postProcessTools.map((tool, index) => (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                  <Button icon={<StepBackwardOutlined />} onClick={() => setAnimationStatus({ ...animationStatus, currentFrame: Math.max(1, animationStatus.currentFrame - 1) })} />
                   <Button
-                    key={index}
-                    className="glass-card"
-                    style={{
-                      height: '50px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'flex-start',
-                      border: '1px solid var(--border-color)',
-                      padding: '0 16px'
-                    }}
-                    onClick={() => console.log('Use tool', tool.name)}
+                    type="primary"
+                    icon={animationStatus.isPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+                    onClick={() => setAnimationStatus({ ...animationStatus, isPlaying: !animationStatus.isPlaying })}
+                    style={{ flex: 1 }}
                   >
-                    <div style={{ fontSize: '16px', marginRight: '12px', color: 'var(--primary-color)' }}>
-                      {tool.icon}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '13px', fontWeight: 'bold' }}>{tool.name}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{tool.description}</div>
-                    </div>
+                    {animationStatus.isPlaying ? '暂停' : '播放'}
                   </Button>
-                ))}
-              </div>
-
-              {/* 分析结果统计 */}
-              <div style={{ marginTop: '16px' }}>
-                <Text style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '8px', display: 'block' }}>
-                  关键结果
-                </Text>
-                {analysisResults.map((result, index) => (
-                  <div key={index} style={{ 
-                    marginBottom: '8px',
-                    padding: '8px',
-                    background: 'var(--bg-tertiary)',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-color)'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                      <Text style={{ color: 'white', fontSize: '12px' }}>{result.metric}</Text>
-                      <Text style={{ 
-                        color: result.status === 'warning' ? 'var(--warning-color)' : 
-                              result.status === 'good' ? 'var(--success-color)' : 'var(--primary-color)', 
-                        fontSize: '12px', 
-                        fontWeight: 'bold' 
-                      }}>
-                        {result.value} {result.unit}
-                      </Text>
-                    </div>
-                    <Text style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
-                      位置: {result.location}
-                    </Text>
-                  </div>
-                ))}
-              </div>
-            </TabPane>
-          </Tabs>
-
-          {/* 导出控制 */}
-          <div style={{ marginTop: '16px' }}>
-            <Text style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '8px', display: 'block' }}>
-              导出选项
-            </Text>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              {exportOptions.map((option, index) => (
-                <Button 
-                  key={index}
-                  icon={option.icon}
-                  
-                  onClick={() => console.log('Export', option.format)}
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: '32px'
-                  }}
-                >
-                  {option.name}
-                </Button>
+                  <Button icon={<StepForwardOutlined />} onClick={() => setAnimationStatus({ ...animationStatus, currentFrame: Math.min(animationStatus.totalFrames, animationStatus.currentFrame + 1) })} />
+                </div>
+                <div style={{ padding: 10, border: '1px solid var(--border-color)', borderRadius: 8, fontSize: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div><Text style={{ opacity: 0.7 }}>播放状态:</Text> <Text style={{ color: animationStatus.isPlaying ? 'var(--success-color)' : 'var(--text-secondary)', fontWeight: 600 }}>{animationStatus.isPlaying ? '播放中' : '已暂停'}</Text></div>
+                  <div><Text style={{ opacity: 0.7 }}>帧间隔:</Text> <Text style={{ color: 'var(--accent-color)', fontWeight: 600 }}>{animationStatus.frameDuration}</Text></div>
+                </div>
+              </TabPane>
+              <TabPane tab="分析工具" key="4">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                  {postProcessTools.map((tool, i) => (
+                    <Button
+                      key={i}
+                      style={{ height: 48, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '0 14px', border: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)' }}
+                      onClick={() => console.log('Use tool', tool.name)}
+                    >
+                      <div style={{ fontSize: 16, marginRight: 12, color: 'var(--primary-color)' }}>{tool.icon}</div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{tool.name}</div>
+                        <div style={{ fontSize: 11, opacity: 0.6 }}>{tool.description}</div>
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+              </TabPane>
+            </Tabs>
+          </Panel>
+          <Panel title="导出选项" dense>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {exportOptions.map((option, i) => (
+                <Button key={i} icon={option.icon} onClick={() => console.log('Export', option.format)} style={{ height: 34 }}>{option.name}</Button>
               ))}
             </div>
+          </Panel>
+        </div>
+      }
+      right={
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <Panel title="关键结果" dense>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: 12 }}>
+              {metrics.map((m, i) => (
+                <MetricCard key={i} label={m.label} value={m.value} accent={m.accent as 'blue' | 'green' | 'orange' | 'purple' | 'red'} />
+              ))}
+            </div>
+          </Panel>
+          <Panel title="当前设置" dense>
+            <div style={{ display: 'grid', gap: 8, fontSize: 12 }}>
+              <div><Text style={{ opacity: 0.6 }}>类型:</Text> <Text style={{ color: 'var(--primary-color)' }}>{resultSettings.resultType}</Text></div>
+              <div><Text style={{ opacity: 0.6 }}>映射:</Text> <Text style={{ color: 'var(--accent-color)' }}>{resultSettings.colorScale}</Text></div>
+              <div><Text style={{ opacity: 0.6 }}>等值线:</Text> <Text style={{ color: 'var(--success-color)' }}>{resultSettings.contourLevels}</Text></div>
+              <div><Text style={{ opacity: 0.6 }}>变形显示:</Text> <Text>{resultSettings.showDeformation ? '是' : '否'}</Text></div>
+              <div><Text style={{ opacity: 0.6 }}>动画帧:</Text> <Text>{animationStatus.currentFrame}/{animationStatus.totalFrames}</Text></div>
+              <div><Progress percent={(animationStatus.currentFrame / animationStatus.totalFrames) * 100} size="small" showInfo={false} /></div>
+            </div>
+          </Panel>
+        </div>
+      }
+      overlay={
+        <div style={{ position: 'absolute', left: '50%', bottom: 24, transform: 'translateX(-50%)', display: 'flex', gap: 18, background: 'rgba(26,26,26,0.72)', padding: '10px 24px', borderRadius: 24, border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(18px)' }}>
+          <Button type="text" style={{ color: 'var(--primary-color)' }}>📊 云图</Button>
+          <Button type="text" style={{ color: 'var(--text-secondary)' }}>🎬 动画</Button>
+          <Button type="text" style={{ color: 'var(--text-secondary)' }}>📈 分析</Button>
+          <Button type="text" style={{ color: 'var(--text-secondary)' }}>💾 导出</Button>
+        </div>
+      }
+    >
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(26,26,26,0.95) 0%, rgba(40,40,40,0.95) 100%)' }} />
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 25% 25%, rgba(52,199,89,0.1) 0%, transparent 50%), radial-gradient(circle at 75% 75%, rgba(255,107,104,0.1) 0%, transparent 50%), radial-gradient(circle at 50% 50%, rgba(139,92,246,0.1) 0%, transparent 50%)', opacity: 0.6 }} />
+        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center', userSelect: 'none' }}>
+          <div style={{ fontSize: 60, marginBottom: 20, opacity: 0.25 }}>📊</div>
+          <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 12, opacity: 0.7 }}>3D结果可视化视口</div>
+          <div style={{ fontSize: 14, opacity: 0.5, lineHeight: 1.6 }}>
+            ✅ 云图可视化<br/>✅ 动画播放<br/>✅ 交互式分析<br/>✅ 等值线显示
           </div>
-        </Card>
+        </div>
       </div>
-
-      {/* 悬浮右侧结果设置指示器 */}
-      <div style={{
-        position: 'absolute',
-        top: '20px',
-        right: '20px',
-        background: 'rgba(26, 26, 26, 0.75)',
-        backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(52, 199, 89, 0.2)',
-        borderRadius: '16px',
-        padding: '16px',
-        minWidth: '160px',
-        zIndex: 10,
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(52, 199, 89, 0.1)'
-      }}>
-        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px', textAlign: 'center' }}>
-          结果设置
-        </div>
-        <div style={{ fontSize: '11px', color: 'var(--primary-color)', marginBottom: '6px' }}>
-          类型: {resultSettings.resultType}
-        </div>
-        <div style={{ fontSize: '11px', color: 'var(--accent-color)', marginBottom: '6px' }}>
-          映射: {resultSettings.colorScale}
-        </div>
-        <div style={{ fontSize: '11px', color: 'var(--success-color)', marginBottom: '6px' }}>
-          等值线: {resultSettings.contourLevels} 级
-        </div>
-        {animationStatus.isPlaying && (
-          <div style={{ fontSize: '11px', color: 'var(--warning-color)' }}>
-            播放: {animationStatus.currentFrame}/{animationStatus.totalFrames}
-          </div>
-        )}
-      </div>
-
-      {/* 悬浮底部工具栏 */}
-      <div style={{
-        position: 'absolute',
-        bottom: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        background: 'rgba(26, 26, 26, 0.75)',
-        backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(52, 199, 89, 0.2)',
-        borderRadius: '20px',
-        padding: '12px 24px',
-        display: 'flex',
-        gap: '20px',
-        zIndex: 10,
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(52, 199, 89, 0.1)'
-      }}>
-        <Button  type="text" style={{ color: 'var(--primary-color)', border: 'none' }}>
-          📊 云图
-        </Button>
-        <Button  type="text" style={{ color: 'var(--text-secondary)', border: 'none' }}>
-          🎬 动画
-        </Button>
-        <Button  type="text" style={{ color: 'var(--text-secondary)', border: 'none' }}>
-          📈 分析
-        </Button>
-        <Button  type="text" style={{ color: 'var(--text-secondary)', border: 'none' }}>
-          💾 导出
-        </Button>
-      </div>
-    </div>
+    </UnifiedModuleLayout>
   );
 };
 

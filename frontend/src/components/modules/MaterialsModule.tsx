@@ -1,17 +1,9 @@
-import React, { useState } from 'react';
-import { Card, Button, Space, Typography, Form, Input, InputNumber, Select, Table, Tag, Modal, Tabs } from 'antd';
-import {
-  ExperimentOutlined,
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  EyeOutlined,
-  UploadOutlined,
-  DownloadOutlined,
-  SearchOutlined,
-  SettingOutlined,
-  BugOutlined
-} from '@ant-design/icons';
+import React, { useState, useMemo } from 'react';
+import { Button, Space, Typography, Form, Input, InputNumber, Select, Tag, Modal, Tabs, Slider } from 'antd';
+import { ExperimentOutlined, PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, UploadOutlined, DownloadOutlined, SearchOutlined } from '@ant-design/icons';
+import UnifiedModuleLayout from '../ui/layout/UnifiedModuleLayout';
+import Panel from '../ui/layout/Panel';
+import MetricCard from '../ui/layout/MetricCard';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -98,71 +90,21 @@ export const MaterialsModule: React.FC = () => {
     ? materialData 
     : materialData.filter(material => material.type === materialType);
 
-  const columns = [
-    {
-      title: '材料名称',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text: string, record: any) => (
-        <Button type="link" style={{ color: 'var(--primary-color)', padding: 0 }} onClick={() => setSelectedMaterial(record)}>
-          {text}
-        </Button>
-      )
-    },
-    {
-      title: '类型',
-      dataIndex: 'type',
-      key: 'type',
-      render: (type: string) => (
-        <Tag color={
-          type === 'concrete' ? 'blue' :
-          type === 'steel' ? 'orange' :
-          type === 'soil' ? 'green' :
-          type === 'rock' ? 'purple' : 'default'
-        }>
-          {materialTypes.find(t => t.value === type)?.label}
-        </Tag>
-      )
-    },
-    {
-      title: '密度 (kg/m³)',
-      dataIndex: 'density',
-      key: 'density',
-      render: (value: number) => value.toLocaleString()
-    },
-    {
-      title: '弹性模量 (MPa)',
-      dataIndex: 'elasticModulus',
-      key: 'elasticModulus',
-      render: (value: number) => value.toLocaleString()
-    },
-    {
-      title: '泊松比',
-      dataIndex: 'poissonRatio',
-      key: 'poissonRatio'
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => (
-        <Tag color={status === 'active' ? 'success' : 'warning'}>
-          {status === 'active' ? '激活' : '草稿'}
-        </Tag>
-      )
-    },
-    {
-      title: '操作',
-      key: 'actions',
-      render: (record: any) => (
-        <Space>
-          <Button type="text"  icon={<EyeOutlined />} onClick={() => setSelectedMaterial(record)} />
-          <Button type="text"  icon={<EditOutlined />} onClick={() => setIsModalVisible(true)} />
-          <Button type="text"  icon={<DeleteOutlined />} danger />
-        </Space>
-      )
-    }
-  ];
+  // 统计指标
+  const metrics = useMemo(() => {
+    const total = materialData.length;
+    const concrete = materialData.filter(m => m.type === 'concrete').length;
+    const steel = materialData.filter(m => m.type === 'steel').length;
+    const soil = materialData.filter(m => m.type === 'soil').length;
+    const rock = materialData.filter(m => m.type === 'rock').length;
+    return [
+      { label: '总数', value: String(total), accent: 'blue' as const },
+      { label: '混凝土', value: String(concrete), accent: 'purple' as const },
+      { label: '钢材', value: String(steel), accent: 'orange' as const },
+      { label: '土体', value: String(soil), accent: 'green' as const },
+      { label: '岩石', value: String(rock), accent: 'red' as const }
+    ];
+  }, [materialData]);
 
   const materialProperties = selectedMaterial ? [
     { property: '密度', value: selectedMaterial.density, unit: 'kg/m³' },
@@ -183,366 +125,127 @@ export const MaterialsModule: React.FC = () => {
   ] : [];
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
-      {/* 全屏3D视口背景 */}
-      <div style={{ 
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'linear-gradient(135deg, rgba(26, 26, 26, 0.95) 0%, rgba(40, 40, 40, 0.95) 100%)',
-        zIndex: 1
-      }}>
-        {/* 材料科学背景效果 */}
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundImage: `
-            radial-gradient(circle at 25% 25%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
-            radial-gradient(circle at 75% 75%, rgba(0, 217, 255, 0.1) 0%, transparent 50%),
-            radial-gradient(circle at 50% 50%, rgba(52, 199, 89, 0.1) 0%, transparent 50%)
-          `,
-          opacity: 0.6
-        }} />
-
-        {/* 分子结构网格背景 */}
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundImage: `
-            linear-gradient(rgba(139, 92, 246, 0.05) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(139, 92, 246, 0.05) 1px, transparent 1px)
-          `,
-          backgroundSize: '25px 25px',
-          opacity: 0.4
-        }} />
-
-        {/* 3D视口中心提示 */}
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          textAlign: 'center',
-          color: 'var(--text-secondary)',
-          zIndex: 2,
-          userSelect: 'none'
-        }}>
-          <div style={{ fontSize: '64px', marginBottom: '24px', opacity: 0.2 }}>🧪</div>
-          <div style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '12px', opacity: 0.6 }}>3D材料模型视口</div>
-          <div style={{ fontSize: '16px', opacity: 0.4 }}>
-            ✅ 分子结构可视化
-            <br />
-            ✅ 材料性能分析
-            <br />
-            ✅ 应力-应变曲线
-            <br />
-            ✅ 微观结构建模
-          </div>
-        </div>
-      </div>
-
-      {/* 悬浮左侧工具面板 */}
-      <div style={{ 
-        position: 'absolute',
-        top: '20px',
-        left: '20px',
-        width: '380px',
-        maxHeight: 'calc(100% - 40px)',
-        zIndex: 10
-      }}>
-        <Card 
-          className="glass-card" 
-          title={
-            <Space>
-              <ExperimentOutlined style={{ color: 'var(--primary-color)' }} />
-              <span style={{ color: 'white', fontSize: '14px' }}>材料库管理</span>
-            </Space>
-          }
-          style={{ 
-            background: 'rgba(26, 26, 26, 0.75)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(139, 92, 246, 0.2)',
-            borderRadius: '16px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(139, 92, 246, 0.1)'
-          }}
-          styles={{ 
-            body: { 
-              padding: '16px', 
-              maxHeight: 'calc(100vh - 200px)',
-              overflowY: 'auto',
-              background: 'transparent'
-            },
-            header: {
-              background: 'transparent',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-              padding: '12px 16px'
-            }
-          }}
-        >
-          <Tabs defaultActiveKey="1" >
-            <TabPane tab="材料列表" key="1">
-              <div style={{ marginBottom: '16px' }}>
-                <Select
-                  value={materialType}
-                  onChange={setMaterialType}
-                  style={{ width: '100%' }}
-                  
-                >
-                  {materialTypes.map(type => (
-                    <Option key={type.value} value={type.value}>
-                      {type.label}
-                    </Option>
+    <>
+      <UnifiedModuleLayout
+        left={
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <Panel title={<span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><ExperimentOutlined /> 材料库</span>} dense>
+              <Tabs size="small" defaultActiveKey="list" items={[
+                { key: 'list', label: '列表', children: (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <Select value={materialType} onChange={setMaterialType} size="small">
+                      {materialTypes.map(t => <Option key={t.value} value={t.value}>{t.label}</Option>)}
+                    </Select>
+                    <div style={{ maxHeight: 300, overflowY: 'auto', paddingRight: 4 }}>
+                      {filteredMaterials.map(mat => (
+                        <div key={mat.id} onClick={() => setSelectedMaterial(mat)}
+                          style={{
+                            padding: '8px 10px',
+                            borderRadius: 6,
+                            marginBottom: 6,
+                            cursor: 'pointer',
+                            background: selectedMaterial?.id === mat.id ? 'rgba(139,92,246,0.18)' : 'var(--bg-tertiary)',
+                            border: `1px solid ${selectedMaterial?.id === mat.id ? 'rgba(139,92,246,0.45)' : 'var(--border-color)'}`
+                          }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <Text style={{ fontSize: 12, fontWeight: 600 }}>{mat.name}</Text>
+                            <Tag color={mat.type === 'concrete' ? 'blue' : mat.type === 'steel' ? 'orange' : mat.type === 'soil' ? 'green' : 'purple'} style={{ margin: 0 }}>{materialTypes.find(t=>t.value===mat.type)?.label}</Tag>
+                          </div>
+                          <div style={{ fontSize: 10, opacity: 0.7 }}>ρ {mat.density} • E {mat.elasticModulus}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )},
+                { key: 'ops', label: '操作', children: (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <Button size="small" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)}>新建</Button>
+                    <Button size="small" icon={<UploadOutlined />}>导入</Button>
+                    <Button size="small" icon={<DownloadOutlined />}>导出</Button>
+                    <Button size="small" icon={<SearchOutlined />}>搜索</Button>
+                  </div>
+                )}
+              ]} />
+            </Panel>
+            {selectedMaterial && (
+              <Panel title="材料详情" dense>
+                <div style={{ marginBottom: 8 }}>
+                  <Text style={{ fontSize: 13, fontWeight: 600 }}>{selectedMaterial.name}</Text>
+                  <div style={{ fontSize: 11, opacity: 0.65 }}>{selectedMaterial.description}</div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(110px,1fr))', gap: 6 }}>
+                  {materialProperties.map(p => (
+                    <div key={p.property} style={{ background: 'var(--bg-secondary)', padding: '6px 8px', borderRadius: 4 }}>
+                      <div style={{ fontSize: 10, opacity: 0.6 }}>{p.property}</div>
+                      <div style={{ fontSize: 12, fontFamily: 'JetBrains Mono' }}>{p.value} {p.unit}</div>
+                    </div>
                   ))}
-                </Select>
+                </div>
+              </Panel>
+            )}
+          </div>
+        }
+        right={
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <Panel title="统计" dense>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(90px,1fr))', gap: 8 }}>
+                {metrics.map(m => <MetricCard key={m.label} label={m.label} value={m.value} accent={m.accent} />)}
               </div>
-              
-              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                {filteredMaterials.map((material, index) => (
-                  <div 
-                    key={index} 
-                    style={{ 
-                      marginBottom: '8px',
-                      padding: '10px',
-                      background: selectedMaterial?.id === material.id ? 'rgba(139, 92, 246, 0.2)' : 'var(--bg-tertiary)',
-                      borderRadius: '6px',
-                      border: `1px solid ${selectedMaterial?.id === material.id ? 'rgba(139, 92, 246, 0.4)' : 'var(--border-color)'}`,
-                      cursor: 'pointer'
-                    }}
-                    onClick={() => setSelectedMaterial(material)}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                      <Text style={{ color: 'white', fontSize: '13px', fontWeight: 'bold' }}>{material.name}</Text>
-                      <Tag 
-                        
-                        color={
-                          material.type === 'concrete' ? 'blue' :
-                          material.type === 'steel' ? 'orange' :
-                          material.type === 'soil' ? 'green' : 'purple'
-                        }
-                      >
-                        {materialTypes.find(t => t.value === material.type)?.label}
-                      </Tag>
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                      密度: {material.density} kg/m³ • E: {material.elasticModulus} MPa
-                    </div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      {material.description}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </TabPane>
-            
-            <TabPane tab="材料详情" key="2">
+            </Panel>
+            <Panel title="当前选择" dense>
               {selectedMaterial ? (
-                <div>
-                  <div style={{ marginBottom: '16px' }}>
-                    <Title level={5} style={{ color: 'var(--primary-color)', marginBottom: '8px' }}>
-                      {selectedMaterial.name}
-                    </Title>
-                    <Text style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
-                      {selectedMaterial.description}
-                    </Text>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <Text style={{ fontSize: 12 }}><strong>{selectedMaterial.name}</strong></Text>
+                  <Text style={{ fontSize: 11, opacity: 0.7 }}>{selectedMaterial.description}</Text>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(120px,1fr))', gap: 6 }}>
+                    <MetricCard label="密度" value={selectedMaterial.density+''} accent="blue" />
+                    <MetricCard label="E" value={selectedMaterial.elasticModulus+''} accent="purple" />
+                    <MetricCard label="泊松比" value={selectedMaterial.poissonRatio+''} accent="orange" />
                   </div>
-                  
-                  <div style={{ marginBottom: '16px' }}>
-                    <Text style={{ color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '8px' }}>
-                      力学性能
-                    </Text>
-                    {materialProperties.map((prop, index) => (
-                      <div key={index} style={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between',
-                        marginBottom: '6px',
-                        padding: '6px',
-                        background: 'var(--bg-secondary)',
-                        borderRadius: '4px'
-                      }}>
-                        <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>{prop.property}</span>
-                        <span style={{ color: 'var(--primary-color)', fontFamily: 'JetBrains Mono', fontSize: '11px' }}>
-                          {prop.value} {prop.unit}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  <Space size={4} wrap>
+                    <Button size="small" icon={<EditOutlined />} onClick={() => setIsModalVisible(true)}>编辑</Button>
+                    <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+                  </Space>
                 </div>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '40px' }}>
-                  <Text style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
-                    选择材料查看详细信息
-                  </Text>
-                </div>
-              )}
-            </TabPane>
-
-            <TabPane tab="材料库操作" key="3">
-              <div style={{ marginBottom: '16px' }}>
-                <Text style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 'bold' }}>
-                  快速操作
-                </Text>
-              </div>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                <Button icon={<PlusOutlined />} style={{ justifyContent: 'flex-start' }} onClick={() => setIsModalVisible(true)}>
-                  新建材料
-                </Button>
-                <Button icon={<UploadOutlined />} style={{ justifyContent: 'flex-start' }}>
-                  导入材料库
-                </Button>
-                <Button icon={<DownloadOutlined />} style={{ justifyContent: 'flex-start' }}>
-                  导出材料数据
-                </Button>
-                <Button icon={<SearchOutlined />} style={{ justifyContent: 'flex-start' }}>
-                  材料搜索
-                </Button>
-              </div>
-
-              <div style={{ marginTop: '16px' }}>
-                <Text style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '8px', display: 'block' }}>
-                  材料统计
-                </Text>
-                {materialTypes.slice(1).map((type, index) => {
-                  const count = materialData.filter(m => m.type === type.value).length;
-                  return (
-                    <div key={index} style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between',
-                      marginBottom: '6px',
-                      padding: '6px',
-                      background: 'var(--bg-secondary)',
-                      borderRadius: '4px'
-                    }}>
-                      <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>{type.label}</span>
-                      <span style={{ color: 'var(--primary-color)', fontFamily: 'JetBrains Mono', fontSize: '11px' }}>
-                        {count} 个
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </TabPane>
-          </Tabs>
-        </Card>
-      </div>
-
-      {/* 悬浮右侧材料性能指示器 */}
-      <div style={{
-        position: 'absolute',
-        top: '20px',
-        right: '20px',
-        background: 'rgba(26, 26, 26, 0.75)',
-        backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(139, 92, 246, 0.2)',
-        borderRadius: '16px',
-        padding: '16px',
-        minWidth: '160px',
-        zIndex: 10,
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(139, 92, 246, 0.1)'
-      }}>
-        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px', textAlign: 'center' }}>
-          材料性能
-        </div>
-        {selectedMaterial ? (
-          <div>
-            <div style={{ fontSize: '11px', color: 'var(--primary-color)', marginBottom: '6px', textAlign: 'center' }}>
-              {selectedMaterial.name}
-            </div>
-            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-              密度: {selectedMaterial.density} kg/m³
-            </div>
-            <div style={{ fontSize: '10px', color: 'var(--accent-color)', marginBottom: '6px' }}>
-              弹性模量: {selectedMaterial.elasticModulus} MPa
-            </div>
-            <div style={{ fontSize: '10px', color: 'var(--success-color)' }}>
-              泊松比: {selectedMaterial.poissonRatio}
-            </div>
+              ) : <div style={{ fontSize: 12, opacity: 0.6 }}>未选择材料</div>}
+            </Panel>
           </div>
-        ) : (
-          <div style={{ fontSize: '10px', color: 'var(--text-muted)', textAlign: 'center' }}>
-            未选择材料
-          </div>
-        )}
-      </div>
-
-      {/* 悬浮底部工具栏 */}
-      <div style={{
-        position: 'absolute',
-        bottom: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        background: 'rgba(26, 26, 26, 0.75)',
-        backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(139, 92, 246, 0.2)',
-        borderRadius: '20px',
-        padding: '12px 24px',
-        display: 'flex',
-        gap: '20px',
-        zIndex: 10,
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(139, 92, 246, 0.1)'
-      }}>
-        <Button  type="text" style={{ color: 'var(--primary-color)', border: 'none' }}>
-          🧪 材料
-        </Button>
-        <Button  type="text" style={{ color: 'var(--text-secondary)', border: 'none' }}>
-          📊 性能
-        </Button>
-        <Button  type="text" style={{ color: 'var(--text-secondary)', border: 'none' }}>
-          🔬 分析
-        </Button>
-        <Button  type="text" style={{ color: 'var(--text-secondary)', border: 'none' }}>
-          📋 库存
-        </Button>
-      </div>
-
-      {/* 材料编辑模态框 */}
-      <Modal
-        title="编辑材料"
-        open={isModalVisible}
-        onCancel={() => setIsModalVisible(false)}
-        footer={null}
-        style={{ color: 'white' }}
+        }
+        overlay={null}
       >
-        <Form layout="vertical" >
-          <Form.Item label="材料名称">
-            <Input placeholder="请输入材料名称" />
-          </Form.Item>
-          <Form.Item label="材料类型">
-            <Select placeholder="请选择材料类型">
-              {materialTypes.slice(1).map(type => (
-                <Option key={type.value} value={type.value}>{type.label}</Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item label="密度 (kg/m³)">
-            <InputNumber style={{ width: '100%' }} placeholder="请输入密度" />
-          </Form.Item>
-          <Form.Item label="弹性模量 (MPa)">
-            <InputNumber style={{ width: '100%' }} placeholder="请输入弹性模量" />
-          </Form.Item>
-          <Form.Item label="泊松比">
-            <InputNumber style={{ width: '100%' }} step={0.01} placeholder="请输入泊松比" />
-          </Form.Item>
-          <Form.Item label="描述">
-            <TextArea rows={3} placeholder="请输入材料描述" />
-          </Form.Item>
-          <Form.Item>
-            <Space>
-              <Button type="primary">保存</Button>
-              <Button onClick={() => setIsModalVisible(false)}>取消</Button>
-            </Space>
-          </Form.Item>
+        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(26,26,26,0.95), rgba(40,40,40,0.95))' }} />
+          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 25% 25%, rgba(139,92,246,0.12), transparent 55%), radial-gradient(circle at 75% 70%, rgba(0,217,255,0.12), transparent 55%)' }} />
+          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(139,92,246,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.05) 1px, transparent 1px)', backgroundSize: '28px 28px', opacity: .35 }} />
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center', pointerEvents: 'none' }}>
+            <div style={{ fontSize: 58, opacity: .25, marginBottom: 18 }}>🧪</div>
+            <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: 1, marginBottom: 10 }}>材料 3D 视口占位</div>
+            <div style={{ fontSize: 13, opacity: .55, lineHeight: 1.5 }}>待集成: 分子结构 / 应力应变曲线 / 微观结构</div>
+          </div>
+        </div>
+      </UnifiedModuleLayout>
+
+      <Modal title="编辑材料" open={isModalVisible} onCancel={() => setIsModalVisible(false)} footer={null}>
+        <Form layout="vertical" size="small">
+          <Form.Item label="材料名称"><Input /></Form.Item>
+            <Form.Item label="材料类型">
+              <Select>
+                {materialTypes.slice(1).map(t => <Option key={t.value} value={t.value}>{t.label}</Option>)}
+              </Select>
+            </Form.Item>
+            <Form.Item label="密度 (kg/m³)"><InputNumber style={{ width: '100%' }} /></Form.Item>
+            <Form.Item label="弹性模量 (MPa)"><InputNumber style={{ width: '100%' }} /></Form.Item>
+            <Form.Item label="泊松比"><InputNumber style={{ width: '100%' }} step={0.01} /></Form.Item>
+            <Form.Item label="描述"><TextArea rows={3} /></Form.Item>
+            <Form.Item>
+              <Space>
+                <Button type="primary">保存</Button>
+                <Button onClick={() => setIsModalVisible(false)}>取消</Button>
+              </Space>
+            </Form.Item>
         </Form>
       </Modal>
-    </div>
+    </>
   );
 };
 

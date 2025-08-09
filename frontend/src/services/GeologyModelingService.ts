@@ -15,14 +15,52 @@ import {
   SoilLayer,
   QualityIssue
 } from './GeometryArchitectureService';
+import { geologyApiConfig } from '@/config/networkConfig';
+import { GEO_REQ_CLASS_COLORS, AttemptDetail } from '@/config/geologyLogging';
+
+// 构建请求哈希（与前端缓存/面板一致化）
+function buildGeoRequestHash(payload: any): string {
+  try {
+    const stable = JSON.stringify(payload, Object.keys(payload).sort());
+    let hash = 0, i, chr; for (i = 0; i < stable.length; i++){ chr = stable.charCodeAt(i); hash = ((hash << 5) - hash) + chr; hash |= 0; }
+    return 'GEO'+Math.abs(hash).toString(36);
+  } catch { return 'GEO000'; }
+}
 
 export class GeologyModelingService {
   private initialized = false;
   private rbfWorker?: Worker;
   private interpolationCache = new Map<string, InterpolationResult>();
   private apiBaseUrl = '/api/geology'; // API基础URL
+  private activeControllers = new Set<AbortController>();
+  public lastRequestMeta: { endpoint: string; attempts: number; timeoutMs: number; retries: number } | null = null;
+  public requestLog: Array<{
+    id: string;
+    endpoint: string;
+    method: string;
+    status?: number;
+    ok?: boolean;
+    attempts: number;
+    durationMs: number;
+    error?: string;
+    hash?: string;
+    ts: number;
+  classification?: string;
+  attemptDetails?: AttemptDetail[];
+  }> = [];
 
-  constructor() {}
+  constructor() {
+    // 加载会话持久化日志（如果开启）
+    try {
+      if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('geoReqLogPersist') === '1') {
+        const raw = sessionStorage.getItem('geoReqLogData');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) this.requestLog = parsed;
+        }
+      }
+    } catch {}
+  }
 
   public async initialize(): Promise<void> {
     if (this.initialized) return;
@@ -580,7 +618,8 @@ export class GeologyModelingService {
         severity: 'major',
         type: 'low_resolution',
         description: '模型分辨率过低，顶点数量不足',
-        suggestedFix: '增加插值网格分辨率'
+        suggestedFix: '增加插值网格分辨率',
+        affectedElements: []
       });
       score -= 20;
     }
@@ -591,7 +630,8 @@ export class GeologyModelingService {
         severity: 'critical',
         type: 'no_geometry',
         description: '模型不包含任何几何体',
-        suggestedFix: '检查插值参数和数据质量'
+        suggestedFix: '检查插值参数和数据质量',
+        affectedElements: []
       });
       score -= 50;
     }
@@ -602,7 +642,8 @@ export class GeologyModelingService {
         severity: 'critical',
         type: 'invalid_volume',
         description: '模型体积为零或负值',
-        suggestedFix: '检查边界条件和插值算法'
+        suggestedFix: '检查边界条件和插值算法',
+        affectedElements: []
       });
       score -= 30;
     }
@@ -665,79 +706,180 @@ export class GeologyModelingService {
     console.error('❌ RBF Worker错误:', error);
   }
 
-  // ============== 新增：GemPy完整显示链路API调用 ==============
+  private inferBoundsFromHoles(boreholeData: BoreholeData){
+    const xs: number[] = []; const ys: number[] = []; const zs: number[] = [];
+    boreholeData.holes.forEach(h=>{ xs.push(h.location.x); ys.push(h.location.y); zs.push(h.location.z - (h.depth||0)); zs.push(h.location.z); });
+    const min = (arr:number[])=> arr.length? Math.min(...arr): -50;
+    const max = (arr:number[])=> arr.length? Math.max(...arr): 50;
+    const pad = 0.1;
+    const expand = (lo:number, hi:number)=>{ const r=hi-lo; return { lo: lo - r*pad, hi: hi + r*pad }; };
+    const xr=expand(min(xs), max(xs)); const yr=expand(min(ys), max(ys)); const zr=expand(min(zs), max(zs));
+    return { x_min: xr.lo, x_max: xr.hi, y_min: yr.lo, y_max: yr.hi, z_min: zr.lo, z_max: zr.hi };
+  }
+
+  private normalizeGemPyResponse(raw: any){
+    if(!raw || typeof raw !== 'object') return { raw, stats:null };
+    const stats = {
+      vertexCount: raw?.model_stats?.vertex_count ?? raw?.model_stats?.vertices ?? 0,
+      triangleCount: raw?.model_stats?.triangle_count ?? raw?.model_stats?.triangles ?? 0,
+      processingTime: raw?.processing_time ?? raw?.performance_metrics?.processing_time ?? 0,
+      objects: raw?.threejs_data ? Object.keys(raw.threejs_data).length : (raw?.display_chain?.threejs_objects_count ?? 0),
+      bounds: raw?.model_stats?.bounds || raw?.bounds || null,
+      method: raw?.method,
+      success: !!raw?.success
+    };
+    return { raw, stats };
+  }
+
+  // 带超时与重试的封装
+  private async fetchWithTimeoutRetry(url: string, init: RequestInit, meta?: { hash?: string }): Promise<Response> {
+    const timeoutMs = geologyApiConfig.timeoutMs;
+    const retries = geologyApiConfig.retries;
+    const retryDelayMs = geologyApiConfig.retryDelayMs;
+    let attempt = 0; let lastErr: any=null;
+    const start = performance.now();
+    const id = 'REQ_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const attemptDetails: AttemptDetail[] = [];
+    while (attempt <= retries) {
+      const controller = new AbortController();
+      this.activeControllers.add(controller);
+      const timer = setTimeout(()=> controller.abort(), timeoutMs);
+      try {
+        const resp = await fetch(url, { ...init, signal: controller.signal });
+        clearTimeout(timer); this.activeControllers.delete(controller);
+        if (!resp.ok && (resp.status >=500 || resp.status===429)) throw new Error(`Retryable HTTP ${resp.status}`);
+        this.lastRequestMeta = { endpoint: url, attempts: attempt+1, timeoutMs, retries };
+  this.requestLog.unshift({ id, endpoint: url, method: init.method||'GET', status: resp.status, ok: resp.ok, attempts: attempt+1, durationMs: performance.now()-start, hash: meta?.hash, ts: Date.now(), classification: 'success', attemptDetails });
+  try { if (typeof sessionStorage!=='undefined' && sessionStorage.getItem('geoReqLogPersist')==='1') sessionStorage.setItem('geoReqLogData', JSON.stringify(this.requestLog)); } catch {}
+        if (this.requestLog.length > 200) this.requestLog.length = 200; // cap size
+        return resp;
+      } catch(err:any){
+        clearTimeout(timer); this.activeControllers.delete(controller);
+        lastErr = err;
+        const msg = String(err?.message||err);
+    attemptDetails.push({ attempt: attempt+1, error: msg, attemptAt: Date.now() });
+        const retryable = err?.name==='AbortError' || /Retryable HTTP/.test(msg) || msg.includes('NetworkError') || msg.includes('Failed to fetch');
+        if (attempt === retries || !retryable) break;
+    const backoff = retryDelayMs * Math.pow(2, attempt);
+    attemptDetails[attemptDetails.length-1].backoffMs = backoff;
+        await new Promise(r=>setTimeout(r, backoff));
+        attempt++;
+      }
+    }
+    this.lastRequestMeta = { endpoint: url, attempts: retries+1, timeoutMs, retries };
+    const classification = this.classifyError(lastErr);
+  this.requestLog.unshift({ id, endpoint: url, method: init.method||'GET', attempts: retries+1, durationMs: performance.now()-start, error: String(lastErr?.message||lastErr), hash: meta?.hash, ts: Date.now(), classification, attemptDetails });
+  try { if (typeof sessionStorage!=='undefined' && sessionStorage.getItem('geoReqLogPersist')==='1') sessionStorage.setItem('geoReqLogData', JSON.stringify(this.requestLog)); } catch {}
+    if (this.requestLog.length > 200) this.requestLog.length = 200;
+    throw lastErr || new Error('Unknown fetch error');
+  }
+
+  private classifyError(err:any): string {
+    if (!err) return 'unknown';
+    const msg = String(err.message||err).toLowerCase();
+    if (msg.includes('abort') || msg.includes('timeout')) return 'timeout';
+    if (msg.includes('429')) return 'throttle';
+    if (msg.includes('500') || msg.includes('502') || msg.includes('503')) return 'server';
+    if (msg.includes('network') || msg.includes('failed to fetch')) return 'network';
+    if (msg.includes('422') || msg.includes('validation')) return 'validation';
+    if (msg.includes('401') || msg.includes('403')) return 'auth';
+    return 'other';
+  }
+
+  public cancelActiveRequests(){
+    this.activeControllers.forEach(c=> c.abort());
+    this.activeControllers.clear();
+  }
+
+  // ============== 新增：GemPy完整显示链路API调用（扩展参数） ==============
   public async createGemPyModel(
     boreholeData: BoreholeData,
     options: {
-      resolutionX: number;
-      resolutionY: number;
-      interpolationMethod: string;
-      faultSmoothing: number;
+      resolutionX: number; resolutionY: number; resolutionZ: number;
+      interpolationMethod: string; faultSmoothing: number; enableFaults?: boolean;
+      gravityModel?: boolean; magneticModel?: boolean;
+      unevenDataConfig?: { denseRegionRadius: number; sparseRegionThreshold: number; adaptiveBlending: boolean };
+      manualDomain?: { xMin:number; xMax:number; yMin:number; yMax:number; zMin:number; zMax:number } | null;
+      topBoundary?: string; bottomBoundary?: string; groundwater?: boolean;
     }
-  ): Promise<{
-    success: boolean;
-    method: string;
-    display_chain: any;
-    threejs_data: any;
-    native_visualization: any;
-    model_stats: any;
-    model_id: string;
-  }> {
+  ): Promise<{ raw:any; stats:any; requestHash:string; success:boolean }> {
     console.log('🚀 调用GemPy完整显示链路API...');
     
     try {
-      // 转换数据格式为API期望的格式
+      const bounds = options.manualDomain ? {
+        x_min: options.manualDomain.xMin, x_max: options.manualDomain.xMax,
+        y_min: options.manualDomain.yMin, y_max: options.manualDomain.yMax,
+        z_min: options.manualDomain.zMin, z_max: options.manualDomain.zMax
+      }: this.inferBoundsFromHoles(boreholeData);
+
+      // 完整层级数据
+      const borehole_data = boreholeData.holes.map(hole => ({
+        id: hole.id,
+        x: hole.location.x,
+        y: hole.location.y,
+        z: hole.location.z,
+        depth: hole.depth,
+        waterLevel: hole.waterLevel,
+        layers: hole.layers.map((layer:any)=>({
+          top: layer.topDepth ?? layer.top ?? 0,
+          bottom: layer.bottomDepth ?? layer.bottom ?? 0,
+            soil_type: layer.soilType || layer.name || 'unknown',
+            properties: layer.properties || {}
+        }))
+      }));
+
+      const formations = boreholeData.holes.reduce((acc, hole) => {
+        hole.layers.forEach(layer => { if(layer.soilType) acc[layer.soilType]=layer.soilType; });
+        return acc;
+      }, {} as Record<string,string>);
+
       const requestPayload = {
-        borehole_data: boreholeData.holes.map(hole => ({
-          x: hole.location.x,
-          y: hole.location.y,  
-          z: hole.location.z,
-          formation: hole.layers[0]?.soilType || 'unknown',
-          properties: hole.layers[0]?.properties || {}
-        })),
+        borehole_data,
         domain: {
-          // 兼容后端参数名，发送 domain(bounds/resolution)
-          bounds: this.inferBoundsFromHoles(boreholeData),
-          resolution: [options.resolutionX, options.resolutionY, Math.max(10, Math.round(options.resolutionY/2))]
+          mode: options.manualDomain ? 'manual':'auto',
+          bounds,
+          resolution: [options.resolutionX, options.resolutionY, options.resolutionZ]
         },
-        formations: {
-          // 从钻孔数据中提取地层映射
-          ...boreholeData.holes.reduce((acc, hole) => {
-            hole.layers.forEach(layer => {
-              if (layer.soilType) {
-                acc[layer.soilType] = layer.soilType;
-              }
-            });
-            return acc;
-          }, {} as Record<string, string>)
-        },
+        formations,
         options: {
+          method: options.interpolationMethod,
           resolution_x: options.resolutionX,
           resolution_y: options.resolutionY,
-          alpha: options.faultSmoothing
+          resolution_z: options.resolutionZ,
+          alpha: options.faultSmoothing,
+          enable_faults: options.enableFaults ?? false,
+          physics: { gravity: !!options.gravityModel, magnetic: !!options.magneticModel },
+          uneven: options.unevenDataConfig ? {
+            dense_radius: options.unevenDataConfig.denseRegionRadius,
+            sparse_threshold: options.unevenDataConfig.sparseRegionThreshold,
+            adaptive_blending: options.unevenDataConfig.adaptiveBlending
+          }: undefined,
+          boundary: {
+            top: options.topBoundary || 'free',
+            bottom: options.bottomBoundary || 'fixed',
+            groundwater: !!options.groundwater
+          }
         }
       };
+      const requestHash = buildGeoRequestHash(requestPayload);
+      (requestPayload as any).request_hash = requestHash;
 
       console.log('📦 请求数据:', requestPayload);
 
       // 调用后端GemPy API
-      const response = await fetch(`${this.apiBaseUrl}/gempy-modeling`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestPayload)
-      });
+      const response = await this.fetchWithTimeoutRetry(`${this.apiBaseUrl}/gempy-modeling`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestPayload)
+      }, { hash: requestHash });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(`API调用失败: ${response.status} ${response.statusText} - ${errorData.detail || ''}`);
       }
 
-      const result = await response.json();
-      console.log('✅ GemPy API响应:', result);
-
-      return result;
+  const result = await response.json();
+  console.log('✅ GemPy API响应:', result);
+  const normalized = this.normalizeGemPyResponse(result);
+  return { ...normalized, requestHash, success: normalized.stats?.success };
 
     } catch (error) {
       console.error('❌ GemPy API调用失败:', error);
@@ -749,70 +891,78 @@ export class GeologyModelingService {
   public async createGemPyDirectModel(
     boreholeData: BoreholeData,
     options: {
-      resolutionX: number;
-      resolutionY: number;
-      interpolationMethod: string;
-      faultSmoothing: number;
+      resolutionX: number; resolutionY: number; resolutionZ: number;
+      interpolationMethod: string; faultSmoothing: number; enableFaults?: boolean;
+      gravityModel?: boolean; magneticModel?: boolean;
+      unevenDataConfig?: { denseRegionRadius: number; sparseRegionThreshold: number; adaptiveBlending: boolean };
+      manualDomain?: { xMin:number; xMax:number; yMin:number; yMax:number; zMin:number; zMax:number } | null;
+      topBoundary?: string; bottomBoundary?: string; groundwater?: boolean;
     }
-  ): Promise<{
-    success: boolean;
-    method: string;
-    conversion_method: string;
-    performance_metrics: any;
-    threejs_data: any;
-    model_stats: any;
-    model_id: string;
-  }> {
+  ): Promise<{ raw:any; stats:any; requestHash:string; success:boolean }> {
     console.log('⚡ 调用GemPy → Three.js 直接显示链路API...');
     
     try {
-      // 转换数据格式为API期望的格式
+      const bounds = options.manualDomain ? {
+        x_min: options.manualDomain.xMin, x_max: options.manualDomain.xMax,
+        y_min: options.manualDomain.yMin, y_max: options.manualDomain.yMax,
+        z_min: options.manualDomain.zMin, z_max: options.manualDomain.zMax
+      }: this.inferBoundsFromHoles(boreholeData);
+      const borehole_data = boreholeData.holes.map(hole => ({
+        id: hole.id,
+        x: hole.location.x,
+        y: hole.location.y,
+        z: hole.location.z,
+        depth: hole.depth,
+        waterLevel: hole.waterLevel,
+        layers: hole.layers.map((layer:any)=>({
+          top: layer.topDepth ?? layer.top ?? 0,
+          bottom: layer.bottomDepth ?? layer.bottom ?? 0,
+          soil_type: layer.soilType || layer.name || 'unknown',
+          properties: layer.properties || {}
+        }))
+      }));
+      const formations = boreholeData.holes.reduce((acc, hole) => { hole.layers.forEach(layer => { if(layer.soilType) acc[layer.soilType]=layer.soilType; }); return acc; }, {} as Record<string,string>);
       const requestPayload = {
-        borehole_data: boreholeData.holes.map(hole => ({
-          x: hole.location.x,
-          y: hole.location.y,  
-          z: hole.location.z,
-          formation: hole.layers[0]?.soilType || 'unknown',
-          properties: hole.layers[0]?.properties || {}
-        })),
-        formations: {
-          // 从钻孔数据中提取地层映射
-          ...boreholeData.holes.reduce((acc, hole) => {
-            hole.layers.forEach(layer => {
-              if (layer.soilType) {
-                acc[layer.soilType] = layer.soilType;
-              }
-            });
-            return acc;
-          }, {} as Record<string, string>)
-        },
+        borehole_data,
+        domain: { mode: options.manualDomain? 'manual':'auto', bounds, resolution:[options.resolutionX, options.resolutionY, options.resolutionZ] },
+        formations,
         options: {
-          resolution_x: options.resolutionX,
-          resolution_y: options.resolutionY,
-          alpha: options.faultSmoothing
+          method: options.interpolationMethod,
+          resolution_x: options.resolutionX, resolution_y: options.resolutionY, resolution_z: options.resolutionZ,
+          alpha: options.faultSmoothing,
+          enable_faults: options.enableFaults ?? false,
+          physics: { gravity: !!options.gravityModel, magnetic: !!options.magneticModel },
+          uneven: options.unevenDataConfig ? {
+            dense_radius: options.unevenDataConfig.denseRegionRadius,
+            sparse_threshold: options.unevenDataConfig.sparseRegionThreshold,
+            adaptive_blending: options.unevenDataConfig.adaptiveBlending
+          }: undefined,
+          boundary: {
+            top: options.topBoundary || 'free',
+            bottom: options.bottomBoundary || 'fixed',
+            groundwater: !!options.groundwater
+          }
         }
       };
+      const requestHash = buildGeoRequestHash(requestPayload);
+      (requestPayload as any).request_hash = requestHash;
 
       console.log('📦 直接显示链路请求数据:', requestPayload);
 
       // 调用GemPy直接显示链路API
-      const response = await fetch(`${this.apiBaseUrl}/gempy-direct`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestPayload)
-      });
+      const response = await this.fetchWithTimeoutRetry(`${this.apiBaseUrl}/gempy-direct`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestPayload)
+      }, { hash: requestHash });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(`直接显示链路API调用失败: ${response.status} ${response.statusText} - ${errorData.detail || ''}`);
       }
 
-      const result = await response.json();
-      console.log('⚡ GemPy直接显示链路API响应:', result);
-
-      return result;
+  const result = await response.json();
+  console.log('⚡ GemPy直接显示链路API响应:', result);
+  const normalized = this.normalizeGemPyResponse(result);
+  return { ...normalized, requestHash, success: normalized.stats?.success };
 
     } catch (error) {
       console.error('❌ GemPy直接显示链路API调用失败:', error);

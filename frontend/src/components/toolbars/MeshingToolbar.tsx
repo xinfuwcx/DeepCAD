@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Tooltip, Button, Space } from 'antd';
+import { Tooltip, Button, Space, Progress, Popover, InputNumber, Divider } from 'antd';
 import {
   AppstoreAddOutlined,
   SettingOutlined,
@@ -33,6 +33,11 @@ interface MeshingToolbarProps {
   onExportMesh?: (format: any) => void;
   onRefreshGeometry?: () => void;
   onShowMeshStatistics?: () => void;
+  meshProgress?: number;
+  meshQualityScore?: number;
+  throttleMs?: number;
+  onThrottleChange?: (v:number)=>void;
+  onRefineMesh?: ()=>void;
 }
 
 export const MeshingToolbar: React.FC<MeshingToolbarProps> = ({
@@ -44,8 +49,14 @@ export const MeshingToolbar: React.FC<MeshingToolbarProps> = ({
   onMeshPause,
   onMeshReset,
   disabled = false,
-  className = ''
+  className = '',
+  meshProgress,
+  meshQualityScore,
+  throttleMs,
+  onThrottleChange,
+  onRefineMesh
 }) => {
+  const quality = typeof meshQualityScore === 'number' ? meshQualityScore : undefined;
   return (
     <div className={`meshing-toolbar ${className}`}>
       <style>{`
@@ -76,7 +87,25 @@ export const MeshingToolbar: React.FC<MeshingToolbarProps> = ({
         }
       `}</style>
 
-      <Space size="small">
+      <Space size="small" direction="vertical" style={{ width: 56 }}>
+        <div style={{ textAlign:'center', fontSize:10, color:'#00d9ff', letterSpacing:.5 }}>MESH</div>
+        {typeof meshProgress === 'number' && (
+          <div style={{ width:'100%' }}>
+            <Progress
+              percent={Math.min(100, Math.round(meshProgress))}
+              size="small"
+              showInfo={false}
+              strokeColor="#00d9ff"
+              trailColor="rgba(255,255,255,0.08)"
+              style={{ marginBottom:4 }}
+            />
+            <div style={{ fontSize:10, textAlign:'center', color:'#00d9ffaa' }}>{Math.round(meshProgress)}%</div>
+          </div>
+        )}
+        {quality !== undefined && (
+          <div style={{ fontSize:10, textAlign:'center', color: quality>80? '#52c41a':'#faad14' }}>Q{quality}</div>
+        )}
+        <Divider style={{ margin:'4px 0', borderColor:'rgba(255,255,255,0.12)' }} />
         <Tooltip title="生成网格">
           <Button
             type="primary"
@@ -148,6 +177,24 @@ export const MeshingToolbar: React.FC<MeshingToolbarProps> = ({
             size="small"
           />
         </Tooltip>
+        <Tooltip title="网格细化 (Refine)">
+          <Button
+            icon={<CheckCircleOutlined />}
+            onClick={onRefineMesh}
+            disabled={disabled}
+            size="small"
+          />
+        </Tooltip>
+        <Popover
+          trigger="click"
+          content={(<div style={{ width:140 }}>
+            <div style={{ fontSize:12, marginBottom:4 }}>进度节流(ms)</div>
+            <InputNumber min={16} max={2000} step={16} size="small" value={throttleMs} style={{ width:'100%' }} onChange={(v)=>{ if(typeof v==='number') onThrottleChange?.(v); }} />
+            <div style={{ fontSize:10, color:'#999', marginTop:4 }}>降低可减少 UI 刷新</div>
+          </div>)}
+        >
+          <Button size="small">节流</Button>
+        </Popover>
       </Space>
     </div>
   );

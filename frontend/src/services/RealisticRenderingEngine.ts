@@ -3,6 +3,11 @@
  * 为整个DeepCAD项目提供统一的高质量Three.js渲染
  */
 import * as THREE from 'three';
+// WebGPU 渲染器暂时禁用（路径/版本兼容 & 可选特性尚未稳定）。
+// 如需启用，请改为动态导入：
+//   const { WebGPURenderer } = await import('three/examples/jsm/renderers/webgpu/WebGPURenderer.js');
+// 并在 initializeRenderer 中添加异步检测与 fallback。
+// 这里先强制使用 WebGL 以保证前端可顺利启动。
 import { safeDetachRenderer, deepDispose } from '../utils/safeThreeDetach';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -80,7 +85,7 @@ export const QUALITY_PRESETS: Record<string, RenderingQuality> = {
 };
 
 export class RealisticRenderingEngine {
-  private renderer: THREE.WebGLRenderer;
+  private renderer: THREE.WebGLRenderer | any; // WebGLRenderer 或 WebGPURenderer
   private composer: EffectComposer;
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
@@ -98,17 +103,21 @@ export class RealisticRenderingEngine {
   private quality: RenderingQuality;
   private postProcessingSettings: PostProcessingSettings;
   private isInitialized = false;
+  private usingWebGPU = false;
+  private backend: 'auto' | 'webgl' | 'webgpu';
 
   constructor(
     container: HTMLElement,
     scene: THREE.Scene,
     camera: THREE.PerspectiveCamera,
-    qualityLevel: keyof typeof QUALITY_PRESETS = 'high'
+    qualityLevel: keyof typeof QUALITY_PRESETS = 'high',
+    backend: 'auto' | 'webgl' | 'webgpu' = 'auto'
   ) {
     this.container = container;
     this.scene = scene;
     this.camera = camera;
     this.quality = { ...QUALITY_PRESETS[qualityLevel] };
+    this.backend = backend;
     
     // 默认后处理设置
     this.postProcessingSettings = {
@@ -129,17 +138,20 @@ export class RealisticRenderingEngine {
     };
 
     this.initializeRenderer();
-    this.setupPostProcessing();
+    // WebGPU 目前暂不接入后处理管线（three 官方后处理在 WebGPU 上仍在演进）
+    if (!this.usingWebGPU) {
+      this.setupPostProcessing();
+    }
     this.isInitialized = true;
   }
 
   private initializeRenderer(): void {
-    // 创建高质量渲染器
+    // 暂时禁用 WebGPU: 强制 WebGL，避免缺少 examples 路径或浏览器不支持导致启动失败
     this.renderer = new THREE.WebGLRenderer({
-      antialias: this.quality.level === 'low', // 低质量时使用硬件抗锯齿
+      antialias: this.quality.level === 'low', // 低质量使用硬件抗锯齿
       alpha: true,
       powerPreference: 'high-performance',
-      logarithmicDepthBuffer: true, // 改善深度精度
+      logarithmicDepthBuffer: true,
       preserveDrawingBuffer: false
     });
 
@@ -147,12 +159,16 @@ export class RealisticRenderingEngine {
     this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     
-    // 色彩空间和色调映射
-    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = this.quality.toneMappingExposure;
+    // 色彩空间和色调映射 (WebGPU 渲染器暂不一定支持所有属性，做存在性判断)
+    if (this.renderer.outputColorSpace !== undefined) {
+      this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    }
+    if (this.renderer.toneMapping !== undefined) {
+      this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      this.renderer.toneMappingExposure = this.quality.toneMappingExposure;
+    }
     
-    // 阴影设置
+    // 阴影设置 (WebGPU 后端 shadow 机制不同，暂时仅在 WebGL 下配置)
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = this.quality.level === 'ultra' ? 
       THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
@@ -257,7 +273,7 @@ export class RealisticRenderingEngine {
   public render(): void {
     if (!this.isInitialized) return;
     
-    if (this.composer) {
+  if (!this.usingWebGPU && this.composer) {
       this.composer.render();
     } else {
       this.renderer.render(this.scene, this.camera);
@@ -269,7 +285,7 @@ export class RealisticRenderingEngine {
     this.renderer.setSize(width, height);
     
     // 更新后处理尺寸
-    if (this.composer) {
+  if (!this.usingWebGPU && this.composer) {
       this.composer.setSize(width, height);
     }
     
@@ -292,13 +308,19 @@ export class RealisticRenderingEngine {
     this.quality = { ...QUALITY_PRESETS[qualityLevel] };
     
     // 重新构建后处理管线
-    this.composer.passes = [];
-    this.setupPostProcessing();
+    if (!this.usingWebGPU && this.composer) {
+      this.composer.passes = [];
+      this.setupPostProcessing();
+    }
     
     // 更新渲染器设置
-    this.renderer.toneMappingExposure = this.quality.toneMappingExposure;
-    this.renderer.shadowMap.type = this.quality.level === 'ultra' ? 
-      THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+    if (this.renderer.toneMappingExposure !== undefined) {
+      this.renderer.toneMappingExposure = this.quality.toneMappingExposure;
+    }
+    if (!this.usingWebGPU) {
+      this.renderer.shadowMap.type = this.quality.level === 'ultra' ? 
+        THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+    }
   }
 
   public updatePostProcessingSettings(settings: Partial<PostProcessingSettings>): void {
@@ -321,9 +343,10 @@ export class RealisticRenderingEngine {
     }
   }
 
-  public getRenderer(): THREE.WebGLRenderer {
-    return this.renderer;
-  }
+  public getRenderer(): THREE.WebGLRenderer | any { return this.renderer; }
+
+  public isWebGPU(): boolean { return this.usingWebGPU; }
+  public getBackend(): 'webgl' | 'webgpu' { return this.usingWebGPU ? 'webgpu' : 'webgl'; }
 
   public getComposer(): EffectComposer {
     return this.composer;

@@ -22,7 +22,9 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "test": "echo \"Error: no test specified\" && exit 1",
+  "dev:frontend": "npm run dev --prefix frontend",
+  "dev:pv3d": "npm run dev --prefix frontend"
   },
   "repository": {
     "type": "git",

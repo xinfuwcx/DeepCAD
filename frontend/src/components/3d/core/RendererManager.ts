@@ -1,9 +1,14 @@
 import * as THREE from 'three';
+import * as THREEWebGPU from 'three/webgpu';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { smartRendererManager, getBestRendererConfig } from '../../../utils/rendererCompatibility';
+import { webgpuMaterialAdapter } from '../../../utils/webgpuMaterialAdapter';
+import { WebGPUComputeShaderOptimizer } from '../../../services/webgpuComputeShaderOptimizer';
+import { WebGPUPostProcessManager } from '../../../utils/webgpuPostProcessor';
 
 export interface PerformanceMetrics {
   fps: number;
@@ -29,6 +34,8 @@ export interface RenderSettings {
   maxPixelRatio: number;
   toneMappingExposure: number;
   shadowMapSize: number;
+  useWebGPU: boolean;
+  fallbackToWebGL: boolean;
 }
 
 export interface RenderLayer {
@@ -41,13 +48,22 @@ export interface RenderLayer {
 
 /**
  * 高级渲染器管理器
- * 负责WebGL渲染器配置、后期处理、性能监控和质量管理
+ * 负责WebGPU/WebGL渲染器配置、后期处理、性能监控和质量管理
  */
 export class RendererManager {
-  private renderer: THREE.WebGLRenderer;
+  private renderer: THREEWebGPU.WebGPURenderer | THREE.WebGLRenderer;
   private composer: EffectComposer;
   private scene: THREE.Scene;
   private camera: THREE.Camera;
+  
+  // 渲染器类型
+  private rendererType: 'webgpu' | 'webgl' = 'webgl';
+  private isWebGPUSupported: boolean = false;
+  
+  // WebGPU增强功能
+  private computeShaderOptimizer?: WebGPUComputeShaderOptimizer;
+  private webgpuDevice?: GPUDevice;
+  private webgpuPostProcessor?: WebGPUPostProcessManager;
   
   // 后期处理通道
   private renderPass: RenderPass;
@@ -81,37 +97,149 @@ export class RendererManager {
     this.scene = scene;
     this.camera = camera;
     
-    // 默认设置
-    this.settings = {
-      quality: 'high',
-      antialias: true,
-      shadows: true,
-      ssao: false,
-      bloom: false,
-      adaptivePixelRatio: true,
-      maxPixelRatio: 2.0,
-      toneMappingExposure: 1.0,
-      shadowMapSize: 2048,
-      ...settings
-    };
+    this.initializeAsync(canvas, settings);
+  }
 
-    // 初始化渲染器
-    this.initializeRenderer(canvas);
+  /**
+   * 异步初始化流程
+   */
+  private async initializeAsync(canvas: HTMLCanvasElement, settings: Partial<RenderSettings>) {
+    try {
+      // 获取最佳渲染器配置
+      const bestConfig = await getBestRendererConfig();
+      
+      // 根据智能检测结果调整默认设置
+      this.settings = {
+        quality: bestConfig.performance?.level || 'high',
+        antialias: true,
+        shadows: bestConfig.performance?.enableShadows ?? true,
+        ssao: false,
+        bloom: false,
+        adaptivePixelRatio: true,
+        maxPixelRatio: 2.0,
+        toneMappingExposure: 1.0,
+        shadowMapSize: 2048,
+        useWebGPU: bestConfig.renderer === 'webgpu',
+        fallbackToWebGL: true,
+        ...settings
+      };
+
+      console.log('🎯 智能渲染器配置:', {
+        推荐渲染器: bestConfig.renderer,
+        性能级别: bestConfig.performance?.level,
+        WebGPU可用: bestConfig.capabilities?.webgpu
+      });
+
+      // 初始化渲染器
+      await this.initializeRenderer(canvas);
+      
+      // 初始化后期处理
+      this.initializePostProcessing();
+      
+      // 应用设置
+      this.applySettings();
+      
+      // 初始化性能监控
+      this.initializePerformanceMonitoring();
+      
+    } catch (error) {
+      console.error('❌ 渲染器初始化失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 检查WebGPU支持
+   */
+  private async checkWebGPUSupport(): Promise<boolean> {
+    if (!navigator.gpu || !this.settings.useWebGPU) {
+      return false;
+    }
+
+    try {
+      const adapter = await navigator.gpu.requestAdapter();
+      return !!adapter;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 初始化WebGPU/WebGL渲染器
+   */
+  private async initializeRenderer(canvas: HTMLCanvasElement): Promise<void> {
+    // 检查WebGPU支持
+    this.isWebGPUSupported = await this.checkWebGPUSupport();
+
+    if (this.isWebGPUSupported) {
+      try {
+        await this.initializeWebGPURenderer(canvas);
+        this.rendererType = 'webgpu';
+        console.log('✅ WebGPU渲染器初始化成功');
+        return;
+      } catch (error) {
+        console.warn('⚠️ WebGPU渲染器初始化失败，回退到WebGL:', error);
+        if (!this.settings.fallbackToWebGL) {
+          throw error;
+        }
+      }
+    }
+
+    // 回退到WebGL
+    this.initializeWebGLRenderer(canvas);
+    this.rendererType = 'webgl';
+    console.log('✅ WebGL渲染器初始化成功');
+  }
+
+  /**
+   * 初始化WebGPU渲染器
+   */
+  private async initializeWebGPURenderer(canvas: HTMLCanvasElement): Promise<void> {
+    this.renderer = new THREEWebGPU.WebGPURenderer({
+      canvas,
+      antialias: this.settings.antialias,
+      alpha: true,
+      powerPreference: 'high-performance'
+    });
+
+    // 初始化WebGPU上下文
+    await this.renderer.init();
+
+    // 获取WebGPU设备
+    this.webgpuDevice = (this.renderer as any).device;
     
-    // 初始化后期处理
-    this.initializePostProcessing();
-    
-    // 应用设置
-    this.applySettings();
-    
-    // 初始化性能监控
-    this.initializePerformanceMonitoring();
+    // 初始化计算着色器优化器
+    if (this.webgpuDevice) {
+      this.computeShaderOptimizer = new WebGPUComputeShaderOptimizer(this.webgpuDevice);
+      console.log('🚀 WebGPU计算着色器优化器初始化成功');
+      
+      // 初始化WebGPU后期处理管理器
+      this.webgpuPostProcessor = new WebGPUPostProcessManager(
+        this.webgpuDevice, 
+        this.renderer,
+        {
+          enableBloom: this.settings.bloom,
+          enableSSAO: this.settings.ssao,
+          enableToneMapping: true,
+          enableFXAA: this.settings.antialias,
+          quality: this.settings.quality
+        }
+      );
+      console.log('🎨 WebGPU后期处理管理器初始化成功');
+    }
+
+    // 转换场景材质为WebGPU兼容
+    if (this.scene) {
+      webgpuMaterialAdapter.convertSceneMaterials(this.scene);
+    }
+
+    this.configureCommonRendererSettings();
   }
 
   /**
    * 初始化WebGL渲染器
    */
-  private initializeRenderer(canvas: HTMLCanvasElement): void {
+  private initializeWebGLRenderer(canvas: HTMLCanvasElement): void {
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: this.settings.antialias,
@@ -121,9 +249,24 @@ export class RendererManager {
       logarithmicDepthBuffer: true // 解决Z-fighting
     });
 
+    this.configureCommonRendererSettings();
+
+    // WebGL特有扩展
+    if (this.renderer instanceof THREE.WebGLRenderer) {
+      const gl = this.renderer.getContext();
+      gl.getExtension('OES_texture_float');
+      gl.getExtension('OES_texture_float_linear');
+      gl.getExtension('WEBGL_depth_texture');
+    }
+  }
+
+  /**
+   * 通用渲染器设置
+   */
+  private configureCommonRendererSettings(): void {
     // 基础配置
     this.renderer.setPixelRatio(this.getOptimalPixelRatio());
-    this.renderer.setSize(canvas.width, canvas.height);
+    this.renderer.setSize(this.renderer.domElement.width, this.renderer.domElement.height);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     
     // 色调映射
@@ -134,21 +277,25 @@ export class RendererManager {
     if (this.settings.shadows) {
       this.renderer.shadowMap.enabled = true;
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-      this.renderer.shadowMap.autoUpdate = true;
+      
+      // WebGL特有的autoUpdate属性
+      if (this.renderer instanceof THREE.WebGLRenderer) {
+        this.renderer.shadowMap.autoUpdate = true;
+      }
     }
-
-    // 启用WebGL扩展
-    const gl = this.renderer.getContext();
-    gl.getExtension('OES_texture_float');
-    gl.getExtension('OES_texture_float_linear');
-    gl.getExtension('WEBGL_depth_texture');
   }
 
   /**
    * 初始化后期处理管道
    */
   private initializePostProcessing(): void {
-    this.composer = new EffectComposer(this.renderer);
+    // WebGPU使用自己的后期处理系统，WebGL使用EffectComposer
+    if (this.rendererType === 'webgpu') {
+      console.log('✅ WebGPU后期处理系统已在渲染器初始化时配置');
+      return;
+    }
+
+    this.composer = new EffectComposer(this.renderer as THREE.WebGLRenderer);
     
     // 渲染通道（必须）
     this.renderPass = new RenderPass(this.scene, this.camera);
@@ -312,11 +459,25 @@ export class RendererManager {
       if (this.customRenderLoop) {
         this.customRenderLoop(deltaTime);
       } else {
-        // 默认渲染
-        if (this.composer && (this.settings.ssao || this.settings.bloom)) {
-          this.composer.render();
-        } else {
+        // WebGPU渲染路径
+        if (this.rendererType === 'webgpu') {
           this.renderer.render(this.scene, this.camera);
+          
+          // 应用WebGPU后期处理
+          if (this.webgpuPostProcessor && (this.settings.ssao || this.settings.bloom)) {
+            // 获取渲染结果纹理
+            const renderTarget = (this.renderer as any).getRenderTarget();
+            if (renderTarget) {
+              this.webgpuPostProcessor.executePostProcessing(renderTarget);
+            }
+          }
+        } else {
+          // WebGL渲染路径
+          if (this.composer && (this.settings.ssao || this.settings.bloom)) {
+            this.composer.render();
+          } else {
+            this.renderer.render(this.scene, this.camera);
+          }
         }
       }
       
@@ -377,6 +538,34 @@ export class RendererManager {
 
     // 监控性能并自动调整质量
     this.onPerformanceUpdate = (metrics) => {
+      // 使用智能渲染器管理器的动态调整
+      const adjustments = smartRendererManager.adjustPerformanceForFramerate(metrics.fps);
+      
+      if (Object.keys(adjustments).length > 0) {
+        console.log('🔧 自动性能调整:', adjustments);
+        
+        // 应用调整
+        if (adjustments.enableShadows !== undefined) {
+          this.settings.shadows = adjustments.enableShadows;
+        }
+        if (adjustments.enablePostProcessing !== undefined) {
+          this.settings.ssao = adjustments.enablePostProcessing;
+          this.settings.bloom = adjustments.enablePostProcessing;
+        }
+        
+        this.applySettings();
+        
+        // 如果性能严重不足，尝试渲染器降级
+        if (metrics.fps < 20) {
+          const fallbackRenderer = smartRendererManager.tryFallback();
+          if (fallbackRenderer && fallbackRenderer !== this.rendererType) {
+            console.warn('🔻 性能严重不足，尝试渲染器降级');
+            // 这里可以触发重新初始化渲染器的逻辑
+          }
+        }
+      }
+      
+      // 原有的质量级别调整逻辑
       if (metrics.fps < 30 && this.settings.quality !== 'low') {
         const qualityLevels = ['ultra', 'high', 'medium', 'low'];
         const currentIndex = qualityLevels.indexOf(this.settings.quality);
@@ -459,10 +648,161 @@ export class RendererManager {
   }
 
   /**
-   * 获取WebGL渲染器实例
+   * 获取WebGPU计算着色器优化器
    */
-  public getRenderer(): THREE.WebGLRenderer {
+  public getComputeShaderOptimizer(): WebGPUComputeShaderOptimizer | undefined {
+    return this.computeShaderOptimizer;
+  }
+
+  /**
+   * 获取WebGPU后期处理管理器
+   */
+  public getWebGPUPostProcessor(): WebGPUPostProcessManager | undefined {
+    return this.webgpuPostProcessor;
+  }
+
+  /**
+   * 动态切换材质为WebGPU优化版本
+   */
+  public optimizeSceneMaterials(aggressive: boolean = false): void {
+    if (this.rendererType !== 'webgpu') return;
+
+    console.log(`🎨 开始${aggressive ? '激进' : '标准'}材质优化...`);
+    
+    const startTime = performance.now();
+    let optimizedCount = 0;
+
+    this.scene.traverse((object) => {
+      if (object instanceof THREE.Mesh && object.material) {
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        
+        materials.forEach((material, index) => {
+          // 获取或创建优化材质
+          const optimizedMaterial = webgpuMaterialAdapter.convertMaterial(material);
+          
+          if (aggressive) {
+            // 激进优化：减少细节以提升性能
+            this.applyAggressiveOptimization(optimizedMaterial);
+          }
+          
+          if (Array.isArray(object.material)) {
+            object.material[index] = optimizedMaterial;
+          } else {
+            object.material = optimizedMaterial;
+          }
+          
+          optimizedCount++;
+        });
+      }
+    });
+
+    const optimizationTime = performance.now() - startTime;
+    console.log(`✅ 材质优化完成: ${optimizedCount}个材质, 耗时${optimizationTime.toFixed(2)}ms`);
+    
+    // 更新材质转换统计
+    const stats = webgpuMaterialAdapter.getConversionStats();
+    console.log('📊 材质转换统计:', stats);
+  }
+
+  /**
+   * 应用激进材质优化
+   */
+  private applyAggressiveOptimization(material: any): void {
+    // 降低材质复杂度以提升性能
+    if (material.normalScale) {
+      material.normalScale.multiplyScalar(0.5);
+    }
+    if (material.roughness !== undefined) {
+      material.roughness = Math.min(material.roughness + 0.1, 1.0);
+    }
+    if (material.envMapIntensity !== undefined) {
+      material.envMapIntensity *= 0.7;
+    }
+    // 禁用透明度以减少渲染开销
+    if (material.opacity > 0.95) {
+      material.transparent = false;
+      material.opacity = 1.0;
+    }
+  }
+
+  /**
+   * 启用WebGPU特定优化
+   */
+  public enableWebGPUOptimizations(): void {
+    if (this.rendererType !== 'webgpu' || !this.computeShaderOptimizer) return;
+
+    console.log('🚀 启用WebGPU特定优化...');
+
+    // 启用计算着色器加速
+    if (this.settings.quality === 'ultra') {
+      // 超高质量模式：启用所有计算着色器优化
+      this.computeShaderOptimizer.enableComputeAcceleration('matrix', true);
+      this.computeShaderOptimizer.enableComputeAcceleration('mesh', true);
+      this.computeShaderOptimizer.enableComputeAcceleration('physics', true);
+    } else if (this.settings.quality === 'high') {
+      // 高质量模式：启用关键计算着色器优化
+      this.computeShaderOptimizer.enableComputeAcceleration('matrix', true);
+      this.computeShaderOptimizer.enableComputeAcceleration('mesh', false);
+    }
+
+    // 更新WebGPU后期处理配置
+    if (this.webgpuPostProcessor) {
+      this.webgpuPostProcessor.updateConfig({
+        quality: this.settings.quality,
+        enableBloom: this.settings.bloom,
+        enableSSAO: this.settings.ssao,
+        enableToneMapping: true,
+        enableFXAA: this.settings.antialias
+      });
+    }
+
+    console.log('✅ WebGPU优化配置完成');
+  }
+
+  /**
+   * 获取WebGPU性能统计
+   */
+  public getWebGPUStats() {
+    if (this.rendererType !== 'webgpu') {
+      return { error: 'WebGPU未启用' };
+    }
+
+    const stats = {
+      rendererType: this.rendererType,
+      deviceSupported: this.isWebGPUSupported,
+      materialStats: webgpuMaterialAdapter.getConversionStats(),
+      computeShaderOptimizer: this.computeShaderOptimizer ? {
+        activeOptimizations: this.computeShaderOptimizer.getActiveOptimizations?.(),
+        memoryUsage: this.computeShaderOptimizer.getMemoryUsage?.()
+      } : null,
+      postProcessing: this.webgpuPostProcessor ? {
+        enabledEffects: {
+          bloom: this.settings.bloom,
+          ssao: this.settings.ssao,
+          toneMapping: true,
+          fxaa: this.settings.antialias
+        }
+      } : null
+    };
+
+    return stats;
+  }
+  public getRenderer(): THREEWebGPU.WebGPURenderer | THREE.WebGLRenderer {
     return this.renderer;
+  }
+
+  /**
+   * 获取渲染器类型
+   */
+  public getRendererType(): 'webgpu' | 'webgl' {
+    return this.rendererType;
+  }
+
+  /**
+   * 检查是否支持WebGPU
+   */
+  public isWebGPUEnabled(): boolean {
+    return this.rendererType === 'webgpu';
   }
 
   /**

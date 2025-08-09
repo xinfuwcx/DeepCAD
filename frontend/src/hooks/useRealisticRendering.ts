@@ -14,6 +14,7 @@ export interface UseRealisticRenderingOptions {
   qualityLevel?: keyof typeof QUALITY_PRESETS;
   autoResize?: boolean;
   enableStats?: boolean;
+  backend?: 'auto' | 'webgl' | 'webgpu';
 }
 
 export interface UseRealisticRenderingReturn {
@@ -42,7 +43,8 @@ export const useRealisticRendering = (
   const {
     qualityLevel = 'high',
     autoResize = true,
-    enableStats = false
+  enableStats = false,
+  backend = 'auto'
   } = options;
 
   const mountRef = useRef<HTMLDivElement>(null);
@@ -71,7 +73,8 @@ export const useRealisticRendering = (
         mountRef.current,
         sceneRef.current,
         cameraRef.current,
-        qualityLevel
+        qualityLevel,
+        backend
       );
 
       setIsInitialized(true);
@@ -98,7 +101,7 @@ export const useRealisticRendering = (
       }
       setIsInitialized(false);
     };
-  }, [qualityLevel]);
+  }, [qualityLevel, backend]);
 
   // 自动调整大小
   useEffect(() => {

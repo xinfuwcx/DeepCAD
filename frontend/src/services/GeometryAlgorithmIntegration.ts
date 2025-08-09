@@ -90,6 +90,7 @@ export interface DXFBooleanResult {
   geometry: BooleanOperationResult['geometry'];
   statistics: BooleanOperationResult['statistics'];
   quality: BooleanOperationResult['quality'];
+  resultTags?: number[]; // 新增: 后端返回的结果几何标签，用于注册/跟踪
 }
 
 export interface BooleanConfig {
@@ -418,7 +419,8 @@ export class GeometryAlgorithmIntegration {
         success: result.success,
         geometry: result.geometry,
         statistics: result.statistics,
-        quality: result.quality
+        quality: result.quality,
+        resultTags: result.result_tags
       };
       
     } catch (error) {

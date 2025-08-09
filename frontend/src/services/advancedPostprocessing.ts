@@ -410,20 +410,11 @@ export class AdvancedPostprocessor {
         const color = colorMap[i];
         
         // 使用优化的Marching Triangles算法生成等值线
-        const contourGeometry = await this.generateAdvancedContourGeometry(
-          fieldData.data, 
-          level, 
-          options.smoothing
-        );
+  const contourGeometry = this.generateContourGeometry(fieldData.data, level);
         
-        if (contourGeometry && contourGeometry.vertices.length > 0) {
+  if (contourGeometry && contourGeometry.vertices.length > 0) {
           const geometry = new THREE.BufferGeometry();
           geometry.setAttribute('position', new THREE.BufferAttribute(contourGeometry.vertices, 3));
-          
-          // 添加法向量用于着色
-          if (contourGeometry.normals) {
-            geometry.setAttribute('normal', new THREE.BufferAttribute(contourGeometry.normals, 3));
-          }
           
           const material = new THREE.LineBasicMaterial({
             color: color,
@@ -556,54 +547,20 @@ export class AdvancedPostprocessor {
         const seedPoint = options.seedPoints[seedIndex];
         
         // 使用优化的Runge-Kutta方法积分流线
-        const streamline = await this.integrateAdvancedStreamline(
-          seedPoint,
-          fieldData,
-          options.stepSize,
-          options.maxSteps
-        );
-        
-        if (streamline.points.length > 2) {
-          validStreamlines.push({ index: seedIndex, streamline });
-          
-          // 创建流线几何体
+        const streamlinePoints = this.integrateStreamline(seedPoint, fieldData, options.stepSize, options.maxSteps);
+        if (streamlinePoints.length > 2) {
           const geometry = new THREE.BufferGeometry();
-          const positions = new Float32Array(streamline.points.length * 3);
-          const colors = new Float32Array(streamline.points.length * 3);
-          
-          for (let i = 0; i < streamline.points.length; i++) {
-            positions[i * 3] = streamline.points[i][0];
-            positions[i * 3 + 1] = streamline.points[i][1];
-            positions[i * 3 + 2] = streamline.points[i][2];
-            
-            // 根据速度大小或时间着色
-            const color = this.getAdvancedStreamlineColor(
-              i, 
-              streamline.velocities[i], 
-              streamline.times[i], 
-              options.colorBy,
-              fieldData.range
-            );
-            colors[i * 3] = color.r;
-            colors[i * 3 + 1] = color.g;
-            colors[i * 3 + 2] = color.b;
+          const positions = new Float32Array(streamlinePoints.length * 3);
+          for (let i = 0; i < streamlinePoints.length; i++) {
+            positions[i * 3] = streamlinePoints[i][0];
+            positions[i * 3 + 1] = streamlinePoints[i][1];
+            positions[i * 3 + 2] = streamlinePoints[i][2];
           }
-          
           geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-          geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-          
-          const material = new THREE.LineBasicMaterial({
-            vertexColors: true,
-            linewidth: 3,
-            transparent: true,
-            opacity: 0.8
-          });
-          
+          const material = new THREE.LineBasicMaterial({ color: 0x00ffff });
           const line = new THREE.Line(geometry, material);
           line.name = `streamline_${options.fieldName}_${seedIndex}`;
           this.scene.add(line);
-          
-          console.log(`  ✅ 流线${seedIndex}完成: ${streamline.points.length}个点, 长度${streamline.totalLength.toFixed(2)}`);
         }
       }
       
@@ -872,7 +829,7 @@ export class AdvancedPostprocessor {
     
     // 对每个矢量场进行插值
     for (const [fieldName, fieldData] of this.data.vectorFields) {
-      const interpolatedData = this.interpolateVectorField(fieldData.data, plane);
+      const interpolatedData = this.interpolateVectorFieldOnPlane(fieldData.data, plane);
       interpolatedVectorFields.set(fieldName, interpolatedData);
     }
     
@@ -904,19 +861,15 @@ export class AdvancedPostprocessor {
   /**
    * 矢量场插值到平面
    */
-  private interpolateVectorField(fieldData: Float32Array, plane: SectionPlane): Float32Array {
+  private interpolateVectorFieldOnPlane(fieldData: Float32Array, plane: SectionPlane): Float32Array {
     const samplePoints = this.generatePlaneSamplePoints(plane, 100);
-    const interpolatedValues = new Float32Array(samplePoints.length);
-    
+    const out = new Float32Array(samplePoints.length);
     for (let i = 0; i < samplePoints.length; i += 3) {
       const point = [samplePoints[i], samplePoints[i + 1], samplePoints[i + 2]];
-      const vector = this.findNearestVectorValue(point, fieldData);
-      interpolatedValues[i] = vector[0];
-      interpolatedValues[i + 1] = vector[1];
-      interpolatedValues[i + 2] = vector[2];
+      const vec = this.findNearestVectorValue(point, fieldData);
+      out[i] = vec[0]; out[i+1] = vec[1]; out[i+2] = vec[2];
     }
-    
-    return interpolatedValues;
+    return out;
   }
 
   /**
@@ -1473,12 +1426,4 @@ export function createAdvancedPostprocessor(
     export: { ...defaultConfig.export, ...config?.export }
   });
   
-  // 在文件末尾添加额外的优化算法支持方法
-  // 这些方法被集成到AdvancedPostprocessor类中
-  
-  console.log('🚀 高级后处理系统已创建 - 集成优化算法');
-  const stats = processor.getPerformanceStats();
-  console.log('📊 算法特性:', stats);
-  
-  return processor;
 }

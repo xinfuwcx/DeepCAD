@@ -1,0 +1,31 @@
+/* 统一模块布局与面板样式 */
+.dc-module-layout { position: relative; width: 100%; height: 100%; display: flex; background:#0d1117; color:#fff; font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'Noto Sans','PingFang SC','Microsoft YaHei',sans-serif; }
+.dc-module-left, .dc-module-right { width:320px; padding:12px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; }
+.dc-module-left { background:linear-gradient(180deg,rgba(255,255,255,0.04) 0%,rgba(255,255,255,0.02) 100%); border-right:1px solid rgba(255,255,255,0.06); }
+.dc-module-right { background:linear-gradient(180deg,rgba(255,255,255,0.04) 0%,rgba(255,255,255,0.02) 100%); border-left:1px solid rgba(255,255,255,0.06); }
+.dc-module-main { flex:1; position:relative; overflow:hidden; }
+.dc-panel { background:rgba(17,25,40,0.85); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:14px 16px 18px; backdrop-filter:blur(18px) saturate(160%); box-shadow:0 4px 12px -2px rgba(0,0,0,0.5),0 0 0 1px rgba(255,255,255,0.03) inset; animation:dc-fade-in .3s ease; }
+.dc-panel-transparent { background:rgba(17,25,40,0.4); }
+.dc-panel-dense { padding:10px 12px 12px; }
+.dc-panel-header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:10px; }
+.dc-panel-title { margin:0; font-size:15px; font-weight:600; letter-spacing:.5px; background:linear-gradient(90deg,#fff,#b3c2ff); -webkit-background-clip:text; color:transparent; }
+.dc-panel-subtitle { font-size:11px; color:#8b949e; margin-top:2px; }
+.dc-panel-actions { display:flex; gap:6px; }
+.dc-panel-body { font-size:12px; display:flex; flex-direction:column; gap:10px; }
+.dc-panel-footer { margin-top:12px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.06); font-size:11px; color:#8b949e; }
+.dc-metric { display:flex; align-items:center; gap:10px; padding:10px 12px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.07); border-radius:10px; }
+.dc-metric-compact { padding:6px 8px; }
+.dc-metric-icon { width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:16px; font-weight:600; }
+.dc-metric-main { flex:1; min-width:0; }
+.dc-metric-label { font-size:11px; color:#9fa6b2; letter-spacing:.5px; text-transform:uppercase; }
+.dc-metric-value { font-size:15px; font-weight:600; line-height:1.2; }
+.dc-metric-trend { font-size:11px; color:#9fa6b2; }
+.dc-panel input[type=range] { width:100%; }
+.dc-panel select, .dc-panel input[type=number] { width:100%; background:#121a24; border:1px solid rgba(255,255,255,0.1); color:#e6edf3; padding:4px 8px; border-radius:6px; font-size:12px; }
+.dc-panel input[type=checkbox] { accent-color:#6366f1; }
+.dc-panel button.dc-primary { width:100%; background:linear-gradient(90deg,#2563eb,#6366f1); border:none; padding:8px 14px; border-radius:8px; color:#fff; font-size:13px; font-weight:600; cursor:pointer; letter-spacing:.5px; box-shadow:0 2px 6px -1px rgba(0,0,0,0.6); transition:background .25s; }
+.dc-panel button.dc-primary:hover { background:linear-gradient(90deg,#1d4ed8,#4f46e5); }
+@keyframes dc-fade-in { from { opacity:0; transform:translateY(4px);} to { opacity:1; transform:translateY(0);} }
+.dc-module-left::-webkit-scrollbar, .dc-module-right::-webkit-scrollbar { width:8px; }
+.dc-module-left::-webkit-scrollbar-track, .dc-module-right::-webkit-scrollbar-track { background:transparent; }
+.dc-module-left::-webkit-scrollbar-thumb, .dc-module-right::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.12); border-radius:4px; }

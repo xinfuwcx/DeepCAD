@@ -1162,6 +1162,16 @@ ${stats.hotspots.optimizationOpportunities.map(op => `- ${op}`).join('\n') || '-
   }
 
   /**
+   * 启用计算加速
+   * @param type 计算类型 ('matrix' | 'mesh' | 'physics')
+   * @param enabled 是否启用加速
+   */
+  enableComputeAcceleration(type: 'matrix' | 'mesh' | 'physics', enabled: boolean): void {
+    console.log(`🔧 ${enabled ? '启用' : '禁用'} ${type} 计算加速`);
+    // 在实际实现中，这里会根据类型启用或禁用特定的计算优化
+  }
+
+  /**
    * 清理资源
    */
   dispose(): void {

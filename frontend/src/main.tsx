@@ -2,6 +2,8 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
+// DOM 移除防护（开发期）
+import './utils/domRemovalGuard';
 
 // 安装全局Three.js错误处理器
 import './utils/globalThreeJSErrorHandler';

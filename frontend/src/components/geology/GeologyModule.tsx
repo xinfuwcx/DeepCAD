@@ -4,12 +4,13 @@
  * 支持钻孔数据处理、地质建模和质量评估
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   Card, Row, Col, Button, Space, Typography, Alert, Progress,
   Tabs, Form, Select, InputNumber, Switch, Slider, Upload,
   Table, Tag, Timeline, List, Modal, message, Spin,
   Steps, Collapse, Radio, Checkbox, Tooltip, Input,
+  Drawer
 } from 'antd';
 import {
   ThunderboltOutlined, DatabaseOutlined, SettingOutlined,
@@ -24,11 +25,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 // 导入GemPy服务
 import { GeologyModelingService } from '../../services/GeologyModelingService';
 import GempyDirectService from '@/services/GempyDirectService';
+import { geologyApiConfig, updateGeologyApiConfig } from '@/config/networkConfig';
+import { GEO_REQ_CLASS_COLORS } from '@/config/geologyLogging';
 import GeologyReconstructionViewport3D from '@/components/geology/GeologyReconstructionViewport3D';
 import VerticalToolbar, { VerticalToolType } from '@/components/geometry/VerticalToolbar';
 import CADToolbar from '@/components/geometry/CADToolbar';
 import * as THREE from 'three';
-import { traditionalPreset } from '@/config/geologyPresets';
+// import { traditionalPreset } from '@/config/geologyPresets'; // removed unused / path missing
 import { RBFConfig } from '../../services/GeometryArchitectureService';
 import { useSeepageParameters } from './hooks/useSeepageParameters';
 
@@ -155,6 +158,25 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
   const [domainBounds, setDomainBounds] = useState<{ xMin: number; xMax: number; yMin: number; yMax: number; zMin: number; zMax: number }>(
     { xMin: -50, xMax: 50, yMin: -50, yMax: 50, zMin: -20, zMax: 0 }
   );
+  // 请求日志显示
+  const [showRequestLog, setShowRequestLog] = useState(false);
+  const [logVersion, setLogVersion] = useState(0);
+  const refreshRequestLog = () => setLogVersion(v=>v+1);
+  const [logClassFilter, setLogClassFilter] = useState<string|undefined>();
+  const [logHashQuery, setLogHashQuery] = useState<string>('');
+  const [persistSession, setPersistSession] = useState<boolean>(()=>{
+    try { return sessionStorage.getItem('geoReqLogPersist')==='1'; } catch { return false; }
+  });
+  const togglePersist = (val:boolean)=>{
+    setPersistSession(val);
+    try { sessionStorage.setItem('geoReqLogPersist', val? '1':'0'); if(!val){ sessionStorage.removeItem('geoReqLogData'); } else { const data = gemPyServiceRef.current?.requestLog||[]; sessionStorage.setItem('geoReqLogData', JSON.stringify(data)); } } catch {}
+  };
+  const requestLogData = useMemo(()=> {
+    let data = (gemPyServiceRef.current?.requestLog || []);
+    if (logClassFilter) data = data.filter(d=> d.classification === logClassFilter);
+    if (logHashQuery.trim()) data = data.filter(d=> (d.hash||'').toLowerCase().includes(logHashQuery.trim().toLowerCase()));
+    return data.map(r=> ({ key: r.id, ...r }));
+  }, [logVersion, processingStatus, logClassFilter, logHashQuery]);
 
   // 服务引用
   const gemPyServiceRef = useRef<GeologyModelingService | null>(null);
@@ -327,17 +349,27 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
         {
           resolutionX: gemPyConfig.resolutionX,
           resolutionY: gemPyConfig.resolutionY,
+          resolutionZ: gemPyConfig.resolutionZ,
           interpolationMethod: gemPyConfig.interpolationMethod,
-          faultSmoothing: gemPyConfig.faultSmoothing
+          faultSmoothing: gemPyConfig.faultSmoothing,
+          enableFaults: gemPyConfig.enableFaults,
+          gravityModel: gemPyConfig.gravityModel,
+          magneticModel: gemPyConfig.magneticModel,
+          unevenDataConfig: gemPyConfig.unevenDataConfig,
+          manualDomain: useManualDomain ? {
+            xMin: domainBounds.xMin, xMax: domainBounds.xMax,
+            yMin: domainBounds.yMin, yMax: domainBounds.yMax,
+            zMin: domainBounds.zMin, zMax: domainBounds.zMax
+          } : null
         }
       );
 
       setProcessingProgress(80);
 
-      console.log('✅ GemPy完整显示链路结果:', result);
+  console.log('✅ GemPy完整显示链路结果 (规范化):', result);
 
       // 检查显示链路状态
-      const displayChain = result.display_chain || {};
+  const displayChain = (result.raw && result.raw.display_chain) || {};
       const chainStatus = [
         `GemPy: ${displayChain.gempy_available ? '✓' : '❌'}`,
         `GemPy-Viewer: ${displayChain.gempy_viewer_available ? '✓' : '❌'}`,
@@ -354,7 +386,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
             <div>
               <div>🎉 GemPy完整显示链路建模成功！</div>
               <div style={{ fontSize: '12px', marginTop: '4px' }}>
-                方法: {result.method} | 显示链路: {chainStatus.join(' | ')}
+                方法: {result.stats?.method || '-'} | 显示链路: {chainStatus.join(' | ')} | Hash: {result.requestHash}
               </div>
             </div>
           ),
@@ -363,18 +395,17 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
 
         // 更新统计信息
         {
-          const anyResult: any = result as any;
-          setRealTimeStats({
-            interpolationTime: Number(anyResult?.processing_time ?? 0),
-            dataPoints: Number(anyResult?.model_stats?.vertex_count ?? 0),
-            gridPoints: Number(anyResult?.model_stats?.triangle_count ?? 0),
-            memoryUsage: Math.round(Math.random() * 500 + 100),
-            qualityScore: 0.95
-          });
+          setRealTimeStats(prev=>({
+            interpolationTime: Number(result.stats?.processingTime ?? 0),
+            dataPoints: Number(result.stats?.vertexCount ?? 0),
+            gridPoints: Number(result.stats?.triangleCount ?? 0),
+            memoryUsage: prev.memoryUsage, // placeholder; backend未返回统一字段
+            qualityScore: prev.qualityScore || 0.95
+          }));
         }
 
-        // 如果有Three.js数据，可以传递给3D查看器
-        if (result.threejs_data && Object.keys(result.threejs_data).length > 0) {
+        // 如果有Three.js数据
+        if (result.raw?.threejs_data && Object.keys(result.raw.threejs_data).length > 0) {
           console.log('📊 Three.js数据已准备，可传递给3D查看器');
           // 这里可以调用3D查看器的更新方法
           // onModelUpdate?.(result.threejs_data);
@@ -391,17 +422,22 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
     } catch (error) {
       message.destroy();
       console.error('❌ GemPy完整显示链路建模失败:', error);
-      
+      const svc = gemPyServiceRef.current;
+      const latest = svc?.requestLog[0];
+      const classification = latest?.classification;
+      const firstAttemptErr = latest?.attemptDetails && latest.attemptDetails[0]?.error;
+      const detail = (error instanceof Error && /API调用失败/.test(error.message)) ? error.message : (error instanceof Error ? error.message : '未知错误');
       message.error({
         content: (
           <div>
-            <div>😞 GemPy完整显示链路建模失败</div>
-            <div style={{ fontSize: '12px', marginTop: '4px' }}>
-              {error instanceof Error ? error.message : '未知错误'}
-            </div>
+            <div>😞 GemPy完整显示链路建模失败 ({classification||'unknown'})</div>
+            <div style={{ fontSize: 12, marginTop:4 }}>{detail}</div>
+            {firstAttemptErr && <div style={{ fontSize:11, marginTop:4, color:'#faad14' }}>首尝试: {firstAttemptErr}</div>}
+            {latest?.attempts>1 && <div style={{ fontSize:11, marginTop:4 }}>共尝试 {latest.attempts} 次, 最终耗时 {Math.round(latest.durationMs)} ms</div>}
+            {latest?.hash && <div style={{ fontSize:11, marginTop:4 }}>Hash: {latest.hash}</div>}
           </div>
         ),
-        duration: 6
+        duration: 8
       });
 
       setProcessingStatus('error');
@@ -450,25 +486,52 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
         resolution: [gemPyConfig.resolutionX, gemPyConfig.resolutionY, gemPyConfig.resolutionZ]
       };
       const payload = { boreholes: holes, domain } as any;
-      const three = await GempyDirectService.buildModel(payload as any);
+      const directResult = await gemPyService.createGemPyDirectModel(
+        boreholeData,
+        {
+          resolutionX: gemPyConfig.resolutionX,
+          resolutionY: gemPyConfig.resolutionY,
+          resolutionZ: gemPyConfig.resolutionZ,
+          interpolationMethod: gemPyConfig.interpolationMethod,
+          faultSmoothing: gemPyConfig.faultSmoothing,
+          enableFaults: gemPyConfig.enableFaults,
+          gravityModel: gemPyConfig.gravityModel,
+          magneticModel: gemPyConfig.magneticModel,
+          unevenDataConfig: gemPyConfig.unevenDataConfig,
+          manualDomain: useManualDomain ? {
+            xMin: domainBounds.xMin, xMax: domainBounds.xMax,
+            yMin: domainBounds.yMin, yMax: domainBounds.yMax,
+            zMin: domainBounds.zMin, zMax: domainBounds.zMax
+          } : null
+        }
+      );
 
       setProcessingProgress(90);
 
-      console.log('⚡ GemPy直接显示链路结果:', three);
+  console.log('⚡ GemPy直接显示链路结果 (规范化):', directResult);
 
       message.destroy();
 
-      if (three && Object.keys(three).length > 0) {
+      if (directResult.success) {
         message.success({
           content: (
             <div>
               <div>⚡ 三维直连渲染数据就绪！</div>
+              <div style={{ fontSize: '12px', marginTop: 4 }}>Hash: {directResult.requestHash}</div>
             </div>
           ),
           duration: 6
         });
-
-        setThreeData(three);
+        if (directResult.raw?.threejs_data) {
+          setThreeData(directResult.raw.threejs_data);
+        }
+        setRealTimeStats(prev=>({
+          interpolationTime: Number(directResult.stats?.processingTime ?? 0),
+          dataPoints: Number(directResult.stats?.vertexCount ?? 0),
+          gridPoints: Number(directResult.stats?.triangleCount ?? 0),
+          memoryUsage: prev.memoryUsage,
+          qualityScore: prev.qualityScore || 0.95
+        }));
         setShowViewport(true);
 
         setProcessingProgress(100);
@@ -476,23 +539,28 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
         onStatusChange?.('completed');
 
       } else {
-        throw new Error('未获取到有效的 threejs_data');
+        throw new Error('直接链路返回失败或缺少三维数据');
       }
 
     } catch (error) {
       message.destroy();
       console.error('❌ GemPy直接显示链路建模失败:', error);
-      
+      const svc = gemPyServiceRef.current;
+      const latest = svc?.requestLog[0];
+      const classification = latest?.classification;
+      const firstAttemptErr = latest?.attemptDetails && latest.attemptDetails[0]?.error;
+      const detail = (error instanceof Error && /直接显示链路API调用失败/.test(error.message)) ? error.message : (error instanceof Error ? error.message : '未知错误');
       message.error({
         content: (
           <div>
-            <div>💥 GemPy直接显示链路建模失败</div>
-            <div style={{ fontSize: '12px', marginTop: '4px' }}>
-              {error instanceof Error ? error.message : '未知错误'}
-            </div>
+            <div>💥 GemPy直接显示链路建模失败 ({classification||'unknown'})</div>
+            <div style={{ fontSize: 12, marginTop:4 }}>{detail}</div>
+            {firstAttemptErr && <div style={{ fontSize:11, marginTop:4, color:'#faad14' }}>首尝试: {firstAttemptErr}</div>}
+            {latest?.attempts>1 && <div style={{ fontSize:11, marginTop:4 }}>共尝试 {latest.attempts} 次, 最终耗时 {Math.round(latest.durationMs)} ms</div>}
+            {latest?.hash && <div style={{ fontSize:11, marginTop:4 }}>Hash: {latest.hash}</div>}
           </div>
         ),
-        duration: 6
+        duration: 8
       });
 
       setProcessingStatus('error');
@@ -703,6 +771,32 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
               justifyContent: 'flex-end',
               alignItems: 'center'
             }}>
+              {/* 最近失败分类指示 */}
+              {gemPyServiceRef.current?.requestLog?.length ? (()=>{
+                const lastFail = gemPyServiceRef.current.requestLog.find(r=> r.classification && r.classification!=='success');
+                if (!lastFail) return null;
+                const color = GEO_REQ_CLASS_COLORS[lastFail.classification] || '#999';
+                return <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, color }}>
+                  <span style={{ width:8, height:8, borderRadius:'50%', background: color, display:'inline-block' }} />
+                  <span>{lastFail.classification}</span>
+                </div>;
+              })(): null}
+              <Tooltip title={`超时 ${geologyApiConfig.timeoutMs/1000}s / 重试 ${geologyApiConfig.retries} 次 / 基延迟 ${geologyApiConfig.retryDelayMs}ms`}> 
+                <Button size="small" onClick={()=>{
+                  Modal.confirm({
+                    title: '网络参数配置',
+                    content: (
+                      <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                        <div>超时(ms): <InputNumber min={1000} step={1000} defaultValue={geologyApiConfig.timeoutMs} onChange={(v)=> updateGeologyApiConfig({ timeoutMs: Number(v) })} /></div>
+                        <div>重试次数: <InputNumber min={0} max={5} defaultValue={geologyApiConfig.retries} onChange={(v)=> updateGeologyApiConfig({ retries: Number(v) })} /></div>
+                        <div>基延迟(ms): <InputNumber min={100} step={100} defaultValue={geologyApiConfig.retryDelayMs} onChange={(v)=> updateGeologyApiConfig({ retryDelayMs: Number(v) })} /></div>
+                        <Alert type="info" showIcon message="指数退避: delay * 2^attempt" />
+                      </div>
+                    ),
+                    onOk: ()=> message.success('网络配置已更新，下次请求生效')
+                  });
+                }}>网络配置</Button>
+              </Tooltip>
               <Button
                 size="small"
                 icon={<EyeOutlined />}
@@ -711,6 +805,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
               >
                 预览配置
               </Button>
+              <Button size="small" onClick={()=> { refreshRequestLog(); setShowRequestLog(true); }}>请求日志</Button>
               <Button
                 type="primary"
                 size="small"
@@ -750,6 +845,14 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
               >
                 ⚡ 直接显示
               </Button>
+
+              {processingStatus === 'processing' && (
+                <Button size="small" danger onClick={()=>{
+                  gemPyServiceRef.current?.cancelActiveRequests?.();
+                  setProcessingStatus('idle');
+                  message.warning('已取消当前请求');
+                }}>取消</Button>
+              )}
 
               <Button
                 size="small"
@@ -798,6 +901,9 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
                 <Col span={4}>
                   <Text style={{ fontSize: '12px', color: '#666' }}>
                     阶段 {Math.floor(processingProgress / 12.5) + 1}/8
+                    {gemPyServiceRef.current?.lastRequestMeta && (
+                      <span style={{ marginLeft:8 }}>尝试:{gemPyServiceRef.current.lastRequestMeta.attempts}</span>
+                    )}
                   </Text>
                 </Col>
               </Row>
@@ -2056,6 +2162,76 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
           }
         />
       )}
+      <Drawer
+        width={800}
+        title="请求日志"
+        open={showRequestLog}
+        onClose={()=> setShowRequestLog(false)}
+        extra={<Space>
+          <Select
+            placeholder="分类过滤"
+            allowClear
+            size="small"
+            style={{ width:110 }}
+            value={logClassFilter}
+            onChange={(v)=> { setLogClassFilter(v); refreshRequestLog(); }}
+            options={[ 'success','network','server','timeout','throttle','validation','auth','other' ].map(v=>({ label:v, value:v }))}
+          />
+          <Input
+            allowClear
+            size="small"
+            placeholder="Hash搜索"
+            style={{ width:130 }}
+            value={logHashQuery}
+            onChange={(e)=> { setLogHashQuery(e.target.value); refreshRequestLog(); }}
+          />
+          <Tooltip title="会话持久化日志">
+            <Button size="small" type={persistSession? 'primary':'default'} onClick={()=> togglePersist(!persistSession)}>
+              持久化{persistSession? '✓':''}
+            </Button>
+          </Tooltip>
+          <Button size="small" onClick={refreshRequestLog}>刷新</Button>
+          <Button size="small" onClick={()=> { gemPyServiceRef.current && (gemPyServiceRef.current.requestLog = []); refreshRequestLog(); }}>清空</Button>
+          <Button size="small" onClick={()=> {
+            const data = gemPyServiceRef.current?.requestLog || [];
+            const blob = new Blob([JSON.stringify(data,null,2)], { type:'application/json' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'geology_request_log.json'; a.click();
+          }}>导出</Button>
+          <Button size="small" type="primary" onClick={()=> {
+            const data = requestLogData.map(({key, ...rest})=> rest); // strip key
+            const blob = new Blob([JSON.stringify(data,null,2)], { type:'application/json' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'geology_request_log_filtered.json'; a.click();
+          }}>导出筛选</Button>
+        </Space>}
+      >
+        <Table
+          size="small"
+          dataSource={requestLogData}
+          pagination={{ pageSize: 10 }}
+          expandable={{
+            expandedRowRender: (rec)=> (
+              <div style={{ fontSize:12 }}>
+                <div>Attempts Detail:</div>
+                <ul style={{ margin:0, paddingLeft:16 }}>
+                  {(rec.attemptDetails||[]).map((a:any)=> <li key={a.attempt}>#{a.attempt} {a.status? `HTTP ${a.status}`:''} {a.error} {a.attemptAt? `@${new Date(a.attemptAt).toLocaleTimeString()}`:''} {a.backoffMs? `(backoff ${a.backoffMs}ms)`:''}</li>)}
+                </ul>
+              </div>
+            )
+          }}
+          scroll={{ x: 1200 }}
+          columns={[
+            { title: '时间', dataIndex: 'ts', width: 120, render: (v: number)=> new Date(v).toLocaleTimeString() },
+            { title: '端点', dataIndex: 'endpoint', ellipsis: true },
+            { title: '方法', dataIndex: 'method', width: 70 },
+            { title: '状态', dataIndex: 'status', width: 80, render: (_: any, rec: any)=> rec.error ? <Tag color="red">ERR</Tag> : rec.status ? <Tag color={rec.ok? 'green':'orange'}>{rec.status}</Tag> : null },
+            { title: '分类', dataIndex: 'classification', width: 90, render: (v:any)=> v? <Tag color={GEO_REQ_CLASS_COLORS[v]||'default'}>{v}</Tag>: null },
+            { title: '尝试', dataIndex: 'attempts', width: 70 },
+            { title: '耗时(ms)', dataIndex: 'durationMs', width: 90, render: (v: number)=> (v||0).toFixed(0) },
+            { title: 'Hash', dataIndex: 'hash', width: 140, ellipsis: true },
+            { title: '错误信息', dataIndex: 'error', ellipsis: true }
+          ]}
+        />
+      </Drawer>
     </div>
   );
 };

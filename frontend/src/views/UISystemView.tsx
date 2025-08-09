@@ -29,8 +29,8 @@
  * 
  * 技术特色: 主题系统、组件化设计、响应式布局、用户个性化
  */
-import React, { useState } from 'react';
-import { Layout, Card, Typography, Tabs, Row, Col, Space, Button, Switch, Select, Slider, ColorPicker, Divider } from 'antd';
+import React, { useState, useMemo } from 'react';
+import { Typography, Tabs, Space, Button, Switch, Select, Slider, ColorPicker, Divider } from 'antd';
 import { 
   BgColorsOutlined,
   SettingOutlined,
@@ -46,8 +46,10 @@ import ThemeToggle from '../components/ThemeToggle';
 import UIModeSwitcher from '../components/UIModeSwitcher';
 import UISettingsPanel from '../components/UISettingsPanel';
 import Glass from '../components/ui/GlassComponents';
+import UnifiedModuleLayout from '../components/ui/layout/UnifiedModuleLayout';
+import Panel from '../components/ui/layout/Panel';
+import MetricCard from '../components/ui/layout/MetricCard';
 
-const { Content } = Layout;
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
 const { Option } = Select;
@@ -66,349 +68,141 @@ const UISystemView: React.FC = () => {
   });
 
   const handleConfigChange = (key: string, value: any) => {
-    setUIConfig(prev => ({
-      ...prev,
-      [key]: value
-    }));
+    setUIConfig(prev => ({ ...prev, [key]: value }));
   };
 
+  const metrics = useMemo(() => ([
+    { label: '主色', value: uiConfig.accentColor.replace('#',''), accent: 'blue' as const },
+    { label: '玻璃', value: uiConfig.glassEffect ? 'ON' : 'OFF', accent: uiConfig.glassEffect ? 'purple' as const : 'orange' as const },
+    { label: '动画', value: uiConfig.animations ? 'ON' : 'OFF', accent: uiConfig.animations ? 'green' as const : 'red' as const },
+    { label: '圆角', value: uiConfig.borderRadius + 'px', accent: 'orange' as const },
+    { label: '间距', value: uiConfig.spacing + 'px', accent: 'blue' as const },
+    { label: '字体', value: uiConfig.fontSize + 'px', accent: 'green' as const },
+  ]), [uiConfig]);
+
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Content style={{ padding: '24px' }}>
-        <div style={{ maxWidth: 1600, margin: '0 auto' }}>
-          <Title level={2} style={{ color: '#00d9ff', marginBottom: '24px' }}>
-            <BgColorsOutlined style={{ marginRight: '8px' }} />
-            UI设计系统
-          </Title>
-
-          <Row gutter={[24, 24]}>
-            {/* 左侧控制面板 */}
-            <Col span={8}>
-              <Card 
-                title="UI配置控制台"
-                style={{ height: '800px' }}
-              >
-                <Tabs 
-                  activeKey={activeTab}
-                  onChange={setActiveTab}
-                  type="card"
-                  size="small"
-                  tabPosition="top"
-                >
-                  {/* 主题系统 */}
-                  <TabPane 
-                    tab={
-                      <span>
-                        <SkinOutlined />
-                        主题系统
-                      </span>
-                    } 
-                    key="theme"
-                  >
-                    <Space direction="vertical" style={{ width: '100%' }}>
-                      <div>
-                        <Text strong>主题切换</Text>
-                        <div style={{ marginTop: '8px' }}>
-                          <ThemeToggle />
-                        </div>
+    <UnifiedModuleLayout
+        left={
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <Panel title={<span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><BgColorsOutlined /> UI配置</span>} dense>
+              <Tabs activeKey={activeTab} onChange={setActiveTab} size="small" items={[
+                { key: 'theme', label: '主题', children: (
+                  <Space direction="vertical" style={{ width: '100%' }} size={16}>
+                    <div>
+                      <Text strong>主题切换</Text>
+                      <div style={{ marginTop: 6 }}><ThemeToggle /></div>
+                    </div>
+                    <div>
+                      <Text strong>主色调</Text>
+                      <div style={{ marginTop: 6 }}>
+                        <ColorPicker
+                          value={uiConfig.accentColor}
+                          onChange={(c)=>handleConfigChange('accentColor', c.toHexString())}
+                          showText
+                        />
                       </div>
-
-                      <Divider />
-
-                      <div>
-                        <Text strong>主色调</Text>
-                        <div style={{ marginTop: '8px' }}>
-                          <ColorPicker
-                            value={uiConfig.accentColor}
-                            onChange={(color) => handleConfigChange('accentColor', color.toHexString())}
-                            showText
-                          />
-                        </div>
-                      </div>
-
-                      <div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                      <Space direction="vertical" style={{ flex:1 }} size={6}>
                         <Text strong>玻璃效果</Text>
-                        <div style={{ marginTop: '8px' }}>
-                          <Switch
-                            checked={uiConfig.glassEffect}
-                            onChange={(checked) => handleConfigChange('glassEffect', checked)}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
+                        <Switch size="small" checked={uiConfig.glassEffect} onChange={(v)=>handleConfigChange('glassEffect', v)} />
+                      </Space>
+                      <Space direction="vertical" style={{ flex:1 }} size={6}>
                         <Text strong>动画效果</Text>
-                        <div style={{ marginTop: '8px' }}>
-                          <Switch
-                            checked={uiConfig.animations}
-                            onChange={(checked) => handleConfigChange('animations', checked)}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Text strong>圆角大小</Text>
-                        <div style={{ marginTop: '8px' }}>
-                          <Slider
-                            min={0}
-                            max={20}
-                            value={uiConfig.borderRadius}
-                            onChange={(value) => handleConfigChange('borderRadius', value)}
-                            marks={{ 0: '0', 8: '8px', 20: '20px' }}
-                          />
-                        </div>
-                      </div>
-                    </Space>
-                  </TabPane>
-
-                  {/* 布局系统 */}
-                  <TabPane 
-                    tab={
-                      <span>
-                        <LayoutOutlined />
-                        布局系统
-                      </span>
-                    } 
-                    key="layout"
-                  >
-                    <Space direction="vertical" style={{ width: '100%' }}>
-                      <div>
-                        <Text strong>布局模式</Text>
-                        <div style={{ marginTop: '8px' }}>
-                          <Select
-                            value={uiConfig.layout}
-                            onChange={(value) => handleConfigChange('layout', value)}
-                            style={{ width: '100%' }}
-                          >
-                            <Option value="futuristic">未来科技风</Option>
-                            <Option value="professional">专业工程风</Option>
-                            <Option value="minimal">极简风格</Option>
-                            <Option value="classic">经典风格</Option>
-                          </Select>
-                        </div>
-                      </div>
-
-                      <div>
-                        <Text strong>间距系统</Text>
-                        <div style={{ marginTop: '8px' }}>
-                          <Slider
-                            min={8}
-                            max={32}
-                            value={uiConfig.spacing}
-                            onChange={(value) => handleConfigChange('spacing', value)}
-                            marks={{ 8: '紧凑', 16: '标准', 24: '宽松', 32: '超宽' }}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Text strong>字体大小</Text>
-                        <div style={{ marginTop: '8px' }}>
-                          <Slider
-                            min={12}
-                            max={18}
-                            value={uiConfig.fontSize}
-                            onChange={(value) => handleConfigChange('fontSize', value)}
-                            marks={{ 12: '小', 14: '标准', 16: '大', 18: '超大' }}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Text strong>UI模式切换</Text>
-                        <div style={{ marginTop: '8px' }}>
-                          <UIModeSwitcher />
-                        </div>
-                      </div>
-                    </Space>
-                  </TabPane>
-
-                  {/* 组件库 */}
-                  <TabPane 
-                    tab={
-                      <span>
-                        <AppstoreOutlined />
-                        组件库
-                      </span>
-                    } 
-                    key="components"
-                  >
-                    <Space direction="vertical" style={{ width: '100%' }}>
-                      <div>
-                        <Text strong>玻璃态组件</Text>
-                        <div style={{ marginTop: '8px' }}>
-                          <Button
-                            type="primary"
-                            style={{
-                              background: 'rgba(0, 217, 255, 0.2)',
-                              backdropFilter: 'blur(20px)',
-                              border: '1px solid rgba(0, 217, 255, 0.3)',
-                              width: '100%'
-                            }}
-                          >
-                            玻璃按钮示例
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <Text strong>发光效果</Text>
-                        <div style={{ marginTop: '8px' }}>
-                          <Button
-                            type="primary"
-                            style={{
-                              background: '#00d9ff',
-                              boxShadow: '0 0 20px rgba(0, 217, 255, 0.5)',
-                              border: 'none',
-                              width: '100%'
-                            }}
-                          >
-                            发光按钮示例
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <Text strong>渐变效果</Text>
-                        <div style={{ marginTop: '8px' }}>
-                          <Button
-                            type="primary"
-                            style={{
-                              background: 'linear-gradient(135deg, #00d9ff 0%, #0099cc 100%)',
-                              border: 'none',
-                              width: '100%'
-                            }}
-                          >
-                            渐变按钮示例
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <Text strong>边框效果</Text>
-                        <div style={{ marginTop: '8px', padding: '12px', border: '2px solid #00d9ff', borderRadius: '8px', textAlign: 'center' }}>
-                          边框卡片示例
-                        </div>
-                      </div>
-                    </Space>
-                  </TabPane>
-
-                  {/* 高级设置 */}
-                  <TabPane 
-                    tab={
-                      <span>
-                        <ExperimentOutlined />
-                        高级设置
-                      </span>
-                    } 
-                    key="advanced"
-                  >
-                    <div style={{ height: '600px', overflowY: 'auto' }}>
-                      <UISettingsPanel />
+                        <Switch size="small" checked={uiConfig.animations} onChange={(v)=>handleConfigChange('animations', v)} />
+                      </Space>
                     </div>
-                  </TabPane>
-                </Tabs>
-              </Card>
-            </Col>
-
-            {/* 右侧预览区域 */}
-            <Col span={16}>
-              <Card 
-                title={
-                  <span>
-                    <EyeOutlined style={{ marginRight: '8px' }} />
-                    UI组件预览
-                  </span>
-                }
-                extra={
-                  <Space>
-                    <Text style={{ fontSize: '12px', color: '#00d9ff' }}>
-                      当前主题: {uiConfig.theme}
-                    </Text>
-                    <Button icon={<ThunderboltOutlined />} size="small">
-                      应用设置
-                    </Button>
-                  </Space>
-                }
-                style={{ height: '800px' }}
-                styles={{ body: { padding: '24px', height: 'calc(100% - 57px)', overflowY: 'auto' } }}
-              >
-                {/* 玻璃组件展示 */}
-                <Glass>
-                  <div>Glass components demo</div>
-                </Glass>
-
-                <Divider style={{ margin: '24px 0' }} />
-
-                {/* 各种UI组件预览 */}
-                <Row gutter={[16, 16]}>
-                  <Col span={8}>
-                    <Card 
-                      title="卡片组件"
-                      size="small"
-                      style={{ 
-                        background: uiConfig.glassEffect 
-                          ? 'rgba(255, 255, 255, 0.05)' 
-                          : 'rgba(26, 26, 46, 0.95)',
-                        backdropFilter: uiConfig.glassEffect ? 'blur(20px)' : 'none',
-                        border: `1px solid ${uiConfig.accentColor}30`,
-                        borderRadius: uiConfig.borderRadius
-                      }}
-                    >
-                      <Text>这是一个示例卡片</Text>
-                    </Card>
-                  </Col>
-
-                  <Col span={8}>
-                    <Button 
-                      type="primary"
-                      size="large"
-                      style={{
-                        background: uiConfig.accentColor,
-                        borderColor: uiConfig.accentColor,
-                        borderRadius: uiConfig.borderRadius,
-                        width: '100%',
-                        height: '80px'
-                      }}
-                    >
-                      主要按钮
-                    </Button>
-                  </Col>
-
-                  <Col span={8}>
-                    <div style={{
-                      padding: uiConfig.spacing,
-                      background: `${uiConfig.accentColor}10`,
-                      border: `1px solid ${uiConfig.accentColor}30`,
-                      borderRadius: uiConfig.borderRadius,
-                      textAlign: 'center',
-                      fontSize: uiConfig.fontSize
-                    }}>
-                      自定义容器
+                    <div>
+                      <Text strong>圆角</Text>
+                      <Slider min={0} max={20} value={uiConfig.borderRadius} onChange={(v)=>handleConfigChange('borderRadius', v)} marks={{0:'0',8:'8',20:'20'}} />
                     </div>
-                  </Col>
-                </Row>
-
-                <Divider style={{ margin: '24px 0' }} />
-
-                {/* 配置信息显示 */}
-                <Card title="当前配置" size="small">
-                  <Space direction="vertical" style={{ width: '100%' }}>
-                    <Text>主色调: <span style={{ color: uiConfig.accentColor }}>{uiConfig.accentColor}</span></Text>
-                    <Text>玻璃效果: {uiConfig.glassEffect ? '启用' : '禁用'}</Text>
-                    <Text>动画效果: {uiConfig.animations ? '启用' : '禁用'}</Text>
-                    <Text>圆角大小: {uiConfig.borderRadius}px</Text>
-                    <Text>间距: {uiConfig.spacing}px</Text>
-                    <Text>字体大小: {uiConfig.fontSize}px</Text>
-                    <Text>布局模式: {uiConfig.layout}</Text>
                   </Space>
-                </Card>
-              </Card>
-            </Col>
-          </Row>
+                )},
+                { key: 'layout', label: '布局', children: (
+                  <Space direction="vertical" style={{ width: '100%' }} size={16}>
+                    <div>
+                      <Text strong>布局模式</Text>
+                      <Select size="small" value={uiConfig.layout} onChange={(v)=>handleConfigChange('layout', v)} style={{ width: '100%', marginTop: 6 }}>
+                        <Option value="futuristic">未来科技风</Option>
+                        <Option value="professional">专业工程风</Option>
+                        <Option value="minimal">极简风格</Option>
+                        <Option value="classic">经典风格</Option>
+                      </Select>
+                    </div>
+                    <div>
+                      <Text strong>间距系统</Text>
+                      <Slider min={8} max={32} value={uiConfig.spacing} onChange={(v)=>handleConfigChange('spacing', v)} marks={{8:'紧',16:'标',24:'宽',32:'超'}} />
+                    </div>
+                    <div>
+                      <Text strong>字体大小</Text>
+                      <Slider min={12} max={18} value={uiConfig.fontSize} onChange={(v)=>handleConfigChange('fontSize', v)} marks={{12:'12',14:'14',16:'16',18:'18'}} />
+                    </div>
+                    <div>
+                      <Text strong>UI模式</Text>
+                      <div style={{ marginTop: 6 }}><UIModeSwitcher /></div>
+                    </div>
+                  </Space>
+                )},
+                { key: 'components', label: '组件', children: (
+                  <Space direction="vertical" size={16} style={{ width:'100%' }}>
+                    <div>
+                      <Text strong>Glass 示例</Text>
+                      <div style={{ marginTop: 8 }}><Glass><div style={{ padding: 12 }}>Glass components demo</div></Glass></div>
+                    </div>
+                    <div>
+                      <Text strong>发光按钮</Text>
+                      <Button type="primary" style={{ background: uiConfig.accentColor, boxShadow: `0 0 14px ${uiConfig.accentColor}66`, border: 'none', width:'100%' }}>发光按钮示例</Button>
+                    </div>
+                    <div>
+                      <Text strong>渐变按钮</Text>
+                      <Button type="primary" style={{ background: `linear-gradient(135deg, ${uiConfig.accentColor} 0%, #0099cc 100%)`, border:'none', width:'100%' }}>渐变按钮示例</Button>
+                    </div>
+                  </Space>
+                )},
+                { key: 'advanced', label: '高级', children: (
+                  <div style={{ maxHeight: 520, overflowY: 'auto' }}>
+                    <UISettingsPanel />
+                  </div>
+                )}
+              ]} />
+            </Panel>
+          </div>
+        }
+        right={
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <Panel title="系统指标" dense>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(95px,1fr))', gap: 8 }}>
+                {metrics.map(m => <MetricCard key={m.label} label={m.label} value={m.value} accent={m.accent} />)}
+              </div>
+            </Panel>
+            <Panel title="当前配置" dense>
+              <Space direction="vertical" size={6} style={{ fontSize: 12 }}>
+                <Text>主色: <span style={{ color: uiConfig.accentColor }}>{uiConfig.accentColor}</span></Text>
+                <Text>玻璃: {uiConfig.glassEffect ? '启用' : '禁用'}</Text>
+                <Text>动画: {uiConfig.animations ? '启用' : '禁用'}</Text>
+                <Text>圆角: {uiConfig.borderRadius}px</Text>
+                <Text>间距: {uiConfig.spacing}px</Text>
+                <Text>字体: {uiConfig.fontSize}px</Text>
+                <Text>布局: {uiConfig.layout}</Text>
+              </Space>
+              <div style={{ marginTop: 12 }}>
+                <Button size="small" type="primary" icon={<ThunderboltOutlined />}>应用设置</Button>
+              </div>
+            </Panel>
+          </div>
+        }
+        overlay={null}
+      >
+        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,#101820,#1b2730)' }} />
+          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 25% 30%, rgba(0,217,255,0.15), transparent 60%), radial-gradient(circle at 75% 70%, rgba(0,153,204,0.18), transparent 65%)' }} />
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center', pointerEvents: 'none' }}>
+            <div style={{ fontSize: 60, opacity: .25, marginBottom: 20 }}>⚙️</div>
+            <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: 1, marginBottom: 12 }}>系统 UI 预览视口</div>
+            <div style={{ fontSize: 14, opacity: .55, lineHeight: 1.5 }}>后续可嵌入实时主题切换动画 / 性能监测图层 / 可访问性对比预览</div>
+          </div>
         </div>
-      </Content>
-    </Layout>
+      </UnifiedModuleLayout>
   );
 };
 

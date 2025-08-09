@@ -392,10 +392,10 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
 
   // 渲染几何参数输入界面
   const renderGeometryParamsForm = () => {
-    const params = geometryParams[currentGeometryType];
-    
+    // 为了通过严格的联合类型检查，这里在每个case中单独获取具体参数对象
     switch (currentGeometryType) {
       case 'box':
+  const boxParams = geometryParams.box;
         return (
           <Space direction="vertical" style={{ width: '100%' }}>
             <div>
@@ -404,7 +404,7 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
                 min={0.1}
                 max={100}
                 step={0.1}
-                value={params.width}
+    value={boxParams.width}
                 onChange={(value) => setGeometryParams(prev => ({
                   ...prev,
                   box: { ...prev.box, width: value || 1 }
@@ -418,7 +418,7 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
                 min={0.1}
                 max={100}
                 step={0.1}
-                value={params.height}
+    value={boxParams.height}
                 onChange={(value) => setGeometryParams(prev => ({
                   ...prev,
                   box: { ...prev.box, height: value || 1 }
@@ -432,7 +432,7 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
                 min={0.1}
                 max={100}
                 step={0.1}
-                value={params.depth}
+    value={boxParams.depth}
                 onChange={(value) => setGeometryParams(prev => ({
                   ...prev,
                   box: { ...prev.box, depth: value || 1 }
@@ -444,6 +444,7 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
         );
         
       case 'cylinder':
+  const cylinderParams = geometryParams.cylinder;
         return (
           <Space direction="vertical" style={{ width: '100%' }}>
             <div>
@@ -452,7 +453,7 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
                 min={0.1}
                 max={50}
                 step={0.1}
-                value={params.radiusTop}
+    value={cylinderParams.radiusTop}
                 onChange={(value) => setGeometryParams(prev => ({
                   ...prev,
                   cylinder: { ...prev.cylinder, radiusTop: value || 1 }
@@ -466,7 +467,7 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
                 min={0.1}
                 max={50}
                 step={0.1}
-                value={params.radiusBottom}
+    value={cylinderParams.radiusBottom}
                 onChange={(value) => setGeometryParams(prev => ({
                   ...prev,
                   cylinder: { ...prev.cylinder, radiusBottom: value || 1 }
@@ -480,7 +481,7 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
                 min={0.1}
                 max={100}
                 step={0.1}
-                value={params.height}
+    value={cylinderParams.height}
                 onChange={(value) => setGeometryParams(prev => ({
                   ...prev,
                   cylinder: { ...prev.cylinder, height: value || 1 }
@@ -492,6 +493,7 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
         );
         
       case 'sphere':
+  const sphereParams = geometryParams.sphere;
         return (
           <Space direction="vertical" style={{ width: '100%' }}>
             <div>
@@ -500,7 +502,7 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
                 min={0.1}
                 max={50}
                 step={0.1}
-                value={params.radius}
+    value={sphereParams.radius}
                 onChange={(value) => setGeometryParams(prev => ({
                   ...prev,
                   sphere: { ...prev.sphere, radius: value || 1 }
@@ -514,7 +516,7 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
                 min={8}
                 max={64}
                 step={4}
-                value={params.widthSegments}
+    value={sphereParams.widthSegments}
                 onChange={(value) => setGeometryParams(prev => ({
                   ...prev,
                   sphere: { ...prev.sphere, widthSegments: value || 32 }
@@ -528,7 +530,7 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
                 min={6}
                 max={32}
                 step={2}
-                value={params.heightSegments}
+    value={sphereParams.heightSegments}
                 onChange={(value) => setGeometryParams(prev => ({
                   ...prev,
                   sphere: { ...prev.sphere, heightSegments: value || 16 }
@@ -561,7 +563,7 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
       </div>
       
       {/* 工具按钮 */}
-      {tools.map((tool, index) => (
+  {tools.map((tool) => (
         <Tooltip
           key={tool.key}
           title={

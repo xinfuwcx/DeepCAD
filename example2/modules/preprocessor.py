@@ -1098,13 +1098,20 @@ class PreProcessor:
 
     def set_current_analysis_stage(self, stage_index: int):
         """设置当前分析步（通过索引）"""
-        if hasattr(self, 'analysis_stages') and 0 <= stage_index < len(self.analysis_stages):
-            self.current_stage_index = stage_index
-            stage = self.analysis_stages[stage_index]
-            print(f"切换到分析步: {stage['name']}")
-
-            # 根据分析步更新显示的物理组
-            self.update_display_for_stage(stage)
+        # 🔧 修复：使用正确的数据源 fpn_data
+        if hasattr(self, 'fpn_data') and self.fpn_data:
+            analysis_stages = self.fpn_data.get('analysis_stages', [])
+            if 0 <= stage_index < len(analysis_stages):
+                self.current_stage_index = stage_index
+                stage = analysis_stages[stage_index]
+                print(f"✅ 切换到分析步: {stage['name']} (ID: {stage.get('id', 'N/A')})")
+                
+                # 根据分析步更新显示的物理组
+                self.update_display_for_stage(stage)
+            else:
+                print(f"❌ 分析步索引超出范围: {stage_index}, 总共有 {len(analysis_stages)} 个分析步")
+        else:
+            print("❌ 未找到FPN数据，无法切换分析步")
 
     def update_display_for_stage(self, stage: dict):
         """根据分析步更新显示"""
@@ -1112,6 +1119,9 @@ class PreProcessor:
         stage_id = stage.get('id', 0)
 
         print(f"分析分析步: ID={stage_id}, 名称='{stage_name}', 类型={stage.get('type', 0)}")
+        
+        # 保存当前分析步数据供后续方法使用
+        self.current_stage_data = stage
 
         # ✅ 修复关键问题：使用determine_active_groups_for_stage动态计算激活材料组
         active_groups = self.determine_active_groups_for_stage(stage)
@@ -1307,6 +1317,13 @@ class PreProcessor:
     def intelligent_material_selection(self, stage_name: str):
         """根据分析步名称智能选择材料"""
         stage_name_lower = stage_name.lower()
+        
+        # 首先尝试使用分析步中的active_materials信息
+        stage_info = getattr(self, 'current_stage_data', None)
+        if stage_info and 'active_materials' in stage_info and stage_info['active_materials']:
+            self.current_active_materials = set(stage_info['active_materials'])
+            print(f"使用分析步数据中的激活材料: {sorted(self.current_active_materials)}")
+            return
 
         if '初始' in stage_name_lower or 'initial' in stage_name_lower:
             # 初始应力分析：显示所有土体材料
@@ -1317,12 +1334,33 @@ class PreProcessor:
                     self.current_active_materials.add(mat_id)
 
         elif '开挖' in stage_name_lower or 'excavation' in stage_name_lower:
-            # 开挖分析：显示土体材料和开挖相关荷载
-            print("智能选择: 开挖阶段 - 土体材料 + 开挖荷载")
-            self.current_active_materials = set()
-            for mat_id, mat_info in self.materials.items():
-                if mat_info['properties']['type'] == 'soil':
-                    self.current_active_materials.add(mat_id)
+            # 开挖分析：移除开挖区域的土体材料
+            print("智能选择: 开挖阶段 - 移除开挖区域土体")
+            
+            # 优先使用分析步信息中的active_materials
+            stage_info = getattr(self, 'current_stage_data', None)
+            if stage_info and 'active_materials' in stage_info:
+                # 只显示分析步中仍然激活的材料（即未被开挖的材料）
+                self.current_active_materials = set(stage_info['active_materials'])
+                print(f"根据分析步信息，激活材料: {sorted(self.current_active_materials)}")
+                
+                # 识别被开挖移除的材料
+                all_soil_materials = set()
+                for mat_id, mat_info in self.materials.items():
+                    if mat_info['properties']['type'] == 'soil':
+                        all_soil_materials.add(mat_id)
+                
+                removed_materials = all_soil_materials - self.current_active_materials
+                if removed_materials:
+                    print(f"开挖移除的土体材料: {sorted(removed_materials)}")
+                    print("注意: 这些材料将在display_mesh()调用时被过滤掉")
+            else:
+                # 回退方案：显示所有土体材料（如果没有分析步信息）
+                print("未找到分析步信息，显示所有土体材料")
+                self.current_active_materials = set()
+                for mat_id, mat_info in self.materials.items():
+                    if mat_info['properties']['type'] == 'soil':
+                        self.current_active_materials.add(mat_id)
 
         elif '支护' in stage_name_lower or '围护' in stage_name_lower or '墙' in stage_name_lower:
             # 支护分析：显示结构材料
@@ -1467,6 +1505,41 @@ class PreProcessor:
         # 自动调整视图
         self.plotter.reset_camera()
         
+    def hide_materials_in_3d(self, material_ids_to_hide):
+        """在3D视图中隐藏指定的材料（用于开挖模拟）"""
+        if not PYVISTA_AVAILABLE or not self.plotter:
+            return
+            
+        print(f"🔧 隐藏3D视图中的材料: {sorted(material_ids_to_hide)}")
+        
+        # 遍历所有要隐藏的材料ID
+        for mat_id in material_ids_to_hide:
+            actor_name = f'material_{mat_id}'
+            
+            # 尝试移除对应的actor
+            try:
+                if hasattr(self.plotter, 'remove_actor'):
+                    # 如果actor存在，则移除
+                    actors = self.plotter.renderer.actors
+                    for actor in actors:
+                        if hasattr(actor, 'name') and actor.name == actor_name:
+                            self.plotter.remove_actor(actor)
+                            print(f"  已移除材料 {mat_id} 的3D显示")
+                            break
+                    else:
+                        print(f"  材料 {mat_id} 的3D actor未找到")
+                else:
+                    print("  plotter不支持remove_actor方法")
+            except Exception as e:
+                print(f"  移除材料 {mat_id} 时出错: {e}")
+        
+        # 刷新显示
+        try:
+            if hasattr(self.plotter, 'render'):
+                self.plotter.render()
+        except Exception as e:
+            print(f"刷新3D视图时出错: {e}")
+        
     def display_transparent_layers(self):
         """使用半透明效果显示分层土体"""
         if not PYVISTA_AVAILABLE or not self.mesh:
@@ -1480,7 +1553,14 @@ class PreProcessor:
             # 过滤材料ID：只显示当前分析步激活的材料
             if hasattr(self, 'current_active_materials') and self.current_active_materials:
                 material_ids = [mid for mid in all_material_ids if mid in self.current_active_materials]
-                print(f"分析步过滤后的材料ID: {sorted(list(material_ids))} (从 {sorted(list(all_material_ids))} 中过滤)")
+                removed_materials = [mid for mid in all_material_ids if mid not in self.current_active_materials]
+                print(f"🔧 开挖分析步过滤结果:")
+                print(f"  原始材料ID: {sorted(list(all_material_ids))}")
+                print(f"  激活材料ID: {sorted(list(self.current_active_materials))}")
+                print(f"  显示材料ID: {sorted(list(material_ids))}")
+                print(f"  🗑️  开挖移除材料ID: {sorted(list(removed_materials))}")
+                if removed_materials:
+                    print(f"  ✅ 开挖效果：{len(removed_materials)}种材料已被完全移除")
             else:
                 material_ids = all_material_ids
                 print(f"显示所有材料ID: {sorted(list(material_ids))}")

@@ -8,6 +8,8 @@ import React, { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
 import { FunctionalIcons } from './icons/FunctionalIconsQuickFix';
+import ProfessionalViewport3D from './ProfessionalViewport3D';
+import { eventBus } from '../core/eventBus';
 import DXFBooleanInterface from './geology/DXFBooleanInterface';
 import PileTypeSelector from './PileTypeSelector';
 import { 
@@ -67,21 +69,15 @@ interface GeometryModelingWorkspaceProps {
   onGeometryComplete?: (data: any) => void;
   onDataTransferToMesh?: (data: any) => void;
   onDataTransferToComputation?: (data: any) => void;
-  workspaceWidth?: number;
-  workspaceHeight?: number;
 }
 
 const GeometryModelingWorkspace: React.FC<GeometryModelingWorkspaceProps> = ({
   onGeometryComplete,
   onDataTransferToMesh,
-  onDataTransferToComputation,
-  workspaceWidth = 1400,
-  workspaceHeight = 900
+  onDataTransferToComputation
 }) => {
-  const mountRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<THREE.Scene>();
-  const rendererRef = useRef<THREE.WebGLRenderer>();
-  const cameraRef = useRef<THREE.PerspectiveCamera>();
+  // 旧独立 three 实例移除，改用 ProfessionalViewport3D
+  const sceneRef = useRef<THREE.Scene | null>(null); // 可扩展：通过事件向 viewport 注入几何
 
   const [workspaceState, setWorkspaceState] = useState<GeometryWorkspaceState>({
     currentModule: 'geology'
@@ -89,46 +85,39 @@ const GeometryModelingWorkspace: React.FC<GeometryModelingWorkspaceProps> = ({
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPileSelector, setShowPileSelector] = useState(false);
+  // 拉伸参数弹窗
+  const [showExtrudeDialog, setShowExtrudeDialog] = useState(false);
 
-  // 初始化3D场景
-  const init3DScene = useCallback(() => {
-    if (!mountRef.current) return;
+  // 结果标签组件（监听 eventBus）
+  const ResultLabels: React.FC = () => {
+    const [labels, setLabels] = useState<any[]>([]);
+    React.useEffect(()=>{
+      const off1 = eventBus.on('measurement:update', data=>{
+        setLabels(ls=>[...ls.filter(l=>l.type!=='measure'),{type:'measure',...data}]);
+        setTimeout(()=>setLabels(ls=>ls.filter(l=>l.type!=='measure')),4000);
+      });
+      const off2 = eventBus.on('geometry:extrude:created', data=>{
+        setLabels(ls=>[...ls.filter(l=>l.type!=='extrude'),{type:'extrude',...data}]);
+        setTimeout(()=>setLabels(ls=>ls.filter(l=>l.type!=='extrude')),4000);
+      });
+      return ()=>{off1();off2();};
+    },[]);
+    return <>{labels.map((l,i)=>(
+      <div key={i} style={{position:'absolute',top:80+32*i,left:'50%',transform:'translateX(-50%)',background:'#232b33',color:'#fff',borderRadius:6,padding:'6px 18px',border:'1px solid #3388ff',zIndex:99}}>
+        {l.type==='measure'?`测量距离: ${l.distance?.toFixed(2)}m`:null}
+        {l.type==='extrude'?`拉伸高度: ${l.height}m`:null}
+      </div>
+    ))}</>;
+  };
 
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x2c2c2c);
-    sceneRef.current = scene;
-
-    const camera = new THREE.PerspectiveCamera(75, workspaceWidth / workspaceHeight, 0.1, 1000);
-    camera.position.set(0, 60, 80);
-    cameraRef.current = camera;
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(workspaceWidth, workspaceHeight);
-    renderer.setClearColor(0x2c2c2c);
-    mountRef.current.appendChild(renderer.domElement);
-    rendererRef.current = renderer;
-
-    // 添加光照
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
-    scene.add(ambientLight);
-    
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(50, 50, 50);
-    scene.add(directionalLight);
-
-    // 添加网格
-    const gridHelper = new THREE.GridHelper(100, 10, 0x666666, 0x333333);
-    scene.add(gridHelper);
-
-    // 渲染循环
-    const animate = () => {
-      requestAnimationFrame(animate);
-      if (renderer && scene && camera) {
-        renderer.render(scene, camera);
-      }
-    };
-    animate();
-  }, [workspaceWidth, workspaceHeight]);
+  // 统一工具事件发射
+  const emitToolCommand = (tool: string, extra: any = {}) => {
+    eventBus.emit('geometry:tool', { tool, ...extra });
+    eventBus.emit(`geometry:tool:${tool}`, extra);
+  };
+  const emitWorkflowEvent = (evt:string, data:any={}) => {
+    eventBus.emit('geometry:workflow', { stage: evt, ...data });
+  };
 
   // 处理DXF导入完成 - 集成2号专家算法
   const handleDXFImported = async (result: any) => {
@@ -197,7 +186,9 @@ const GeometryModelingWorkspace: React.FC<GeometryModelingWorkspaceProps> = ({
       // 如果布尔运算成功，使用2号专家的智能几何优化
       if (result.success && result.geometry) {
         // 构建几何模型数据结构
-        const geometryModel = {
+        const geometryModel: any = {
+          id: 'geom_'+Date.now(),
+          type: 'boolean-result',
           vertices: result.geometry.vertices || [],
           faces: result.geometry.faces || [],
           quality: {
@@ -394,89 +385,70 @@ const GeometryModelingWorkspace: React.FC<GeometryModelingWorkspaceProps> = ({
     onDataTransferToComputation?.(completeGeometry);
   };
 
-  // 初始化场景
-  React.useEffect(() => {
-    init3DScene();
-    
-    return () => {
-      if (rendererRef.current && mountRef.current) {
-        mountRef.current.removeChild(rendererRef.current.domElement);
-      }
-    };
-  }, [init3DScene]);
+  // 暗色主题同步 (读取 CSS 变量，可拓展发给 viewport 未来做自适配)
+  React.useEffect(()=>{
+    const root = getComputedStyle(document.documentElement);
+    const bg = root.getPropertyValue('--bg-card');
+    eventBus.emit('theme:update', { bgCard: bg.trim() });
+  }, []);
 
   return (
-    <div className="geometry-modeling-workspace relative">
-      {/* 3D几何场景 */}
-      <div 
-        ref={mountRef} 
-        className="geometry-3d-scene w-full h-full"
-        style={{ width: workspaceWidth, height: workspaceHeight }}
-      />
-      
-      {/* 几何建模模块切换 */}
-      <div className="absolute top-4 left-4 space-y-4">
-        <div className="bg-black/50 backdrop-blur-sm rounded-lg p-4">
-          <h3 className="text-white font-medium mb-3">几何建模模块</h3>
-          <div className="space-y-2">
-            {[
-              { module: 'geology', label: '地质建模', icon: FunctionalIcons.GeologyAnalysis },
-              { module: 'excavation', label: '基坑开挖建模', icon: FunctionalIcons.ExcavationDesign },
-              { module: 'support', label: '支护结构建模', icon: FunctionalIcons.StructuralEngineering },
-              { module: 'boundary', label: '边界条件设置', icon: FunctionalIcons.BoundaryConditions },
-              { module: 'assembly', label: '几何装配与校验', icon: FunctionalIcons.SystemValidation }
-            ].map(({ module, label, icon: Icon }) => (
-              <motion.button
-                key={module}
-                className={`flex items-center space-x-2 w-full px-3 py-2 rounded-lg transition-all ${
-                  workspaceState.currentModule === module 
-                    ? 'bg-orange-600 text-white' 
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-                onClick={() => handleModuleSwitch(module as any)}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+    <div className="geometry-modeling-workspace" style={{display:'flex', width:'100%', height:'100%', position:'relative', background:'#101417', border:'1px solid #1e2429', borderRadius:8, overflow:'hidden'}}>
+      {/* 左侧扁平工具栏面板 */}
+      <div style={{width:340, height:'100%', display:'flex', flexDirection:'column', background:'rgba(24,30,36,0.9)', borderRight:'1px solid #232b33'}}>
+        {/* 工具栏标题 */}
+        <div style={{padding:'14px 18px', borderBottom:'1px solid #232b33', display:'flex', alignItems:'center', gap:8}}>
+          <h3 style={{margin:0,color:'#ff8a3d',fontSize:15,fontWeight:600,letterSpacing:0.5}}>几何建模</h3>
+          <span style={{color:'#63727f', fontSize:12}}>工作区</span>
+        </div>
+        {/* 模块切换扁平按钮条 */}
+        <div style={{display:'flex', flexWrap:'wrap', gap:6, padding:'12px 14px 2px 14px'}}>
+          {[
+              { module: 'geology', label: '地质', icon: FunctionalIcons.GeologyModeling },
+              { module: 'excavation', label: '开挖', icon: FunctionalIcons.ExcavationDesign },
+              { module: 'support', label: '支护', icon: FunctionalIcons.ExcavationDesign },
+              { module: 'boundary', label: '边界', icon: FunctionalIcons.MeshGeneration },
+              { module: 'assembly', label: '装配', icon: FunctionalIcons.ResultsAnalysis }
+          ].map(({ module, label, icon: Icon }) => {
+            const active = workspaceState.currentModule === module;
+            return (
+              <button key={module}
+                onClick={()=>handleModuleSwitch(module as any)}
+                style={{
+                  flex:'1 1 30%',
+                  minWidth:90,
+                  display:'flex',
+                  alignItems:'center',
+                  justifyContent:'center',
+                  gap:4,
+                  padding:'6px 8px',
+                  borderRadius:6,
+                  border:'1px solid '+(active?'#ff8a3d':'#2a333b'),
+                  background: active? 'linear-gradient(90deg,#ff8a3d,#ff6635)':'#1f252b',
+                  color: active? '#fff':'#b9c2c9',
+                  fontSize:12,
+                  cursor:'pointer',
+                  transition:'all .18s'
+                }}
               >
-                <Icon size={16} />
-                <span className="text-sm">{label}</span>
-              </motion.button>
-            ))}
-          </div>
+                <Icon size={14} />
+                {label}
+              </button>
+            )
+          })}
         </div>
-
-        {/* 进度指示器 */}
-        <div className="bg-black/50 backdrop-blur-sm rounded-lg p-4">
-          <h3 className="text-white font-medium mb-3">建模进度</h3>
-          <div className="space-y-2">
-            {Object.entries({
-              '地质建模': workspaceState.geologyModel ? 'completed' : 'pending',
-              '开挖建模': workspaceState.excavationGeometry ? 'completed' : 'pending',
-              '支护建模': workspaceState.supportStructures ? 'completed' : 'pending',
-              '边界条件': workspaceState.boundaryConditions ? 'completed' : 'pending',
-              '装配校验': workspaceState.assemblyValidation ? 'completed' : 'pending'
-            }).map(([name, status]) => (
-              <div key={name} className="flex items-center justify-between">
-                <span className="text-xs text-gray-400">{name}</span>
-                <div className={`w-3 h-3 rounded-full ${
-                  status === 'completed' ? 'bg-green-500' :
-                  status === 'processing' ? 'bg-yellow-500 animate-pulse' : 'bg-gray-500'
-                }`} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* 主要内容区域 */}
-      <div className="absolute top-4 right-4 w-96 h-full max-h-[calc(100vh-2rem)] overflow-auto">
-        <AnimatePresence mode="wait">
+        {/* 分隔线 */}
+        <div style={{height:1, background:'#232b33', margin:'8px 12px 12px'}} />
+        {/* 模块内容滚动区域 */}
+        <div style={{flex:1, overflowY:'auto', padding:'0 14px 16px'}}>
+          <AnimatePresence mode="wait">
           {workspaceState.currentModule === 'excavation' && (
             <motion.div
               key="excavation"
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -100 }}
-              className="bg-black/50 backdrop-blur-sm rounded-lg p-4"
+              className="rounded-md" style={{background:'#20272d', padding:14, border:'1px solid #2d363f'}}
             >
               <h3 className="text-white font-medium mb-4">基坑开挖建模</h3>
               <p className="text-gray-300 text-sm mb-4">
@@ -501,7 +473,7 @@ const GeometryModelingWorkspace: React.FC<GeometryModelingWorkspaceProps> = ({
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -100 }}
-              className="bg-black/50 backdrop-blur-sm rounded-lg p-4"
+              className="rounded-md" style={{background:'#20272d', padding:14, border:'1px solid #2d363f'}}
             >
               <h3 className="text-white font-medium mb-4">地质建模</h3>
               <p className="text-gray-300 text-sm mb-4">
@@ -537,7 +509,7 @@ const GeometryModelingWorkspace: React.FC<GeometryModelingWorkspaceProps> = ({
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -100 }}
-              className="bg-black/50 backdrop-blur-sm rounded-lg p-4"
+              className="rounded-md" style={{background:'#20272d', padding:14, border:'1px solid #2d363f'}}
             >
               <h3 className="text-white font-medium mb-4">支护结构建模</h3>
               <p className="text-gray-300 text-sm mb-4">
@@ -665,7 +637,7 @@ const GeometryModelingWorkspace: React.FC<GeometryModelingWorkspaceProps> = ({
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -100 }}
-              className="bg-black/50 backdrop-blur-sm rounded-lg p-4"
+              className="rounded-md" style={{background:'#20272d', padding:14, border:'1px solid #2d363f'}}
             >
               <h3 className="text-white font-medium mb-4">几何装配与校验</h3>
               <p className="text-gray-300 text-sm mb-4">
@@ -681,7 +653,77 @@ const GeometryModelingWorkspace: React.FC<GeometryModelingWorkspaceProps> = ({
               </motion.button>
             </motion.div>
           )}
-        </AnimatePresence>
+          </AnimatePresence>
+
+          {/* 进度指示器 */}
+          <div style={{marginTop:18}} className="rounded-md" >
+            <h3 className="text-white font-medium mb-3 text-sm">建模进度</h3>
+            <div className="space-y-2">
+              {Object.entries({
+                '地质建模': workspaceState.geologyModel ? 'completed' : 'pending',
+                '开挖建模': workspaceState.excavationGeometry ? 'completed' : 'pending',
+                '支护建模': workspaceState.supportStructures ? 'completed' : 'pending',
+                '边界条件': workspaceState.boundaryConditions ? 'completed' : 'pending',
+                '装配校验': workspaceState.assemblyValidation ? 'completed' : 'pending'
+              }).map(([name, status]) => (
+                <div key={name} className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">{name}</span>
+                  <div className={`w-3 h-3 rounded-full ${
+                    status === 'completed' ? 'bg-green-500' :
+                    status === 'processing' ? 'bg-yellow-500 animate-pulse' : 'bg-gray-600'
+                  }`} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 右侧 3D 视口填充剩余空间 (采用统一高级视口组件) */}
+      <div style={{flex:1, position:'relative', display:'flex', flexDirection:'column'}}>
+        {/* 顶部几何工具扁平栏 */}
+        <div style={{display:'flex', gap:8, padding:'6px 10px', background:'rgba(24,30,36,0.85)', borderBottom:'1px solid #232b33'}}>
+          {/* 工具栏按钮 */}
+          {[{k:'select', label:'选择'}, {k:'sketch', label:'草图'}, {k:'extrude', label:'拉伸'}, {k:'measure', label:'测量'}, {k:'snap', label:'捕捉'}].map(btn => (
+            <button key={btn.k} onClick={()=>emitToolCommand(btn.k)} style={{
+              background:'linear-gradient(180deg,#2a3239,#22292f)',
+              border:'1px solid #303a42',
+              color:'#b9c2c9',
+              fontSize:12,
+              padding:'6px 12px',
+              borderRadius:6,
+              cursor:'pointer',
+              letterSpacing:0.5
+            }}>{btn.label}</button>
+          ))}
+          {/* 拉伸参数弹窗触发 */}
+          <button onClick={()=>setShowExtrudeDialog(true)} style={{background:'#3388ff',color:'#fff',borderRadius:6,padding:'6px 12px',border:'none',marginLeft:8}}>拉伸参数</button>
+          {/* 布尔操作按钮组 */}
+          <div style={{display:'flex',gap:4,marginLeft:8}}>
+            <button onClick={()=>eventBus.emit('geometry:boolean:op',{op:'union'})} style={{background:'#00d9ff',color:'#fff',borderRadius:6,padding:'6px 10px',border:'none'}}>并集</button>
+            <button onClick={()=>eventBus.emit('geometry:boolean:op',{op:'subtract'})} style={{background:'#ff6b35',color:'#fff',borderRadius:6,padding:'6px 10px',border:'none'}}>差集</button>
+            <button onClick={()=>eventBus.emit('geometry:boolean:op',{op:'intersect'})} style={{background:'#8b5cf6',color:'#fff',borderRadius:6,padding:'6px 10px',border:'none'}}>交集</button>
+          </div>
+          {/* 撤销按钮 */}
+          <button onClick={()=>eventBus.emit('geometry:undo',{})} style={{background:'#63727f',color:'#fff',borderRadius:6,padding:'6px 10px',border:'none',marginLeft:8}}>撤销</button>
+        </div>
+        <div style={{flex:1, position:'relative'}}>
+          <ProfessionalViewport3D mode="geometry" title="几何视口" description="统一高级渲染" suppressLegacyToolbar />
+          {/* 拉伸参数弹窗 */}
+          {showExtrudeDialog && (
+            <div style={{position:'absolute',top:60,left:'50%',transform:'translateX(-50%)',background:'#222',border:'1px solid #3388ff',borderRadius:8,padding:18,zIndex:100,minWidth:260,color:'#fff'}}>
+              <div style={{marginBottom:10}}>拉伸高度: <input type="number" min={1} max={100} defaultValue={20} id="extrude-height-input" style={{width:60,marginLeft:8}} /></div>
+              <button onClick={()=>{
+                const val = parseFloat((document.getElementById('extrude-height-input') as HTMLInputElement)?.value)||20;
+                eventBus.emit('geometry:extrude:param',{height:val});
+                setShowExtrudeDialog(false);
+              }} style={{background:'#3388ff',color:'#fff',borderRadius:6,padding:'6px 16px',border:'none'}}>确定</button>
+              <button onClick={()=>setShowExtrudeDialog(false)} style={{background:'#63727f',color:'#fff',borderRadius:6,padding:'6px 16px',border:'none',marginLeft:8}}>取消</button>
+            </div>
+          )}
+          {/* 结果标签显示（如测量/拉伸）可扩展：监听 eventBus 并渲染标签 */}
+          <ResultLabels />
+        </div>
       </div>
 
       {/* 桩基类型选择器模态框 */}
@@ -708,13 +750,14 @@ const GeometryModelingWorkspace: React.FC<GeometryModelingWorkspaceProps> = ({
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
               >
-                <FunctionalIcons.Close size={20} />
+                {/* 关闭图标占位 */}
+                ✕
               </motion.button>
 
               {/* 桩基类型选择器 */}
               <PileTypeSelector
-                onTypeSelect={handlePileTypeSelect}
-                selectedType={workspaceState.supportStructures?.pileSupports?.pileType}
+                onTypeSelect={(p:any,s:any)=>handlePileTypeSelect(p,s)}
+                selectedType={workspaceState.supportStructures?.pileSupports?.pileType as any}
                 showTechnicalDetails={true}
               />
             </motion.div>
