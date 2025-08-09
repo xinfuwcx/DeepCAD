@@ -17,12 +17,22 @@ export default defineConfig({
       },
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('three')) return 'vendor_three';
-            if (id.includes('react')) return 'vendor_react';
-            if (id.includes('deck.gl') || id.includes('maplibre')) return 'vendor_map';
-            return 'vendor_misc';
-          }
+          if (!id.includes('node_modules')) return undefined;
+          // Core frameworks
+          if (id.includes('react')) return 'vendor_react';
+          if (id.includes('three')) return 'vendor_three';
+          if (id.includes('deck.gl') || id.includes('maplibre')) return 'vendor_map';
+          // Visualization & charts
+          if (id.includes('/d3') || id.match(/recharts/)) return 'vendor_viz';
+          // Ant Design & icons
+          if (id.includes('antd') || id.includes('@ant-design') ) return 'vendor_ui_antd';
+          // State / form libs
+          if (id.includes('zustand') || id.includes('immer') || id.includes('react-hook-form') ) return 'vendor_state';
+          // Utility heavy modules (lodash (if added later), papaparse, axios, uuid)
+          if (id.includes('papaparse') || id.includes('axios') || id.includes('uuid')) return 'vendor_utils';
+          // Web workers / parser specific
+          if (id.includes('dxf-parser')) return 'vendor_parser';
+          return 'vendor_misc';
         }
       }
     },
