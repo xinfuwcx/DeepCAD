@@ -648,21 +648,49 @@ const ProjectManagement3DScreen: React.FC = () => {
               {/* 工具栏：导入CSV / 导出JSON / 下载模板 */}
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <label style={{
-                  padding: '6px 10px',
-                  background: 'rgba(0,0,0,0.3)',
-                  border: '1px solid rgba(0,217,255,0.3)',
+                  padding: '8px 12px',
+                  background: 'rgba(0,217,255,0.1)',
+                  border: '1px solid rgba(0,217,255,0.5)',
                   color: '#00d9ff',
                   borderRadius: 6,
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  display: 'inline-block',
+                  transition: 'all 0.2s ease',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  textAlign: 'center',
+                  userSelect: 'none',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(0,217,255,0.2)';
+                  e.currentTarget.style.borderColor = '#00d9ff';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(0,217,255,0.1)';
+                  e.currentTarget.style.borderColor = 'rgba(0,217,255,0.5)';
                 }}>
-                  导入CSV
+                  📁 导入CSV
                   <input
                     type="file"
                     accept=".csv"
-                    style={{ display: 'none' }}
+                    style={{ 
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      opacity: 0,
+                      cursor: 'pointer',
+                      zIndex: 1
+                    }}
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
+                      
+                      console.log('开始导入CSV文件:', file.name);
+                      
                       try {
                         const rows = await (await import('../services/projectService')).importCSV(file);
                         // 将 CSV 项映射至 Project，并合并现有
@@ -684,8 +712,12 @@ const ProjectManagement3DScreen: React.FC = () => {
                         setProjects(merged);
                         saveProjects(merged as any);
                         message.success(`成功导入 ${mapped.length} 条项目数据`);
+                        
+                        // 重置文件输入，允许重复选择同一文件
+                        e.target.value = '';
                       } catch (err) {
-                        console.warn('CSV 导入失败', err);
+                        console.error('CSV 导入失败:', err);
+                        message.error('CSV导入失败，请检查文件格式');
                       }
                     }}
                   />

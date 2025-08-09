@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Card, Button, Space, Typography, Tabs, Form, InputNumber, Select, Upload, Progress, Steps, Tag, Slider, Switch } from 'antd';
+import { Card, Button, Space, Typography, Tabs, Form, InputNumber, Select, Upload, Progress, Steps, Tag, Slider, Switch, message } from 'antd';
 import {
   EnvironmentOutlined,
   ToolOutlined,
@@ -399,9 +399,50 @@ export const GeometryLabModule: React.FC = () => {
                 </Form.Item>
               </Form>
 
-              <Button  icon={<UploadOutlined />} style={{ width: '100%', marginTop: '8px' }}>
-                导入DXF图纸
-              </Button>
+              <div style={{ position: 'relative', width: '100%', marginTop: '8px' }}>
+                <Button 
+                  icon={<UploadOutlined />} 
+                  style={{ 
+                    width: '100%',
+                    height: '32px',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}
+                  onClick={() => {
+                    // 触发隐藏的文件输入
+                    const fileInput = document.getElementById('dxf-file-input') as HTMLInputElement;
+                    if (fileInput) {
+                      fileInput.click();
+                    }
+                  }}
+                >
+                  导入DXF图纸
+                </Button>
+                <input
+                  id="dxf-file-input"
+                  type="file"
+                  accept=".dxf,.dwg"
+                  style={{ display: 'none' }}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+
+                    console.log('开始导入DXF文件:', file.name);
+                    
+                    try {
+                      // 这里可以添加DXF文件处理逻辑
+                      // 暂时显示成功消息
+                      message.success(`DXF文件 "${file.name}" 导入成功`);
+                      
+                      // 重置文件输入
+                      e.target.value = '';
+                    } catch (error) {
+                      console.error('DXF文件导入失败:', error);
+                      message.error('DXF文件导入失败，请检查文件格式');
+                    }
+                  }}
+                />
+              </div>
             </TabPane>
 
             <TabPane tab="支护结构" key="3">

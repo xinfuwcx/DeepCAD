@@ -145,7 +145,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
     yExtend: 50,
     bottomElevation: -30
   });
-  const [geologyStatus, setGeologyStatus] = useState<'wait' | 'process' | 'finish' | 'error'>('wait');
+  const [geologyStatus, setGeologyStatus] = useState<'wait' | 'process' | 'finish' | 'error'>('finish');
   
   const [excavationParams, setExcavationParams] = useState({
     depth: 10,

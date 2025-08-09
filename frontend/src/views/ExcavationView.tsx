@@ -83,6 +83,8 @@ const ExcavationView: React.FC = () => {
     const sceneRef = useRef(new THREE.Scene());
     const cameraRef = useRef<THREE.PerspectiveCamera>();
     const rendererRef = useRef<THREE.WebGLRenderer>();
+  const dxfOverlayRef = useRef<THREE.Group | null>(null);
+  const [dxfSegments, setDxfSegments] = useState<Array<{ start: { x: number; y: number }, end: { x: number; y: number } }>>([]);
 
     useEffect(() => {
         // ... (Standard Three.js setup - same as GeologyView)
@@ -151,23 +153,112 @@ const ExcavationView: React.FC = () => {
             try {
                 const parser = new DxfParser();
                 const dxf = parser.parseSync(e.target!.result as string);
+                // 1) 优先 LWPOLYLINE，否则回退到 LINE 集合
                 const polyline = dxf.entities.find((ent: any) => ent.type === 'LWPOLYLINE');
-                if (polyline) {
-                    const points = (polyline as any).vertices?.map((v: any) => ({ x: v.x, y: v.y })) || [];
+                if (polyline && polyline.vertices?.length) {
+                    const points = polyline.vertices.map((v: any) => ({ x: v.x, y: v.y }));
                     setDxfContour(points);
-                    message.success(`${file.name} parsed successfully. Contour found.`);
+                    // 生成线段
+                    const segs: Array<{start:{x:number;y:number}, end:{x:number;y:number}}> = [];
+                    for (let i = 0; i < points.length - 1; i++) segs.push({ start: points[i], end: points[i+1] });
+                    if (points.length >= 3) segs.push({ start: points[points.length-1], end: points[0] });
+                    setDxfSegments(segs);
+                    message.success(`${file.name} 解析成功（LWPOLYLINE）`);
                 } else {
-                    setError('No LWPOLYLINE found in the DXF file.');
-                    message.error('No LWPOLYLINE found in the DXF file.');
+                    const lines = dxf.entities.filter((ent: any) => ent.type === 'LINE' && ent.start && ent.end);
+                    if (!lines.length) {
+                        setError('DXF 中未找到可用的 LWPOLYLINE 或 LINE 实体');
+                        message.error('未找到轮廓实体');
+                        return;
+                    }
+                    // 2) 保存为独立线段，并给一个点集用于边界/指标
+                    const segs: Array<{start:{x:number;y:number}, end:{x:number;y:number}}> = lines.map((ln: any) => ({ start: { x: ln.start.x, y: ln.start.y }, end: { x: ln.end.x, y: ln.end.y } }));
+                    setDxfSegments(segs);
+                    const pts: { x:number; y:number }[] = [];
+                    segs.forEach(s => { pts.push(s.start); pts.push(s.end); });
+                    setDxfContour(pts);
+                    message.success(`${file.name} 解析成功（LINE x ${lines.length}）`);
                 }
             } catch (err) {
-                setError('Failed to parse DXF file.');
-                message.error('Failed to parse DXF file.');
+                setError('DXF 解析失败');
+                message.error('DXF 解析失败');
             }
         };
         reader.readAsText(file);
-        return false; // Prevent antd's default upload action
+        return false; // 阻止 antd 默认上传
     };
+
+    // 将解析得到的 dxfSegments/Contour 绘制到 3D 画布
+    useEffect(() => {
+        const scene = sceneRef.current;
+        if (!scene) return;
+
+        // 清除旧的覆盖
+        if (dxfOverlayRef.current) {
+            scene.remove(dxfOverlayRef.current);
+            dxfOverlayRef.current.traverse(obj => {
+                if ((obj as any).geometry) (obj as any).geometry.dispose();
+                if ((obj as any).material) {
+                    const m = (obj as any).material;
+                    if (Array.isArray(m)) m.forEach(x => x.dispose()); else m.dispose();
+                }
+            });
+            dxfOverlayRef.current = null;
+        }
+
+        if ((!dxfContour || dxfContour.length < 2) && (!dxfSegments || dxfSegments.length === 0)) {
+            // 无数据，不绘制
+            return;
+        }
+
+        // 计算边界与缩放
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        const samplePoints = (dxfContour && dxfContour.length >= 2)
+            ? dxfContour
+            : dxfSegments.flatMap(s => [s.start, s.end]);
+        samplePoints.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        const width = Math.max(1e-6, maxX - minX);
+        const height = Math.max(1e-6, maxY - minY);
+        const target = 150; // 映射到视口范围
+        const scale = Math.min(target / width, target / height);
+
+        const group = new THREE.Group();
+        group.name = 'DXF_OVERLAY';
+        const mat = new THREE.LineBasicMaterial({ color: 0x00d9ff, linewidth: 1 });
+
+        if (dxfSegments && dxfSegments.length > 0) {
+            // 按段绘制，兼容散线
+            dxfSegments.forEach(seg => {
+                const pts = [
+                    new THREE.Vector3((seg.start.x - centerX) * scale, 0.05, (seg.start.y - centerY) * scale),
+                    new THREE.Vector3((seg.end.x - centerX) * scale, 0.05, (seg.end.y - centerY) * scale)
+                ];
+                const geom = new THREE.BufferGeometry().setFromPoints(pts);
+                const line = new THREE.Line(geom, mat);
+                group.add(line);
+            });
+        } else {
+            // 折线方式
+            const points3D = dxfContour.map(p => new THREE.Vector3((p.x - centerX) * scale, 0.05, (p.y - centerY) * scale));
+            if (points3D.length >= 2) {
+                const geom = new THREE.BufferGeometry().setFromPoints(points3D.concat([points3D[0].clone()]));
+                const line = new THREE.Line(geom, mat);
+                group.add(line);
+            }
+        }
+
+        scene.add(group);
+        dxfOverlayRef.current = group;
+
+        // 相机对准
+        if (cameraRef.current) {
+            const maxDim = Math.max(width, height) * scale;
+            cameraRef.current.position.set(maxDim * 1.2, maxDim * 0.9, maxDim * 1.2);
+            cameraRef.current.lookAt(0, 0, 0);
+        }
+    }, [dxfContour, dxfSegments]);
 
     const onFinish = async (values: any) => {
         if (!dxfFile) {
