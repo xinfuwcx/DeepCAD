@@ -1129,6 +1129,8 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
           截图
         </Button>
   <Button size="small" style={{ background: enableSnapping?'#1976d2':'#333', border:'1px solid #1976d2', color:'#fff'}} onClick={()=>setEnableSnapping(s=>!s)}>捕捉 {enableSnapping?'开':'关'}</Button>
+  <Button size="small" style={{ background: activeTool==='sketch'?'#00bcd4':'#333', border:'1px solid #00bcd4', color:'#fff'}} onClick={()=> setActiveTool(t=> t==='sketch'?'select':'sketch')}>{activeTool==='sketch'?'退出草图':'草图'}</Button>
+  <Button size="small" style={{ background: activeTool==='measure'?'#8bc34a':'#333', border:'1px solid #8bc34a', color:'#fff'}} onClick={()=> setActiveTool(t=> t==='measure'?'select':'measure')}>{activeTool==='measure'?'退出测量':'测量'}</Button>
   <Button size="small" style={{ background: activeTool==='faceSelect'?'#ff9800':'#333', border:'1px solid #ff9800', color:'#fff'}} onClick={()=>setActiveTool('faceSelect')}>选面</Button>
   <Button size="small" style={{ background:'#455a64', border:'1px solid #607d8b', color:'#fff'}} onClick={undo}>撤销</Button>
   <Button size="small" style={{ background:'#455a64', border:'1px solid #607d8b', color:'#fff'}} onClick={redo}>重做</Button>
@@ -1230,6 +1232,22 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
   {activeTool==='sketch' && <div style={{color:'#ccc'}}>点数:{sketchPoints.length}{isSketchClosed?'(已闭合)':''}</div>}
   {activeTool==='measure' && <div style={{color:'#ccc'}}>点数:{measurePoints.length}</div>}
   {activeTool==='faceSelect' && (()=>{ const cnt = Array.from(selectedFacesRef.current.values()).reduce((a,s)=>a+s.size,0); const data=computeSelectedFacesAverage(); const n=data?data.avgNormal:null; return <div style={{color:'#ffb74d'}}>选面:{cnt} 法向:{n?`${n.x.toFixed(2)},${n.y.toFixed(2)},${n.z.toFixed(2)}`:'-'}</div>; })()}
+  {activeTool==='measure' && (
+    <div style={{display:'flex', gap:4}}>
+      <Button size="small" style={{background: measurementMode==='distance'?'#607d8b':'#2f3740', color:'#fff'}} onClick={()=> setMeasurementMode('distance')}>距离</Button>
+      <Button size="small" style={{background: measurementMode==='polyline'?'#607d8b':'#2f3740', color:'#fff'}} onClick={()=> setMeasurementMode('polyline')}>折线</Button>
+      <Button size="small" style={{background: measurementMode==='area'?'#607d8b':'#2f3740', color:'#fff'}} onClick={()=> setMeasurementMode('area')}>面积</Button>
+      <Button size="small" style={{background: measurementMode==='angle'?'#607d8b':'#2f3740', color:'#fff'}} onClick={()=> setMeasurementMode('angle')}>角度</Button>
+      <Button size="small" style={{background:'#455a64', color:'#fff'}} onClick={()=>{ setMeasurePoints([]); if(measureLineRef.current){ scene.remove(measureLineRef.current); measureLineRef.current.geometry.dispose(); measureLineRef.current=null;} if(measureAngleArcRef.current){ scene.remove(measureAngleArcRef.current); measureAngleArcRef.current.geometry.dispose(); measureAngleArcRef.current=null;} }}>清空</Button>
+    </div>
+  )}
+  {activeTool==='sketch' && (
+    <div style={{display:'flex', gap:4}}>
+      <Button size="small" style={{background: isSketchClosed?'#0097a7':'#004d60', color:'#fff'}} disabled={!sketchPoints.length} onClick={()=> resetSketch()}>重置草图</Button>
+      <Button size="small" style={{background: isSketchClosed?'#ff7043':'#555', color:'#fff'}} disabled={!sketchPoints.length} onClick={()=> { if(!isSketchClosed && sketchPoints.length>2) setIsSketchClosed(true); }}>闭合</Button>
+      <Button size="small" style={{background:'#455a64', color:'#fff'}} disabled={!isSketchClosed} onClick={()=> {/* 将来：生成预览或拉伸 */}}>拉伸</Button>
+    </div>
+  )}
       </div>
 
       {/* 选面工具操作面板 */}
