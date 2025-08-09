@@ -10,7 +10,7 @@
  * - React + TypeScript (UI框架)
  */
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Button, Input, Typography, Tooltip, Select, message } from 'antd';
 import {
@@ -138,6 +138,16 @@ const ProjectManagement3DScreen: React.FC = () => {
     const cfg = { status: statusFilter, manager: managerFilter, sortKey, sortOrder };
     localStorage.setItem('pm-filters-v1', JSON.stringify(cfg));
   }, [statusFilter, managerFilter, sortKey, sortOrder]);
+
+
+  // 负责人选项（基于当前项目集去重）
+  const managerOptions = useMemo(() => {
+    try {
+      const set = new Set<string>();
+      projects.forEach(p => { if (p.manager) set.add(p.manager); });
+      return Array.from(set);
+    } catch { return []; }
+  }, [projects]);
 
   // Three.js 相关状态（仍用于特效）
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -326,11 +336,20 @@ const ProjectManagement3DScreen: React.FC = () => {
     }
   }, [projects, fetchWeatherData]);
 
-  // 项目搜索过滤
-  const filteredProjects = projects.filter(project =>
-    project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    project.location.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // 项目搜索 + 筛选 + 排序
+  const filteredProjects = projects
+    .filter(project => {
+      const matchQuery = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.location.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchStatus = statusFilter.length ? statusFilter.includes(project.status) : true;
+      const matchManager = managerFilter === 'all' ? true : (project.manager === managerFilter);
+      return matchQuery && matchStatus && matchManager;
+    })
+    .sort((a, b) => {
+      const vA = sortKey === 'progress' ? a.progress : (new Date(a[sortKey]).getTime());
+      const vB = sortKey === 'progress' ? b.progress : (new Date(b[sortKey]).getTime());
+      return sortOrder === 'asc' ? (vA as number) - (vB as number) : (vB as number) - (vA as number);
+    });
 
   // 项目选择处理
   const handleProjectSelect = (project: Project) => {
@@ -504,6 +523,7 @@ const ProjectManagement3DScreen: React.FC = () => {
             borderRadius: '20px',
             color: '#ffffff',
             backdropFilter: 'blur(20px)'
+
           }}
           styles={{
             input: {
@@ -538,6 +558,59 @@ const ProjectManagement3DScreen: React.FC = () => {
           maxHeight: '60vh',
           overflowY: 'auto'
         }}>
+
+          {/* 筛选/排序控件（仅作用于项目管理面板，参数将持久化） */}
+          <div style={{ display: 'flex', gap: 8, margin: '8px 0' }}>
+            <Select
+              mode="multiple"
+              allowClear
+              value={statusFilter}
+              onChange={(v) => setStatusFilter(v)}
+              placeholder="状态筛选"
+              size="small"
+              style={{ minWidth: 120 }}
+              options={[
+                { label: '进行中', value: 'active' },
+                { label: '规划中', value: 'planning' },
+                { label: '已完成', value: 'completed' },
+                { label: '暂停', value: 'paused' },
+                { label: '风险', value: 'risk' },
+              ]}
+            />
+            <Select
+              value={managerFilter}
+              onChange={(v) => setManagerFilter(v)}
+              placeholder="负责人"
+              size="small"
+              style={{ minWidth: 100 }}
+              options={[{ label: '全部', value: 'all' }, ...managerOptions.map(m => ({ label: m, value: m }))]}
+            />
+            <Select
+              value={sortKey}
+              onChange={(v) => setSortKey(v)}
+              size="small"
+              style={{ minWidth: 120 }}
+              options={[
+                { label: '按进度', value: 'progress' },
+                { label: '开始时间', value: 'startDate' },
+                { label: '结束时间', value: 'endDate' },
+              ]}
+            />
+            <Select
+              value={sortOrder}
+              onChange={(v) => setSortOrder(v)}
+              size="small"
+              style={{ minWidth: 90 }}
+              options={[
+                { label: '升序', value: 'asc' },
+                { label: '降序', value: 'desc' },
+              ]}
+            />
+            <Button size="small" onClick={() => { setStatusFilter([]); setManagerFilter('all'); }}>
+              清空筛选
+            </Button>
+          </div>
+
           <div style={{
             color: '#00d9ff',
             fontSize: '14px',
