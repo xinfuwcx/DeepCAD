@@ -8,25 +8,25 @@
  */
 
 import { eventBus } from '../core/eventBus';
+import { getDeckLayers } from '../utils/mapLayersUtil';
 
-// 动态模块缓存
+// 共享懒加载模块引用（按需填充）
 let _maplibre: any; // maplibre 模块
 let _MapboxOverlay: any; // deck mapbox overlay 类
 let _IconLayer: any; // deck IconLayer
 let _HeatmapLayer: any; // deck HeatmapLayer
 
-async function loadMapModules() {
-  if (_maplibre && _MapboxOverlay && _IconLayer && _HeatmapLayer) return;
-  const [maplibreMod, deckMapboxMod, deckLayersMod, deckAggMod] = await Promise.all([
-    import(/* webpackPrefetch: true */ 'maplibre-gl'),
-    import('@deck.gl/mapbox'),
-    import('@deck.gl/layers'),
-    import('@deck.gl/aggregation-layers')
-  ]);
-  _maplibre = maplibreMod.default || maplibreMod;
-  _MapboxOverlay = deckMapboxMod.MapboxOverlay;
-  _IconLayer = deckLayersMod.IconLayer;
-  _HeatmapLayer = deckAggMod.HeatmapLayer;
+async function ensureMapAndDeckModules() {
+  if (!_maplibre) {
+    const maplibreMod = await import('maplibre-gl');
+    _maplibre = maplibreMod.default || maplibreMod;
+  }
+  if (!_MapboxOverlay || !_IconLayer || !_HeatmapLayer) {
+    const { MapboxOverlay, IconLayer, HeatmapLayer } = await getDeckLayers();
+    _MapboxOverlay = MapboxOverlay;
+    _IconLayer = IconLayer;
+    _HeatmapLayer = HeatmapLayer;
+  }
 }
 // 地图样式类型
 export type MapStyleType = 'dark-tech' | 'satellite' | 'street' | 'terrain';
@@ -86,7 +86,7 @@ class UnifiedMapService {
     }
 
     // 动态加载地图/Deck 模块
-    await loadMapModules();
+  await ensureMapAndDeckModules();
     const defaultConfig: MapConfig = {
       center: [116.4074, 39.9042], // 北京
       zoom: 5,
@@ -240,7 +240,7 @@ class UnifiedMapService {
   private setupDeckGL() {
     if (!this.map) return;
     const ensure = async () => {
-      await loadMapModules();
+  await ensureMapAndDeckModules();
       this.deckOverlay = new _MapboxOverlay({
       layers: [],
       getTooltip: this.getTooltipContent.bind(this)
@@ -340,7 +340,7 @@ class UnifiedMapService {
    * 渲染项目可视化层
    */
   private renderProjectLayers() {
-    if (!this.deckOverlay || !this.projects.length) return;
+  if (!this.deckOverlay || !this.projects.length) return;
 
   // 色板如需动态映射可迁移到配置模块
 

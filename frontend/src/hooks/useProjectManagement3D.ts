@@ -9,9 +9,9 @@ import maplibregl from 'maplibre-gl';
 // 移除直接静态导入 deck.gl 图层，改为统一懒加载
 import { getDeckLayers } from '../utils/mapLayersUtil';
 
-// MapLibre 样式
-import 'maplibre-gl/dist/maplibre-gl.css';
-import '../styles/maplibre.css';
+// 样式说明：
+// 不在 Hook 内引入全局 CSS，避免影响控制中心。
+// 由 ProjectManagement3DScreen 按路由懒加载 ../styles/pm-maplibre.css 实现样式隔离。
 
 // 项目数据接口
 export interface Project {
