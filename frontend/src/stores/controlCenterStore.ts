@@ -5,6 +5,7 @@
 
 import { create } from 'zustand';
 import { MapLayerType, iTownsMapController } from '../components/control/iTownsMapController';
+import { unifiedMapService, MapStyleType, initLazyMap } from '../services/UnifiedMapService';
 
 // 天气状态接口
 export interface WeatherState {
@@ -17,7 +18,7 @@ export interface WeatherState {
 }
 
 // 导航键类型
-export type NavigationKey = 'street' | 'satellite' | 'terrain' | 'dark' | 'weather' | 'weather-effects' | 'epic' | 'monitor' | 'ai' | 'exit';
+export type NavigationKey = 'street' | 'satellite' | 'terrain' | 'dark' | 'weather' | 'weather-effects' | 'epic' | 'monitor' | 'ai' | 'project-management' | 'exit';
 
 // 位置信息接口
 export interface Location {
@@ -34,6 +35,7 @@ interface ControlCenterState {
   mapStatus: 'loading' | 'ready' | 'error';
   errorMessage: string;
   mapController: iTownsMapController | null;
+  unifiedMapService: typeof unifiedMapService;
 
   // === UI 状态 ===
   showWeatherPanel: boolean;
@@ -53,6 +55,8 @@ interface ControlCenterState {
   setCurrentLocation: (location: Location) => void;
   setMapStatus: (status: 'loading' | 'ready' | 'error', message?: string) => void;
   setMapController: (controller: iTownsMapController | null) => void;
+  initializeUnifiedMap: (container: HTMLElement) => Promise<void>;
+  switchUnifiedMapStyle: (style: MapStyleType) => void;
   
   toggleWeatherPanel: () => void;
   toggleDarkMode: () => void;
@@ -82,6 +86,7 @@ const initialState = {
   mapStatus: 'loading' as const,
   errorMessage: '',
   mapController: null,
+  unifiedMapService: unifiedMapService,
 
   // UI 状态
   showWeatherPanel: false,
@@ -120,6 +125,26 @@ export const useControlCenterStore = create<ControlCenterState>()((set, get) => 
 
     setMapController: (controller) => 
       set({ mapController: controller }),
+
+    // === 统一地图服务 ===
+    initializeUnifiedMap: async (container: HTMLElement) => {
+      try {
+  await initLazyMap(container!, {
+          style: 'dark-tech',
+          center: [get().currentLocation.lng, get().currentLocation.lat],
+          zoom: 5
+        });
+        console.log('✅ 统一地图服务初始化成功');
+      } catch (error) {
+        console.error('❌ 统一地图服务初始化失败:', error);
+        set({ mapStatus: 'error', errorMessage: '地图初始化失败' });
+      }
+    },
+
+    switchUnifiedMapStyle: (style: MapStyleType) => {
+      unifiedMapService.setStyle(style);
+      console.log(`🎨 切换统一地图样式: ${style}`);
+    },
 
     // === UI Toggle Actions ===
     toggleWeatherPanel: () => 
@@ -197,12 +222,31 @@ export const useControlCenterStore = create<ControlCenterState>()((set, get) => 
           console.log('Exit system');
           break;
           
+        case 'project-management':
+          // 项目管理模式
+          console.log('切换到项目管理模式');
+          set({ 
+            showWeatherPanel: false,
+            showAIAssistant: false 
+          });
+          break;
+          
         case 'street':
         case 'satellite':
         case 'terrain':
-          // 地图图层切换
+          // 地图图层切换 - 同时支持旧系统和新系统
           if (state.mapController) {
             state.mapController.switchLayer(key as MapLayerType);
+          }
+          // 统一地图服务样式切换
+          const styleMap: { [key: string]: MapStyleType } = {
+            'street': 'street',
+            'satellite': 'satellite', 
+            'terrain': 'terrain',
+            'dark': 'dark-tech'
+          };
+          if (styleMap[key]) {
+            get().switchUnifiedMapStyle(styleMap[key]);
           }
           set({ 
             showWeatherPanel: false,

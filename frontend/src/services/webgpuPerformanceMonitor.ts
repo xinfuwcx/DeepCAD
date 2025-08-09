@@ -133,7 +133,7 @@ export class WebGPUPerformanceMonitor {
   private querySet: GPUQuerySet | null = null;
   
   /** 时间戳缓冲区 */
-  private timestampBuffer: GPUBuffer | null = null;
+  // 时间戳缓冲暂未启用，后续需要精准GPU帧时间时再加入
   
   /** 性能指标历史数据 */
   private metricsHistory: Array<{
@@ -186,22 +186,28 @@ export class WebGPUPerformanceMonitor {
       }
 
       // 请求GPU设备
+      // 动态选择可用特性，避免因不支持的特性导致初始化失败
       const requiredFeatures: GPUFeatureName[] = [];
-      if (adapter.features.has('timestamp-query')) {
+      if ((adapter as any).features?.has?.('timestamp-query')) {
         requiredFeatures.push('timestamp-query');
       }
-      if (adapter.features.has('pipeline-statistics-query')) {
-        requiredFeatures.push('pipeline-statistics-query');
-      }
+      // pipeline-statistics-query 在多数浏览器/适配器尚未稳定，做降级处理
+  // 不再主动加入 pipeline-statistics-query 至 requiredFeatures
 
-      this.device = await adapter.requestDevice({
-        requiredFeatures,
-        requiredLimits: {
-          maxBufferSize: 1024 * 1024 * 1024, // 1GB缓冲区
-          maxComputeWorkgroupStorageSize: 16384,
-          maxComputeInvocationsPerWorkgroup: 1024
-        }
-      });
+      let device: GPUDevice | null = null;
+      try {
+        device = await adapter.requestDevice({
+          requiredFeatures,
+          requiredLimits: {
+            maxBufferSize: 1024 * 1024 * 1024,
+      // 暂不请求 pipeline-statistics-query，避免类型/兼容性问题
+          }
+        });
+      } catch (e) {
+        console.warn('⚠️ 带 requiredFeatures 初始化失败，尝试无特性降级模式', e);
+        device = await adapter.requestDevice();
+      }
+      this.device = device;
 
       // 收集设备信息
       await this.collectDeviceInfo(adapter);
@@ -321,9 +327,8 @@ export class WebGPUPerformanceMonitor {
    * @returns Promise<GPURenderMetrics> 渲染性能指标
    */
   async getGPURenderMetrics(): Promise<GPURenderMetrics> {
-    const now = performance.now();
-    const frameHistory = this.getFrameTimeHistory();
-    
+  // 简化的帧时间历史（未来可接入真实渲染循环统计）
+  const frameHistory = [16.67];
     const metrics: GPURenderMetrics = {
       framesPerSecond: this.calculateFPS(frameHistory),
       averageFrameTime: this.calculateAverageFrameTime(frameHistory),
@@ -495,11 +500,16 @@ ${b.recommendations.map(r => `- ${r}`).join('\n')}
     
     try {
       // 检查requestAdapterInfo方法是否存在（兼容性检查）
-      if (typeof adapter.requestAdapterInfo === 'function') {
-        adapterInfo = await adapter.requestAdapterInfo();
+      const maybeInfoFn = (adapter as any).requestAdapterInfo;
+      if (typeof maybeInfoFn === 'function') {
+        try {
+          adapterInfo = await maybeInfoFn.call(adapter);
+        } catch {
+          console.warn('⚠️ requestAdapterInfo 调用失败，使用默认适配器信息');
+          adapterInfo = this.getDefaultAdapterInfo();
+        }
       } else {
-        console.warn('⚠️ requestAdapterInfo不支持，使用默认适配器信息');
-        // 使用默认信息或从其他源获取
+        console.warn('⚠️ requestAdapterInfo 不支持，使用默认适配器信息');
         adapterInfo = this.getDefaultAdapterInfo();
       }
     } catch (error) {
@@ -523,7 +533,7 @@ ${b.recommendations.map(r => `- ${r}`).join('\n')}
       },
       features: {
         timestampQuery: adapter.features.has('timestamp-query'),
-        pipelineStatistics: adapter.features.has('pipeline-statistics-query'),
+  pipelineStatistics: (adapter as any).features?.has?.('pipeline-statistics-query') || false,
         multipleRenderTargets: true, // WebGPU默认支持
         computeShader: true, // WebGPU默认支持
         storageBuffer: true // WebGPU默认支持
@@ -545,11 +555,6 @@ ${b.recommendations.map(r => `- ${r}`).join('\n')}
         count: 64 // 支持32个查询对
       });
 
-      // 创建时间戳缓冲区
-      this.timestampBuffer = this.device.createBuffer({
-        size: 64 * 8, // 64个查询 × 8字节
-        usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC
-      });
     }
   }
 
@@ -660,9 +665,8 @@ ${b.recommendations.map(r => `- ${r}`).join('\n')}
   private calculateComputeUtilization(): number { return Math.random() * 0.8; }
   private calculateWorkgroupEfficiency(): number { return Math.random() * 0.9; }
   private estimateCacheHitRatio(): number { return 0.85 + Math.random() * 0.1; }
-  private getFrameTimeHistory(): number[] { return [16.67]; }
-  private calculateFPS(frameHistory: number[]): number { return 60; }
-  private calculateAverageFrameTime(frameHistory: number[]): number { return 16.67; }
+  private calculateFPS(_frameHistory: number[]): number { return 60; }
+  private calculateAverageFrameTime(_frameHistory: number[]): number { return 16.67; }
   private async getGPUFrameTime(): Promise<number> { return 12.5; }
   private getDrawCallCount(): number { return 150; }
   private getVertexCount(): number { return 2000000; }

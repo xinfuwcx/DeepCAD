@@ -4,6 +4,7 @@
  */
 import React, { useEffect, Component, ReactNode, ErrorInfo } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import QuickViewportTest from './views/QuickViewportTest';
 import DeepCADAdvancedApp from './components/advanced/DeepCADAdvancedApp';
 import MainLayout from './components/layout/MainLayout';
 import { DeepCADThemeProvider } from './components/ui/DeepCADTheme';
@@ -147,12 +148,14 @@ const App: React.FC = () => {
             <Route path="/landing" element={<DeepCADAdvancedApp />} />
             
             {/* 控制中心路由 */}
-            <Route path="/control-center" element={<DeepCADControlCenter />} />
-            <Route path="/control-center-demo" element={<DeepCADControlCenter />} />
-            <Route path="/amap-control-center" element={<DeepCADControlCenter />} />
+            <Route path="/control-center" element={<DeepCADControlCenter onExit={() => window.history.back()} />} />
+            <Route path="/control-center-demo" element={<DeepCADControlCenter onExit={() => window.history.back()} />} />
+            <Route path="/amap-control-center" element={<DeepCADControlCenter onExit={() => window.history.back()} />} />
             
             {/* 主工作区路由 */}
             <Route path="/workspace/*" element={<MainLayout />} />
+            {/* 最小化 3D 视口快速验证路由 */}
+            <Route path="/pv3d" element={<QuickViewportTest />} />
           </Routes>
         </BrowserRouter>
       </DeepCADThemeProvider>

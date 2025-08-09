@@ -8,6 +8,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
 import { FunctionalIcons } from './icons/FunctionalIconsQuickFix';
+import UnifiedModuleLayout from './ui/layout/UnifiedModuleLayout';
+import Panel from './ui/layout/Panel';
+import MetricCard from './ui/layout/MetricCard';
+import './ui/layout/layout.css';
 import DataPipelineManager from '../services/DataPipelineManager';
 
 interface ComputationTask {
@@ -709,206 +713,110 @@ const ComputationIntegratedWorkspace: React.FC<ComputationIntegratedWorkspacePro
   }, [workspaceState.expertCollaborationActive]);
 
   return (
-    <div className="computation-integrated-workspace relative">
-      {/* 3D计算场景 */}
-      <div 
-        ref={mountRef} 
-        className="computation-3d-scene w-full h-full"
-        style={{ width: workspaceWidth, height: workspaceHeight }}
-      />
-      
-      {/* 控制面板 */}
-      <div className="absolute top-4 left-4 space-y-4">
-        {/* 模式切换 */}
-        <div className="bg-black/50 backdrop-blur-sm rounded-lg p-4">
-          <h3 className="text-white font-medium mb-3">3号专家工作模式</h3>
-          <div className="space-y-2">
-            {[
-              { mode: 'mesh_generation', label: '网格生成', icon: FunctionalIcons.MeshGeneration },
-              { mode: 'analysis_setup', label: '分析设置', icon: FunctionalIcons.AnalysisSetup },
-              { mode: 'computation_running', label: '计算运行', icon: FunctionalIcons.ComputationRunning },
-              { mode: 'results_review', label: '结果审查', icon: FunctionalIcons.ResultsAnalysis }
-            ].map(({ mode, label, icon: Icon }) => (
-              <motion.button
-                key={mode}
-                className={`flex items-center space-x-2 w-full px-3 py-2 rounded-lg transition-all ${
-                  workspaceState.currentMode === mode 
-                    ? 'bg-purple-600 text-white' 
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-                onClick={() => handleModeSwitch(mode as any)}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <Icon size={16} />
-                <span className="text-sm">{label}</span>
-              </motion.button>
-            ))}
-          </div>
-        </div>
-
-        {/* AI系统状态 */}
-        <div className="bg-black/50 backdrop-blur-sm rounded-lg p-4">
-          <h3 className="text-white font-medium mb-3">AI系统状态</h3>
-          <div className="space-y-2">
+    <UnifiedModuleLayout
+      left={<>
+        <Panel title={<span style={{display:'flex',alignItems:'center',gap:6}}><FunctionalIcons.ComputationRunning size={16}/> 工作模式</span>} subtitle={<span>Stage: {workspaceState.currentMode}</span>}>
+          {[
+            { mode: 'mesh_generation', label: '网格生成', icon: FunctionalIcons.MeshGeneration },
+            { mode: 'analysis_setup', label: '分析设置', icon: FunctionalIcons.AnalysisSetup },
+            { mode: 'computation_running', label: '计算运行', icon: FunctionalIcons.ComputationRunning },
+            { mode: 'results_review', label: '结果审查', icon: FunctionalIcons.ResultsAnalysis }
+          ].map(({ mode, label, icon: Icon }) => (
+            <motion.button key={mode} className="dc-primary" style={{background: workspaceState.currentMode===mode?'linear-gradient(90deg,#7e22ce,#9333ea)':''}} onClick={()=>handleModeSwitch(mode as any)} whileHover={{scale:1.02}} whileTap={{scale:0.97}}>
+              <span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon size={14}/>{label}</span>
+            </motion.button>
+          ))}
+        </Panel>
+        <Panel title="AI系统状态" dense>
+          <div style={{display:'flex',flexDirection:'column',gap:6,fontSize:12}}>
             {Object.entries({
               'TERRA优化': workspaceState.aiSystemState.terraOptimizationActive,
               '物理AI': workspaceState.aiSystemState.physicsAIEngaged,
               '自适应网格': workspaceState.aiSystemState.adaptiveMeshingEnabled,
               '实时监控': workspaceState.aiSystemState.realTimeMonitoring
-            }).map(([name, active]) => (
-              <div key={name} className="flex items-center justify-between">
-                <span className="text-xs text-gray-400">{name}</span>
-                <div className={`w-3 h-3 rounded-full ${
-                  active ? 'bg-green-500' : 'bg-gray-500'
-                }`} />
+            }).map(([k,v])=> (
+              <div key={k} style={{display:'flex',justifyContent:'space-between'}}>
+                <span style={{opacity:.7}}>{k}</span>
+                <div style={{width:10,height:10,borderRadius:6,background:v?'#16a34a':'#475569'}}/>
               </div>
             ))}
           </div>
-        </div>
-
-        {/* 计算进度 */}
+        </Panel>
         {isComputing && (
-          <div className="bg-black/50 backdrop-blur-sm rounded-lg p-4">
-            <h3 className="text-white font-medium mb-3">计算进度</h3>
-            <div className="space-y-3">
-              <div className="w-full bg-gray-700 rounded-full h-2">
-                <div 
-                  className="bg-purple-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${workspaceState.computationProgress}%` }}
-                />
-              </div>
-              <div className="text-xs text-gray-400">
-                进度: {workspaceState.computationProgress.toFixed(1)}%
-              </div>
-              <div className="text-xs text-gray-400">
-                已用时间: {Math.floor(workspaceState.elapsedTime / 1000)}s
-              </div>
+          <Panel title="计算进度" dense>
+            <div style={{fontSize:12,marginBottom:6}}>进度 {workspaceState.computationProgress.toFixed(1)}%</div>
+            <div style={{width:'100%',height:8,background:'rgba(255,255,255,0.1)',borderRadius:4,overflow:'hidden'}}>
+              <div style={{width:`${workspaceState.computationProgress}%`,height:'100%',background:'linear-gradient(90deg,#6366f1,#8b5cf6)'}}/>
             </div>
-          </div>
+            <div style={{textAlign:'right',fontSize:11,opacity:.6,marginTop:4}}>已用 {Math.floor(workspaceState.elapsedTime/1000)}s</div>
+          </Panel>
         )}
-      </div>
-
-      {/* 操作按钮区域 */}
-      <div className="absolute top-4 right-4 space-y-2">
-        {workspaceState.currentMode === 'mesh_generation' && !isComputing && (
-          <motion.button
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            onClick={generateComputationMesh}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            生成计算网格
-          </motion.button>
+        {workspaceState.activeTasks.length>0 && (
+          <Panel title="计算任务" dense>
+            <div style={{display:'flex',flexDirection:'column',gap:6}}>
+              {workspaceState.activeTasks.map(t=> (
+                <div key={t.id} style={{background:'rgba(255,255,255,0.05)',padding:6,borderRadius:8}}>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:4}}>
+                    <span>{t.name}</span>
+                    <span style={{opacity:.6}}>{t.progress.toFixed(0)}%</span>
+                  </div>
+                  <div style={{width:'100%',height:4,background:'rgba(255,255,255,0.1)',borderRadius:2,overflow:'hidden'}}>
+                    <div style={{width:`${t.progress}%`,height:'100%',background:'#6366f1'}}/>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Panel>
         )}
-
-        {workspaceState.currentMode === 'analysis_setup' && workspaceState.meshMetrics && !isComputing && (
-          <motion.button
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-            onClick={runStructuralAnalysis}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            运行结构分析
-          </motion.button>
+      </>}
+      right={<>
+        {workspaceState.meshMetrics && (
+          <Panel title="网格质量" subtitle={<span>Grade: {workspaceState.meshMetrics.qualityGrade}</span>}>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              <MetricCard accent="blue" label="单元" value={workspaceState.meshMetrics.totalElements.toLocaleString()} />
+              <MetricCard accent="purple" label="节点" value={workspaceState.meshMetrics.totalNodes.toLocaleString()} />
+              <MetricCard accent="green" label="长宽比" value={workspaceState.meshMetrics.aspectRatio.toFixed(2)} />
+              <MetricCard accent="orange" label="偏斜度" value={workspaceState.meshMetrics.skewness.toFixed(3)} />
+            </div>
+          </Panel>
         )}
-      </div>
-
-      {/* 活动任务列表 */}
-      {workspaceState.activeTasks.length > 0 && (
-        <div className="absolute bottom-4 left-4 w-80 bg-black/50 backdrop-blur-sm rounded-lg p-4">
-          <h3 className="text-white font-medium mb-3">计算任务</h3>
-          <div className="space-y-2">
-            {workspaceState.activeTasks.map(task => (
-              <div key={task.id} className="bg-gray-800/50 rounded p-2">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm text-gray-300">{task.name}</span>
-                  <div className={`w-2 h-2 rounded-full ${
-                    task.status === 'completed' ? 'bg-green-500' :
-                    task.status === 'processing' ? 'bg-yellow-500 animate-pulse' :
-                    task.status === 'error' ? 'bg-red-500' : 'bg-gray-500'
-                  }`} />
+        {workspaceState.aiSystemState.aiRecommendations.length>0 && (
+          <Panel title="AI推荐" dense>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {workspaceState.aiSystemState.aiRecommendations.map((rec,i)=>(
+                <div key={i} style={{background:'rgba(34,197,94,0.12)',padding:'6px 8px',borderRadius:8,border:'1px solid rgba(34,197,94,0.25)'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:2,opacity:.8}}>
+                    <span>{rec.category}</span>
+                    <span>{(rec.confidence*100).toFixed(0)}%</span>
+                  </div>
+                  <div style={{fontSize:12}}>{rec.suggestion}</div>
                 </div>
-                <div className="w-full bg-gray-700 rounded-full h-1">
-                  <div 
-                    className="bg-purple-500 h-1 rounded-full transition-all duration-300"
-                    style={{ width: `${task.progress}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 网格质量指标 */}
-      {workspaceState.meshMetrics && (
-        <div className="absolute bottom-4 right-4 w-80 bg-black/50 backdrop-blur-sm rounded-lg p-4">
-          <h3 className="text-white font-medium mb-3">网格质量指标</h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-300">总单元数:</span>
-              <span className="text-white">{workspaceState.meshMetrics.totalElements.toLocaleString()}</span>
+              ))}
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">总节点数:</span>
-              <span className="text-white">{workspaceState.meshMetrics.totalNodes.toLocaleString()}</span>
+          </Panel>
+        )}
+        {workspaceState.expertCollaborationActive && collaborationData && (
+          <Panel title="协作" dense>
+            <div style={{fontSize:12,display:'flex',alignItems:'center',gap:8}}>
+              <div style={{width:8,height:8,borderRadius:5,background:'#a855f7',animation:'dc-pulse 1.5s infinite'}}/>
+              <span>接收2号专家地质/支护数据</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">长宽比:</span>
-              <span className="text-white">{workspaceState.meshMetrics.aspectRatio.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">偏斜度:</span>
-              <span className="text-white">{workspaceState.meshMetrics.skewness.toFixed(3)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">质量等级:</span>
-              <span className={`${
-                workspaceState.meshMetrics.qualityGrade === 'excellent' ? 'text-green-400' :
-                workspaceState.meshMetrics.qualityGrade === 'good' ? 'text-blue-400' :
-                workspaceState.meshMetrics.qualityGrade === 'acceptable' ? 'text-yellow-400' : 'text-red-400'
-              }`}>
-                {workspaceState.meshMetrics.qualityGrade}
-              </span>
-            </div>
+          </Panel>
+        )}
+        <Panel title="操作" dense>
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            {workspaceState.currentMode==='mesh_generation' && !isComputing && (
+              <motion.button className="dc-primary" onClick={generateComputationMesh} whileHover={{scale:1.02}} whileTap={{scale:0.97}}>生成计算网格</motion.button>
+            )}
+            {workspaceState.currentMode==='analysis_setup' && workspaceState.meshMetrics && !isComputing && (
+              <motion.button className="dc-primary" style={{background:'linear-gradient(90deg,#7e22ce,#9333ea)'}} onClick={runStructuralAnalysis} whileHover={{scale:1.02}} whileTap={{scale:0.97}}>运行结构分析</motion.button>
+            )}
           </div>
-        </div>
-      )}
-
-      {/* AI推荐 */}
-      {workspaceState.aiSystemState.aiRecommendations.length > 0 && (
-        <div className="absolute top-4 right-96 w-80 bg-green-600/20 backdrop-blur-sm rounded-lg p-4 border border-green-500/30">
-          <h3 className="text-green-300 font-medium mb-3">AI推荐</h3>
-          <div className="space-y-3">
-            {workspaceState.aiSystemState.aiRecommendations.map((rec, index) => (
-              <div key={index} className="bg-green-900/30 rounded p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-green-400">{rec.category}</span>
-                  <span className="text-xs text-green-300">
-                    {(rec.confidence * 100).toFixed(0)}%
-                  </span>
-                </div>
-                <p className="text-sm text-green-200">{rec.suggestion}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 协作状态 */}
-      {workspaceState.expertCollaborationActive && collaborationData && (
-        <div className="absolute bottom-4 center w-60 bg-purple-600/20 backdrop-blur-sm rounded-lg p-3 border border-purple-500/30">
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
-            <span className="text-purple-300 text-sm">接收2号专家数据</span>
-          </div>
-          <div className="text-xs text-purple-400 mt-1">
-            地质模型和支护结构已就绪
-          </div>
-        </div>
-      )}
-    </div>
+        </Panel>
+      </>}
+    >
+      <div ref={mountRef} style={{width:'100%',height:'100%'}} />
+    </UnifiedModuleLayout>
   );
 };
 

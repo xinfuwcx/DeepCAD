@@ -49,6 +49,10 @@ interface CAE3DViewportProps {
   onModelSelect?: (instances: any[]) => void;
   /** 初始加载的模型列表 */
   initialModels?: string[];
+  /** 组件宽度 */
+  width?: string | number;
+  /** 组件高度 */
+  height?: string | number;
 }
 
 /**
@@ -103,7 +107,9 @@ const CAE3DViewport: React.FC<CAE3DViewportProps> = ({
   onViewChange,
   onModelLoad,
   onModelSelect,
-  initialModels = []
+  initialModels = [],
+  width = '100%',
+  height = '100%'
 }) => {
   // Three.js核心对象引用
   const mountRef = useRef<HTMLDivElement>(null);
@@ -371,7 +377,7 @@ const CAE3DViewport: React.FC<CAE3DViewportProps> = ({
   );
 
   return (
-    <div className={`cae-3d-viewport ${className || ''}`} style={{ width: '100%', height: '100%', position: 'relative' }}>
+    <div className={`cae-3d-viewport ${className || ''}`} style={{ width, height, position: 'relative' }}>
       {/* 工具栏 */}
       {showToolbar && (
         <div style={{

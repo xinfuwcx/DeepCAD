@@ -58,7 +58,7 @@ class RealtimeClient {
       }
 
       this.setStatus('connecting');
-      ComponentDevHelper.logAPICall(this.url, 'WebSocket', '1号架构师');
+      ComponentDevHelper.logAPICall?.(this.url, 'WebSocket', '1号架构师');
 
       try {
         this.ws = new WebSocket(this.url);
@@ -131,7 +131,7 @@ class RealtimeClient {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       try {
         this.ws.send(JSON.stringify(message));
-        ComponentDevHelper.logAPICall(`WebSocket/${type}`, 'SEND', '1号架构师');
+        ComponentDevHelper.logAPICall?.(`WebSocket/${type}`, 'SEND', '1号架构师');
         return true;
       } catch (error) {
         ComponentDevHelper.logError(error as Error, 'WebSocket发送', '1号架构师');

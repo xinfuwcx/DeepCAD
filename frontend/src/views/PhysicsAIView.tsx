@@ -4,8 +4,9 @@
  * @author 1号首席架构师 & 3号计算专家
  */
 
-import React, { useState, useEffect } from 'react';
-import { Layout, Card, Tabs, Row, Col, Button, Space, Typography, Progress, Alert, Form, Select, InputNumber, Switch } from 'antd';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Card, Tabs, Row, Col, Button, Space, Typography, Progress, Alert, Select, InputNumber, Switch, Slider, Popover } from 'antd';
+import { LineChart, Line, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, PieChart, Pie, Cell, ReferenceLine } from 'recharts';
 import { 
   ExperimentOutlined, 
   ThunderboltOutlined, 
@@ -19,8 +20,11 @@ import {
 } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard, GlassButton } from '../components/ui/GlassComponents';
+import UnifiedModuleLayout from '../components/ui/layout/UnifiedModuleLayout';
+import Panel from '../components/ui/layout/Panel';
+import MetricCard from '../components/ui/layout/MetricCard';
+import usePhysicsAIController from '../hooks/usePhysicsAIController';
 
-const { Content } = Layout;
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
 const { Option } = Select;
@@ -80,8 +84,55 @@ const PhysicsAIView: React.FC<PhysicsAIViewProps> = ({
   recommendations 
 }) => {
   const [activeTab, setActiveTab] = useState('design-variables');
-  const [physicsAIStatus, setPhysicsAIStatus] = useState<PhysicsAIStatus>('idle');
-  const [progress, setProgress] = useState(0);
+  const { runState: physicsAIStatus, progress, start: controllerStart, optimizationResult, reset, trainingStats, config, updateConfig } = usePhysicsAIController();
+  const [autoNormalize, setAutoNormalize] = useState(true);
+  const [autoRerun, setAutoRerun] = useState(false);
+  const [weightsDirty, setWeightsDirty] = useState(false);
+  const lastRunWeightsRef = React.useRef<string>(JSON.stringify(config.fusionWeights));
+  const autoRunTimerRef = useRef<any>(null);
+  const [debounceMs, setDebounceMs] = useState(600);
+  const [pendingRerunDeadline, setPendingRerunDeadline] = useState<number | null>(null);
+  const [remainingMs, setRemainingMs] = useState(0);
+  // countdown effect
+  useEffect(()=>{
+    if (!pendingRerunDeadline) return;
+    const id = setInterval(()=>{
+      const left = pendingRerunDeadline - Date.now();
+      if (left <= 0) {
+        setRemainingMs(0);
+        clearInterval(id);
+      } else {
+        setRemainingMs(left);
+      }
+    }, 100);
+    return ()=>clearInterval(id);
+  }, [pendingRerunDeadline]);
+
+  // 恢复持久化的权重
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('physicsAI_fusionWeights');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          updateConfig('fusionWeights', parsed);
+          lastRunWeightsRef.current = JSON.stringify(parsed);
+        }
+      }
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 持久化 & 全局暴露
+  useEffect(() => {
+    try {
+      localStorage.setItem('physicsAI_fusionWeights', JSON.stringify(config.fusionWeights));
+      (window as any).DeepCADPhysicsAI = {
+        ...(window as any).DeepCADPhysicsAI,
+        fusionWeights: config.fusionWeights
+      };
+    } catch {}
+  }, [config.fusionWeights]);
   
   // 设计变量状态
   const [designVariables, setDesignVariables] = useState<DesignVariable[]>([
@@ -140,45 +191,15 @@ const PhysicsAIView: React.FC<PhysicsAIViewProps> = ({
     }
   ]);
 
-  // 优化结果状态
-  const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
+  // 结果由 controller 提供 (Phase1 mock)
 
   // 启动物理AI分析
-  const startPhysicsAIAnalysis = async (analysisType: 'inverse' | 'forward' | 'optimization') => {
-    setPhysicsAIStatus('running');
-    setProgress(0);
-    
-    // 模拟分析过程
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setPhysicsAIStatus('completed');
-          
-          // 模拟优化结果
-          setOptimizationResult({
-            iterationCount: 45,
-            objectiveValue: 0.0012,
-            convergenceStatus: 'converged',
-            optimizedParameters: {
-              'E_soil': 18.5,
-              'phi': 28.2,
-              'c': 12.8
-            },
-            computationTime: 156.7
-          });
-          
-          return 100;
-        }
-        return prev + 2;
-      });
-    }, 100);
+  const startPhysicsAIAnalysis = async (_type: 'inverse' | 'forward' | 'optimization') => {
+    controllerStart();
   };
 
   // 启动优化
-  const startOptimization = () => {
-    startPhysicsAIAnalysis('optimization');
-  };
+  const startOptimization = () => startPhysicsAIAnalysis('optimization');
 
   // 获取状态徽章
   const getStatusBadge = (status: PhysicsAIStatus) => {
@@ -199,704 +220,358 @@ const PhysicsAIView: React.FC<PhysicsAIViewProps> = ({
     );
   };
 
+  // 指标
+  const metrics = useMemo(() => {
+    const activeObjectives = objectiveFunctions.filter(o => o.enabled).length;
+    const lastLoss = trainingStats.totalLoss.length ? trainingStats.totalLoss[trainingStats.totalLoss.length - 1] : undefined;
+    return [
+      { label: '状态', value: physicsAIStatus === 'running' ? 'RUN' : physicsAIStatus.toUpperCase(), accent: physicsAIStatus === 'running' ? 'orange' as const : physicsAIStatus === 'completed' ? 'green' as const : 'blue' as const },
+      { label: '进度', value: progress + '%', accent: 'purple' as const },
+      { label: '变量', value: String(designVariables.length), accent: 'blue' as const },
+      { label: '目标', value: String(activeObjectives), accent: 'orange' as const },
+      { label: '迭代', value: optimizationResult ? String(optimizationResult.iterationCount) : String(trainingStats.epochs.length), accent: 'green' as const },
+      { label: 'Loss', value: lastLoss ? lastLoss.toExponential(2) : '-', accent: 'red' as const }
+    ];
+  }, [physicsAIStatus, progress, designVariables, objectiveFunctions, optimizationResult, trainingStats]);
+
   return (
-    <Layout style={{ height: '100vh', background: '#0a0a0a' }}>
-      <Content style={{ padding: '24px', height: '100%', overflow: 'auto' }}>
-        {/* 返回按钮 */}
-        {onBack && (
-          <div style={{
-            position: 'fixed',
-            top: '20px',
-            left: '20px',
-            zIndex: 100
-          }}>
-            <Button
-              onClick={onBack}
-              style={{
-                background: 'rgba(255, 255, 255, 0.1)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                color: '#ffffff',
-                backdropFilter: 'blur(10px)'
-              }}
-            >
-              ← 返回主界面
-            </Button>
-          </div>
-        )}
-        {/* 标题区域 */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          style={{ marginBottom: '24px' }}
-        >
-          <Card
-            style={{
-              background: 'linear-gradient(135deg, rgba(235, 47, 150, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%)',
-              border: '1px solid rgba(235, 47, 150, 0.3)',
-              borderRadius: '12px'
-            }}
-          >
-            <Row align="middle" justify="space-between">
-              <Col>
-                <Space size="large">
-                  <RobotOutlined style={{ fontSize: '32px', color: '#eb2f96' }} />
-                  <div>
-                    <Title level={2} style={{ color: '#eb2f96', margin: 0 }}>
-                      🧠 物理AI助手
-                    </Title>
-                    <Text style={{ color: '#ffffff80', fontSize: '16px' }}>
-                      3号计算专家 - PDE约束优化与AI驱动分析系统
-                    </Text>
-                  </div>
+    <UnifiedModuleLayout
+      left={<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <Panel title={<span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><RobotOutlined /> 物理AI</span>} dense>
+          <Tabs size="small" activeKey={activeTab} onChange={setActiveTab} style={{ maxHeight: 620, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <TabPane key="design-variables" tab={<span><FunctionOutlined /> 设计变量</span>}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <Button size="small" type="primary" onClick={startOptimization} disabled={physicsAIStatus === 'running'}>
+                  {physicsAIStatus === 'running' ? '运行中...' : '启动PINN'}
+                </Button>
+                <div style={{ overflowY: 'auto', maxHeight: 420, paddingRight: 4, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {designVariables.map(v => (
+                    <Card key={v.id} size="small" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)' }} title={<span style={{ fontSize: 12 }}>{v.name} ({v.parameterName})</span>}>
+                      <Row gutter={6}>
+                        <Col span={6}><InputNumber size="small" value={v.initialValue} style={{ width: '100%' }} /></Col>
+                        <Col span={6}><InputNumber size="small" value={v.lowerBound} style={{ width: '100%' }} /></Col>
+                        <Col span={6}><InputNumber size="small" value={v.upperBound} style={{ width: '100%' }} /></Col>
+                        <Col span={6}><div style={{ fontSize: 11, textAlign: 'center', padding: '2px 4px', background: 'var(--bg-secondary)', borderRadius: 4 }}>{v.unit}</div></Col>
+                      </Row>
+                      <div style={{ marginTop: 4, fontSize: 10, opacity: .6 }}>目标: {v.targetEntity} • {v.description}</div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            </TabPane>
+            <TabPane key="objective-functions" tab={<span><CalculatorOutlined /> 目标函数</span>}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', maxHeight: 520, paddingRight: 4 }}>
+                {objectiveFunctions.map((f,i) => (
+                  <Card key={i} size="small" style={{ background: 'var(--bg-tertiary)', border: `1px solid ${f.enabled ? 'var(--border-color-strong)' : 'var(--border-color)'}` }}>
+                    <Row align="middle" justify="space-between">
+                      <Col span={14}>
+                        <div style={{ fontSize: 12, fontWeight: 600 }}>{f.name}</div>
+                        <div style={{ fontSize: 10, opacity: .55 }}>{f.description}</div>
+                      </Col>
+                      <Col span={10}>
+                        <Space size={6}>
+                          <InputNumber size="small" value={f.weight} min={0} max={2} step={0.1} style={{ width: 70 }} />
+                          <Switch size="small" checked={f.enabled} />
+                        </Space>
+                      </Col>
+                    </Row>
+                  </Card>
+                ))}
+              </div>
+            </TabPane>
+            <TabPane key="adjoint-solver" tab={<span><ThunderboltOutlined /> 伴随</span>}>
+              <div style={{ fontSize: 12, opacity: .7, lineHeight: 1.5 }}>伴随梯度求解配置（保留原功能占位）。后续与数值求解器集成。</div>
+            </TabPane>
+            <TabPane key="optimization-manager" tab={<span><ExperimentOutlined /> 优化</span>}>
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Space wrap>
+                  <Button size="small" onClick={() => startPhysicsAIAnalysis('inverse')} disabled={physicsAIStatus === 'running'} icon={<CalculatorOutlined />}>逆向</Button>
+                  <Button size="small" onClick={() => startPhysicsAIAnalysis('forward')} disabled={physicsAIStatus === 'running'} icon={<PlayCircleOutlined />}>正向</Button>
+                  <Button size="small" onClick={() => startPhysicsAIAnalysis('optimization')} disabled={physicsAIStatus === 'running'} icon={<ThunderboltOutlined />}>优化</Button>
+                    <Button size="small" onClick={() => startPhysicsAIAnalysis('inverse')} disabled={physicsAIStatus === 'running'} icon={<CalculatorOutlined />}>逆向</Button>
+                    <Button size="small" onClick={() => startPhysicsAIAnalysis('forward')} disabled={physicsAIStatus === 'running'} icon={<PlayCircleOutlined />}>正向</Button>
+                    <Button size="small" onClick={() => startPhysicsAIAnalysis('optimization')} disabled={physicsAIStatus === 'running'} icon={<ThunderboltOutlined />}>优化</Button>
                 </Space>
-              </Col>
-              <Col>
-                {getStatusBadge(physicsAIStatus)}
-              </Col>
-            </Row>
-          </Card>
-        </motion.div>
-
-        {/* 功能概览卡片 */}
-        <Row gutter={16} style={{ marginBottom: '24px' }}>
-          <Col span={6}>
-            <Card
-              style={{
-                background: 'linear-gradient(135deg, rgba(24, 144, 255, 0.1) 0%, rgba(114, 46, 209, 0.1) 100%)',
-                border: '1px solid rgba(24, 144, 255, 0.3)',
-                textAlign: 'center',
-                borderRadius: '12px'
-              }}
-              bodyStyle={{ padding: '16px' }}
-            >
-              <RobotOutlined style={{ fontSize: '28px', color: '#1890ff', marginBottom: '8px' }} />
-              <br />
-              <Text strong style={{ color: '#1890ff', fontSize: '14px' }}>PINN神经网络</Text>
-              <br />
-              <Text style={{ color: '#ffffff80', fontSize: '12px' }}>
-                物理约束神经网络求解PDE
-              </Text>
-            </Card>
-          </Col>
-          
-          <Col span={6}>
-            <Card
-              style={{
-                background: 'linear-gradient(135deg, rgba(82, 196, 26, 0.1) 0%, rgba(135, 208, 104, 0.1) 100%)',
-                border: '1px solid rgba(82, 196, 26, 0.3)',
-                textAlign: 'center',
-                borderRadius: '12px'
-              }}
-              bodyStyle={{ padding: '16px' }}
-            >
-              <ExperimentOutlined style={{ fontSize: '28px', color: '#52c41a', marginBottom: '8px' }} />
-              <br />
-              <Text strong style={{ color: '#52c41a', fontSize: '14px' }}>反演分析</Text>
-              <br />
-              <Text style={{ color: '#ffffff80', fontSize: '12px' }}>
-                监测数据反推土体参数
-              </Text>
-            </Card>
-          </Col>
-          
-          <Col span={6}>
-            <Card
-              style={{
-                background: 'linear-gradient(135deg, rgba(250, 173, 20, 0.1) 0%, rgba(255, 197, 61, 0.1) 100%)',
-                border: '1px solid rgba(250, 173, 20, 0.3)',
-                textAlign: 'center',
-                borderRadius: '12px'
-              }}
-              bodyStyle={{ padding: '16px' }}
-            >
-              <ThunderboltOutlined style={{ fontSize: '28px', color: '#faad14', marginBottom: '8px' }} />
-              <br />
-              <Text strong style={{ color: '#faad14', fontSize: '14px' }}>智能优化</Text>
-              <br />
-              <Text style={{ color: '#ffffff80', fontSize: '12px' }}>
-                多目标优化参数校准
-              </Text>
-            </Card>
-          </Col>
-          
-          <Col span={6}>
-            <Card
-              style={{
-                background: 'linear-gradient(135deg, rgba(255, 77, 79, 0.1) 0%, rgba(255, 120, 117, 0.1) 100%)',
-                border: '1px solid rgba(255, 77, 79, 0.3)',
-                textAlign: 'center',
-                borderRadius: '12px'
-              }}
-              bodyStyle={{ padding: '16px' }}
-            >
-              <CalculatorOutlined style={{ fontSize: '28px', color: '#ff4d4f', marginBottom: '8px' }} />
-              <br />
-              <Text strong style={{ color: '#ff4d4f', fontSize: '14px' }}>预测精度</Text>
-              <br />
-              <Text style={{ color: '#ffffff80', fontSize: '12px' }}>
-                &gt;95%工程预测精度
-              </Text>
-            </Card>
-          </Col>
-        </Row>
-
-        {/* 主功能区域 */}
-        <Row gutter={24} style={{ height: 'calc(100% - 120px)' }}>
-          {/* 左侧配置面板 */}
-          <Col span={16}>
-            <GlassCard style={{ height: '100%' }}>
-              <Tabs
-                activeKey={activeTab}
-                onChange={setActiveTab}
-                size="large"
-                style={{ height: '100%' }}
-              >
-                {/* 1. 设计变量管理器 */}
-                <TabPane
-                  tab={
-                    <Space>
-                      <FunctionOutlined />
-                      设计变量管理器
-                    </Space>
-                  }
-                  key="design-variables"
-                >
-                  <div style={{ padding: '16px' }}>
-                    {/* PINN快速启动面板 */}
-                    <Card
-                      style={{
-                        background: 'linear-gradient(135deg, rgba(24, 144, 255, 0.1) 0%, rgba(114, 46, 209, 0.1) 100%)',
-                        border: '1px solid rgba(24, 144, 255, 0.3)',
-                        marginBottom: '24px',
-                        borderRadius: '12px'
-                      }}
-                    >
-                      <Row gutter={16} align="middle">
-                        <Col span={16}>
-                          <Space direction="vertical" size={4}>
-                            <Text strong style={{ color: '#1890ff', fontSize: '16px' }}>
-                              🧠 PINN物理神经网络
-                            </Text>
-                            <Text style={{ color: '#ffffff80', fontSize: '12px' }}>
-                              基于物理约束的神经网络求解偏微分方程，实现高精度土体行为预测
-                            </Text>
-                            <Space>
-                              <Text style={{ color: '#52c41a', fontSize: '11px' }}>✓ 平衡方程约束</Text>
-                              <Text style={{ color: '#52c41a', fontSize: '11px' }}>✓ 本构关系约束</Text>
-                              <Text style={{ color: '#52c41a', fontSize: '11px' }}>✓ 边界条件约束</Text>
-                            </Space>
-                          </Space>
-                        </Col>
-                        <Col span={8} style={{ textAlign: 'right' }}>
-                          <Space direction="vertical" size={8}>
-                            <Button
-                              type="primary"
-                              size="large"
-                              onClick={startOptimization}
-                              disabled={physicsAIStatus === 'running'}
-                              style={{
-                                background: 'linear-gradient(45deg, #1890ff, #722ed1)',
-                                border: 'none',
-                                height: '40px',
-                                fontWeight: 'bold'
-                              }}
-                            >
-                              {physicsAIStatus === 'running' ? '运行中...' : '启动PINN'}
-                            </Button>
-                            <Text style={{ fontSize: '11px', color: '#ffffff60' }}>
-                              预计用时: 30-60秒
-                            </Text>
-                          </Space>
-                        </Col>
-                      </Row>
-                    </Card>
-                    
-                    <Title level={4} style={{ color: '#00d9ff', marginBottom: '16px' }}>
-                      📊 设计变量定义与边界约束
-                    </Title>
-                    
-                    <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                      {designVariables.map((variable, index) => (
-                        <motion.div
-                          key={variable.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                        >
-                          <Card
-                            size="small"
-                            style={{
-                              background: 'rgba(0, 217, 255, 0.05)',
-                              border: '1px solid rgba(0, 217, 255, 0.2)'
-                            }}
-                            title={
-                              <Space>
-                                <span style={{ color: '#00d9ff' }}>{variable.name}</span>
-                                <Text type="secondary">({variable.parameterName})</Text>
-                              </Space>
-                            }
-                          >
-                            <Row gutter={16}>
-                              <Col span={6}>
-                                <Text style={{ fontSize: '12px', color: '#ffffff80' }}>初始值</Text>
-                                <InputNumber
-                                  value={variable.initialValue}
-                                  style={{ width: '100%', marginTop: '4px' }}
-                                  size="small"
-                                />
-                              </Col>
-                              <Col span={6}>
-                                <Text style={{ fontSize: '12px', color: '#ffffff80' }}>下界</Text>
-                                <InputNumber
-                                  value={variable.lowerBound}
-                                  style={{ width: '100%', marginTop: '4px' }}
-                                  size="small"
-                                />
-                              </Col>
-                              <Col span={6}>
-                                <Text style={{ fontSize: '12px', color: '#ffffff80' }}>上界</Text>
-                                <InputNumber
-                                  value={variable.upperBound}
-                                  style={{ width: '100%', marginTop: '4px' }}
-                                  size="small"
-                                />
-                              </Col>
-                              <Col span={6}>
-                                <Text style={{ fontSize: '12px', color: '#ffffff80' }}>单位</Text>
-                                <div style={{ marginTop: '4px', padding: '4px 8px', background: 'rgba(82, 196, 26, 0.1)', borderRadius: '4px' }}>
-                                  <Text style={{ color: '#52c41a', fontSize: '12px' }}>{variable.unit}</Text>
-                                </div>
-                              </Col>
-                            </Row>
-                            <div style={{ marginTop: '8px' }}>
-                              <Text style={{ fontSize: '12px', color: '#ffffff60' }}>
-                                目标实体: {variable.targetEntity} | {variable.description}
-                              </Text>
-                            </div>
-                          </Card>
-                        </motion.div>
-                      ))}
-                    </Space>
+                {physicsAIStatus === 'running' && (
+                  <Card size="small" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)' }}>
+                    <Text style={{ fontSize: 12, fontWeight: 600 }}>执行中...</Text>
+                    <Progress percent={progress} size="small" showInfo={false} style={{ marginTop: 8 }} />
+                  </Card>
+                )}
+              </Space>
+            </TabPane>
+          </Tabs>
+        </Panel>
+      </div>}
+      right={<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <Panel title="指标" dense>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(90px,1fr))', gap: 8 }}>
+            {metrics.map(m => (
+              <MetricCard 
+                key={m.label}
+                label={m.label} 
+                value={m.value} 
+                accent={m.accent}
+                sparkline={m.label==='Loss' ? trainingStats.totalLoss.slice(-12) : undefined}
+                tooltip={m.label==='Loss' && trainingStats.totalLoss.length ? '最近Loss趋势 (后12点)' : undefined}
+              />
+            ))}
+          </div>
+        </Panel>
+        <Panel title={<span style={{ display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <span style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <span>结果</span>
+            {pendingRerunDeadline && remainingMs>0 && (
+              <span style={{ fontSize:11, padding:'2px 6px', borderRadius:12, background:'rgba(250,173,20,0.15)', color:'#faad14' }}>
+                配置已更新 {Math.ceil(remainingMs/100)/10}s 后重跑
+              </span>
+            )}
+          </span>
+          <span style={{display:'flex',gap:6}}>{physicsAIStatus!=='running' && <Button size="small" onClick={reset}>重置</Button>}{physicsAIStatus!=='running' && <Button size="small" type="primary" onClick={startOptimization}>再次运行</Button>}</span>
+        </span>} dense>
+          {optimizationResult ? (
+            <Space direction="vertical" style={{ width: '100%' }} size={8}>
+              <Alert message="优化收敛" type="success" showIcon style={{ padding: '4px 8px' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ fontSize: 11, opacity: .6 }}>目标函数</div>
+                <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--accent-color)' }}>{optimizationResult.objectiveValue.toExponential(3)}</div>
+                <div style={{ fontSize: 11, opacity: .6 }}>参数</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(90px,1fr))', gap: 6 }}>
+                  {Object.entries(optimizationResult.optimizedParameters).map(([k,v]) => (
+                    <MetricCard key={k} label={k} value={v.toFixed(2)} accent="purple" />
+                  ))}
+                </div>
+                <div style={{ fontSize: 11, opacity: .6 }}>耗时 {optimizationResult.computationTime.toFixed(1)}s</div>
+              </div>
+            </Space>
+          ) : (
+            <div style={{ display:'flex',flexDirection:'column',gap:8 }}>
+              <div style={{ fontSize: 12, opacity: .5 }}>尚无结果</div>
+              <Card size="small" title="Loss 曲线" style={{ background:'var(--bg-tertiary)', border:'1px solid var(--border-color)' }}
+                extra={<span style={{fontSize:10,opacity:.75, display:'flex', gap:8}}>
+                  <span>阶段: 预热 / 主训 / 收敛</span>
+                  {pendingRerunDeadline && remainingMs>0 && <span style={{ color:'#faad14' }}>即将重跑 {Math.ceil(remainingMs/100)/10}s</span>}
+                </span>}>
+                {trainingStats.epochs.length === 0 ? (
+                  <div style={{ height:120, display:'flex',alignItems:'center',justifyContent:'center', fontSize:12, opacity:.6 }}>等待运行...</div>
+                ) : (
+                  <div style={{ height:160, position:'relative' }}>
+                    {pendingRerunDeadline && remainingMs>0 && (
+                      <div style={{ position:'absolute', top:4, left:8, zIndex:2, fontSize:11, background:'rgba(0,0,0,0.4)', padding:'2px 6px', borderRadius:8, color:'#faad14', backdropFilter:'blur(2px)' }}>
+                        配置已更新，{Math.ceil(remainingMs/100)/10}s 后重跑...
+                      </div>
+                    )}
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={trainingStats.epochs.map((e,i)=>({
+                        epoch:e,
+                        total: trainingStats.totalLoss[i],
+                        phys: trainingStats.physicsLoss[i],
+                        data: trainingStats.dataLoss[i],
+                        bnd: trainingStats.boundaryLoss[i]
+                      }))} margin={{ top: 4, left: 0, right: 4, bottom: 0 }}>
+                        <XAxis dataKey="epoch" hide />
+                        <YAxis hide domain={['dataMin','dataMax']} />
+                        <ReTooltip formatter={(v:any, n:any)=>[typeof v==='number'?v.toFixed(4):v, n]} />
+                        <Line type="monotone" dataKey="total" stroke="#ff4d4f" strokeWidth={1.5} dot={false} name="total" />
+                        <Line type="monotone" dataKey="phys" stroke="#722ed1" strokeWidth={1} dot={false} name="physics" />
+                        <Line type="monotone" dataKey="data" stroke="#1890ff" strokeWidth={1} dot={false} name="data" />
+                        <Line type="monotone" dataKey="bnd" stroke="#faad14" strokeWidth={1} dot={false} name="boundary" />
+                        <ReferenceLine x={Math.floor(trainingStats.epochs.length/3)} stroke="#555" strokeDasharray="3 3" />
+                        <ReferenceLine x={Math.floor(trainingStats.epochs.length*2/3)} stroke="#555" strokeDasharray="3 3" />
+                      </LineChart>
+                    </ResponsiveContainer>
                   </div>
-                </TabPane>
-
-                {/* 2. 目标函数优化 */}
-                <TabPane
-                  tab={
-                    <Space>
-                      <CalculatorOutlined />
-                      目标函数优化
+                )}
+              </Card>
+              <Card size="small" title="模块权重" style={{ background:'var(--bg-tertiary)', border:'1px solid var(--border-color)' }} extra={<span style={{fontSize:10,opacity:.6}}>交互调权</span>}>
+                <div style={{ height:140, position:'relative' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={[
+                        { key:'pinn', name:'PINN', value:config.fusionWeights.pinn, color:'#ff4d4f' },
+                        { key:'deeponet', name:'DeepONet', value:config.fusionWeights.deeponet, color:'#1890ff' },
+                        { key:'gnn', name:'GNN', value:config.fusionWeights.gnn, color:'#722ed1' },
+                        { key:'terra', name:'TERRA', value:config.fusionWeights.terra, color:'#faad14' }
+                      ]} dataKey="value" innerRadius={30} outerRadius={58} paddingAngle={1} stroke="none">
+                        {[
+                          config.fusionWeights.pinn?'#ff4d4f':'#444',
+                          config.fusionWeights.deeponet?'#1890ff':'#444',
+                          config.fusionWeights.gnn?'#722ed1':'#444',
+                          config.fusionWeights.terra?'#faad14':'#444'
+                        ].map((c,i)=>(<Cell key={i} fill={c} />))}
+                      </Pie>
+                      <ReTooltip formatter={(v:any, n:any)=>[v, n]} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {(() => { 
+                    const sum = config.fusionWeights.pinn+config.fusionWeights.deeponet+config.fusionWeights.gnn+config.fusionWeights.terra; 
+                    const dev = Math.abs(sum-1); 
+                    const content = (
+                      <div style={{ fontSize:11, lineHeight:1.4 }}>
+                        <div>Σ = {sum.toFixed(4)} (Δ={(sum-1).toFixed(4)})</div>
+                        <div style={{ marginTop:4, opacity:.7 }}>Raw Weights:</div>
+                        <div>PINN: {config.fusionWeights.pinn}</div>
+                        <div>DeepONet: {config.fusionWeights.deeponet}</div>
+                        <div>GNN: {config.fusionWeights.gnn}</div>
+                        <div>TERRA: {config.fusionWeights.terra}</div>
+                        {dev>0.01 && <div style={{ marginTop:4, color:'#ff4d4f' }}>提示: 偏差超过 0.01 建议归一化</div>}
+                      </div>
+                    );
+                    return (
+                      <Popover content={content} placement="left">
+                        <div style={{ position:'absolute', top:6, right:6, fontSize:10, fontWeight:500, cursor:'pointer', padding:'2px 4px', borderRadius:4, background: dev>0.01 ? 'rgba(255,77,79,0.15)' : 'rgba(255,255,255,0.05)', color: dev>0.01 ? '#ff4d4f':'#aaa' }}>Σ={sum.toFixed(2)}</div>
+                      </Popover>
+                    ); })()}
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:4, marginTop:6 }}>
+                  <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:4 }}>
+                    <Space size={6} style={{ fontSize:11 }}>
+                      <Switch size="small" checked={autoNormalize} onChange={v=>setAutoNormalize(v)} /> 动态归一化
                     </Space>
-                  }
-                  key="objective-functions"
-                >
-                  <div style={{ padding: '16px' }}>
-                    {/* 反演分析快速启动面板 */}
-                    <Card
-                      style={{
-                        background: 'linear-gradient(135deg, rgba(82, 196, 26, 0.1) 0%, rgba(135, 208, 104, 0.1) 100%)',
-                        border: '1px solid rgba(82, 196, 26, 0.3)',
-                        marginBottom: '24px',
-                        borderRadius: '12px'
-                      }}
-                    >
-                      <Row gutter={16} align="middle">
-                        <Col span={16}>
-                          <Space direction="vertical" size={4}>
-                            <Text strong style={{ color: '#52c41a', fontSize: '16px' }}>
-                              🔍 反演分析系统
-                            </Text>
-                            <Text style={{ color: '#ffffff80', fontSize: '12px' }}>
-                              利用现场监测数据（位移、应力）反向推算和校准土体参数，提高预测精度
-                            </Text>
-                            <Space>
-                              <Text style={{ color: '#1890ff', fontSize: '11px' }}>📊 监测数据集成</Text>
-                              <Text style={{ color: '#1890ff', fontSize: '11px' }}>⚙️ 贝叶斯校准</Text>
-                              <Text style={{ color: '#1890ff', fontSize: '11px' }}>🎯 参数优化</Text>
-                            </Space>
-                          </Space>
-                        </Col>
-                        <Col span={8} style={{ textAlign: 'right' }}>
-                          <Space direction="vertical" size={8}>
-                            <Button
-                              size="large"
-                              onClick={startOptimization}
-                              disabled={physicsAIStatus === 'running'}
-                              style={{
-                                background: 'linear-gradient(45deg, #52c41a, #87d068)',
-                                border: 'none',
-                                color: 'white',
-                                height: '40px',
-                                fontWeight: 'bold'
-                              }}
-                            >
-                              {physicsAIStatus === 'running' ? '分析中...' : '启动反演'}
-                            </Button>
-                            <Text style={{ fontSize: '11px', color: '#ffffff60' }}>
-                              精度提升: &gt;15%
-                            </Text>
-                          </Space>
-                        </Col>
-                      </Row>
-                    </Card>
-                    
-                    <Title level={4} style={{ color: '#52c41a', marginBottom: '16px' }}>
-                      🎯 目标函数与正则化配置
-                    </Title>
-                    
-                    <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                      {objectiveFunctions.map((func, index) => (
-                        <Card
-                          key={index}
-                          size="small"
-                          style={{
-                            background: func.enabled ? 'rgba(82, 196, 26, 0.05)' : 'rgba(140, 140, 140, 0.05)',
-                            border: `1px solid ${func.enabled ? 'rgba(82, 196, 26, 0.2)' : 'rgba(140, 140, 140, 0.2)'}`
-                          }}
-                        >
-                          <Row align="middle" justify="space-between">
-                            <Col span={16}>
-                              <Space direction="vertical" size="small">
-                                <Text strong style={{ color: func.enabled ? '#52c41a' : '#8c8c8c' }}>
-                                  {func.name}
-                                </Text>
-                                <Text style={{ fontSize: '12px', color: '#ffffff80' }}>
-                                  {func.description}
-                                </Text>
-                              </Space>
-                            </Col>
-                            <Col span={8}>
-                              <Space>
-                                <div>
-                                  <Text style={{ fontSize: '12px', color: '#ffffff80' }}>权重</Text>
-                                  <InputNumber
-                                    value={func.weight}
-                                    min={0}
-                                    max={2}
-                                    step={0.1}
-                                    style={{ width: '80px', marginLeft: '8px' }}
-                                    size="small"
-                                  />
-                                </div>
-                                <Switch
-                                  checked={func.enabled}
-                                  size="small"
-                                />
-                              </Space>
-                            </Col>
-                          </Row>
-                        </Card>
-                      ))}
+                    <Space size={6} style={{ fontSize:11 }}>
+                      <Switch size="small" checked={autoRerun} onChange={v=>{ setAutoRerun(v); if(!v){ if(autoRunTimerRef.current) clearTimeout(autoRunTimerRef.current); setPendingRerunDeadline(null);} }} /> 防抖自动重跑
                     </Space>
-                  </div>
-                </TabPane>
-
-                {/* 3. 伴随求解器 */}
-                <TabPane
-                  tab={
-                    <Space>
-                      <ThunderboltOutlined />
-                      伴随求解器
+                    <Space size={4} style={{ fontSize:11 }}>
+                      延迟
+                      <InputNumber size="small" value={debounceMs} min={100} max={5000} step={100} style={{ width:80 }} onChange={(v)=> setDebounceMs(Number(v)||600)} />
+                      ms
                     </Space>
-                  }
-                  key="adjoint-solver"
-                >
-                  <div style={{ padding: '16px' }}>
-                    <Title level={4} style={{ color: '#faad14', marginBottom: '16px' }}>
-                      ⚡ 高效梯度计算 - 伴随方法
-                    </Title>
-                    
-                    <Row gutter={16}>
-                      <Col span={12}>
-                        <Card
-                          title="伴随方程求解"
-                          size="small"
-                          style={{
-                            background: 'rgba(250, 173, 20, 0.05)',
-                            border: '1px solid rgba(250, 173, 20, 0.2)'
-                          }}
-                        >
-                          <Space direction="vertical" style={{ width: '100%' }}>
-                            <div>
-                              <Text strong style={{ color: '#faad14' }}>R_u^T * λ = -J_u^T</Text>
-                            </div>
-                            <div>
-                              <Text style={{ fontSize: '12px', color: '#ffffff80' }}>
-                                求解伴随变量λ，避免有限差分法的高计算成本
-                              </Text>
-                            </div>
-                            <div style={{ marginTop: '12px' }}>
-                              <Text style={{ fontSize: '12px', color: '#ffffff60' }}>求解器配置:</Text>
-                              <div style={{ marginTop: '8px' }}>
-                                <Row gutter={8}>
-                                  <Col span={12}>
-                                    <Text style={{ fontSize: '12px' }}>收敛准则</Text>
-                                    <Select
-                                      defaultValue="1e-6"
-                                      size="small"
-                                      style={{ width: '100%', marginTop: '4px' }}
-                                    >
-                                      <Option value="1e-4">1e-4 (粗糙)</Option>
-                                      <Option value="1e-6">1e-6 (标准)</Option>
-                                      <Option value="1e-8">1e-8 (精细)</Option>
-                                    </Select>
-                                  </Col>
-                                  <Col span={12}>
-                                    <Text style={{ fontSize: '12px' }}>最大迭代数</Text>
-                                    <InputNumber
-                                      defaultValue={1000}
-                                      size="small"
-                                      style={{ width: '100%', marginTop: '4px' }}
-                                    />
-                                  </Col>
-                                </Row>
-                              </div>
-                            </div>
-                          </Space>
-                        </Card>
-                      </Col>
-                      
-                      <Col span={12}>
-                        <Card
-                          title="总导数计算"
-                          size="small"
-                          style={{
-                            background: 'rgba(250, 173, 20, 0.05)',
-                            border: '1px solid rgba(250, 173, 20, 0.2)'
-                          }}
-                        >
-                          <Space direction="vertical" style={{ width: '100%' }}>
-                            <div>
-                              <Text strong style={{ color: '#faad14' }}>dJ/dp = J_p + λ^T * R_p</Text>
-                            </div>
-                            <div>
-                              <Text style={{ fontSize: '12px', color: '#ffffff80' }}>
-                                计算目标函数关于设计参数的总导数
-                              </Text>
-                            </div>
-                            <div style={{ marginTop: '12px' }}>
-                              <Text style={{ fontSize: '12px', color: '#ffffff60' }}>计算效率对比:</Text>
-                              <div style={{ marginTop: '8px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                  <Text style={{ fontSize: '12px', color: '#ff4d4f' }}>有限差分法</Text>
-                                  <Text style={{ fontSize: '12px', color: '#ff4d4f' }}>O(n) × 前向求解</Text>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                  <Text style={{ fontSize: '12px', color: '#52c41a' }}>伴随方法</Text>
-                                  <Text style={{ fontSize: '12px', color: '#52c41a' }}>1 × 伴随求解</Text>
-                                </div>
-                              </div>
-                            </div>
-                          </Space>
-                        </Card>
-                      </Col>
-                    </Row>
-                  </div>
-                </TabPane>
-
-                {/* 4. 优化管理器 */}
-                <TabPane
-                  tab={
-                    <Space>
-                      <ExperimentOutlined />
-                      优化管理器
-                    </Space>
-                  }
-                  key="optimization-manager"
-                >
-                  <div style={{ padding: '16px' }}>
-                    <Title level={4} style={{ color: '#eb2f96', marginBottom: '16px' }}>
-                      🎛️ PDE约束优化协调管理
-                    </Title>
-                    
-                    <Row gutter={16}>
-                      <Col span={8}>
-                        <GlassButton
-                          variant="primary"
-                          size="lg"
-                          className="w-full mb-4"
-                          onClick={() => startPhysicsAIAnalysis('inverse')}
-                          disabled={physicsAIStatus === 'running'}
-                          icon={<CalculatorOutlined />}
-                        >
-                          逆向分析
-                        </GlassButton>
-                        <Text style={{ fontSize: '12px', color: '#ffffff80', display: 'block', textAlign: 'center' }}>
-                          基于观测数据校准参数
-                        </Text>
-                      </Col>
-                      
-                      <Col span={8}>
-                        <GlassButton
-                          variant="secondary"
-                          size="lg"
-                          className="w-full mb-4"
-                          onClick={() => startPhysicsAIAnalysis('forward')}
-                          disabled={physicsAIStatus === 'running'}
-                          icon={<PlayCircleOutlined />}
-                        >
-                          正向预测
-                        </GlassButton>
-                        <Text style={{ fontSize: '12px', color: '#ffffff80', display: 'block', textAlign: 'center' }}>
-                          给定参数预测系统响应
-                        </Text>
-                      </Col>
-                      
-                      <Col span={8}>
-                        <GlassButton
-                          variant="secondary"
-                          size="lg"
-                          className="w-full mb-4"
-                          onClick={() => startPhysicsAIAnalysis('optimization')}
-                          disabled={physicsAIStatus === 'running'}
-                          icon={<ThunderboltOutlined />}
-                        >
-                          设计优化
-                        </GlassButton>
-                        <Text style={{ fontSize: '12px', color: '#ffffff80', display: 'block', textAlign: 'center' }}>
-                          寻找最优设计参数组合
-                        </Text>
-                      </Col>
-                    </Row>
-                    
-                    {/* 进度显示 */}
-                    {physicsAIStatus === 'running' && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        style={{ marginTop: '24px' }}
-                      >
-                        <Card
-                          style={{
-                            background: 'rgba(24, 144, 255, 0.05)',
-                            border: '1px solid rgba(24, 144, 255, 0.2)'
-                          }}
-                        >
-                          <Space direction="vertical" style={{ width: '100%' }}>
-                            <Text strong style={{ color: '#1890ff' }}>
-                              🔄 物理AI分析进行中...
-                            </Text>
-                            <Progress
-                              percent={progress}
-                              strokeColor={{
-                                '0%': '#1890ff',
-                                '100%': '#52c41a'
-                              }}
-                              status={progress === 100 ? 'success' : 'active'}
-                            />
-                            <Text style={{ fontSize: '12px', color: '#ffffff80' }}>
-                              正在执行PDE约束优化求解...
-                            </Text>
-                          </Space>
-                        </Card>
-                      </motion.div>
+                    <Button size="small" onClick={() => {
+                      // 平均分配
+                      const avg = +(1/4).toFixed(3);
+                      const next = { pinn: avg, deeponet: avg, gnn: avg, terra: avg };
+                      updateConfig('fusionWeights', next);
+                      const json = JSON.stringify(next);
+                      setWeightsDirty(json !== lastRunWeightsRef.current);
+                      if (autoRerun && physicsAIStatus!=='running') {
+                        if (autoRunTimerRef.current) clearTimeout(autoRunTimerRef.current);
+                        const deadline = Date.now()+debounceMs;
+                        setPendingRerunDeadline(deadline);
+                        autoRunTimerRef.current = setTimeout(() => {
+                          lastRunWeightsRef.current = json;
+                          reset();
+                          controllerStart();
+                          setPendingRerunDeadline(null);
+                        }, debounceMs);
+                      }
+                    }}>平均</Button>
+                    {weightsDirty && !autoRerun && physicsAIStatus!=='running' && (
+                      <Button size="small" type="primary" onClick={()=>{ lastRunWeightsRef.current = JSON.stringify(config.fusionWeights); setWeightsDirty(false); reset(); controllerStart(); }}>
+                        应用并重跑
+                      </Button>
                     )}
                   </div>
-                </TabPane>
-              </Tabs>
-            </GlassCard>
-          </Col>
-
-          {/* 右侧结果面板 */}
-          <Col span={8}>
-            <GlassCard style={{ height: '100%' }}>
-              <Title level={4} style={{ color: '#52c41a', marginBottom: '16px' }}>
-                📊 优化结果与分析
-              </Title>
-              
-              {optimizationResult ? (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                >
-                  <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                    {/* 收敛状态 */}
-                    <Alert
-                      message="优化收敛成功"
-                      description={`迭代${optimizationResult.iterationCount}次后达到收敛准则`}
-                      type="success"
-                      showIcon
-                    />
-                    
-                    {/* 目标函数值 */}
-                    <Card
-                      size="small"
-                      title="目标函数值"
-                      style={{
-                        background: 'rgba(82, 196, 26, 0.05)',
-                        border: '1px solid rgba(82, 196, 26, 0.2)'
-                      }}
-                    >
-                      <div style={{ textAlign: 'center' }}>
-                        <Text style={{ fontSize: '24px', fontWeight: 'bold', color: '#52c41a' }}>
-                          {optimizationResult.objectiveValue.toFixed(6)}
-                        </Text>
+                  {[{k:'pinn',label:'PINN',color:'#ff4d4f'},{k:'deeponet',label:'DeepONet',color:'#1890ff'},{k:'gnn',label:'GNN',color:'#722ed1'},{k:'terra',label:'TERRA',color:'#faad14'}].map(row => {
+                    const val = (config.fusionWeights as any)[row.k] as number;
+                    const sum = config.fusionWeights.pinn+config.fusionWeights.deeponet+config.fusionWeights.gnn+config.fusionWeights.terra;
+                    const percent = sum>0 ? (val/sum)*100 : 0;
+                    const handleValueChange = (raw: number | null) => {
+                      let safe = (raw==null || isNaN(raw)) ? 0 : Math.max(0, raw);
+                      let next = { ...config.fusionWeights, [row.k]: safe } as typeof config.fusionWeights;
+                      if (autoNormalize) {
+                        const s = next.pinn+next.deeponet+next.gnn+next.terra;
+                        if (s>0) {
+                          next = {
+                            pinn: +(next.pinn/s).toFixed(3),
+                            deeponet: +(next.deeponet/s).toFixed(3),
+                            gnn: +(next.gnn/s).toFixed(3),
+                            terra: +(next.terra/s).toFixed(3)
+                          };
+                        }
+                      }
+                      updateConfig('fusionWeights', next);
+                      const json = JSON.stringify(next);
+                      setWeightsDirty(json !== lastRunWeightsRef.current);
+                      if (autoRerun && physicsAIStatus!=='running') {
+                        if (autoRunTimerRef.current) clearTimeout(autoRunTimerRef.current);
+                        const deadline = Date.now()+debounceMs;
+                        setPendingRerunDeadline(deadline);
+                        autoRunTimerRef.current = setTimeout(() => {
+                          lastRunWeightsRef.current = json;
+                          reset();
+                          controllerStart();
+                          setPendingRerunDeadline(null);
+                        }, debounceMs);
+                      }
+                    };
+                    return (
+                      <div key={row.k} style={{ display:'flex', flexDirection:'column', gap:2, padding:'2px 0' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                          <div style={{ width:10, height:10, background: val?row.color:'#444', borderRadius:2 }} />
+                          <div style={{ flex:1, fontSize:11 }}>{row.label}</div>
+                          <InputNumber 
+                            size="small" 
+                            value={val} 
+                            min={0} 
+                            step={autoNormalize?0.01:0.1} 
+                            style={{ width:70 }}
+                            onChange={(v)=> handleValueChange(typeof v==='number'? v: Number(v))}
+                            onBlur={(e)=> {
+                              const num = Number((e.target as HTMLInputElement).value);
+                              if (isNaN(num)) handleValueChange(0); 
+                            }}
+                          />
+                          <div style={{ fontSize:10, opacity:.6, width:42, textAlign:'right' }}>{sum>0?percent.toFixed(0)+'%':'-'}</div>
+                        </div>
+                        <div style={{ padding:'0 4px' }}>
+                          <Slider 
+                            min={0} 
+                            max={autoNormalize?1: (autoNormalize?1:2)} 
+                            step={autoNormalize?0.01:0.1} 
+                            value={autoNormalize ? val : val} 
+                            tooltip={{ open:false }}
+                            onChange={(v)=> handleValueChange(Array.isArray(v)?v[0]:v)}
+                          />
+                        </div>
                       </div>
-                    </Card>
-                    
-                    {/* 优化参数结果 */}
-                    <Card
-                      size="small"
-                      title="优化参数结果"
-                      style={{
-                        background: 'rgba(0, 217, 255, 0.05)',
-                        border: '1px solid rgba(0, 217, 255, 0.2)'
-                      }}
-                    >
-                      <Space direction="vertical" style={{ width: '100%' }} size="small">
-                        {Object.entries(optimizationResult.optimizedParameters).map(([param, value]) => (
-                          <div key={param} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <Text style={{ fontSize: '12px', color: '#ffffff80' }}>{param}</Text>
-                            <Text style={{ fontSize: '12px', color: '#00d9ff', fontWeight: 'bold' }}>
-                              {value.toFixed(2)}
-                            </Text>
-                          </div>
-                        ))}
-                      </Space>
-                    </Card>
-                    
-                    {/* 计算性能 */}
-                    <Card
-                      size="small"
-                      title="计算性能"
-                      style={{
-                        background: 'rgba(250, 173, 20, 0.05)',
-                        border: '1px solid rgba(250, 173, 20, 0.2)'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <Text style={{ fontSize: '12px', color: '#ffffff80' }}>计算时间</Text>
-                        <Text style={{ fontSize: '12px', color: '#faad14', fontWeight: 'bold' }}>
-                          {optimizationResult.computationTime.toFixed(1)}s
-                        </Text>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Text style={{ fontSize: '12px', color: '#ffffff80' }}>迭代次数</Text>
-                        <Text style={{ fontSize: '12px', color: '#faad14', fontWeight: 'bold' }}>
-                          {optimizationResult.iterationCount}
-                        </Text>
-                      </div>
-                    </Card>
-                  </Space>
-                </motion.div>
-              ) : (
-                <div style={{ 
-                  height: '400px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center' 
-                }}>
-                  <Space direction="vertical" align="center">
-                    <ExperimentOutlined style={{ fontSize: '48px', color: '#8c8c8c' }} />
-                    <Text style={{ color: '#ffffff80' }}>启动分析查看结果</Text>
-                  </Space>
+                    );
+                  })}
+                  {!autoNormalize && (
+                    <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:4 }}>
+                      <Button size="small" onClick={() => {
+                        const sum2 = config.fusionWeights.pinn+config.fusionWeights.deeponet+config.fusionWeights.gnn+config.fusionWeights.terra;
+                        if (sum2 === 0) {
+                          const next = { pinn:1, deeponet:0, gnn:0, terra:0 };
+                          updateConfig('fusionWeights', next);
+                          setWeightsDirty(JSON.stringify(next)!==lastRunWeightsRef.current);
+                        } else {
+                          const next = {
+                            pinn: +(config.fusionWeights.pinn/sum2).toFixed(3),
+                            deeponet: +(config.fusionWeights.deeponet/sum2).toFixed(3),
+                            gnn: +(config.fusionWeights.gnn/sum2).toFixed(3),
+                            terra: +(config.fusionWeights.terra/sum2).toFixed(3)
+                          };
+                          updateConfig('fusionWeights', next);
+                          setWeightsDirty(JSON.stringify(next)!==lastRunWeightsRef.current);
+                        }
+                      }}>归一化</Button>
+                      <Button size="small" onClick={() => {
+                        const next = { pinn:1, deeponet:0, gnn:0, terra:0 };
+                        updateConfig('fusionWeights', next);
+                        setWeightsDirty(JSON.stringify(next)!==lastRunWeightsRef.current);
+                      }}>重置</Button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </GlassCard>
-          </Col>
-        </Row>
-      </Content>
-    </Layout>
+              </Card>
+            </div>
+          )}
+        </Panel>
+      </div>}
+      overlay={null}
+    >
+      {/* 3D 视口占位 */}
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(15,15,25,0.95), rgba(25,25,40,0.95))' }} />
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 30% 30%, rgba(235,47,150,0.15), transparent 60%), radial-gradient(circle at 70% 70%, rgba(0,217,255,0.15), transparent 60%)' }} />
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(235,47,150,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(235,47,150,0.05) 1px, transparent 1px)', backgroundSize: '32px 32px', opacity: .35 }} />
+        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center', pointerEvents: 'none' }}>
+          <div style={{ fontSize: 54, opacity: .25, marginBottom: 16 }}>🧠</div>
+          <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: 1, marginBottom: 8 }}>物理AI 3D 视口占位</div>
+          <div style={{ fontSize: 13, opacity: .55, lineHeight: 1.5 }}>后续集成：预测场 / 残差热力 / 差异可视化</div>
+        </div>
+      </div>
+    </UnifiedModuleLayout>
   );
 };
 

@@ -317,8 +317,6 @@ export class GLTFLoader {
       [THREE.AlphaFormat]: 1,
       [THREE.RGBAFormat]: 4,
       [THREE.RedFormat]: 1,
-      [THREE.LuminanceFormat]: 1,
-      [THREE.LuminanceAlphaFormat]: 2
     }[format] || 4;
 
     const typeMultiplier = {

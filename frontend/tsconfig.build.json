@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "skipLibCheck": true,
+    "strict": true
+  },
+  "include": [
+    "src/components/ProfessionalViewport3D.tsx",
+    "src/components/geometry/CADToolbar.tsx",
+    "src/utils/performanceMonitor.ts",
+    "src/services/featureFlags.ts",
+    "src/services/RealisticRenderingEngine.ts",
+    "src/services/advancedPostprocessing.ts"
+  ],
+  "exclude": [
+    "**/*.stories.tsx",
+    "**/__tests__/**",
+    "src/test/**",
+    "src/tests/**",
+    "src/example1/**",
+    "src/examples/**"
+  ]
+}

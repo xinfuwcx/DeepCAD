@@ -114,11 +114,8 @@ export interface PileCalculationReport {
 }
 
 export class EnhancedPileCalculationService {
-  private apiClient: ApiClient;
-  
-  constructor() {
-    this.apiClient = new ApiClient();
-  }
+  // 直接使用共享 axios 实例
+  private apiClient = apiClient;
 
   /**
    * 获取桩基类型与建模策略的映射关系

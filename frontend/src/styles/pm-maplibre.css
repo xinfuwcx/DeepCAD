@@ -1,0 +1,64 @@
+/* 项目管理页专用 MapLibre 样式（带作用域前缀，避免影响控制中心） */
+
+.pm-scope .maplibregl-map {
+  font-family: 'JetBrains Mono', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.pm-scope .maplibregl-ctrl-group {
+  background: rgba(26, 35, 50, 0.9) !important;
+  border: 1px solid rgba(0, 217, 255, 0.3) !important;
+  border-radius: 8px !important;
+  backdrop-filter: blur(20px);
+}
+
+.pm-scope .maplibregl-ctrl-group button {
+  background: transparent !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.pm-scope .maplibregl-ctrl-group button:hover {
+  background: rgba(0, 217, 255, 0.2) !important;
+  color: #00d9ff !important;
+}
+
+.pm-scope .maplibregl-popup-content {
+  background: rgba(26, 35, 50, 0.95) !important;
+  border: 1px solid rgba(0, 217, 255, 0.5) !important;
+  border-radius: 12px !important;
+  backdrop-filter: blur(20px);
+  color: #ffffff !important;
+  font-size: 12px;
+  padding: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+}
+
+.pm-scope .maplibregl-popup-tip {
+  border-top-color: rgba(26, 35, 50, 0.95) !important;
+}
+
+.pm-scope .maplibregl-popup-close-button {
+  color: #ffffff !important;
+  font-size: 18px !important;
+  font-weight: normal;
+}
+
+.pm-scope .maplibregl-popup-close-button:hover {
+  color: #00d9ff !important;
+}
+
+/* 隐藏 MapLibre 的 logo 和 attribution（仅作用于项目管理页） */
+.pm-scope .maplibregl-ctrl-logo { display: none !important; }
+.pm-scope .maplibregl-ctrl-attrib { display: none !important; }
+
+/* Deck.gl tooltip 样式（作用域内） */
+.pm-scope .deck-tooltip {
+  font-family: 'JetBrains Mono', monospace !important;
+  background: rgba(26, 35, 50, 0.95) !important;
+  border: 1px solid rgba(0, 217, 255, 0.5) !important;
+  border-radius: 8px !important;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+  max-width: 300px;
+}
+

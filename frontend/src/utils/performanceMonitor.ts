@@ -3,12 +3,16 @@
  * 1号架构师 - 响应2号提醒，集成三方模块的性能数据
  */
 
-import { PerformanceMetrics } from '../core/InterfaceProtocol';
-import { ComponentDevHelper } from './developmentTools';
+// NOTE: This file previously imported PerformanceMetrics from InterfaceProtocol,
+// but that interface describes a different nested shape (moduleId, metrics{}, thresholds, alerts).
+// Here we define a flattened runtime sampling structure specific to the UI layer.
+// To avoid name collisions and incorrect property access errors, we use a local interface
+// BasicPerformanceMetrics and remove the conflicting import. If integration with the
+// architecture-wide PerformanceMetrics standard is needed later, add an adapter method.
 import React from 'react';
 
 // 本地性能指标接口（兼容旧版本）
-interface LocalPerformanceMetrics {
+export interface BasicPerformanceMetrics {
   timestamp: number;
   memory: {
     used: number;
@@ -28,24 +32,122 @@ interface LocalPerformanceMetrics {
   };
 }
 
+// 架构协议适配（简化）：将 BasicPerformanceMetrics 转成 InterfaceProtocol 风格
+export interface ProtocolPerformanceMetrics {
+  timestamp: number;
+  moduleId: string;
+  metrics: {
+    renderTime: number;
+    memoryUsage: number;
+    triangleCount: number;
+    drawCalls: number;
+    fps: number;
+  };
+  thresholds: {
+    maxRenderTime: number;
+    maxMemoryUsage: number;
+    minFps: number;
+  };
+  alerts: Array<{
+    type: 'performance' | 'memory' | 'quality';
+    severity: 'warning' | 'error';
+    message: string;
+  }>;
+}
+
+export function adaptToProtocol(basic: BasicPerformanceMetrics, moduleId = 'frontend.viewport'): ProtocolPerformanceMetrics {
+  const alerts: ProtocolPerformanceMetrics['alerts'] = [];
+  if (basic.fps < 30) alerts.push({ type: 'performance', severity: 'warning', message: `低FPS: ${basic.fps}` });
+  if (basic.memory.percentage > 80) alerts.push({ type: 'memory', severity: 'warning', message: `内存占用 ${basic.memory.percentage.toFixed(1)}%` });
+  if (basic.threejsStats && basic.threejsStats.triangles > 400000) alerts.push({ type: 'performance', severity: 'warning', message: `三角形数量 ${basic.threejsStats.triangles}` });
+
+  return {
+    timestamp: basic.timestamp,
+    moduleId,
+    metrics: {
+      renderTime: basic.renderTime,
+      memoryUsage: basic.memory.used,
+      triangleCount: basic.threejsStats?.triangles || 0,
+      drawCalls: basic.threejsStats?.calls || 0,
+      fps: basic.fps
+    },
+    thresholds: {
+      maxRenderTime: 33.3,
+      maxMemoryUsage: 1024, // MB 假设
+      minFps: 30
+    },
+    alerts
+  };
+}
+
 class PerformanceMonitor {
-  private metrics: LocalPerformanceMetrics[] = [];
-  private unifiedMetrics: Map<string, PerformanceMetrics> = new Map();
+  private metrics: BasicPerformanceMetrics[] = [];
+  private protocolQueue: ProtocolPerformanceMetrics[] = [];
+  private retryBuffer: ProtocolPerformanceMetrics[] = [];
+  private sending = false;
+  private reportEndpoint: string;
+  private flushCfg: {
+    intervalMs: number;          // 周期性检查间隔（定时器）
+    batchSize: number;           // 达到此数量立即尝试 flush
+    maxDelayMs: number;          // 单条数据最长等待时间（超过则强制 flush）
+    baseBackoffMs: number;       // 初始退避
+    backoffMultiplier: number;   // 乘数
+    maxBackoffMs: number;        // 上限
+  };
+  private lastFlushTime = Date.now();
+  private consecutiveFailures = 0;
+  private nextSendEarliest = 0;
+  private maxQueue = 500;
+  private featureFlags = {
+    network: true,
+    interactions: true,
+    threeStats: true,
+    memory: true
+  };
+  private immediateFlushOn = {
+    visibilityHidden: true,
+    beforeUnload: true,
+    error: true
+  };
+  // Placeholder for potential future aggregation of architecture-level metrics
+  // Reserved for future aggregation of module-level metrics
+  // private unifiedMetrics: Map<string, any> = new Map();
   private maxMetrics = 100; // 保留最近100个数据点
   private fpsCounter = 0;
   private lastTime = performance.now();
   private frameCount = 0;
-  private observers: ((metrics: LocalPerformanceMetrics) => void)[] = [];
-  private unifiedObservers: ((metrics: PerformanceMetrics) => void)[] = [];
+  private observers: ((metrics: BasicPerformanceMetrics) => void)[] = [];
+  // private unifiedObservers: ((metrics: any) => void)[] = [];
   private networkMetrics: Map<string, number[]> = new Map();
   private userInteractionTimes: number[] = [];
   private pageLoadMetrics: any = null;
 
   constructor() {
+  // 允许通过全局变量或环境注入覆盖上报端点
+    const g: any = window as any;
+    this.reportEndpoint = g.__DEEPCAD_PERF_ENDPOINT__ || '/api/perf/report';
+    this.flushCfg = {
+      intervalMs: 15000,
+      batchSize: 10,
+      maxDelayMs: 20000,
+      baseBackoffMs: 5000,
+      backoffMultiplier: 2,
+      maxBackoffMs: 60000,
+      ...(g.__DEEPCAD_PERF_CONFIG__?.flush || {})
+    };
+    if (g.__DEEPCAD_PERF_CONFIG__?.features) {
+      this.featureFlags = { ...this.featureFlags, ...g.__DEEPCAD_PERF_CONFIG__.features };
+    }
+    if (g.__DEEPCAD_PERF_CONFIG__?.immediateFlushOn) {
+      this.immediateFlushOn = { ...this.immediateFlushOn, ...g.__DEEPCAD_PERF_CONFIG__.immediateFlushOn };
+    }
+    if (g.__DEEPCAD_PERF_CONFIG__?.maxQueue) this.maxQueue = g.__DEEPCAD_PERF_CONFIG__.maxQueue;
     this.startMonitoring();
-    this.initNetworkMonitoring();
-    this.initUserInteractionTracking();
+    if (this.featureFlags.network) this.initNetworkMonitoring();
+    if (this.featureFlags.interactions) this.initUserInteractionTracking();
     this.capturePageLoadMetrics();
+  this.startProtocolFlush();
+    this.initLifecycleHooks();
   }
 
   private startMonitoring() {
@@ -71,13 +173,13 @@ class PerformanceMonitor {
 
   private collectMetrics() {
     const memory = this.getMemoryInfo();
-    const metrics: PerformanceMetrics = {
+  const metrics: BasicPerformanceMetrics = {
       timestamp: Date.now(),
       memory,
       fps: this.fpsCounter,
       renderTime: performance.now(),
-      apiLatency: this.getApiLatency(),
-      threejsStats: this.getThreeJSStats()
+  apiLatency: this.featureFlags.network ? this.getApiLatency() : {},
+  threejsStats: this.featureFlags.threeStats ? this.getThreeJSStats() : undefined
     };
 
     this.metrics.push(metrics);
@@ -85,11 +187,166 @@ class PerformanceMonitor {
       this.metrics.shift();
     }
 
+  // 放入协议适配队列（轻量）
+  this.protocolQueue.push(adaptToProtocol(metrics));
+  if (this.protocolQueue.length > 200) this.protocolQueue.shift();
+  // 全局队列上限保护
+  const total = this.protocolQueue.length + this.retryBuffer.length;
+  if (total > this.maxQueue) {
+    // 丢弃最旧的一部分，保留最近的数据窗口
+    const overflow = total - this.maxQueue;
+    this.protocolQueue.splice(0, overflow);
+  }
+
+  // 判断是否需要立即 flush
+  if (this.shouldImmediateFlush()) {
+    this.triggerFlush();
+  }
+
     // 通知观察者
     this.observers.forEach(observer => observer(metrics));
 
     // 性能警告
     this.checkPerformanceWarnings(metrics);
+  }
+
+  // 启动协议队列定期冲刷（当前仅 console，可扩展为发送到后端）
+  private startProtocolFlush() {
+    window.setInterval(() => {
+      // 周期检查：满足时间或滞留时间超限则 flush
+      if (!this.protocolQueue.length) return;
+      const now = Date.now();
+      const oldest = this.protocolQueue[0]?.timestamp || now;
+      const waited = now - oldest;
+      if (now - this.lastFlushTime >= this.flushCfg.intervalMs || waited >= this.flushCfg.maxDelayMs) {
+        this.triggerFlush();
+      }
+    }, Math.min(this.flushCfg.intervalMs, 5000)); // 频率适度提高以便检查 maxDelay
+  }
+
+  private async flushToBackend(batch: ProtocolPerformanceMetrics[]) {
+    if (this.sending) {
+      // 如果正在发送，回退到队列等待下次
+      this.protocolQueue.unshift(...batch);
+      return;
+    }
+    this.sending = true;
+    try {
+      if (Date.now() < this.nextSendEarliest) {
+        // 仍处在退避窗口，回退
+        this.protocolQueue.unshift(...batch);
+        return;
+      }
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(this.reportEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: 'frontend', module: 'viewport', batch }),
+        keepalive: true,
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+      if (!res.ok) throw new Error('Perf report HTTP ' + res.status);
+      let data: any = null;
+      try { data = await res.json(); } catch { /* 非JSON亦视为成功 */ }
+      const accepted = data?.accepted ?? batch.length;
+      if (data && data.ok === false) throw new Error(data.error || 'Perf report negative ack');
+      // 成功：清理重试缓存（全部视作已接受）
+      this.retryBuffer = [];
+      this.consecutiveFailures = 0;
+      this.nextSendEarliest = 0;
+      this.lastFlushTime = Date.now();
+      if (data?.nextHintMs) {
+        // 后端可提示下次最早发送时间
+        this.nextSendEarliest = Date.now() + Number(data.nextHintMs);
+      }
+      if ((console as any).debug) {
+        console.debug('[PerfProtocolBatch][sent]', { accepted, queueLeft: this.protocolQueue.length });
+      }
+    } catch (err) {
+      // 降级日志（不频繁 spam）
+      if (console && (Date.now() % 5 === 0)) {
+        console.warn('[PerfProtocolBatch][send-failed]', (err as any)?.message || err);
+      }
+      this.consecutiveFailures++;
+      const backoff = Math.min(this.flushCfg.baseBackoffMs * Math.pow(this.flushCfg.backoffMultiplier, this.consecutiveFailures - 1), this.flushCfg.maxBackoffMs);
+      this.nextSendEarliest = Date.now() + backoff;
+      throw err;
+    } finally {
+      this.sending = false;
+    }
+  }
+
+  private shouldImmediateFlush(): boolean {
+    if (this.protocolQueue.length + this.retryBuffer.length >= this.flushCfg.batchSize) return true;
+    return false;
+  }
+
+  private triggerFlush() {
+    if (!this.protocolQueue.length) return;
+    const batch = this.protocolQueue.splice(0, this.flushCfg.batchSize);
+    const payload = [...this.retryBuffer, ...batch];
+    if (!payload.length) return;
+    this.flushToBackend(payload).catch(() => {
+      this.retryBuffer = payload.concat(this.retryBuffer).slice(-500);
+    });
+  }
+
+  // 立即公开 flush 接口
+  flushNow() { this.triggerFlush(); }
+
+  // 生命周期事件：页面隐藏/卸载时尽可能发送剩余数据
+  private initLifecycleHooks() {
+    const sendRemaining = () => {
+      if (!this.protocolQueue.length && !this.retryBuffer.length) return;
+      const batch = [...this.retryBuffer, ...this.protocolQueue];
+      this.protocolQueue.length = 0;
+      this.retryBuffer.length = 0;
+      // 优先 sendBeacon
+      const payload = JSON.stringify({ source: 'frontend', module: 'viewport', batch, final: true });
+      let sent = false;
+      try {
+        if (navigator.sendBeacon && this.reportEndpoint.startsWith('/')) {
+          sent = navigator.sendBeacon(this.reportEndpoint, new Blob([payload], { type: 'application/json' }));
+        }
+      } catch { /* ignore */ }
+      if (!sent) {
+        try { fetch(this.reportEndpoint, { method: 'POST', body: payload, keepalive: true, headers: { 'Content-Type': 'application/json' } }); } catch { /* ignore */ }
+      }
+    };
+    if (this.immediateFlushOn.visibilityHidden) {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') sendRemaining();
+      });
+    }
+    if (this.immediateFlushOn.beforeUnload) {
+      window.addEventListener('beforeunload', sendRemaining);
+      window.addEventListener('pagehide', sendRemaining);
+    }
+    if (this.immediateFlushOn.error) {
+      window.addEventListener('error', () => this.flushNow());
+      window.addEventListener('unhandledrejection', () => this.flushNow());
+    }
+  }
+
+  // 调试用：公开内部关键状态（勿在生产 UI 直接渲染）
+  getInternalState() {
+    return {
+      queueSize: this.protocolQueue.length,
+      retryBufferSize: this.retryBuffer.length,
+      consecutiveFailures: this.consecutiveFailures,
+      nextSendInMs: Math.max(0, this.nextSendEarliest - Date.now()),
+      lastFlushTime: this.lastFlushTime,
+      flushConfig: { ...this.flushCfg },
+      featureFlags: { ...this.featureFlags },
+      immediateFlushOn: { ...this.immediateFlushOn }
+    };
+  }
+
+  // 暴露获取协议格式队列快照
+  getProtocolMetricsSnapshot(limit = 50): ProtocolPerformanceMetrics[] {
+    return this.protocolQueue.slice(-limit);
   }
 
   private getMemoryInfo() {
@@ -135,7 +392,7 @@ class PerformanceMonitor {
     return undefined;
   }
 
-  private checkPerformanceWarnings(metrics: PerformanceMetrics) {
+  private checkPerformanceWarnings(metrics: BasicPerformanceMetrics) {
     // FPS警告 (只在FPS实际过低且大于5时警告)
     if (metrics.fps < 30 && metrics.fps > 5) {
       console.warn(`[DeepCAD Performance] 低FPS警告: ${metrics.fps}fps`);
@@ -165,7 +422,7 @@ class PerformanceMonitor {
   }
 
   // 订阅性能指标更新
-  subscribe(callback: (metrics: PerformanceMetrics) => void) {
+  subscribe(callback: (metrics: BasicPerformanceMetrics) => void) {
     this.observers.push(callback);
     return () => {
       const index = this.observers.indexOf(callback);
@@ -176,17 +433,17 @@ class PerformanceMonitor {
   }
 
   // 获取最新指标
-  getLatestMetrics(): PerformanceMetrics | null {
+  getLatestMetrics(): BasicPerformanceMetrics | null {
     return this.metrics[this.metrics.length - 1] || null;
   }
 
   // 获取历史指标
-  getMetricsHistory(): PerformanceMetrics[] {
+  getMetricsHistory(): BasicPerformanceMetrics[] {
     return [...this.metrics];
   }
 
   // 获取平均性能
-  getAverageMetrics(duration = 30000): Partial<PerformanceMetrics> {
+  getAverageMetrics(duration = 30000): Partial<BasicPerformanceMetrics> {
     const now = Date.now();
     const recentMetrics = this.metrics.filter(m => now - m.timestamp <= duration);
     
@@ -226,7 +483,7 @@ DeepCAD 性能报告
     `.trim();
   }
 
-  private getPerformanceGrade(metrics: PerformanceMetrics): string {
+  private getPerformanceGrade(metrics: BasicPerformanceMetrics): string {
     let score = 100;
     
     // FPS评分
@@ -252,8 +509,9 @@ DeepCAD 性能报告
   private initNetworkMonitoring() {
     // 监控Fetch请求
     const originalFetch = window.fetch;
-    window.fetch = async (...args) => {
-      const url = typeof args[0] === 'string' ? args[0] : args[0].url;
+    window.fetch = async (...args: Parameters<typeof fetch>) => {
+      const requestInfo = args[0];
+      const url = typeof requestInfo === 'string' ? requestInfo : (requestInfo as Request).url;
 
       // 过滤掉不需要监控的请求
       if (this.shouldSkipMonitoring(url)) {
@@ -532,7 +790,7 @@ export const performanceMonitor = new PerformanceMonitor();
 
 // React Hook for performance metrics
 export const usePerformanceMetrics = () => {
-  const [metrics, setMetrics] = React.useState<PerformanceMetrics | null>(null);
+  const [metrics, setMetrics] = React.useState<BasicPerformanceMetrics | null>(null);
 
   React.useEffect(() => {
     const unsubscribe = performanceMonitor.subscribe(setMetrics);
@@ -545,7 +803,7 @@ export const usePerformanceMetrics = () => {
 
 // React Hook for enhanced performance data
 export const useEnhancedPerformanceMetrics = () => {
-  const [metrics, setMetrics] = React.useState<LocalPerformanceMetrics | null>(null);
+  const [metrics, setMetrics] = React.useState<BasicPerformanceMetrics | null>(null);
   const [networkMetrics, setNetworkMetrics] = React.useState<Record<string, any>>({});
   const [interactionMetrics, setInteractionMetrics] = React.useState({ avgResponseTime: 0, slowInteractions: 0 });
   const [suggestions, setSuggestions] = React.useState<string[]>([]);

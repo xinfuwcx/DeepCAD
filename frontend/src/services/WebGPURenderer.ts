@@ -4,6 +4,7 @@
  */
 
 import * as THREE from 'three';
+import * as THREEWebGPU from 'three/webgpu';
 
 // WebGPU渲染器接口定义
 export interface WebGPURendererConfig {
@@ -28,7 +29,7 @@ export interface RenderingMetrics {
 
 export class WebGPURenderer {
   private static instance: WebGPURenderer;
-  private renderer: THREE.WebGPURenderer | null = null;
+  private renderer: THREEWebGPU.WebGPURenderer | THREE.WebGLRenderer | null = null;
   private isInitialized = false;
   private renderingMetrics: RenderingMetrics = {
     fps: 0,
@@ -74,20 +75,16 @@ export class WebGPURenderer {
         return this.fallbackToWebGL(config);
       }
 
-      // 检查WebGPU渲染器可用性
-      const WebGPURenderer = (THREE as any).WebGPURenderer;
-      if (!WebGPURenderer) {
-        console.warn('⚠️ Three.js WebGPU渲染器不可用，回退到WebGL');
-        return this.fallbackToWebGL(config);
-      }
-
       // 创建WebGPU渲染器
-      this.renderer = new WebGPURenderer({
+      this.renderer = new THREEWebGPU.WebGPURenderer({
         canvas: config.canvas,
         antialias: config.antialias,
         alpha: config.alpha,
         powerPreference: config.powerPreference
       });
+
+      // 初始化WebGPU上下文
+      await this.renderer.init();
 
       // 配置渲染器
       await this.configureRenderer(config);
@@ -277,7 +274,7 @@ export class WebGPURenderer {
   /**
    * 获取渲染器实例
    */
-  public getRenderer(): THREE.WebGPURenderer | THREE.WebGLRenderer | null {
+  public getRenderer(): THREEWebGPU.WebGPURenderer | THREE.WebGLRenderer | null {
     return this.renderer;
   }
 

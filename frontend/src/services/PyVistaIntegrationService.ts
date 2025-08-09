@@ -644,4 +644,10 @@ export const getPyVistaIntegrationService = (scene?: THREE.Scene) => {
   return pyvistaIntegrationService;
 };
 
+// 兼容旧统一导出：提供命名导出 PyVistaIntegrationService（函数别名）
+export const PyVistaIntegrationService = getPyVistaIntegrationService;
+// 补充类型别名以匹配 index.ts 期望（若外部引用）
+export type PyVistaVisualizationData = PyVistaDataSet;
+export interface PyVistaConfig { /* 占位配置，可后续扩展 */ }
+
 export default getPyVistaIntegrationService;

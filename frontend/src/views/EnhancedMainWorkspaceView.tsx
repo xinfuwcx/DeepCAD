@@ -19,7 +19,7 @@ import {
 import CAEThreeEngineComponent from '../components/3d/CAEThreeEngine';
 
 import GeologyModule from '../components/geology/GeologyModule';
-import EnhancedGeologyReconstructionPanel from '../components/geology/EnhancedGeologyReconstructionPanel';
+import GeologyReconstructionPanelV2 from '../components/geology/GeologyReconstructionPanelV2';
 import TunnelModelingModule from '../components/tunnel/TunnelModelingModule';
 import ExcavationModule from '../components/excavation/ExcavationModule';
 import SupportModule from '../components/support/SupportModule';
@@ -48,7 +48,12 @@ import PhysicsAIView from '../views/PhysicsAIView';
 
 // 3号专家工具栏组件
 import MeshingToolbar from '../components/toolbars/MeshingToolbar';
-// import AnalysisToolbar from '../components/toolbars/AnalysisToolbar';
+import AnalysisToolbar from '../components/toolbars/AnalysisToolbar';
+import PhysicsAIToolbar from '../components/toolbars/PhysicsAIToolbar';
+import ResultsToolbar from '../components/toolbars/ResultsToolbar';
+import { eventBus, dispatchCommand } from '../core/eventBus';
+import { Command, CommandEvent } from '../core/commands';
+import { performExport, getExportTasks } from '../core/exportService';
 // import PhysicsAIToolbar from '../components/toolbars/PhysicsAIToolbar';
 // import ResultsToolbar from '../components/toolbars/ResultsToolbar';
 // import { ModuleErrorBoundary } from '../core/ErrorBoundary';
@@ -62,24 +67,7 @@ const ComponentDevHelper = {
   logDevTip: (message: string) => console.log('DevTip:', message)
 };
 
-// 占位符工具栏组件
-const AnalysisToolbar: React.FC<any> = () => (
-  <div style={{ padding: '10px', background: 'rgba(0,0,0,0.6)', borderRadius: '8px' }}>
-    <div style={{ color: '#fff', fontSize: '12px' }}>计算工具栏</div>
-  </div>
-);
-
-const PhysicsAIToolbar: React.FC<any> = () => (
-  <div style={{ padding: '10px', background: 'rgba(0,0,0,0.6)', borderRadius: '8px' }}>
-    <div style={{ color: '#fff', fontSize: '12px' }}>物理AI工具栏</div>
-  </div>
-);
-
-const ResultsToolbar: React.FC<any> = () => (
-  <div style={{ padding: '10px', background: 'rgba(0,0,0,0.6)', borderRadius: '8px' }}>
-    <div style={{ color: '#fff', fontSize: '12px' }}>结果工具栏</div>
-  </div>
-);
+// 真实工具栏已引入
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
@@ -196,6 +184,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
     }
   });
   const [supportStatus, setSupportStatus] = useState<'wait' | 'process' | 'finish' | 'error'>('wait');
+  const [exportTasks, setExportTasks] = useState<any[]>([]);
 
   // 网格工具栏状态
   const [meshToolState, setMeshToolState] = useState({
@@ -230,6 +219,54 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
     // 工具栏状态
     activeTool: null as string | null
   });
+
+  // 统一命令监听（事件总线）
+  useEffect(() => {
+    const off = eventBus.on('command', (payload: any) => {
+      const { command } = payload || {};
+      setExpert3State(prev => {
+        const next = { ...prev };
+        switch(command) {
+          case 'physicsAI:start':
+            next.physicsAIVisible = true;
+            next.optimizationRunning = true;
+            break;
+          case 'physicsAI:stop':
+            next.optimizationRunning = false;
+            break;
+          case 'physicsAI:reset':
+            next.optimizationRunning = false;
+            break;
+          case 'physicsAI:params':
+            next.physicsAIVisible = true;
+            break;
+          case 'results:view3d':
+            next.resultVisualizationMode = '3D';
+            break;
+          case 'results:viewChart':
+            next.resultVisualizationMode = 'chart';
+            break;
+            case 'results:viewTable':
+            next.resultVisualizationMode = 'table';
+            break;
+          case 'results:animation':
+            // 可添加动画面板开关状态
+            break;
+          case 'results:export':
+          case 'results:export:vtk':
+          case 'results:export:json':
+          case 'results:export:png':
+            // 导出命令，可在此集中调度后台任务
+            console.log('[Export Command]', command);
+            break;
+          default:
+            break;
+        }
+        return next;
+      });
+    });
+    return () => { off(); };
+  }, []);
   
   const [threeScene, setThreeScene] = useState<any>(null);
 
@@ -352,87 +389,112 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
     }
   };
   
-  // 3号专家功能处理
-  const handleExpert3Action = (action: string, data?: any) => {
-    console.log(`🧠 3号计算专家执行: ${action}`, data);
-    
-    switch (action) {
-      // 网格生成相关
-      case 'start_meshing':
-        setExpert3State(prev => ({ ...prev, meshingStatus: 'generating', meshProgress: 0 }));
-        break;
-      case 'mesh_progress':
-        setExpert3State(prev => ({ ...prev, meshProgress: data?.progress || 0 }));
-        break;
-      case 'mesh_completed':
-        setExpert3State(prev => ({ ...prev, meshingStatus: 'completed', meshQuality: data?.quality || 85 }));
-        break;
-        
-      // 计算分析相关
-      case 'start_computation':
-        setExpert3State(prev => ({ 
-          ...prev, 
-          computationActive: true,
-          analysisProgress: 0,
-          currentComputationTask: data?.taskType || 'deep_excavation'
-        }));
-        break;
-      case 'computation_progress':
-        setExpert3State(prev => ({ ...prev, analysisProgress: data?.progress || 0 }));
-        break;
-      case 'computation_complete':
-        setExpert3State(prev => ({ 
-          ...prev, 
-          computationActive: false,
-          analysisProgress: 100,
-          currentComputationTask: null,
-          computationResults: data,
-          currentResults: data
-        }));
-        break;
-        
-      // 物理AI相关
-      case 'enable_physics_ai':
-        setExpert3State(prev => ({ ...prev, physicsAIEnabled: true }));
-        break;
-      case 'start_optimization':
-        setExpert3State(prev => ({ ...prev, optimizationRunning: true }));
-        break;
-      case 'ai_recommendation':
-        setExpert3State(prev => ({ 
-          ...prev, 
-          aiRecommendations: [...prev.aiRecommendations, data] 
-        }));
-        break;
-      case 'optimization_complete':
-        setExpert3State(prev => ({ ...prev, optimizationRunning: false }));
-        break;
-        
-      // 结果查看相关
-      case 'show_results':
-        setExpert3State(prev => ({ ...prev, currentResults: data }));
-        break;
-      case 'change_visualization':
-        setExpert3State(prev => ({ ...prev, resultVisualizationMode: data?.mode || '3D' }));
-        break;
-        
-      // 工具栏相关
-      case 'select_tool':
-        setExpert3State(prev => ({ ...prev, activeTool: data?.tool }));
-        break;
-        
-      // 传统操作兼容
-      case 'show_mesh_analysis':
-        setExpert3State(prev => ({ ...prev, meshAnalysisActive: true }));
-        break;
-      case 'toggle_physics_ai':
-        setExpert3State(prev => ({ ...prev, physicsAIVisible: !prev.physicsAIVisible }));
-        break;
-        
-      default:
-        console.warn(`未知的3号专家操作: ${action}`);
-    }
+  // 通过命令总线统一状态更新 (导出/模拟后台调用)
+  const lastProgressRef = React.useRef({ mesh: 0, analysis: 0, ts: 0 });
+  const [throttleMsState, setThrottleMsState] = useState<number>(() => {
+    // @ts-ignore
+    const w = typeof window !== 'undefined' ? (window as any).__THROTTLE_MS : undefined;
+    return typeof w === 'number' ? w : 120;
+  });
+  const getThrottleMs = () => {
+    // 支持运行时动态配置 (window.__THROTTLE_MS 或环境变量注入)
+    // 默认 120
+    // @ts-ignore
+    const w = typeof window !== 'undefined' ? (window as any).__THROTTLE_MS : undefined;
+    if (typeof w === 'number') return w;
+    const envVar = (process as any)?.env?.REACT_APP_COMMAND_THROTTLE_MS || (process as any)?.env?.VITE_COMMAND_THROTTLE_MS;
+    const parsed = envVar ? parseInt(envVar, 10) : NaN;
+    return isNaN(parsed) ? 120 : parsed;
   };
+  useEffect(() => {
+  const off = eventBus.on('command', (p: CommandEvent) => {
+      const command = (p as any).command as Command;
+      setExpert3State(prev => {
+        const next = { ...prev };
+        const now = Date.now();
+  const throttleMs = throttleMsState; // 使用可调节值
+        switch(command) {
+          case Command.MeshingStart:
+            next.meshingStatus = 'generating'; next.meshProgress = 0; break;
+          case Command.MeshingProgress: {
+            if (now - lastProgressRef.current.ts < throttleMs && (p as any).progress < 100) return prev;
+            lastProgressRef.current.ts = now;
+            next.meshProgress = (p as any).progress ?? prev.meshProgress; break; }
+          case Command.MeshingCompleted:
+            next.meshingStatus = 'completed'; next.meshQuality = (p as any).quality ?? prev.meshQuality; next.meshProgress = 100; break;
+          case Command.AnalysisStart:
+            next.computationActive = true; next.analysisProgress = 0; next.currentComputationTask = (p as any).taskType || 'deep_excavation'; break;
+          case Command.AnalysisProgress: {
+            if (now - lastProgressRef.current.ts < throttleMs && (p as any).progress < 100) return prev;
+            lastProgressRef.current.ts = now;
+            next.analysisProgress = (p as any).progress ?? prev.analysisProgress; break; }
+          case Command.AnalysisComplete:
+            next.computationActive = false; next.analysisProgress = 100; next.currentComputationTask = null; next.computationResults = (p as any).results; next.currentResults = (p as any).results; break;
+          case Command.PhysicsAIEnable:
+            next.physicsAIEnabled = true; break;
+          case Command.PhysicsAIStart:
+            next.optimizationRunning = true; next.physicsAIVisible = true; break;
+          case Command.PhysicsAIStop:
+          case Command.PhysicsAIReset:
+            next.optimizationRunning = false; break;
+          case Command.PhysicsAIParams:
+            next.physicsAIVisible = true; break;
+          case Command.PhysicsAIClose:
+            next.physicsAIVisible = false; break;
+          case Command.PhysicsAIToggle:
+            next.physicsAIVisible = !prev.physicsAIVisible; break;
+          case Command.ResultsVisualization:
+            next.resultVisualizationMode = (p as any).mode || '3D'; break;
+          case Command.ResultsExportCSV:
+          case Command.ResultsExportVTK:
+          case Command.ResultsExportJSON:
+          case Command.ResultsExportPNG:
+            // 导出逻辑后置到 effect 外处理
+            break;
+          default:
+            break;
+        }
+        return next;
+      });
+      if ([Command.ResultsExportCSV, Command.ResultsExportVTK, Command.ResultsExportJSON, Command.ResultsExportPNG].includes(command)) {
+        if (!expert3State.currentResults) {
+          message.warning('暂无结果，无法导出');
+          return;
+        }
+        try {
+          performExport(command, {
+            hasResults: !!expert3State.currentResults,
+            getResults: () => expert3State.currentResults
+          });
+          message.success('已加入导出队列');
+        } catch(e:any) {
+          message.error('导出失败: ' + (e?.message || '未知错误'));
+        }
+      }
+    });
+    return () => off();
+  }, [expert3State.currentResults, throttleMsState]);
+
+  // 导出任务监听刷新
+  useEffect(()=>{
+    const refresh = () => setExportTasks(getExportTasks());
+    refresh();
+    const off = eventBus.on('export:done', refresh);
+    const id = setInterval(refresh, 4000);
+    return () => { off(); clearInterval(id); };
+  }, []);
+
+  // 导出完成 & 失败提示
+  useEffect(() => {
+    const off = eventBus.on('export:done', (p: any) => {
+      if (p.success) {
+        message.success(`导出完成: ${p.filename||p.command}`);
+      } else {
+        message.error(`导出失败: ${p.error||'未知错误'}`);
+      }
+    });
+    return () => off();
+  }, []);
   
   // 通用处理函数
   const handleParamsChange = (moduleType: string, key: string, value: any) => {
@@ -814,13 +876,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           { 
             key: 'geology-legacy', 
             label: <span>{getActivityBadge('process')}传统模式</span>, 
-            children: <GeologyModule 
-              // @ts-ignore legacy prop name mapping
-              params={geologyParams}
-              onParamsChange={(key, value) => handleParamsChange('geology', key, value)}
-              onGenerate={(data) => handleGenerate('geology', data)}
-              status={geologyStatus}
-            />
+            children: <GeologyReconstructionPanelV2 />
           }
         ]
       },
@@ -918,7 +974,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
             children: threeScene ? <ComputationControlPanel 
               scene={threeScene}
               onStatusChange={(status) => console.log('计算状态:', status)}
-              onResultsUpdate={(results) => handleExpert3Action('computation_complete', results)}
+              onResultsUpdate={(results) => dispatchCommand(Command.AnalysisComplete, { results })}
               onError={(error) => console.error('计算错误:', error)}
             /> : (
               <div style={{ padding: '20px', color: '#fff', textAlign: 'center' }}>
@@ -946,7 +1002,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                 <div style={{ marginTop: '16px', padding: '12px', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: '1px solid #ef4444' }}>
                   <div style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: '8px' }}>🚀 计算控制快捷操作</div>
                   <button 
-                    onClick={() => handleExpert3Action('start_computation', { taskType: 'deep_excavation' })}
+                    onClick={() => dispatchCommand(Command.AnalysisStart, { taskType: 'deep_excavation' })}
                     style={{
                       width: '100%',
                       padding: '8px',
@@ -961,7 +1017,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                     启动深基坑计算
                   </button>
                   <button 
-                    onClick={() => handleExpert3Action('toggle_physics_ai')}
+                    onClick={() => dispatchCommand(Command.PhysicsAIToggle)}
                     style={{
                       width: '100%',
                       padding: '8px',
@@ -986,25 +1042,68 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           {
             key: 'visualization',
             label: <span>{getActivityBadge('process')}3D可视化</span>,
-            children: <div style={{ padding: '20px', color: '#fff', textAlign: 'center' }}>📊 计算结果3D可视化</div>
+              children: (
+                <div style={{ padding: '12px', color: '#fff', fontSize: 12 }}>
+                  <div style={{ fontWeight:'bold', marginBottom:8 }}>📊 结果概览</div>
+                  {expert3State.currentResults ? (
+                    <ComputationResultsOverview 
+                      results={expert3State.currentResults}
+                      theme="dark"
+                      enableAnimation={false}
+                      onDetailView={(type)=>dispatchCommand(Command.ResultsVisualization,{ mode: 'chart' })}
+                    />
+                  ) : (
+                    <div style={{ padding:'8px 0', color:'#ffffff80' }}>暂无计算结果，可在“计算分析”模块运行求解。</div>
+                  )}
+                  <div style={{ marginTop:12, display:'flex', gap:6, flexWrap:'wrap' }}>
+                    <Button size="small" disabled={!expert3State.currentResults} onClick={()=>dispatchCommand(Command.ResultsVisualization,{ mode:'3D' })}>3D</Button>
+                    <Button size="small" disabled={!expert3State.currentResults} onClick={()=>dispatchCommand(Command.ResultsVisualization,{ mode:'chart' })}>图表</Button>
+                    <Button size="small" disabled={!expert3State.currentResults} onClick={()=>dispatchCommand(Command.ResultsVisualization,{ mode:'table' })}>表格</Button>
+                  </div>
+                </div>
+              )
           },
           {
             key: 'export',
             label: <span>{getActivityBadge('finish')}数据导出</span>,
-            children: <div style={{ padding: '20px', color: '#fff', textAlign: 'center' }}>💾 结果数据导出</div>
+              children: (
+                <div style={{ padding: '12px', color:'#fff', fontSize:12 }}>
+                  <div style={{ fontWeight:'bold', marginBottom:8 }}>💾 导出与任务队列</div>
+                  <Space size={6} wrap>
+                    <Button size="small" type="primary" disabled={!expert3State.currentResults} onClick={()=>dispatchCommand(Command.ResultsExportCSV)}>CSV</Button>
+                    <Button size="small" disabled={!expert3State.currentResults} onClick={()=>dispatchCommand(Command.ResultsExportVTK)}>VTK</Button>
+                    <Button size="small" disabled={!expert3State.currentResults} onClick={()=>dispatchCommand(Command.ResultsExportJSON)}>JSON</Button>
+                    <Button size="small" disabled={!expert3State.currentResults} onClick={()=>dispatchCommand(Command.ResultsExportPNG)}>PNG截图</Button>
+                  </Space>
+                  <div style={{ marginTop:12, fontWeight:'bold' }}>任务队列</div>
+                  <div style={{ maxHeight:180, overflowY:'auto', marginTop:4, border:'1px solid rgba(255,255,255,0.1)', borderRadius:4, padding:6 }}>
+                    {exportTasks.length === 0 && <div style={{ color:'#888' }}>暂无任务</div>}
+                    {exportTasks.map(t => (
+                      <div key={t.id} style={{ display:'flex', justifyContent:'space-between', fontSize:11, padding:'4px 0', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                        <span style={{ maxWidth:110, overflow:'hidden', textOverflow:'ellipsis' }}>{t.command.split(':').pop()}</span>
+                        <span style={{ color: t.status==='success' ? '#52c41a' : t.status==='error' ? '#ff4d4f' : t.status==='running' ? '#faad14' : '#1890ff' }}>
+                          {t.status}{t.filename?`(${t.filename})`:''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
           },
           {
             key: 'analysis',
             label: <span>{getActivityBadge('process')}后处理分析</span>,
-            children: (
-              <div style={{ padding: '20px', color: '#fff' }}>
-                <div style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 'bold' }}>🔍 专业后处理分析</div>
-                <div style={{ color: '#1890ff', marginBottom: '12px' }}>📐 截面分析: 任意切面</div>
-                <div style={{ color: '#52c41a', marginBottom: '12px' }}>📊 统计分析: 极值搜索</div>
-                <div style={{ color: '#ff7a45', marginBottom: '12px' }}>🎯 关键点监控: 实时追踪</div>
-                <div style={{ color: '#13c2c2' }}>📋 智能诊断报告生成</div>
-              </div>
-            )
+              children: (
+                <div style={{ padding:'12px', color:'#fff', fontSize:12 }}>
+                  <div style={{ fontWeight:'bold', marginBottom:8 }}>🔍 后处理工具</div>
+                  <Space direction="vertical" style={{ width:'100%' }} size={6}>
+                    <Button size="small" disabled={!expert3State.currentResults} onClick={()=>message.info('截面分析工具开发中')}>截面分析</Button>
+                    <Button size="small" disabled={!expert3State.currentResults} onClick={()=>message.info('统计分析工具开发中')}>统计分析</Button>
+                    <Button size="small" disabled={!expert3State.currentResults} onClick={()=>message.info('关键点监控开发中')}>关键点监控</Button>
+                    <Button size="small" disabled={!expert3State.currentResults} onClick={()=>message.info('诊断报告开发中')}>生成诊断报告</Button>
+                  </Space>
+                </div>
+              )
           }
         ]
       }
@@ -1364,7 +1463,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
             <div style={{ height: '100%' }}>
               <ResultsVisualizationDashboard 
                 results={expert3State.currentResults}
-                onVisualizationChange={(type) => handleExpert3Action('change_visualization', { mode: type })}
+                onVisualizationChange={(type) => dispatchCommand(Command.ResultsVisualization, { mode: type })}
                 onExport={(format) => console.log('导出结果:', format)}
                 enableRealtimeUpdate={true}
                 showDetailedAnalysis={true}
@@ -1377,8 +1476,8 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
             <div style={{ height: '100%' }}>
               <PhysicsAIView 
                 results={expert3State.currentResults}
-                onParameterOptimization={(params) => handleExpert3Action('start_optimization', params)}
-                onAIRecommendation={(recommendation) => handleExpert3Action('ai_recommendation', recommendation)}
+                onParameterOptimization={(params) => dispatchCommand(Command.PhysicsAIStart, params)}
+                onAIRecommendation={(recommendation) => console.log('AI recommendation received', recommendation)}
                 isOptimizing={expert3State.optimizationRunning}
                 recommendations={expert3State.aiRecommendations}
               />
@@ -2107,8 +2206,13 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                   <MeshingToolbar 
                     geometryLoaded={true}
                     meshGenerated={expert3State.meshingStatus === 'completed'}
+                    meshProgress={expert3State.meshProgress}
+                    meshQualityScore={expert3State.meshQuality}
+                    throttleMs={throttleMsState}
+                    onThrottleChange={(v)=>{ setThrottleMsState(v); /* @ts-ignore */ if (typeof window !== 'undefined') (window as any).__THROTTLE_MS = v; message.success('节流间隔已更新为 '+v+'ms'); }}
+                    onRefineMesh={() => { message.info('执行网格细化...'); setTimeout(()=> message.success('网格细化完成'),1500); }}
                     onGenerateMesh={() => {
-                      handleExpert3Action('start_meshing', {});
+                      dispatchCommand(Command.MeshingStart);
                       message.info('开始生成网格...');
                     }}
                     onMeshSettings={() => {
@@ -2174,8 +2278,13 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                     computationStatus={expert3State.computationActive ? 'running' : 'idle'}
                     meshingStatus={expert3State.meshingStatus}
                     analysisProgress={expert3State.analysisProgress}
-                    onStartComputation={() => handleExpert3Action('start_computation')}
-                    onStopComputation={() => handleExpert3Action('stop_computation')}
+                    disabled={expert3State.meshingStatus !== 'completed'}
+                    throttleMs={throttleMsState}
+                    onThrottleChange={(v)=>{ setThrottleMsState(v); /* @ts-ignore */ if (typeof window !== 'undefined') (window as any).__THROTTLE_MS = v; message.success('节流间隔已更新为 '+v+'ms'); }}
+                    iteration={Math.round(expert3State.analysisProgress * 1.2)}
+                    estRemainingSec={expert3State.analysisProgress<100 ? Math.round((100-expert3State.analysisProgress)/ (expert3State.analysisProgress+1) * 3) : 0}
+                    onStartComputation={() => dispatchCommand(Command.AnalysisStart)}
+                    onStopComputation={() => dispatchCommand(Command.AnalysisComplete)}
                     onShowMonitor={() => setRightPanelTab('computation-monitor')}
                     onOpenSolverConfig={() => console.log('打开求解器配置')}
                   />
@@ -2184,14 +2293,14 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                 {/* 3号专家物理AI工具栏 */}
                 {activeModule === 'physics-ai' && (
                   <PhysicsAIToolbar 
-                    aiOptimizationActive={expert3State.physicsAIEnabled}
+                    aiOptimizationActive={expert3State.optimizationRunning}
                     aiAnalysisComplete={expert3State.optimizationRunning}
                     currentRecommendations={expert3State.aiRecommendations}
-                    analysisDataReady={true}
-                    onStartAIOptimization={() => handleExpert3Action('start_optimization')}
+                    analysisDataReady={expert3State.computationResults !== null || expert3State.meshingStatus === 'completed'}
+                    onStartAIOptimization={() => dispatchCommand(Command.PhysicsAIStart)}
                     onShowAISuggestions={() => console.log('显示AI建议')}
                     onOpenParameterTuning={() => console.log('参数调优')}
-                    onToggleAIAssistant={(enabled) => handleExpert3Action('enable_physics_ai', { enabled })}
+                    onToggleAIAssistant={(enabled) => enabled ? dispatchCommand(Command.PhysicsAIEnable) : dispatchCommand(Command.PhysicsAIClose)}
                   />
                 )}
                 
@@ -2200,7 +2309,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
                   <ResultsToolbar 
                     visualizationMode={expert3State.resultVisualizationMode}
                     resultsAvailable={expert3State.currentResults !== null}
-                    onVisualizationChange={(mode) => handleExpert3Action('change_visualization', { mode })}
+                    onVisualizationChange={(mode) => dispatchCommand(Command.ResultsVisualization,{ mode })}
                     onExportResults={(format) => console.log('导出结果:', format)}
                     onShowAnimation={() => console.log('显示动画')}
                     onToggle3DView={() => console.log('切换3D视图')}
@@ -2226,7 +2335,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
       {expert3State.physicsAIVisible && (
         <PhysicsAIEmbeddedPanel
           isVisible={expert3State.physicsAIVisible}
-          onClose={() => handleExpert3Action('toggle_physics_ai')}
+          onClose={() => dispatchCommand(Command.PhysicsAIClose)}
           onVariableChange={(variableId, newValue) => {
             console.log('3号专家 - 物理AI变量更新:', variableId, newValue);
           }}

@@ -1,0 +1,32 @@
+[
+  {
+    "name": "vendor_react (gzip ~68KB)",
+    "path": "dist/assets/*vendor_react*.js",
+    "limit": "90 KB"
+  },
+  {
+    "name": "vendor_three (gzip ~217KB)",
+    "path": "dist/assets/*vendor_three*.js",
+    "limit": "250 KB"
+  },
+  {
+    "name": "pv3d entry (gzip ~1KB)",
+    "path": "dist/assets/*pv3d*.js",
+    "limit": "10 KB"
+  },
+  {
+    "name": "performance monitor chunk (gzip ~47KB)",
+    "path": "dist/assets/*performanceMonitor*.js",
+    "limit": "60 KB"
+  },
+  {
+    "name": "main app chunk (gzip ~267KB) -- track for future split",
+    "path": "dist/assets/*main-*.js",
+    "limit": "300 KB"
+  },
+  {
+    "name": "map vendor (gzip ~364KB) -- needs future dynamic split",
+    "path": "dist/assets/*vendor_map*.js",
+    "limit": "400 KB"
+  }
+]

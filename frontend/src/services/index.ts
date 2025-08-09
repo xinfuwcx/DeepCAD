@@ -64,26 +64,33 @@ export {
 } from './GeometryAlgorithmIntegration';
 
 // === PyVista集成服务 ===
+// PyVista 集成统一导出（提供函数别名及相关类、类型）
 export {
+  PyVistaIntegrationService,
+  getPyVistaIntegrationService,
+  PyVistaDataAPI,
+  PyVistaRealtimeStream,
+  PyVistaToThreeConverter,
   type PyVistaVisualizationData,
-  type PyVistaConfig,
-  PyVistaIntegrationService
+  type PyVistaConfig
 } from './PyVistaIntegrationService';
 
 // === 数据接口服务 ===
 export {
   type PileCalculationData,
-  PileCalculationDataFactory
+  PileType as PileDataPileType,
+  PileModelingStrategy as PileDataModelingStrategy
 } from './pileModelingDataInterface';
 
-export {
-  type EnhancedPileParameters,
-  type CalculationResult,
+export { 
+  type PileCalculationResult,
   EnhancedPileCalculationService
 } from './enhancedPileCalculationService';
 
 export {
-  type FEMData
+  type FEMDataTransfer,
+  type ValidationResult,
+  femDataTransferService
 } from './femDataTransferService';
 
 // === 3号计算专家服务 ===
@@ -158,13 +165,7 @@ export {
 
 // === 2号专家RBF三维重建服务 ===
 export {
-  RBF3DReconstructionService,
-  type Reconstruction3DResult,
-  type ProcessedData,
-  type OptimalRBFConfig,
-  type VolumetricGeometry,
-  type QualityAssessmentReport,
-  RBF3DReconstructionError
+  RBF3DReconstructionService
 } from './RBF3DReconstructionService';
 
 // === 3号专家物理AI模块系统 ===

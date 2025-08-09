@@ -13,22 +13,8 @@ import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 import { ComponentDevHelper } from '../../utils/developmentTools';
 import { GeometryData, MaterialZone } from '../../core/InterfaceProtocol';
 import { LODManager } from './performance/LODManager.simple';
-// 导入必需的清理工具函数
-import { safeEmptyContainer } from '../../utils/threejsCleanup';
-
-// 临时本地定义以避免导入问题
-function localSafeEmptyContainer(container: HTMLElement | null): void {
-  if (!container) return;
-  
-  while (container.firstChild) {
-    try {
-      container.removeChild(container.firstChild);
-    } catch (error) {
-      console.warn('DOM节点清理警告:', error);
-      break;
-    }
-  }
-}
+import { safeRemoveRenderer, handleWebGLContextLoss, disposeMaterial, safeEmptyContainer } from '../../utils/threejsCleanup';
+import { performanceStore } from '../../store/performanceStore';
 
 // CAE特定材质类型
 export enum CAEMaterialType {
@@ -92,6 +78,7 @@ export class CAEThreeEngineCore {
   private selectedObjects: THREE.Object3D[] = [];
   private interactionMode: CAEInteractionMode = CAEInteractionMode.ORBIT;
   private animationFrameId: number | null = null;
+  private paused = false;
   
   // 加载器
   private stlLoader: STLLoader = new STLLoader();
@@ -163,7 +150,7 @@ export class CAEThreeEngineCore {
     return this.backgroundTexture;
   }
 
-  constructor(container: HTMLElement, props: Partial<CAEThreeEngineProps> = {}) {
+  constructor(container: HTMLElement, props: Partial<CAEThreeEngineProps> = {}, rendererParams?: Partial<THREE.WebGLRendererParameters>) {
     console.log('🚀 CAE Three.js引擎构造函数开始...');
     
     if (!container) {
@@ -191,14 +178,17 @@ export class CAEThreeEngineCore {
     console.log('📷 相机已设置 - 位置:', this.camera.position, '目标: (0,0,0)');
 
     // 初始化渲染器 - CAE优化配置
-    this.renderer = new THREE.WebGLRenderer({
+    const baseParams: THREE.WebGLRendererParameters = {
       antialias: true,
       alpha: false,
       depth: true,
       stencil: false,
       powerPreference: 'high-performance',
-      failIfMajorPerformanceCaveat: false
-    });
+      failIfMajorPerformanceCaveat: false,
+      preserveDrawingBuffer: false
+    } as any;
+    const params = { ...baseParams, ...(rendererParams||{}) };
+    this.renderer = new THREE.WebGLRenderer(params);
 
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -208,7 +198,8 @@ export class CAEThreeEngineCore {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.2;
     // 现代化渲染设置
-    this.renderer.useLegacyLights = false; // 使用物理正确的光照
+  // three.js r150+ 默认物理正确光照，无需 useLegacyLights; 某些类型定义不存在此属性
+  // (已去除 this.renderer.useLegacyLights 以避免类型报错)
 
     // 启用扩展
     this.renderer.capabilities.logarithmicDepthBuffer = false;
@@ -264,16 +255,23 @@ export class CAEThreeEngineCore {
   public startRenderLoop(): void {
     let frameCount = 0;
     const animate = () => {
-      this.render();
+      if(!this.paused){
+        this.render();
+      }
       frameCount++;
-      // 每300帧（5秒）打印一次调试信息，减少性能开销
       if (frameCount % 300 === 0) {
         console.log(`🎬 渲染帧 #${frameCount}, 场景子对象数量: ${this.scene.children.length}`);
       }
-      requestAnimationFrame(animate);
+      // 记录 ID 便于后续取消 (StrictMode 二次装卸 / 视图切换)
+      this.animationFrameId = requestAnimationFrame(animate);
     };
-    animate();
+    // 首帧调用
+    this.animationFrameId = requestAnimationFrame(animate);
     console.log('🎬 CAE引擎渲染循环已启动');
+  }
+
+  public setPaused(p:boolean){
+    this.paused = p;
   }
 
   // 设置控制器
@@ -324,7 +322,8 @@ export class CAEThreeEngineCore {
     
     // 确保TransformControls正确添加到场景
     try {
-      this.scene.add(this.transformControls);
+      // 某些 three/examples d.ts 版本下 TransformControls 结构与 Object3D 声明不完全匹配，强制断言避免 TS 报错
+      this.scene.add(this.transformControls as unknown as THREE.Object3D);
       console.log('✅ TransformControls已成功添加到场景');
     } catch (error) {
       console.warn('⚠️ TransformControls添加失败，将跳过:', error);
@@ -1053,6 +1052,21 @@ export class CAEThreeEngineCore {
     const renderInfo = this.renderer.info;
     this.performanceStats.triangles = renderInfo.render.triangles;
     this.performanceStats.drawCalls = renderInfo.render.calls;
+    // 追加内存/纹理
+    const mem = (renderInfo.memory as any);
+    const geometries = mem.geometries ?? 0;
+    const textures = mem.textures ?? 0;
+    // 简单 GPU 显存估算: 三角形数 * 3 顶点 * (position(12)+normal(12)+uv(8)) bytes / (1024*1024)
+    const estGpuMB = (this.performanceStats.triangles * 3 * (12+12+8)) / (1024*1024);
+    performanceStore.update({
+      fps: this.performanceStats.fps,
+      frameTime: this.performanceStats.frameTime,
+      triangles: this.performanceStats.triangles,
+      drawCalls: this.performanceStats.drawCalls,
+      geometries,
+      textures,
+      gpuMemoryMB: +estGpuMB.toFixed(2)
+    });
   }
 
   // 添加几何体到场景（自动启用LOD）
@@ -1104,8 +1118,7 @@ export class CAEThreeEngineCore {
       this.backgroundTexture = null;
     }
     
-    // 清理WebGL上下文
-    handleWebGLContextLoss(this.renderer);
+  // 不再强制触发 WebGL 上下文丢失 (避免误判为异常)，仅正常 dispose
     
     // 安全地清理渲染器（注意：这里不移除DOM，因为是类方法，没有容器引用）
     try {
@@ -1131,6 +1144,17 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
   const animationIdRef = useRef<number>(0);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
+  const [lostContext, setLostContext] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  // 防止卸载后异步状态写入 (StrictMode 双调用)
+  const unmountedRef = useRef(false);
+  // 性能统计显示 & 状态
+  const [showPerf, setShowPerf] = useState(false);
+  const [perfStats, setPerfStats] = useState<{
+    fps:number; frameTime:number; triangles:number; drawCalls:number;
+    geometries?:number; textures?:number; gpuMemoryMB?:number;
+  }|null>(null);
+  const [isPaused, setIsPaused] = useState(false);
 
   const animate = useCallback(() => {
     if (engineRef.current) {
@@ -1147,7 +1171,7 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
       const container = containerRef.current;
       
       // 安全地清理容器内容，防止重复渲染
-      localSafeEmptyContainer(container);
+      safeEmptyContainer(container);
       
       const width = container.offsetWidth;
       const height = container.offsetHeight;
@@ -1167,6 +1191,28 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
 
       console.log('✅ CAE Three.js引擎组件初始化完成');
       ComponentDevHelper.logDevTip('CAE Three.js引擎组件初始化完成');
+
+      // WebGL 上下文丢失/恢复监听
+      try {
+        const canvas = engineRef.current.renderer.domElement;
+        const onLost = (e: Event) => {
+          e.preventDefault();
+          console.warn('⚠️ WebGL 上下文丢失');
+          if(!unmountedRef.current){
+            setLostContext(true);
+            setInitError('WebGL 上下文丢失');
+          }
+        };
+        const onRestored = () => {
+          console.log('✅ WebGL 上下文恢复');
+          if(!unmountedRef.current){
+            setLostContext(false);
+            setInitError(null);
+          }
+        };
+        canvas.addEventListener('webglcontextlost', onLost, { passive:false });
+        canvas.addEventListener('webglcontextrestored', onRestored);
+      } catch {}
     } catch (error) {
       console.error('❌ CAE Three.js引擎初始化失败:', error);
       ComponentDevHelper.logError(error as Error, 'CAEThreeEngineComponent', '1号架构师');
@@ -1175,6 +1221,7 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
 
     return () => {
       console.log('🧹 CAE组件清理函数被调用');
+  unmountedRef.current = true;
       
       // 停止动画循环
       if (animationIdRef.current) {
@@ -1195,17 +1242,66 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
         }
         engineRef.current = null;
       }
-      
-      // 延迟重置状态，避免与React的卸载过程冲突
-      setTimeout(() => {
-        try {
-          setIsInitialized(false);
-        } catch (error) {
-          // 组件可能已经卸载，忽略此错误
-        }
-      }, 0);
     };
   }, []); // 移除props依赖，防止重复初始化
+
+  // 性能统计轮询 (1s)
+  useEffect(()=>{
+    if(!showPerf || !engineRef.current) return;
+    let stopped=false;
+    const tick=()=>{
+      if(stopped) return;
+      try {
+        const stats = engineRef.current!.getPerformanceStats();
+        const extra = performanceStore.get();
+        setPerfStats({
+          fps:+stats.fps.toFixed(1),
+            frameTime:+stats.frameTime.toFixed(2),
+            triangles:stats.triangles,
+            drawCalls:stats.drawCalls,
+            geometries: extra.geometries,
+            textures: extra.textures,
+            gpuMemoryMB: extra.gpuMemoryMB
+        });
+      } catch {}
+      setTimeout(tick, 1000);
+    };
+    tick();
+    return ()=>{ stopped=true; };
+  }, [showPerf]);
+
+  // 订阅全局 store (用于其它组件监听，同时同步更丰富字段)
+  useEffect(()=>{
+    const unsub = performanceStore.subscribe(m=>{
+      if(!showPerf) return; // 仅在显示时刷新，避免多余重渲染
+      setPerfStats(ps=> ({
+        fps: +m.fps.toFixed(1),
+        frameTime: +m.frameTime.toFixed(2),
+        triangles: m.triangles,
+        drawCalls: m.drawCalls,
+        geometries: m.geometries,
+        textures: m.textures,
+        gpuMemoryMB: m.gpuMemoryMB
+      }));
+    });
+    return ()=> { unsub(); }; // 确保 cleanup 返回 void 而不是 boolean
+  }, [showPerf]);
+
+  // 快捷键: Alt+Shift+P 切换性能面板
+  useEffect(()=>{
+    const onKey=(e:KeyboardEvent)=>{ if(e.altKey && e.shiftKey && (e.key==='P'|| e.key==='p')){ setShowPerf(s=>!s); } };
+    window.addEventListener('keydown', onKey);
+    return ()=> window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // 自愈: 若引擎已创建但 isInitialized 未被置 true (极端竞态) 1.2s 后强制设为 true
+  useEffect(()=>{
+    if(isInitialized || initError) return;
+    if(engineRef.current){
+      const t=setTimeout(()=>{ if(!unmountedRef.current && engineRef.current && !isInitialized && !initError){ console.warn('⛑️ 自愈: 强制标记引擎已初始化'); setIsInitialized(true);} }, 1200);
+      return ()=> clearTimeout(t);
+    }
+  }, [isInitialized, initError]);
 
   // 动画循环现在由引擎内部管理，不需要在React组件中重复启动
   useEffect(() => {
@@ -1219,6 +1315,37 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
       }
     };
   }, [isInitialized]);
+
+  // 发生上下文丢失时尝试自动重建 (一次性/有限次数) & 降级参数
+  useEffect(()=>{
+    if(!lostContext) return;
+    if(retryCount>2) return; // 避免死循环
+    let cancelled=false;
+    const timer = setTimeout(()=>{
+      if(cancelled) return;
+      if(!containerRef.current) return;
+      try {
+        console.log('🔁 尝试恢复 WebGL 上下文 - 尝试次数', retryCount+1);
+        // 清空旧内容
+        safeEmptyContainer(containerRef.current);
+        // 降级渲染参数: 关闭抗锯齿 / 使用低功耗模式 / 保留绘制缓冲方便截图调试
+        engineRef.current = new CAEThreeEngineCore(containerRef.current, props, {
+          antialias:false,
+          powerPreference:'default',
+          preserveDrawingBuffer:true
+        });
+        engineRef.current.setPaused(false);
+        setLostContext(false);
+        setInitError(null);
+        setRetryCount(c=>c+1);
+        setIsInitialized(true);
+      } catch(err){
+        console.warn('恢复失败:', err);
+        setRetryCount(c=>c+1);
+      }
+    }, 300);
+    return ()=>{ cancelled=true; clearTimeout(timer); };
+  }, [lostContext, retryCount, props]);
 
   return (
     <div 
@@ -1263,7 +1390,7 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
         </div>
       )}
       
-      {initError && (
+  {initError && (
         <div style={{
           position: 'absolute',
           top: 0,
@@ -1281,11 +1408,57 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
           padding: '20px'
         }}>
           <div style={{ fontSize: '48px', marginBottom: '20px' }}>⚠️</div>
-          <div style={{ fontSize: '18px', marginBottom: '10px' }}>3D引擎初始化失败</div>
-          <div style={{ fontSize: '12px', color: '#999999', textAlign: 'center', maxWidth: '400px' }}>
+          <div style={{ fontSize: '18px', marginBottom: '10px' }}>{lostContext? 'WebGL上下文丢失':'3D引擎初始化失败'}</div>
+          <div style={{ fontSize: '12px', color: '#999999', textAlign: 'center', maxWidth: '420px', lineHeight:1.6 }}>
             {initError}<br/>
-            请检查WebGL支持或刷新页面重试
+            {lostContext ? (
+              <>引擎将尝试自动恢复{retryCount>0?` (已尝试 ${retryCount} 次)`:' (准备重试)'}。如果长时间未恢复，可点击下方按钮手动重建。<br/>建议关闭其它占用显卡的程序，或更新显卡驱动。</>
+            ) : (
+              <>请检查浏览器对 WebGL 的支持情况，或刷新页面后重试。</>
+            )}
           </div>
+          {lostContext && (
+            <div style={{marginTop:16, display:'flex', gap:8}}>
+              <button style={{background:'#16a085', color:'#fff', border:'none', padding:'6px 14px', borderRadius:4, cursor:'pointer'}} onClick={()=>{ setRetryCount(0); setLostContext(true); }}>
+                重新尝试恢复
+              </button>
+              <button style={{background:'#f39c12', color:'#fff', border:'none', padding:'6px 14px', borderRadius:4, cursor:'pointer'}} onClick={()=>{
+                if(!containerRef.current) return;
+                try {
+                  safeEmptyContainer(containerRef.current);
+                  engineRef.current = new CAEThreeEngineCore(containerRef.current, props, { antialias:false, powerPreference:'low-power', preserveDrawingBuffer:true });
+                  engineRef.current.setPaused(false);
+                  setLostContext(false);
+                  setInitError(null);
+                  setIsInitialized(true);
+                } catch(err){ console.error('手动降级重建失败', err); }
+              }}>
+                降级模式重建
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {showPerf && perfStats && (
+        <div style={{ position:'absolute', bottom:8, left:8, background:'rgba(0,0,0,0.55)', color:'#0fd9ff', fontSize:11, padding:'6px 8px', lineHeight:1.4, border:'1px solid #0fd9ff40', borderRadius:4, zIndex:1100, maxWidth:200 }}>
+          <div style={{ fontWeight:600 }}>Perf</div>
+          <div>FPS: {perfStats.fps}</div>
+          <div>Frame: {perfStats.frameTime} ms</div>
+          <div>Tri: {perfStats.triangles}</div>
+          <div>Draws: {perfStats.drawCalls}</div>
+          <div>Geo: {perfStats.geometries ?? '-'}</div>
+          <div>Tex: {perfStats.textures ?? '-'}</div>
+            <div>GPU~: {perfStats.gpuMemoryMB ?? '-'} MB</div>
+          <div style={{ display:'flex', gap:4, marginTop:4, flexWrap:'wrap' }}>
+            <button
+              onClick={()=>{
+                const next = !isPaused; setIsPaused(next); engineRef.current?.setPaused(next);
+              }}
+              style={{ background:isPaused? '#ff9f43':'#16a085', border:'none', color:'#fff', cursor:'pointer', padding:'2px 6px', fontSize:11, borderRadius:3 }}
+            >{isPaused? 'Resume':'Pause'}</button>
+          </div>
+          <div style={{ opacity:0.7 }}>Alt+Shift+P 关闭</div>
         </div>
       )}
     </div>

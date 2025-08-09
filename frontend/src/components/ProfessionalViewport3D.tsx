@@ -7,6 +7,7 @@ import RealisticRenderingEngine, { QUALITY_PRESETS } from '../services/Realistic
 import { eventBus } from '../core/eventBus';
 import { geometryAlgorithmIntegration } from '../services';
 import { localGeometryRegistry } from '../services/LocalGeometryRegistry';
+import { isFeatureEnabled } from '../config/featureFlags';
 // @ts-ignore - optional local CSG lib (may be absent during initial dev)
 // dynamic import used later
 // import { CSG } from 'three-csg-ts';
@@ -33,8 +34,10 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
   suppressLegacyToolbar
 }) => {
   // 若要求隐藏旧版 CADToolbar, 在初始化阶段就设置一个同步标志，避免首次渲染闪现
-  if (typeof window !== 'undefined' && suppressLegacyToolbar) {
-    (window as any).__HIDE_LEGACY_CAD_TOOLBAR__ = true;
+  if (typeof window !== 'undefined') {
+    if (suppressLegacyToolbar || !isFeatureEnabled('legacyCADToolbar')) {
+      (window as any).__HIDE_LEGACY_CAD_TOOLBAR__ = true;
+    }
   }
   const [qualityLevel, setQualityLevel] = useState<keyof typeof QUALITY_PRESETS>('high');
   const [showControls, setShowControls] = useState(false);

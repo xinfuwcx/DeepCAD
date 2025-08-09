@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>DeepCAD PV3D Ultra Lite</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+      /* Minimal isolated styling to avoid inheriting global app styles */
+      html,body,#root { margin:0; padding:0; height:100%; width:100%; background:#0b0f17; color:#d6e2f1; font:12px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+      #pv3d-status { position:fixed; top:6px; left:8px; background:rgba(20,32,48,.65); backdrop-filter:blur(6px); color:#9ecbff; padding:4px 8px; border:1px solid #1d3a55; border-radius:4px; font-size:11px; font-family:ui-monospace,monospace; z-index:50; box-shadow:0 2px 6px -2px #0008; }
+      .pv3d-error { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#1a222d; color:#ffb4b4; font-family:ui-monospace,monospace; padding:24px; }
+      .pv3d-error pre { max-width:80vw; max-height:40vh; overflow:auto; background:#10161d; padding:12px 16px; border:1px solid #2d3e50; border-radius:6px; color:#e8f5ff; }
+      a.pv3d-reload { margin-top:16px; color:#61dafb; text-decoration:none; border:1px solid #224b63; padding:6px 12px; border-radius:4px; font-weight:600; }
+      a.pv3d-reload:hover { background:#102635; }
+    </style>
+  </head>
+  <body>
+    <div id="pv3d-status">PV3D loading...</div>
+    <div id="root"></div>
+    <script type="module" src="/src/pv3d-entry.tsx"></script>
+  </body>
+</html>
