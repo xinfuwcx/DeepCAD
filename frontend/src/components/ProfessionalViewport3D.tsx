@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { Button, Typography, Space } from 'antd';
+import { Button, Typography, Space, Tooltip } from 'antd';
 import { useRealisticRendering } from '../hooks/useRealisticRendering';
 import RealisticRenderingEngine, { QUALITY_PRESETS } from '../services/RealisticRenderingEngine';
 import { eventBus } from '../core/eventBus';
@@ -9,6 +9,7 @@ import { geometryAlgorithmIntegration } from '../services';
 import { localGeometryRegistry } from '../services/LocalGeometryRegistry';
 import { isFeatureEnabled } from '../config/featureFlags';
 import ViewportAxes from './3d/ViewportAxes';
+import ViewportToolbar from './viewport/ViewportToolbar';
 // @ts-ignore - optional local CSG lib (may be absent during initial dev)
 // dynamic import used later
 // import { CSG } from 'three-csg-ts';
@@ -888,6 +889,14 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
         if(activeTool==='sketch' && sketchPoints.length) resetSketch();
         if(activeTool==='measure' && measurePoints.length) resetMeasurement();
       }
+  if(e.key==='m' || e.key==='M'){ setActiveTool(t=> t==='measure'?'select':'measure'); }
+  if(e.key==='k' || e.key==='K'){ setActiveTool(t=> t==='sketch'?'select':'sketch'); }
+  if(e.key==='f' || e.key==='F'){ setActiveTool('faceSelect'); }
+  if(e.key==='b' || e.key==='B'){ toggleBooleanMode(); }
+  if(e.key==='g' || e.key==='G'){ setEnableSnapping(s=>!s); }
+  if(e.key==='r' || e.key==='R'){ resetCamera(); }
+  if(e.key==='c' || e.key==='C'){ if(activeTool==='sketch' && sketchPoints.length>2 && !isSketchClosed) setIsSketchClosed(true); }
+  if(e.key==='Enter'){ if(activeTool==='sketch' && isSketchClosed) performExtrude(); }
       // 测量局部撤销
       if(e.key==='z' && (e.metaKey || e.ctrlKey) && activeTool==='measure'){ e.preventDefault(); setMeasurePoints(p=>p.slice(0,-1)); return; }
       // 草图局部撤销 (合并点)
@@ -940,7 +949,6 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
   useEffect(()=>{ updateMeasurementVisual(); },[measurePoints, measurementMode]);
 
   const resetMeasurement = () => { setMeasurePoints([]); if(measureLineRef.current){ measureLineRef.current.geometry.dispose(); measureLineRef.current.parent?.remove(measureLineRef.current); measureLineRef.current=null; } if(measureAngleArcRef.current){ measureAngleArcRef.current.geometry.dispose(); measureAngleArcRef.current.parent?.remove(measureAngleArcRef.current); measureAngleArcRef.current=null; } };
-  const undoMeasurementPoint = () => setMeasurePoints(p=>p.slice(0,-1));
 
   const resetSketch = () => { setSketchPoints([]); setIsSketchClosed(false); if(sketchLineRef.current){ scene.remove(sketchLineRef.current); sketchLineRef.current.geometry.dispose(); sketchLineRef.current=null;} if(sketchPreviewMeshRef.current){ scene.remove(sketchPreviewMeshRef.current); sketchPreviewMeshRef.current.geometry.dispose(); sketchPreviewMeshRef.current=null;} };
   // 通用线段清理（草图/测量/选面等临时几何）
@@ -1105,47 +1113,22 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
         }}
       />
 
-      {/* 控制按钮 */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '10px',
-          left: '10px',
-          display: 'flex',
-          gap: '8px',
-          zIndex: 100
-        }}
-      >
-  <Button size="small" style={{ background:'rgba(26, 26, 46, 0.8)', border:'1px solid rgba(0, 217, 255, 0.3)', color:'#ffffff'}} onClick={resetCamera}>重置视图</Button>
-        <Button 
-          size="small"
-          style={{ 
-            background: 'rgba(26, 26, 46, 0.8)', 
-            border: '1px solid rgba(0, 217, 255, 0.3)',
-            color: '#ffffff'
-          }}
-          onClick={() => onAction?.('screenshot')}
-        >
-          截图
-        </Button>
-  <Button size="small" style={{ background: enableSnapping?'#1976d2':'#333', border:'1px solid #1976d2', color:'#fff'}} onClick={()=>setEnableSnapping(s=>!s)}>捕捉 {enableSnapping?'开':'关'}</Button>
-  <Button size="small" style={{ background: activeTool==='sketch'?'#00bcd4':'#333', border:'1px solid #00bcd4', color:'#fff'}} onClick={()=> setActiveTool(t=> t==='sketch'?'select':'sketch')}>{activeTool==='sketch'?'退出草图':'草图'}</Button>
-  <Button size="small" style={{ background: activeTool==='measure'?'#8bc34a':'#333', border:'1px solid #8bc34a', color:'#fff'}} onClick={()=> setActiveTool(t=> t==='measure'?'select':'measure')}>{activeTool==='measure'?'退出测量':'测量'}</Button>
-  <Button size="small" style={{ background: activeTool==='faceSelect'?'#ff9800':'#333', border:'1px solid #ff9800', color:'#fff'}} onClick={()=>setActiveTool('faceSelect')}>选面</Button>
-  <Button size="small" style={{ background:'#455a64', border:'1px solid #607d8b', color:'#fff'}} onClick={undo}>撤销</Button>
-  <Button size="small" style={{ background:'#455a64', border:'1px solid #607d8b', color:'#fff'}} onClick={redo}>重做</Button>
-  <Button size="small" style={{ background: booleanMode==='backend'?'#673ab7':'#333', border:'1px solid #673ab7', color:'#fff'}} onClick={toggleBooleanMode}>布尔:{booleanMode==='backend'?'后端':'本地'}</Button>
-  <label style={{color:'#ccc',fontSize:11,display:'flex',alignItems:'center',gap:4}}>
-    <input type='checkbox' checked={preserveOriginal} onChange={e=>setPreserveOriginal(e.target.checked)} />保留原件
-  </label>
-  <div style={{background:'rgba(0,0,0,0.45)',padding:'4px 6px',borderRadius:4,display:'flex',flexDirection:'column',gap:2}}>
-    <span style={{color:'#fff',fontSize:10}}>过滤</span>
-    <label style={{color:'#ccc',fontSize:10}}><input type='checkbox' checked={snapUseVertex} onChange={e=>{setSnapUseVertex(e.target.checked); featureNeedsRebuildRef.current=true;}}/> 顶点</label>
-    <label style={{color:'#ccc',fontSize:10}}><input type='checkbox' checked={snapUseEdgeMid} onChange={e=>{setSnapUseEdgeMid(e.target.checked); featureNeedsRebuildRef.current=true;}}/> 边中点</label>
-    <label style={{color:'#ccc',fontSize:10}}><input type='checkbox' checked={snapUseFaceCenter} onChange={e=>{setSnapUseFaceCenter(e.target.checked); featureNeedsRebuildRef.current=true;}}/> 面中心</label>
-    <span style={{color:'#0fd',fontSize:10}}>SNAP:{lastSnapType}</span>
-  </div>
-      </div>
+      {/* 集成新图标工具栏 */}
+      <ViewportToolbar
+        activeTool={activeTool}
+        setActiveTool={setActiveTool}
+        enableSnapping={enableSnapping}
+        toggleSnapping={()=>setEnableSnapping(s=>!s)}
+        undo={undo}
+        redo={redo}
+        booleanMode={booleanMode}
+        toggleBooleanMode={toggleBooleanMode}
+        preserveOriginal={preserveOriginal}
+        setPreserveOriginal={v=>setPreserveOriginal(v)}
+        lastSnapType={lastSnapType}
+        onResetCamera={resetCamera}
+        onScreenshot={()=> onAction?.('screenshot')}
+      />
 
       {/* 质量控制面板 */}
       {showControls && (
@@ -1243,9 +1226,10 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
   )}
   {activeTool==='sketch' && (
     <div style={{display:'flex', gap:4}}>
-      <Button size="small" style={{background: isSketchClosed?'#0097a7':'#004d60', color:'#fff'}} disabled={!sketchPoints.length} onClick={()=> resetSketch()}>重置草图</Button>
-      <Button size="small" style={{background: isSketchClosed?'#ff7043':'#555', color:'#fff'}} disabled={!sketchPoints.length} onClick={()=> { if(!isSketchClosed && sketchPoints.length>2) setIsSketchClosed(true); }}>闭合</Button>
-      <Button size="small" style={{background:'#455a64', color:'#fff'}} disabled={!isSketchClosed} onClick={()=> {/* 将来：生成预览或拉伸 */}}>拉伸</Button>
+      <Tooltip title="重置草图 (Esc)"><Button size="small" style={{background: isSketchClosed?'#0097a7':'#004d60', color:'#fff'}} disabled={!sketchPoints.length} onClick={()=> resetSketch()}>重置</Button></Tooltip>
+      <Tooltip title="闭合多边形 (双击 / 按 C)"><Button size="small" style={{background: isSketchClosed?'#ff7043':'#555', color:'#fff'}} disabled={!sketchPoints.length} onClick={()=> { if(!isSketchClosed && sketchPoints.length>2) setIsSketchClosed(true); }}>闭合</Button></Tooltip>
+      <Tooltip title="拉伸生成实体 (Enter)"><Button size="small" style={{background:'#455a64', color:'#fff'}} disabled={!isSketchClosed} onClick={()=> { performExtrude(); }}>拉伸</Button></Tooltip>
+      <Tooltip title="高度(滚轮或 H/J 临时调节 TBD)"><input type='number' value={extrudeHeight} onChange={e=> setExtrudeHeight(parseFloat(e.target.value)||0)} style={{width:60, background:'#1d2535', color:'#fff', border:'1px solid #00bcd4', borderRadius:4}}/></Tooltip>
     </div>
   )}
       </div>
