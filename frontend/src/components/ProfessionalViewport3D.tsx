@@ -943,6 +943,29 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
   const undoMeasurementPoint = () => setMeasurePoints(p=>p.slice(0,-1));
 
   const resetSketch = () => { setSketchPoints([]); setIsSketchClosed(false); if(sketchLineRef.current){ scene.remove(sketchLineRef.current); sketchLineRef.current.geometry.dispose(); sketchLineRef.current=null;} if(sketchPreviewMeshRef.current){ scene.remove(sketchPreviewMeshRef.current); sketchPreviewMeshRef.current.geometry.dispose(); sketchPreviewMeshRef.current=null;} };
+  // 通用线段清理（草图/测量/选面等临时几何）
+  const clearEphemeralLines = useCallback(()=>{
+    if(!scene) return;
+    const targetNames = new Set(['sketch-line','measure-line','measure-angle-arc']);
+    scene.traverse(obj=>{
+      if(obj.type==='Line' && (targetNames.has(obj.name) || obj.name.startsWith('selection-face-outline'))){
+        obj.parent?.remove(obj);
+      }
+    });
+    if(sketchLineRef.current){ sketchLineRef.current.geometry?.dispose(); sketchLineRef.current=null; }
+    if(measureLineRef.current){ measureLineRef.current.geometry?.dispose(); measureLineRef.current=null; }
+    if(measureAngleArcRef.current){ measureAngleArcRef.current.geometry?.dispose(); measureAngleArcRef.current=null; }
+  },[scene]);
+
+  // 当切换回选择工具时自动清理临时线
+  useEffect(()=>{
+    if(activeTool==='select'){
+      clearEphemeralLines();
+    }
+  },[activeTool, clearEphemeralLines]);
+
+  // 组件卸载时兜底清理
+  useEffect(()=>{ return ()=>{ clearEphemeralLines(); }; },[clearEphemeralLines]);
 
   const toggleBooleanMode = () => setBooleanMode(m=> m==='local'?'backend':'local');
 
