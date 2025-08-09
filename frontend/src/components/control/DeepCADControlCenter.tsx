@@ -86,15 +86,10 @@ if (typeof document !== 'undefined' && !document.getElementById('dreamy-styles')
 // 高德地图和可视化相关
 import AMapLoader from '@amap/amap-jsapi-loader';
 import { Deck } from '@deck.gl/core';
-import {
-  ScatterplotLayer,
-  ArcLayer,
-  ColumnLayer,
-  LineLayer,
-  IconLayer,
-  TextLayer
-} from '@deck.gl/layers';
-import { HeatmapLayer } from '@deck.gl/aggregation-layers';
+import { ScatterplotLayer, ArcLayer, ColumnLayer } from '@deck.gl/layers';
+// Remove static HeatmapLayer import; will lazy load when building layers
+// Lazy deck layer loader (unifies HeatmapLayer access & reduces initial bundle)
+import { getDeckLayers } from '../../utils/mapLayersUtil';
 
 // 服务和工具
 import { amapWeatherService, WeatherData } from '../../services/AmapWeatherService';
@@ -464,8 +459,8 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           pitch: 60, // 保持3D视角
           bearing: 0
         },
-        controller: false, // 禁用Deck.gl控制器，使用高德地图的控制器
-        layers: [
+  controller: false, // 禁用Deck.gl控制器，使用高德地图的控制器
+  layers: [
           // 基坑项目散点图层
           new ScatterplotLayer({
             id: 'excavation-projects',
@@ -503,46 +498,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
             }
           }),
 
-          // 风险等级热力图
-          new HeatmapLayer({
-            id: 'risk-heatmap',
-            data: filteredProjects.filter(p => p.riskLevel === 'high' || p.riskLevel === 'critical'),
-            getPosition: (d: ExcavationProject) => [d.location.lng, d.location.lat],
-            getWeight: (d: ExcavationProject) => d.riskLevel === 'critical' ? 2 : 1,
-            radiusPixels: 100,
-            intensity: 0.3,
-            threshold: 0.1,
-            colorRange: [
-              [255, 255, 0, 50],   // 黄色
-              [255, 150, 0, 100],  // 橙色
-              [255, 50, 0, 150]    // 红色
-            ]
-          }),
-
-          // 🌤️ 天气温度热力图 - 科技感天气可视化
-          new HeatmapLayer({
-            id: 'weather-temperature',
-            data: filteredProjects.map(project => {
-              const weather = weatherDataMap.get(project.id);
-              return weather ? {
-                position: [project.location.lng, project.location.lat],
-                weight: weather.temperature
-              } : null;
-            }).filter(Boolean),
-            getPosition: (d: any) => d.position,
-            getWeight: (d: any) => d.weight,
-            radiusPixels: 100,
-            intensity: 1.2,
-            threshold: 0.02,
-            colorRange: [
-              [0, 100, 255, 120],   // 冷 - 深蓝
-              [0, 200, 255, 140],   // 凉 - 蓝色
-              [100, 255, 200, 160], // 适中 - 青绿
-              [255, 255, 100, 180], // 暖 - 黄色
-              [255, 150, 0, 200],   // 热 - 橙色
-              [255, 50, 50, 220]    // 很热 - 红色
-            ]
-          }),
+          // Heatmap layers will be appended asynchronously after lazy load to reduce initial bundle size
 
           // 🏗️ 项目深度3D柱状图
           new ColumnLayer({
@@ -591,6 +547,51 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           })
         ]
       });
+
+      // 异步懒加载 HeatmapLayer 并追加
+      (async () => {
+        try {
+          const { HeatmapLayer } = await getDeckLayers();
+          const riskLayer = new HeatmapLayer({
+            id: 'risk-heatmap',
+            data: filteredProjects.filter(p => p.riskLevel === 'high' || p.riskLevel === 'critical'),
+            getPosition: (d: ExcavationProject) => [d.location.lng, d.location.lat],
+            getWeight: (d: ExcavationProject) => d.riskLevel === 'critical' ? 2 : 1,
+            radiusPixels: 100,
+            intensity: 0.3,
+            threshold: 0.1,
+            colorRange: [
+              [255, 255, 0, 50],
+              [255, 150, 0, 100],
+              [255, 50, 0, 150]
+            ]
+          });
+          const weatherLayer = new HeatmapLayer({
+            id: 'weather-temperature',
+            data: filteredProjects.map(project => {
+              const weather = weatherDataMap.get(project.id);
+              return weather ? { position: [project.location.lng, project.location.lat], weight: weather.temperature } : null;
+            }).filter(Boolean),
+            getPosition: (d: any) => d.position,
+            getWeight: (d: any) => d.weight,
+            radiusPixels: 100,
+            intensity: 1.2,
+            threshold: 0.02,
+            colorRange: [
+              [0, 100, 255, 120],
+              [0, 200, 255, 140],
+              [100, 255, 200, 160],
+              [255, 255, 100, 180],
+              [255, 150, 0, 200],
+              [255, 50, 50, 220]
+            ]
+          });
+          deck.setProps({ layers: [...(deck.props.layers || []), riskLayer, weatherLayer] });
+          console.log('🔥 Heatmap layers (risk & weather) loaded lazily');
+        } catch (e) {
+          console.warn('HeatmapLayer lazy load failed:', e);
+        }
+      })();
 
       deckRef.current = deck;
 
