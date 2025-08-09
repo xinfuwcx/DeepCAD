@@ -1,5 +1,5 @@
 /* eslint-disable react/jsx-no-inline-styles */
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { Layout, Menu } from 'antd';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -13,19 +13,15 @@ import {
   DatabaseOutlined,
   EnvironmentOutlined
 } from '@ant-design/icons';
-import TechIcon from '../ui/TechIcon';
 import TechLogo from '../ui/TechLogo';
-import { ProjectControlCenter } from '../control/ProjectControlCenter';
-import { DeepCADControlCenter } from '../control/DeepCADControlCenter';
+const ProjectManagement3DScreen = React.lazy(() => import('../../views/ProjectManagement3DScreen'));
+import UnifiedControlCenterScreen from '../../views/UnifiedControlCenterScreen';
 import EnhancedMainWorkspaceView from '../../views/EnhancedMainWorkspaceView';
 import PhysicsAIView from '../../views/PhysicsAIView';
 import MaterialLibraryView from '../../views/MaterialLibraryView';
 import SettingsView from '../../views/SettingsView';
 import AIAssistantFloating from '../AIAssistantFloating';
-import ComputationExpertView from '../../views/ComputationExpertView';
-// import { ArchitectZeroUIController } from '../control/ArchitectZeroUIController';
-// import { createArchitectZeroUIInterface } from '../../services/ArchitectZeroUIInterface';
-import type { MapStyle } from '../../services/GeoThreeMapController';
+// Removed unused imports (ComputationExpertView, MapStyle, legacy controllers)
 
 const { Sider, Content } = Layout;
 
@@ -186,36 +182,6 @@ const MainLayout: React.FC = () => {
             border: 'none',
             padding: '0 16px'
           }}
-          styles={{
-            item: {
-              margin: '8px 0',
-              borderRadius: '10px',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              backdropFilter: 'blur(10px)',
-              background: 'rgba(255, 255, 255, 0.05)',
-              color: '#ffffff90',
-              fontSize: '14px',
-              fontWeight: 'normal',
-              letterSpacing: '0.5px',
-              transition: 'all 0.3s ease'
-            },
-            itemSelected: {
-              background: 'linear-gradient(135deg, rgba(0, 255, 255, 0.25), rgba(255, 0, 255, 0.15))',
-              borderColor: '#00ffff80',
-              color: '#ffffff',
-              fontWeight: 'bold',
-              boxShadow: '0 0 15px rgba(0, 255, 255, 0.3)'
-            },
-            itemHover: {
-              background: 'rgba(0, 255, 255, 0.1)',
-              borderColor: 'rgba(0, 255, 255, 0.3)',
-              color: '#ffffff'
-            },
-            itemIcon: {
-              color: 'inherit',
-              fontSize: '16px'
-            }
-          }}
         />
       </Sider>
 
@@ -231,7 +197,7 @@ const MainLayout: React.FC = () => {
               <EnhancedMainWorkspaceView activeModule="excavation-design" />
             } />
             <Route path="dashboard" element={
-              <DeepCADControlCenter onExit={() => {}} />
+              <UnifiedControlCenterScreen />
             } />
             <Route path="excavation-design" element={<EnhancedMainWorkspaceView activeModule="excavation-design" />} />
             <Route path="support-structure" element={<EnhancedMainWorkspaceView activeModule="support-structure" />} />
@@ -243,7 +209,23 @@ const MainLayout: React.FC = () => {
             <Route path="results" element={<EnhancedMainWorkspaceView activeModule="results" />} />
             <Route path="physics-ai" element={<PhysicsAIView />} />
             <Route path="materials" element={<MaterialLibraryView />} />
-            <Route path="project-management" element={<DeepCADControlCenter onExit={() => {}} />} />
+            {/* 新增：项目管理主路由与别名，采用懒加载组件并包裹 Suspense */}
+            <Route path="projects" element={
+              <Suspense fallback={<div style={{color:'#fff', padding: 16}}>Loading Project Management…</div>}>
+                <ProjectManagement3DScreen />
+              </Suspense>
+            } />
+            <Route path="project-management-3d" element={
+              <Suspense fallback={<div style={{color:'#fff', padding: 16}}>Loading Project Management…</div>}>
+                <ProjectManagement3DScreen />
+              </Suspense>
+            } />
+            {/* 保留旧路径以兼容历史链接 */}
+            <Route path="project-management" element={
+              <Suspense fallback={<div style={{color:'#fff', padding: 16}}>Loading Project Management…</div>}>
+                <ProjectManagement3DScreen />
+              </Suspense>
+            } />
             <Route path="settings" element={<SettingsView />} />
             {/* 兼容性重定向：避免旧链接404 */}
             <Route path="computation" element={

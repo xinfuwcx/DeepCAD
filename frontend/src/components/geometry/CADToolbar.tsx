@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { eventBus } from '../../core/eventBus';
 import { Button, Tooltip, Divider, message, Modal, InputNumber, Select, Space } from 'antd';
 import { cadGeometryEngine, CADObject, GeometryCreationParams } from '../../services/CADGeometryEngine';
 import {
@@ -70,6 +71,22 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
   className = '',
   positionMode = 'fixed'
 }) => {
+  // 初始隐藏状态也读取全局同步标志，避免先闪现再隐藏
+  const [hidden,setHidden] = useState<boolean>(() => (typeof window !== 'undefined' && (window as any).__HIDE_LEGACY_CAD_TOOLBAR__ === true));
+  // 监听全局隐藏/显示事件以便被高级视口接管
+  useEffect(()=>{
+    const offHide = eventBus.on('ui:hideCADToolbar', ()=> {
+      (window as any).__HIDE_LEGACY_CAD_TOOLBAR__ = true;
+      setHidden(true);
+    });
+    const offShow = eventBus.on('ui:showCADToolbar', ()=> {
+      (window as any).__HIDE_LEGACY_CAD_TOOLBAR__ = false;
+      setHidden(false);
+    });
+    return ()=>{ offHide(); offShow(); };
+  },[]);
+
+  if(hidden) return null;
   const [selectedObjects, setSelectedObjects] = useState<CADObject[]>([]);
   const [allObjects, setAllObjects] = useState<CADObject[]>([]);
   const [isGeometryModalVisible, setIsGeometryModalVisible] = useState(false);
