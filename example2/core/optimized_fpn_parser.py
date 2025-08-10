@@ -221,7 +221,7 @@ class OptimizedFPNParser:
         return None
 
     def parse_load_group_line(self, line: str) -> Optional[Dict[str, Any]]:
-        """解析荷载组行"""
+        """解析荷载组行 (LSET)"""
         try:
             parts = [p.strip() for p in line.split(',')]
             if len(parts) >= 3:
@@ -232,6 +232,43 @@ class OptimizedFPNParser:
                 }
         except (ValueError, IndexError) as e:
             logger.debug(f"解析荷载组行失败: {line[:50]}... - {e}")
+        return None
+
+    def parse_boundary_set_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """解析边界组行 (BSET)"""
+        try:
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 3:
+                return {
+                    'id': int(parts[1]),
+                    'name': parts[2].strip() if parts[2] else f"BoundaryGroup_{parts[1]}",
+                    'type': 'boundary_group'
+                }
+        except (ValueError, IndexError) as e:
+            logger.debug(f"解析边界组行失败: {line[:50]}... - {e}")
+        return None
+
+    def parse_const_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """解析约束行 (CONST , group_id, node_id, dof_code)"""
+        try:
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 4:
+                group_id = int(parts[1]) if parts[1] else None
+                node_id = int(parts[2]) if parts[2] else None
+                code_str = parts[3] if parts[3] else ''
+                # 规范化为6位字符串
+                code_str = ''.join(ch for ch in code_str if ch.isdigit())
+                if len(code_str) < 6:
+                    code_str = (code_str + '000000')[:6]
+                dof_bools = [c == '1' for c in code_str[:6]]
+                return {
+                    'group_id': group_id,
+                    'node_id': node_id,
+                    'dof_code': code_str,
+                    'dof_bools': dof_bools
+                }
+        except (ValueError, IndexError) as e:
+            logger.debug(f"解析CONST行失败: {line[:50]}... - {e}")
         return None
 
     def parse_madd_line(self, line: str) -> Optional[Dict[str, Any]]:
@@ -458,11 +495,29 @@ class OptimizedFPNParser:
                         load_group_data = self.parse_load_group_line(line)
                         if load_group_data:
                             result['load_groups'][load_group_data['id']] = load_group_data
-                    
+
+                    elif line.startswith('BSET'):
+                        current_section = "boundary_groups"
+                        bset = self.parse_boundary_set_line(line)
+                        if bset:
+                            result['boundary_groups'][bset['id']] = bset
+
+                    elif line.startswith('CONST'):
+                        current_section = "constraints"
+                        cst = self.parse_const_line(line)
+                        if cst:
+                            gid = cst['group_id']
+                            if gid is not None:
+                                grp = result['boundary_groups'].setdefault(gid, {'id': gid, 'name': f'BoundaryGroup_{gid}', 'type': 'boundary_group'})
+                                nodes = grp.setdefault('nodes', [])
+                                dofs = grp.setdefault('constraints', [])
+                                nodes.append(cst['node_id'])
+                                dofs.append({'node': cst['node_id'], 'dof_code': cst['dof_code'], 'dof_bools': cst['dof_bools']})
+
                     # 定期调用进度回调
                     if self.progress_callback and line_num % 1000 == 0:
                         self.progress_callback(progress)
-                        
+
         except Exception as e:
             logger.error(f"解析文件时出错: {e}")
             raise

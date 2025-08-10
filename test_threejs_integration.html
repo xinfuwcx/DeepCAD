@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>地质建模 Three.js 集成测试</title>
+    <style>
+        body {
+            margin: 0;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            font-family: 'Segoe UI', Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 100;
+            max-width: 300px;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            z-index: 100;
+        }
+        
+        .control-group {
+            margin-bottom: 10px;
+        }
+        
+        label {
+            display: inline-block;
+            width: 80px;
+            font-size: 12px;
+        }
+        
+        input[type="range"] {
+            width: 100px;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 2px;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            z-index: 200;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .success {
+            color: #4CAF50;
+        }
+        
+        .error {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    
+    <div id="info">
+        <h3 style="margin-top: 0; color: #4CAF50;">🌍 地质建模 Three.js 测试</h3>
+        <div id="status">准备加载地质数据...</div>
+        <div id="mesh-info" style="margin-top: 10px; font-size: 12px;"></div>
+    </div>
+    
+    <div id="controls">
+        <div class="control-group">
+            <label>网格:</label>
+            <input type="checkbox" id="wireframe" checked> 线框
+            <input type="checkbox" id="points" checked> 钻孔
+        </div>
+        <div class="control-group">
+            <label>透明度:</label>
+            <input type="range" id="opacity" min="0.1" max="1.0" step="0.1" value="0.8">
+            <span id="opacity-value">0.8</span>
+        </div>
+        <div class="control-group">
+            <button onclick="resetCamera()">重置视角</button>
+            <button onclick="toggleAnimation()">旋转</button>
+        </div>
+    </div>
+    
+    <div id="loading">
+        <div class="spinner"></div>
+        <div>加载地质网格数据...</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <script>
+        let scene, camera, renderer, controls;
+        let meshGroup, boreholesGroup;
+        let animationId;
+        let isAnimating = false;
+        
+        // 初始化Three.js场景
+        function init() {
+            // 场景
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x001122);
+            scene.fog = new THREE.Fog(0x001122, 100, 1000);
+            
+            // 相机
+            camera = new THREE.PerspectiveCamera(
+                60,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                2000
+            );
+            camera.position.set(100, 50, 100);
+            
+            // 渲染器
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // 控制器
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.minDistance = 10;
+            controls.maxDistance = 500;
+            
+            // 光照
+            setupLighting();
+            
+            // 网格和钻孔组
+            meshGroup = new THREE.Group();
+            boreholesGroup = new THREE.Group();
+            scene.add(meshGroup);
+            scene.add(boreholesGroup);
+            
+            // 添加坐标轴
+            const axesHelper = new THREE.AxesHelper(20);
+            scene.add(axesHelper);
+            
+            // 添加网格
+            const gridHelper = new THREE.GridHelper(200, 20, 0x444444, 0x444444);
+            gridHelper.position.y = -10;
+            scene.add(gridHelper);
+            
+            console.log('Three.js场景初始化完成');
+        }
+        
+        function setupLighting() {
+            // 环境光
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+            
+            // 方向光
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(50, 50, 25);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+            
+            // 半球光
+            const hemisphereLight = new THREE.HemisphereLight(0x87CEEB, 0x8B4513, 0.3);
+            scene.add(hemisphereLight);
+        }
+        
+        // 加载地质网格数据
+        async function loadGeologyData() {
+            try {
+                updateStatus('正在获取地质数据文件列表...', 'info');
+                
+                // 获取最新的地质网格文件
+                const response = await fetch('data/test_geology/geology_mesh_06c64e52.json');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('地质数据加载完成:', data);
+                
+                updateStatus('地质网格数据加载成功', 'success');
+                
+                // 显示网格信息
+                const metadata = data.metadata || {};
+                document.getElementById('mesh-info').innerHTML = `
+                    <strong>网格信息:</strong><br>
+                    顶点: ${metadata.n_vertices || 0}<br>
+                    三角形: ${metadata.n_triangles || 0}<br>
+                    钻孔: ${metadata.n_boreholes || 0}<br>
+                    分辨率: ${metadata.grid_resolution || 0}m
+                `;
+                
+                // 创建地质网格
+                createGeologyMesh(data);
+                
+                // 创建钻孔点
+                createBoreholePoints(data);
+                
+                // 隐藏加载指示器
+                document.getElementById('loading').style.display = 'none';
+                
+                // 调整相机位置
+                fitCameraToMesh();
+                
+            } catch (error) {
+                console.error('地质数据加载失败:', error);
+                updateStatus(`数据加载失败: ${error.message}`, 'error');
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+        
+        function createGeologyMesh(data) {
+            const vertices = new Float32Array(data.vertices);
+            const indices = new Uint32Array(data.indices);
+            const colors = new Float32Array(data.colors);
+            
+            // 创建几何体
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+            geometry.computeVertexNormals();
+            
+            // 创建材质
+            const material = new THREE.MeshLambertMaterial({
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8,
+                side: THREE.DoubleSide
+            });
+            
+            // 创建网格
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.name = 'geology_surface';
+            meshGroup.add(mesh);
+            
+            // 创建线框版本
+            const wireframeMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ff00,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.3
+            });
+            const wireframeMesh = new THREE.Mesh(geometry.clone(), wireframeMaterial);
+            wireframeMesh.name = 'geology_wireframe';
+            meshGroup.add(wireframeMesh);
+            
+            console.log(`地质网格创建完成: ${vertices.length/3} 顶点, ${indices.length/3} 三角形`);
+        }
+        
+        function createBoreholePoints(data) {
+            if (!data.borehole_points || data.borehole_points.length === 0) {
+                console.log('没有钻孔点数据');
+                return;
+            }
+            
+            const points = new Float32Array(data.borehole_points);
+            const colors = new Float32Array(data.borehole_colors);
+            
+            // 创建钻孔点几何体
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(points, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            
+            // 创建点材质
+            const material = new THREE.PointsMaterial({
+                size: 3,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8
+            });
+            
+            const pointsMesh = new THREE.Points(geometry, material);
+            pointsMesh.name = 'borehole_points';
+            boreholesGroup.add(pointsMesh);
+            
+            // 为每个钻孔创建柱体
+            for (let i = 0; i < points.length; i += 3) {
+                const x = points[i];
+                const y = points[i + 1];
+                const z = points[i + 2];
+                
+                const cylinderGeometry = new THREE.CylinderGeometry(1, 1, Math.abs(z) + 2, 8);
+                const cylinderMaterial = new THREE.MeshLambertMaterial({
+                    color: 0xff4444,
+                    transparent: true,
+                    opacity: 0.6
+                });
+                
+                const cylinder = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
+                cylinder.position.set(x, z/2, y);  // 注意Y和Z的对应关系
+                boreholesGroup.add(cylinder);
+            }
+            
+            console.log(`钻孔点创建完成: ${points.length/3} 个钻孔`);
+        }
+        
+        function fitCameraToMesh() {
+            if (meshGroup.children.length === 0) return;
+            
+            const box = new THREE.Box3().setFromObject(meshGroup);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const fov = camera.fov * (Math.PI / 180);
+            const cameraDistance = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.5;
+            
+            camera.position.set(
+                center.x + cameraDistance,
+                center.y + cameraDistance * 0.5,
+                center.z + cameraDistance
+            );
+            
+            controls.target.copy(center);
+            controls.update();
+            
+            console.log('相机位置已调整到最佳视角');
+        }
+        
+        function updateStatus(message, type) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = type;
+        }
+        
+        // 控制功能
+        function resetCamera() {
+            fitCameraToMesh();
+        }
+        
+        function toggleAnimation() {
+            isAnimating = !isAnimating;
+            document.querySelector('button[onclick="toggleAnimation()"]').textContent = 
+                isAnimating ? '停止旋转' : '旋转';
+        }
+        
+        // 控制事件监听
+        document.getElementById('wireframe').addEventListener('change', function() {
+            const wireframe = meshGroup.getObjectByName('geology_wireframe');
+            if (wireframe) {
+                wireframe.visible = this.checked;
+            }
+        });
+        
+        document.getElementById('points').addEventListener('change', function() {
+            boreholesGroup.visible = this.checked;
+        });
+        
+        document.getElementById('opacity').addEventListener('input', function() {
+            const value = parseFloat(this.value);
+            document.getElementById('opacity-value').textContent = value;
+            
+            meshGroup.children.forEach(child => {
+                if (child.material) {
+                    child.material.opacity = value;
+                }
+            });
+        });
+        
+        // 渲染循环
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+            
+            if (isAnimating && meshGroup.children.length > 0) {
+                meshGroup.rotation.y += 0.01;
+                boreholesGroup.rotation.y += 0.01;
+            }
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        // 窗口调整
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        window.addEventListener('resize', onWindowResize);
+        
+        // 初始化并启动
+        init();
+        loadGeologyData();
+        animate();
+        
+        console.log('地质建模 Three.js 集成测试启动完成');
+    </script>
+</body>
+</html>

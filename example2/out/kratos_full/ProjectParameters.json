@@ -1,0 +1,424 @@
+{
+  "problem_data": {
+    "problem_name": "excavation_analysis",
+    "echo_level": 1,
+    "parallel_type": "OpenMP",
+    "start_time": 0.0,
+    "end_time": 3.0
+  },
+  "solver_settings": {
+    "solver_type": "Static",
+    "model_part_name": "Structure",
+    "domain_size": 3,
+    "echo_level": 1,
+    "analysis_type": "non_linear",
+    "model_import_settings": {
+      "input_type": "mdpa",
+      "input_filename": "excavation_model"
+    },
+    "material_import_settings": {
+      "materials_filename": "materials.json"
+    },
+    "time_stepping": {
+      "time_step": 1.0
+    },
+    "max_iteration": 50,
+    "reform_dofs_at_each_step": false,
+    "compute_reactions": true,
+    "line_search": false,
+    "convergence_criterion": "residual_criterion",
+    "residual_relative_tolerance": 1e-05,
+    "residual_absolute_tolerance": 1e-09,
+    "linear_solver_settings": {
+      "solver_type": "bicgstab",
+      "max_iteration": 500,
+      "tolerance": 1e-08,
+      "preconditioner_type": "ilu0"
+    }
+  },
+  "processes": {
+    "constraints_process_list": [
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.BSET_7",
+          "variable_name": "DISPLACEMENT",
+          "constrained": [
+            true,
+            true,
+            true
+          ],
+          "value": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interval": [
+            0.0,
+            "End"
+          ]
+        }
+      }
+    ],
+    "loads_process_list": [
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_1",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_89",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_649",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_695",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_706",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_735",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_803",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_818",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_833",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_847",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_857",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_890",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_906",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_979",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_989",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_1011",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_1025",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_1052",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_1065",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_1081",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_1092",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_1297",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_1394",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            1.0,
+            2.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_flag_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignFlagProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_0",
+          "flag_name": "ACTIVE",
+          "value": true,
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      }
+    ]
+  },
+  "output_processes": {
+    "vtk_output": [
+      {
+        "python_module": "vtk_output_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "VtkOutputProcess",
+        "Parameters": {
+          "model_part_name": "Structure",
+          "file_format": "binary",
+          "output_interval": 1,
+          "output_control_type": "step",
+          "write_ids": true,
+          "nodal_solution_step_data_variables": [
+            "DISPLACEMENT"
+          ],
+          "gauss_point_variables_in_elements": []
+        }
+      }
+    ]
+  }
+}

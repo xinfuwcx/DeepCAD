@@ -1,0 +1,1813 @@
+{
+  "description": "标准深基坑项目 - 200x200m区域，12个钻孔",
+  "holes": [
+    {
+      "id": "BH001",
+      "name": "钻孔BH001",
+      "x": 0,
+      "y": 0,
+      "z": -42.25,
+      "ground_elevation": 3.49,
+      "depth": 45.74,
+      "water_level": 1.52,
+      "layers": [
+        {
+          "layer_id": 1,
+          "name": "素填土",
+          "soil_type": "素填土",
+          "top_depth": 0,
+          "bottom_depth": 2.044442103245825,
+          "thickness": 2.044442103245825,
+          "color": "#8B7D6B",
+          "density": 1745.4704155512984,
+          "properties": {
+            "cohesion": 15.73363942379229,
+            "friction_angle": 29.98737468176769,
+            "elastic_modulus": 15492.693448612186,
+            "poisson_ratio": 0.3875690197032744,
+            "permeability": 1.6972849051694468e-06
+          }
+        },
+        {
+          "layer_id": 2,
+          "name": "粘土",
+          "soil_type": "粘土",
+          "top_depth": 2.044442103245825,
+          "bottom_depth": 7.029140039700367,
+          "thickness": 4.984697936454542,
+          "color": "#8B4513",
+          "density": 1977.4898404428427,
+          "properties": {
+            "cohesion": 27.716123406585943,
+            "friction_angle": 31.827304038066295,
+            "elastic_modulus": 21566.10065505921,
+            "poisson_ratio": 0.3736797146564862,
+            "permeability": 3.207214000546978e-06
+          }
+        },
+        {
+          "layer_id": 3,
+          "name": "淤泥质粘土",
+          "soil_type": "淤泥质粘土",
+          "top_depth": 7.029140039700367,
+          "bottom_depth": 10.711399444946977,
+          "thickness": 3.6822594052466098,
+          "color": "#556B2F",
+          "density": 1759.2315128117116,
+          "properties": {
+            "cohesion": 25.78805584418165,
+            "friction_angle": 20.327757799164413,
+            "elastic_modulus": 10225.241719212592,
+            "poisson_ratio": 0.33526457164229184,
+            "permeability": 8.490949906946552e-06
+          }
+        },
+        {
+          "layer_id": 4,
+          "name": "粉质粘土",
+          "soil_type": "粉质粘土",
+          "top_depth": 10.711399444946977,
+          "bottom_depth": 18.97491242735499,
+          "thickness": 8.263512982408013,
+          "color": "#CD853F",
+          "density": 1880.574902920466,
+          "properties": {
+            "cohesion": 43.508473243428014,
+            "friction_angle": 18.51325294035963,
+            "elastic_modulus": 13787.163938068024,
+            "poisson_ratio": 0.3844090370840631,
+            "permeability": 3.74716379751135e-06
+          }
+        },
+        {
+          "layer_id": 5,
+          "name": "粉砂",
+          "soil_type": "粉砂",
+          "top_depth": 18.97491242735499,
+          "bottom_depth": 23.751464734987536,
+          "thickness": 4.776552307632546,
+          "color": "#DEB887",
+          "density": 1936.524462336578,
+          "properties": {
+            "cohesion": 33.25735617566892,
+            "friction_angle": 16.017258887033726,
+            "elastic_modulus": 17501.012311011982,
+            "poisson_ratio": 0.32761238841958157,
+            "permeability": 2.5876062474082046e-06
+          }
+        },
+        {
+          "layer_id": 6,
+          "name": "细砂",
+          "soil_type": "细砂",
+          "top_depth": 23.751464734987536,
+          "bottom_depth": 34.51080072967802,
+          "thickness": 10.759335994690483,
+          "color": "#F4A460",
+          "density": 1970.5253335325774,
+          "properties": {
+            "cohesion": 25.4538923311811,
+            "friction_angle": 15.11837529469354,
+            "elastic_modulus": 19466.805516679753,
+            "poisson_ratio": 0.38251982520345357,
+            "permeability": 5.5103241482408965e-06
+          }
+        },
+        {
+          "layer_id": 7,
+          "name": "中砂",
+          "soil_type": "中砂",
+          "top_depth": 34.51080072967802,
+          "bottom_depth": 45.735372452510774,
+          "thickness": 11.224571722832758,
+          "color": "#D2691E",
+          "density": 1997.3952339115344,
+          "properties": {
+            "cohesion": 24.19200590944845,
+            "friction_angle": 22.05677168133441,
+            "elastic_modulus": 17301.34994631538,
+            "poisson_ratio": 0.29344476862599655,
+            "permeability": 3.6335775603346557e-06
+          }
+        }
+      ],
+      "metadata": {
+        "drilling_date": "2024-07-20",
+        "drilling_method": "回转钻进",
+        "sample_quality": "C",
+        "location_accuracy": "±0.1m"
+      }
+    },
+    {
+      "id": "BH002",
+      "name": "钻孔BH002",
+      "x": -80.0,
+      "y": -80.0,
+      "z": -40.21,
+      "ground_elevation": 5.47,
+      "depth": 45.69,
+      "water_level": 1.97,
+      "layers": [
+        {
+          "layer_id": 1,
+          "name": "素填土",
+          "soil_type": "素填土",
+          "top_depth": 0,
+          "bottom_depth": 3.0257714190185405,
+          "thickness": 3.0257714190185405,
+          "color": "#8B7D6B",
+          "density": 1848.9331516073194,
+          "properties": {
+            "cohesion": 41.53574416023009,
+            "friction_angle": 21.388451497250987,
+            "elastic_modulus": 15613.828107679743,
+            "poisson_ratio": 0.35727785589762456,
+            "permeability": 9.016749528694278e-06
+          }
+        },
+        {
+          "layer_id": 2,
+          "name": "粘土",
+          "soil_type": "粘土",
+          "top_depth": 3.0257714190185405,
+          "bottom_depth": 6.918939716918466,
+          "thickness": 3.893168297899926,
+          "color": "#8B4513",
+          "density": 1863.851440336132,
+          "properties": {
+            "cohesion": 21.82207228600535,
+            "friction_angle": 17.126960781446623,
+            "elastic_modulus": 19372.239058537158,
+            "poisson_ratio": 0.3286784757323214,
+            "permeability": 9.825569350309262e-06
+          }
+        },
+        {
+          "layer_id": 3,
+          "name": "淤泥质粘土",
+          "soil_type": "淤泥质粘土",
+          "top_depth": 6.918939716918466,
+          "bottom_depth": 9.900614764538883,
+          "thickness": 2.981675047620417,
+          "color": "#556B2F",
+          "density": 1723.2485016343119,
+          "properties": {
+            "cohesion": 31.286417730618258,
+            "friction_angle": 18.837463824156316,
+            "elastic_modulus": 20302.97433764107,
+            "poisson_ratio": 0.2685045879451294,
+            "permeability": 1.4220531252715181e-06
+          }
+        },
+        {
+          "layer_id": 4,
+          "name": "粉质粘土",
+          "soil_type": "粉质粘土",
+          "top_depth": 9.900614764538883,
+          "bottom_depth": 12.37143316106967,
+          "thickness": 2.4708183965307864,
+          "color": "#CD853F",
+          "density": 1806.3241837717244,
+          "properties": {
+            "cohesion": 17.93223792603517,
+            "friction_angle": 23.69143670860936,
+            "elastic_modulus": 16018.765222135498,
+            "poisson_ratio": 0.3793430104968334,
+            "permeability": 7.780423113176107e-07
+          }
+        },
+        {
+          "layer_id": 5,
+          "name": "粉砂",
+          "soil_type": "粉砂",
+          "top_depth": 12.37143316106967,
+          "bottom_depth": 22.164544953490164,
+          "thickness": 9.793111792420495,
+          "color": "#DEB887",
+          "density": 1981.9562864836653,
+          "properties": {
+            "cohesion": 36.88947982599021,
+            "friction_angle": 25.44153374194798,
+            "elastic_modulus": 16893.88118165024,
+            "poisson_ratio": 0.30294323786036736,
+            "permeability": 1.0609638439456364e-06
+          }
+        },
+        {
+          "layer_id": 6,
+          "name": "细砂",
+          "soil_type": "细砂",
+          "top_depth": 22.164544953490164,
+          "bottom_depth": 33.64309532616726,
+          "thickness": 11.478550372677097,
+          "color": "#F4A460",
+          "density": 2049.651040461733,
+          "properties": {
+            "cohesion": 40.14237572980393,
+            "friction_angle": 33.891319692917605,
+            "elastic_modulus": 18180.995298296526,
+            "poisson_ratio": 0.30839850904036276,
+            "permeability": 8.791314338115884e-06
+          }
+        },
+        {
+          "layer_id": 7,
+          "name": "中砂",
+          "soil_type": "中砂",
+          "top_depth": 33.64309532616726,
+          "bottom_depth": 40.14580838695808,
+          "thickness": 6.502713060790814,
+          "color": "#D2691E",
+          "density": 2061.0287878934028,
+          "properties": {
+            "cohesion": 18.83216210703472,
+            "friction_angle": 21.698477811824947,
+            "elastic_modulus": 11554.279545911711,
+            "poisson_ratio": 0.3410406606067522,
+            "permeability": 6.23016634038061e-06
+          }
+        },
+        {
+          "layer_id": 8,
+          "name": "砂质粘土",
+          "soil_type": "砂质粘土",
+          "top_depth": 40.14580838695808,
+          "bottom_depth": 45.68764337850429,
+          "thickness": 5.541834991546214,
+          "color": "#A0522D",
+          "density": 1907.1248913227357,
+          "properties": {
+            "cohesion": 33.28063443925346,
+            "friction_angle": 31.756796863718026,
+            "elastic_modulus": 20335.41257280165,
+            "poisson_ratio": 0.2817241217932468,
+            "permeability": 2.1747590874770416e-06
+          }
+        }
+      ],
+      "metadata": {
+        "drilling_date": "2024-10-27",
+        "drilling_method": "回转钻进",
+        "sample_quality": "C",
+        "location_accuracy": "±0.1m"
+      }
+    },
+    {
+      "id": "BH003",
+      "name": "钻孔BH003",
+      "x": 80.0,
+      "y": -80.0,
+      "z": -44.6,
+      "ground_elevation": 2.71,
+      "depth": 47.31,
+      "water_level": -0.86,
+      "layers": [
+        {
+          "layer_id": 1,
+          "name": "素填土",
+          "soil_type": "素填土",
+          "top_depth": 0,
+          "bottom_depth": 1.9941709885681795,
+          "thickness": 1.9941709885681795,
+          "color": "#8B7D6B",
+          "density": 1856.0988069187947,
+          "properties": {
+            "cohesion": 25.94787714852084,
+            "friction_angle": 27.362782240015875,
+            "elastic_modulus": 15248.915036815006,
+            "poisson_ratio": 0.29902274991066036,
+            "permeability": 1.8438675254109917e-06
+          }
+        },
+        {
+          "layer_id": 2,
+          "name": "粘土",
+          "soil_type": "粘土",
+          "top_depth": 1.9941709885681795,
+          "bottom_depth": 6.592537672554094,
+          "thickness": 4.5983666839859145,
+          "color": "#8B4513",
+          "density": 1882.4877075653526,
+          "properties": {
+            "cohesion": 31.733389291011992,
+            "friction_angle": 25.15974916737572,
+            "elastic_modulus": 23661.093676838726,
+            "poisson_ratio": 0.286622261644332,
+            "permeability": 6.339754591562678e-07
+          }
+        },
+        {
+          "layer_id": 3,
+          "name": "淤泥质粘土",
+          "soil_type": "淤泥质粘土",
+          "top_depth": 6.592537672554094,
+          "bottom_depth": 11.671619956207302,
+          "thickness": 5.079082283653207,
+          "color": "#556B2F",
+          "density": 1691.1125406023696,
+          "properties": {
+            "cohesion": 41.25190084905381,
+            "friction_angle": 28.8148750657438,
+            "elastic_modulus": 9564.84787713705,
+            "poisson_ratio": 0.36222856493862327,
+            "permeability": 2.2201853911234237e-06
+          }
+        },
+        {
+          "layer_id": 4,
+          "name": "粉质粘土",
+          "soil_type": "粉质粘土",
+          "top_depth": 11.671619956207302,
+          "bottom_depth": 14.409906293897095,
+          "thickness": 2.738286337689793,
+          "color": "#CD853F",
+          "density": 1864.2657302855894,
+          "properties": {
+            "cohesion": 36.15113774001616,
+            "friction_angle": 27.092951527857938,
+            "elastic_modulus": 17238.169180952653,
+            "poisson_ratio": 0.3653275972904002,
+            "permeability": 2.131807878203525e-06
+          }
+        },
+        {
+          "layer_id": 5,
+          "name": "粉砂",
+          "soil_type": "粉砂",
+          "top_depth": 14.409906293897095,
+          "bottom_depth": 22.83665626771701,
+          "thickness": 8.426749973819918,
+          "color": "#DEB887",
+          "density": 1958.8865160925147,
+          "properties": {
+            "cohesion": 47.435863636453035,
+            "friction_angle": 17.17740781235908,
+            "elastic_modulus": 8991.788733801819,
+            "poisson_ratio": 0.32526084366560837,
+            "permeability": 3.508096693616098e-06
+          }
+        },
+        {
+          "layer_id": 6,
+          "name": "细砂",
+          "soil_type": "细砂",
+          "top_depth": 22.83665626771701,
+          "bottom_depth": 31.870052047612766,
+          "thickness": 9.033395779895754,
+          "color": "#F4A460",
+          "density": 1946.1103038005176,
+          "properties": {
+            "cohesion": 23.667013780747112,
+            "friction_angle": 34.807279129950395,
+            "elastic_modulus": 24006.47482698683,
+            "poisson_ratio": 0.2997702608740761,
+            "permeability": 3.3885290605587396e-06
+          }
+        },
+        {
+          "layer_id": 7,
+          "name": "中砂",
+          "soil_type": "中砂",
+          "top_depth": 31.870052047612766,
+          "bottom_depth": 45.15397743297532,
+          "thickness": 13.283925385362549,
+          "color": "#D2691E",
+          "density": 2042.072846465506,
+          "properties": {
+            "cohesion": 21.969081931008063,
+            "friction_angle": 33.57101712668429,
+            "elastic_modulus": 13332.226028223908,
+            "poisson_ratio": 0.38563130466240636,
+            "permeability": 2.127731680755045e-07
+          }
+        },
+        {
+          "layer_id": 8,
+          "name": "砂质粘土",
+          "soil_type": "砂质粘土",
+          "top_depth": 45.15397743297532,
+          "bottom_depth": 47.310142776254025,
+          "thickness": 2.1561653432787113,
+          "color": "#A0522D",
+          "density": 1954.2270557620338,
+          "properties": {
+            "cohesion": 13.36399250060242,
+            "friction_angle": 23.657094505523663,
+            "elastic_modulus": 14009.709523013815,
+            "poisson_ratio": 0.29790477804935017,
+            "permeability": 4.74995044227548e-06
+          }
+        }
+      ],
+      "metadata": {
+        "drilling_date": "2024-08-10",
+        "drilling_method": "回转钻进",
+        "sample_quality": "A",
+        "location_accuracy": "±0.1m"
+      }
+    },
+    {
+      "id": "BH004",
+      "name": "钻孔BH004",
+      "x": 80.0,
+      "y": 80.0,
+      "z": -41.68,
+      "ground_elevation": 2.31,
+      "depth": 43.99,
+      "water_level": -0.97,
+      "layers": [
+        {
+          "layer_id": 1,
+          "name": "素填土",
+          "soil_type": "素填土",
+          "top_depth": 0,
+          "bottom_depth": 1.8125064451386126,
+          "thickness": 1.8125064451386126,
+          "color": "#8B7D6B",
+          "density": 1795.3816171686576,
+          "properties": {
+            "cohesion": 22.683128028612266,
+            "friction_angle": 18.390613595470093,
+            "elastic_modulus": 12305.331781880719,
+            "poisson_ratio": 0.3144934780381746,
+            "permeability": 1.3134449643954027e-06
+          }
+        },
+        {
+          "layer_id": 2,
+          "name": "粘土",
+          "soil_type": "粘土",
+          "top_depth": 1.8125064451386126,
+          "bottom_depth": 5.941710960553825,
+          "thickness": 4.129204515415212,
+          "color": "#8B4513",
+          "density": 1903.9279112353338,
+          "properties": {
+            "cohesion": 18.125709215174037,
+            "friction_angle": 24.020255200456948,
+            "elastic_modulus": 16481.4061213839,
+            "poisson_ratio": 0.2527731406152485,
+            "permeability": 2.3961793766424675e-06
+          }
+        },
+        {
+          "layer_id": 3,
+          "name": "淤泥质粘土",
+          "soil_type": "淤泥质粘土",
+          "top_depth": 5.941710960553825,
+          "bottom_depth": 10.790449761557216,
+          "thickness": 4.848738801003391,
+          "color": "#556B2F",
+          "density": 1832.0091762987117,
+          "properties": {
+            "cohesion": 47.337871097216095,
+            "friction_angle": 32.435166168516254,
+            "elastic_modulus": 9665.786431296267,
+            "poisson_ratio": 0.30157940659421373,
+            "permeability": 1.5084770150091897e-06
+          }
+        },
+        {
+          "layer_id": 4,
+          "name": "粉质粘土",
+          "soil_type": "粉质粘土",
+          "top_depth": 10.790449761557216,
+          "bottom_depth": 15.21476831980184,
+          "thickness": 4.424318558244623,
+          "color": "#CD853F",
+          "density": 1886.2386085199435,
+          "properties": {
+            "cohesion": 12.270724021806728,
+            "friction_angle": 23.764882098582884,
+            "elastic_modulus": 18632.42249496022,
+            "poisson_ratio": 0.3812471908499352,
+            "permeability": 7.415323173113238e-06
+          }
+        },
+        {
+          "layer_id": 5,
+          "name": "粉砂",
+          "soil_type": "粉砂",
+          "top_depth": 15.21476831980184,
+          "bottom_depth": 24.169471917807797,
+          "thickness": 8.954703598005958,
+          "color": "#DEB887",
+          "density": 1888.4785727150597,
+          "properties": {
+            "cohesion": 17.746737195877866,
+            "friction_angle": 23.521993960758497,
+            "elastic_modulus": 23178.367720428647,
+            "poisson_ratio": 0.310726366413951,
+            "permeability": 8.705519609390771e-06
+          }
+        },
+        {
+          "layer_id": 6,
+          "name": "细砂",
+          "soil_type": "细砂",
+          "top_depth": 24.169471917807797,
+          "bottom_depth": 32.30755338157684,
+          "thickness": 8.138081463769044,
+          "color": "#F4A460",
+          "density": 2040.9850292216415,
+          "properties": {
+            "cohesion": 14.50591100491545,
+            "friction_angle": 34.84547163972657,
+            "elastic_modulus": 18953.5712904598,
+            "poisson_ratio": 0.3490134720111262,
+            "permeability": 1.238325254457188e-07
+          }
+        },
+        {
+          "layer_id": 7,
+          "name": "中砂",
+          "soil_type": "中砂",
+          "top_depth": 32.30755338157684,
+          "bottom_depth": 43.99437944377009,
+          "thickness": 11.686826062193255,
+          "color": "#D2691E",
+          "density": 2080.4008156222953,
+          "properties": {
+            "cohesion": 46.959983341334166,
+            "friction_angle": 27.028479481110246,
+            "elastic_modulus": 20422.85297774768,
+            "poisson_ratio": 0.30207560986855625,
+            "permeability": 4.0780742595212335e-06
+          }
+        }
+      ],
+      "metadata": {
+        "drilling_date": "2024-09-02",
+        "drilling_method": "回转钻进",
+        "sample_quality": "A",
+        "location_accuracy": "±0.1m"
+      }
+    },
+    {
+      "id": "BH005",
+      "name": "钻孔BH005",
+      "x": -80.0,
+      "y": 80.0,
+      "z": -32.8,
+      "ground_elevation": 4.42,
+      "depth": 37.22,
+      "water_level": 2.69,
+      "layers": [
+        {
+          "layer_id": 1,
+          "name": "素填土",
+          "soil_type": "素填土",
+          "top_depth": 0,
+          "bottom_depth": 1.6383993205042013,
+          "thickness": 1.6383993205042013,
+          "color": "#8B7D6B",
+          "density": 1795.201934987143,
+          "properties": {
+            "cohesion": 20.402838095755577,
+            "friction_angle": 26.03803280498396,
+            "elastic_modulus": 22218.243824714318,
+            "poisson_ratio": 0.35583775127884343,
+            "permeability": 3.1557969594240154e-06
+          }
+        },
+        {
+          "layer_id": 2,
+          "name": "粘土",
+          "soil_type": "粘土",
+          "top_depth": 1.6383993205042013,
+          "bottom_depth": 3.270752911714766,
+          "thickness": 1.6323535912105642,
+          "color": "#8B4513",
+          "density": 1895.2696193091583,
+          "properties": {
+            "cohesion": 33.165889018675045,
+            "friction_angle": 15.204058970744097,
+            "elastic_modulus": 8186.330993572013,
+            "poisson_ratio": 0.3692463858310368,
+            "permeability": 5.12879795981872e-06
+          }
+        },
+        {
+          "layer_id": 3,
+          "name": "淤泥质粘土",
+          "soil_type": "淤泥质粘土",
+          "top_depth": 3.270752911714766,
+          "bottom_depth": 6.004313072792803,
+          "thickness": 2.733560161078037,
+          "color": "#556B2F",
+          "density": 1754.6973831761568,
+          "properties": {
+            "cohesion": 38.239178817801914,
+            "friction_angle": 28.365279676935348,
+            "elastic_modulus": 14410.323525673051,
+            "poisson_ratio": 0.38807298251138445,
+            "permeability": 6.1077920692895575e-06
+          }
+        },
+        {
+          "layer_id": 4,
+          "name": "粉质粘土",
+          "soil_type": "粉质粘土",
+          "top_depth": 6.004313072792803,
+          "bottom_depth": 8.872967507456853,
+          "thickness": 2.868654434664051,
+          "color": "#CD853F",
+          "density": 1843.372627639407,
+          "properties": {
+            "cohesion": 39.156099650065116,
+            "friction_angle": 27.187352457619852,
+            "elastic_modulus": 10712.150403762713,
+            "poisson_ratio": 0.3096125121244838,
+            "permeability": 9.770538291492878e-06
+          }
+        },
+        {
+          "layer_id": 5,
+          "name": "粉砂",
+          "soil_type": "粉砂",
+          "top_depth": 8.872967507456853,
+          "bottom_depth": 15.468345721351195,
+          "thickness": 6.595378213894343,
+          "color": "#DEB887",
+          "density": 1876.4496043535278,
+          "properties": {
+            "cohesion": 13.695563482708648,
+            "friction_angle": 22.346208596664887,
+            "elastic_modulus": 12434.158525906561,
+            "poisson_ratio": 0.30210322833262027,
+            "permeability": 3.7104437407582147e-06
+          }
+        },
+        {
+          "layer_id": 6,
+          "name": "细砂",
+          "soil_type": "细砂",
+          "top_depth": 15.468345721351195,
+          "bottom_depth": 25.460806201172364,
+          "thickness": 9.992460479821169,
+          "color": "#F4A460",
+          "density": 2011.9152430122977,
+          "properties": {
+            "cohesion": 34.95520732902406,
+            "friction_angle": 28.045665783455327,
+            "elastic_modulus": 11347.45112774155,
+            "poisson_ratio": 0.256750757755016,
+            "permeability": 6.187379096069835e-06
+          }
+        },
+        {
+          "layer_id": 7,
+          "name": "中砂",
+          "soil_type": "中砂",
+          "top_depth": 25.460806201172364,
+          "bottom_depth": 31.276719360707865,
+          "thickness": 5.815913159535503,
+          "color": "#D2691E",
+          "density": 2029.9467819436006,
+          "properties": {
+            "cohesion": 35.05885324636226,
+            "friction_angle": 16.775090009617642,
+            "elastic_modulus": 19453.86311350108,
+            "poisson_ratio": 0.2728734531619251,
+            "permeability": 8.77023593742715e-06
+          }
+        },
+        {
+          "layer_id": 8,
+          "name": "砂质粘土",
+          "soil_type": "砂质粘土",
+          "top_depth": 31.276719360707865,
+          "bottom_depth": 37.22214472105432,
+          "thickness": 5.945425360346455,
+          "color": "#A0522D",
+          "density": 1891.3123369191894,
+          "properties": {
+            "cohesion": 27.536272283752822,
+            "friction_angle": 15.328803382308285,
+            "elastic_modulus": 9175.725066311601,
+            "poisson_ratio": 0.27225908084187894,
+            "permeability": 9.403246801397833e-06
+          }
+        }
+      ],
+      "metadata": {
+        "drilling_date": "2024-06-15",
+        "drilling_method": "回转钻进",
+        "sample_quality": "A",
+        "location_accuracy": "±0.1m"
+      }
+    },
+    {
+      "id": "BH006",
+      "name": "钻孔BH006",
+      "x": -78.86,
+      "y": 44.31,
+      "z": -52.39,
+      "ground_elevation": 2.56,
+      "depth": 54.96,
+      "water_level": -0.48,
+      "layers": [
+        {
+          "layer_id": 1,
+          "name": "素填土",
+          "soil_type": "素填土",
+          "top_depth": 0,
+          "bottom_depth": 3.1790483083132264,
+          "thickness": 3.1790483083132264,
+          "color": "#8B7D6B",
+          "density": 1857.672877637828,
+          "properties": {
+            "cohesion": 10.819191634366785,
+            "friction_angle": 18.77598912978049,
+            "elastic_modulus": 19415.27969406012,
+            "poisson_ratio": 0.3706994511366494,
+            "permeability": 3.6187448601484326e-06
+          }
+        },
+        {
+          "layer_id": 2,
+          "name": "粘土",
+          "soil_type": "粘土",
+          "top_depth": 3.1790483083132264,
+          "bottom_depth": 6.7806641114733095,
+          "thickness": 3.601615803160083,
+          "color": "#8B4513",
+          "density": 1820.5474032670154,
+          "properties": {
+            "cohesion": 37.95629018875228,
+            "friction_angle": 20.20207368932703,
+            "elastic_modulus": 22877.5792400091,
+            "poisson_ratio": 0.26699972761533686,
+            "permeability": 4.5911061403883695e-06
+          }
+        },
+        {
+          "layer_id": 3,
+          "name": "淤泥质粘土",
+          "soil_type": "淤泥质粘土",
+          "top_depth": 6.7806641114733095,
+          "bottom_depth": 10.525562597672877,
+          "thickness": 3.7448984861995687,
+          "color": "#556B2F",
+          "density": 1808.3852894190056,
+          "properties": {
+            "cohesion": 22.95176511534736,
+            "friction_angle": 25.935264397943286,
+            "elastic_modulus": 24126.41248429996,
+            "poisson_ratio": 0.2502597175061721,
+            "permeability": 4.103105558621999e-06
+          }
+        },
+        {
+          "layer_id": 4,
+          "name": "粉质粘土",
+          "soil_type": "粉质粘土",
+          "top_depth": 10.525562597672877,
+          "bottom_depth": 17.96598590124308,
+          "thickness": 7.440423303570201,
+          "color": "#CD853F",
+          "density": 1897.3882484596618,
+          "properties": {
+            "cohesion": 13.73376903387519,
+            "friction_angle": 34.15734228025668,
+            "elastic_modulus": 17658.475260658524,
+            "poisson_ratio": 0.36281133714127956,
+            "permeability": 6.181918057776783e-06
+          }
+        },
+        {
+          "layer_id": 5,
+          "name": "粉砂",
+          "soil_type": "粉砂",
+          "top_depth": 17.96598590124308,
+          "bottom_depth": 26.343129733607952,
+          "thickness": 8.37714383236487,
+          "color": "#DEB887",
+          "density": 1935.5824141873604,
+          "properties": {
+            "cohesion": 45.11850781850822,
+            "friction_angle": 15.268128658577403,
+            "elastic_modulus": 15054.996682467976,
+            "poisson_ratio": 0.3960371152735678,
+            "permeability": 5.014326440044923e-06
+          }
+        },
+        {
+          "layer_id": 6,
+          "name": "细砂",
+          "soil_type": "细砂",
+          "top_depth": 26.343129733607952,
+          "bottom_depth": 36.687533928526186,
+          "thickness": 10.344404194918235,
+          "color": "#F4A460",
+          "density": 1974.7808470795778,
+          "properties": {
+            "cohesion": 26.625294152300828,
+            "friction_angle": 17.010253609891535,
+            "elastic_modulus": 19633.62781749417,
+            "poisson_ratio": 0.31845136589600215,
+            "permeability": 9.263263254158599e-06
+          }
+        },
+        {
+          "layer_id": 7,
+          "name": "中砂",
+          "soil_type": "中砂",
+          "top_depth": 36.687533928526186,
+          "bottom_depth": 47.20472177363427,
+          "thickness": 10.517187845108085,
+          "color": "#D2691E",
+          "density": 2031.774889167642,
+          "properties": {
+            "cohesion": 18.601904006426466,
+            "friction_angle": 32.50325783007539,
+            "elastic_modulus": 12642.906630577192,
+            "poisson_ratio": 0.29232366930153764,
+            "permeability": 9.049534251423479e-06
+          }
+        },
+        {
+          "layer_id": 8,
+          "name": "砂质粘土",
+          "soil_type": "砂质粘土",
+          "top_depth": 47.20472177363427,
+          "bottom_depth": 54.95791769231153,
+          "thickness": 7.753195918677264,
+          "color": "#A0522D",
+          "density": 1971.6259919031702,
+          "properties": {
+            "cohesion": 40.05684039422872,
+            "friction_angle": 18.808292241985754,
+            "elastic_modulus": 11987.81963157236,
+            "poisson_ratio": 0.3323153336792172,
+            "permeability": 2.0603158145599506e-06
+          }
+        }
+      ],
+      "metadata": {
+        "drilling_date": "2024-04-22",
+        "drilling_method": "回转钻进",
+        "sample_quality": "B",
+        "location_accuracy": "±0.1m"
+      }
+    },
+    {
+      "id": "BH007",
+      "name": "钻孔BH007",
+      "x": -59.1,
+      "y": 10.97,
+      "z": -45.3,
+      "ground_elevation": 3.1,
+      "depth": 48.4,
+      "water_level": 1.6,
+      "layers": [
+        {
+          "layer_id": 1,
+          "name": "素填土",
+          "soil_type": "素填土",
+          "top_depth": 0,
+          "bottom_depth": 2.624800427928525,
+          "thickness": 2.624800427928525,
+          "color": "#8B7D6B",
+          "density": 1890.0967002057198,
+          "properties": {
+            "cohesion": 37.68633031903569,
+            "friction_angle": 21.42074399142189,
+            "elastic_modulus": 22759.65364998584,
+            "poisson_ratio": 0.39353156260909444,
+            "permeability": 3.6865237450934187e-06
+          }
+        },
+        {
+          "layer_id": 2,
+          "name": "粘土",
+          "soil_type": "粘土",
+          "top_depth": 2.624800427928525,
+          "bottom_depth": 4.487338198155086,
+          "thickness": 1.8625377702265615,
+          "color": "#8B4513",
+          "density": 1943.5033427952035,
+          "properties": {
+            "cohesion": 28.940211311335958,
+            "friction_angle": 18.635379202780292,
+            "elastic_modulus": 18385.55355927664,
+            "poisson_ratio": 0.2893091369819533,
+            "permeability": 9.538404387564588e-06
+          }
+        },
+        {
+          "layer_id": 3,
+          "name": "淤泥质粘土",
+          "soil_type": "淤泥质粘土",
+          "top_depth": 4.487338198155086,
+          "bottom_depth": 7.93728833857877,
+          "thickness": 3.4499501404236836,
+          "color": "#556B2F",
+          "density": 1784.7908227629648,
+          "properties": {
+            "cohesion": 32.95133450138045,
+            "friction_angle": 30.862209113688827,
+            "elastic_modulus": 9098.249703333231,
+            "poisson_ratio": 0.38717447374079184,
+            "permeability": 5.776096496442306e-06
+          }
+        },
+        {
+          "layer_id": 4,
+          "name": "粉质粘土",
+          "soil_type": "粉质粘土",
+          "top_depth": 7.93728833857877,
+          "bottom_depth": 13.078338704332253,
+          "thickness": 5.141050365753484,
+          "color": "#CD853F",
+          "density": 1828.655368861614,
+          "properties": {
+            "cohesion": 45.55007879080196,
+            "friction_angle": 25.87305275047773,
+            "elastic_modulus": 10938.871709795429,
+            "poisson_ratio": 0.39023348934567215,
+            "permeability": 3.7547127505154463e-07
+          }
+        },
+        {
+          "layer_id": 5,
+          "name": "粉砂",
+          "soil_type": "粉砂",
+          "top_depth": 13.078338704332253,
+          "bottom_depth": 17.59377822860774,
+          "thickness": 4.515439524275486,
+          "color": "#DEB887",
+          "density": 1994.2023772735972,
+          "properties": {
+            "cohesion": 18.190496909722267,
+            "friction_angle": 15.080834669686078,
+            "elastic_modulus": 23881.88261062197,
+            "poisson_ratio": 0.28664467327915366,
+            "permeability": 9.513412139626597e-06
+          }
+        },
+        {
+          "layer_id": 6,
+          "name": "细砂",
+          "soil_type": "细砂",
+          "top_depth": 17.59377822860774,
+          "bottom_depth": 30.341959488699853,
+          "thickness": 12.748181260092114,
+          "color": "#F4A460",
+          "density": 2033.0502521566095,
+          "properties": {
+            "cohesion": 20.94613841115681,
+            "friction_angle": 31.20026826638572,
+            "elastic_modulus": 21601.98389862538,
+            "poisson_ratio": 0.3294988732201203,
+            "permeability": 8.521312260725044e-06
+          }
+        },
+        {
+          "layer_id": 7,
+          "name": "中砂",
+          "soil_type": "中砂",
+          "top_depth": 30.341959488699853,
+          "bottom_depth": 46.05073279378236,
+          "thickness": 15.708773305082502,
+          "color": "#D2691E",
+          "density": 2028.8607465801017,
+          "properties": {
+            "cohesion": 46.855413466761014,
+            "friction_angle": 34.305412194338366,
+            "elastic_modulus": 12309.29061399057,
+            "poisson_ratio": 0.29825988586763047,
+            "permeability": 5.227552743119583e-06
+          }
+        },
+        {
+          "layer_id": 8,
+          "name": "砂质粘土",
+          "soil_type": "砂质粘土",
+          "top_depth": 46.05073279378236,
+          "bottom_depth": 48.398628140510134,
+          "thickness": 2.3478953467277717,
+          "color": "#A0522D",
+          "density": 1994.0923440350703,
+          "properties": {
+            "cohesion": 26.25091814115809,
+            "friction_angle": 30.81150789364545,
+            "elastic_modulus": 19445.300112586963,
+            "poisson_ratio": 0.26000836135237154,
+            "permeability": 8.742118759660325e-06
+          }
+        }
+      ],
+      "metadata": {
+        "drilling_date": "2024-06-24",
+        "drilling_method": "回转钻进",
+        "sample_quality": "A",
+        "location_accuracy": "±0.1m"
+      }
+    },
+    {
+      "id": "BH008",
+      "name": "钻孔BH008",
+      "x": -60.75,
+      "y": -27.72,
+      "z": -52.1,
+      "ground_elevation": 1.11,
+      "depth": 53.2,
+      "water_level": -1.53,
+      "layers": [
+        {
+          "layer_id": 1,
+          "name": "素填土",
+          "soil_type": "素填土",
+          "top_depth": 0,
+          "bottom_depth": 3.058398956524549,
+          "thickness": 3.058398956524549,
+          "color": "#8B7D6B",
+          "density": 1830.9941415693195,
+          "properties": {
+            "cohesion": 34.057032072225155,
+            "friction_angle": 28.52740278411664,
+            "elastic_modulus": 20013.56849214089,
+            "poisson_ratio": 0.27967625302096505,
+            "permeability": 1.4808897510221796e-06
+          }
+        },
+        {
+          "layer_id": 2,
+          "name": "粘土",
+          "soil_type": "粘土",
+          "top_depth": 3.058398956524549,
+          "bottom_depth": 7.841475103862317,
+          "thickness": 4.783076147337768,
+          "color": "#8B4513",
+          "density": 1838.0407848792188,
+          "properties": {
+            "cohesion": 45.02718910064389,
+            "friction_angle": 31.09047790222166,
+            "elastic_modulus": 14116.120030725331,
+            "poisson_ratio": 0.37964335746815214,
+            "permeability": 4.239365658333438e-06
+          }
+        },
+        {
+          "layer_id": 3,
+          "name": "淤泥质粘土",
+          "soil_type": "淤泥质粘土",
+          "top_depth": 7.841475103862317,
+          "bottom_depth": 10.156136042069528,
+          "thickness": 2.3146609382072114,
+          "color": "#556B2F",
+          "density": 1790.6386758709152,
+          "properties": {
+            "cohesion": 44.475220281495716,
+            "friction_angle": 29.752728117534645,
+            "elastic_modulus": 16714.427581987627,
+            "poisson_ratio": 0.35042711162891105,
+            "permeability": 5.718976596432123e-07
+          }
+        },
+        {
+          "layer_id": 4,
+          "name": "粉质粘土",
+          "soil_type": "粉质粘土",
+          "top_depth": 10.156136042069528,
+          "bottom_depth": 18.78119160210405,
+          "thickness": 8.625055560034523,
+          "color": "#CD853F",
+          "density": 1836.6937370300104,
+          "properties": {
+            "cohesion": 22.66591645624317,
+            "friction_angle": 19.414553379094528,
+            "elastic_modulus": 12899.498352379516,
+            "poisson_ratio": 0.3482048505612005,
+            "permeability": 9.904164878072206e-06
+          }
+        },
+        {
+          "layer_id": 5,
+          "name": "粉砂",
+          "soil_type": "粉砂",
+          "top_depth": 18.78119160210405,
+          "bottom_depth": 28.075564614972762,
+          "thickness": 9.29437301286871,
+          "color": "#DEB887",
+          "density": 1968.4932607603923,
+          "properties": {
+            "cohesion": 39.20683288455152,
+            "friction_angle": 24.30856321033685,
+            "elastic_modulus": 15615.246799350181,
+            "poisson_ratio": 0.3671907243793703,
+            "permeability": 4.84879099667748e-06
+          }
+        },
+        {
+          "layer_id": 6,
+          "name": "细砂",
+          "soil_type": "细砂",
+          "top_depth": 28.075564614972762,
+          "bottom_depth": 36.939174429569135,
+          "thickness": 8.863609814596373,
+          "color": "#F4A460",
+          "density": 2002.8270072495598,
+          "properties": {
+            "cohesion": 17.81316429606992,
+            "friction_angle": 29.860493768983744,
+            "elastic_modulus": 24047.85959673614,
+            "poisson_ratio": 0.38120376543666795,
+            "permeability": 5.510089625938962e-06
+          }
+        },
+        {
+          "layer_id": 7,
+          "name": "中砂",
+          "soil_type": "中砂",
+          "top_depth": 36.939174429569135,
+          "bottom_depth": 53.20278616657985,
+          "thickness": 16.263611737010713,
+          "color": "#D2691E",
+          "density": 1994.6807141001932,
+          "properties": {
+            "cohesion": 12.752541546257774,
+            "friction_angle": 20.189149850249592,
+            "elastic_modulus": 20150.16888438259,
+            "poisson_ratio": 0.27530339765659895,
+            "permeability": 8.866385219158675e-06
+          }
+        }
+      ],
+      "metadata": {
+        "drilling_date": "2024-10-15",
+        "drilling_method": "回转钻进",
+        "sample_quality": "B",
+        "location_accuracy": "±0.1m"
+      }
+    },
+    {
+      "id": "BH009",
+      "name": "钻孔BH009",
+      "x": -21.29,
+      "y": -75.31,
+      "z": -43.64,
+      "ground_elevation": 1.5,
+      "depth": 45.14,
+      "water_level": -0.49,
+      "layers": [
+        {
+          "layer_id": 1,
+          "name": "素填土",
+          "soil_type": "素填土",
+          "top_depth": 0,
+          "bottom_depth": 2.1127132492261627,
+          "thickness": 2.1127132492261627,
+          "color": "#8B7D6B",
+          "density": 1850.766087869658,
+          "properties": {
+            "cohesion": 29.999097832764363,
+            "friction_angle": 28.897981721380027,
+            "elastic_modulus": 16660.084053133698,
+            "poisson_ratio": 0.26104283249628124,
+            "permeability": 2.653651337464806e-06
+          }
+        },
+        {
+          "layer_id": 2,
+          "name": "粘土",
+          "soil_type": "粘土",
+          "top_depth": 2.1127132492261627,
+          "bottom_depth": 6.184024797343383,
+          "thickness": 4.071311548117221,
+          "color": "#8B4513",
+          "density": 1853.8952554544633,
+          "properties": {
+            "cohesion": 31.05749243744588,
+            "friction_angle": 33.77774183441153,
+            "elastic_modulus": 19368.675904400636,
+            "poisson_ratio": 0.29204614725524025,
+            "permeability": 3.805893673025565e-06
+          }
+        },
+        {
+          "layer_id": 3,
+          "name": "淤泥质粘土",
+          "soil_type": "淤泥质粘土",
+          "top_depth": 6.184024797343383,
+          "bottom_depth": 8.555514814750309,
+          "thickness": 2.3714900174069253,
+          "color": "#556B2F",
+          "density": 1787.7543457491647,
+          "properties": {
+            "cohesion": 46.477531056776556,
+            "friction_angle": 34.67133610716948,
+            "elastic_modulus": 12558.659856036818,
+            "poisson_ratio": 0.3800163065301342,
+            "permeability": 8.524597205022764e-06
+          }
+        },
+        {
+          "layer_id": 4,
+          "name": "粉质粘土",
+          "soil_type": "粉质粘土",
+          "top_depth": 8.555514814750309,
+          "bottom_depth": 13.652763192044485,
+          "thickness": 5.097248377294177,
+          "color": "#CD853F",
+          "density": 1897.4805464954256,
+          "properties": {
+            "cohesion": 31.82353223844712,
+            "friction_angle": 23.266976414866683,
+            "elastic_modulus": 17412.685973267653,
+            "poisson_ratio": 0.28590755676829493,
+            "permeability": 9.49388448642098e-06
+          }
+        },
+        {
+          "layer_id": 5,
+          "name": "粉砂",
+          "soil_type": "粉砂",
+          "top_depth": 13.652763192044485,
+          "bottom_depth": 22.17770890683483,
+          "thickness": 8.524945714790345,
+          "color": "#DEB887",
+          "density": 1905.3232621942416,
+          "properties": {
+            "cohesion": 24.17742149955121,
+            "friction_angle": 19.706770629001944,
+            "elastic_modulus": 14643.648599260505,
+            "poisson_ratio": 0.309395462060825,
+            "permeability": 5.7933972231267145e-06
+          }
+        },
+        {
+          "layer_id": 6,
+          "name": "细砂",
+          "soil_type": "细砂",
+          "top_depth": 22.17770890683483,
+          "bottom_depth": 25.222515649553582,
+          "thickness": 3.0448067427187517,
+          "color": "#F4A460",
+          "density": 2103.6863941955676,
+          "properties": {
+            "cohesion": 38.067398653011956,
+            "friction_angle": 34.275781475185795,
+            "elastic_modulus": 23303.160795755994,
+            "poisson_ratio": 0.34792821945972185,
+            "permeability": 2.306332276355254e-06
+          }
+        },
+        {
+          "layer_id": 7,
+          "name": "中砂",
+          "soil_type": "中砂",
+          "top_depth": 25.222515649553582,
+          "bottom_depth": 37.21470814407362,
+          "thickness": 11.992192494520038,
+          "color": "#D2691E",
+          "density": 2052.782920236371,
+          "properties": {
+            "cohesion": 40.82772880913913,
+            "friction_angle": 33.103548132505175,
+            "elastic_modulus": 9641.435341225519,
+            "poisson_ratio": 0.2896224013095279,
+            "permeability": 7.244727760526728e-06
+          }
+        },
+        {
+          "layer_id": 8,
+          "name": "砂质粘土",
+          "soil_type": "砂质粘土",
+          "top_depth": 37.21470814407362,
+          "bottom_depth": 45.13926698708388,
+          "thickness": 7.924558843010261,
+          "color": "#A0522D",
+          "density": 1906.749684487457,
+          "properties": {
+            "cohesion": 20.42362188160929,
+            "friction_angle": 22.1282615122759,
+            "elastic_modulus": 8474.029121028398,
+            "poisson_ratio": 0.29360632122559066,
+            "permeability": 8.981948917958512e-06
+          }
+        }
+      ],
+      "metadata": {
+        "drilling_date": "2024-11-26",
+        "drilling_method": "回转钻进",
+        "sample_quality": "A",
+        "location_accuracy": "±0.1m"
+      }
+    },
+    {
+      "id": "BH010",
+      "name": "钻孔BH010",
+      "x": 2.21,
+      "y": -67.89,
+      "z": -51.16,
+      "ground_elevation": 4.23,
+      "depth": 55.38,
+      "water_level": 1.43,
+      "layers": [
+        {
+          "layer_id": 1,
+          "name": "素填土",
+          "soil_type": "素填土",
+          "top_depth": 0,
+          "bottom_depth": 1.7905513606063552,
+          "thickness": 1.7905513606063552,
+          "color": "#8B7D6B",
+          "density": 1723.6692745541748,
+          "properties": {
+            "cohesion": 35.329898319884904,
+            "friction_angle": 17.667220107624125,
+            "elastic_modulus": 19355.789285631676,
+            "poisson_ratio": 0.3491413454937955,
+            "permeability": 8.113042509604601e-07
+          }
+        },
+        {
+          "layer_id": 2,
+          "name": "粘土",
+          "soil_type": "粘土",
+          "top_depth": 1.7905513606063552,
+          "bottom_depth": 5.3498138263544455,
+          "thickness": 3.5592624657480907,
+          "color": "#8B4513",
+          "density": 1914.3724137980219,
+          "properties": {
+            "cohesion": 17.676895812892475,
+            "friction_angle": 25.154284617901432,
+            "elastic_modulus": 16435.46233571411,
+            "poisson_ratio": 0.3918187124867038,
+            "permeability": 4.250703510181475e-06
+          }
+        },
+        {
+          "layer_id": 3,
+          "name": "淤泥质粘土",
+          "soil_type": "淤泥质粘土",
+          "top_depth": 5.3498138263544455,
+          "bottom_depth": 8.063094669030075,
+          "thickness": 2.7132808426756307,
+          "color": "#556B2F",
+          "density": 1658.5311335139188,
+          "properties": {
+            "cohesion": 28.457195696899205,
+            "friction_angle": 24.940092867336457,
+            "elastic_modulus": 12024.771313117746,
+            "poisson_ratio": 0.3348319368514562,
+            "permeability": 9.918672877766847e-06
+          }
+        },
+        {
+          "layer_id": 4,
+          "name": "粉质粘土",
+          "soil_type": "粉质粘土",
+          "top_depth": 8.063094669030075,
+          "bottom_depth": 11.919464520557078,
+          "thickness": 3.856369851527002,
+          "color": "#CD853F",
+          "density": 1791.5695561181108,
+          "properties": {
+            "cohesion": 29.263936301254944,
+            "friction_angle": 18.837638044072577,
+            "elastic_modulus": 9350.004459253443,
+            "poisson_ratio": 0.34273579753122874,
+            "permeability": 8.627873781207244e-06
+          }
+        },
+        {
+          "layer_id": 5,
+          "name": "粉砂",
+          "soil_type": "粉砂",
+          "top_depth": 11.919464520557078,
+          "bottom_depth": 18.129350227821277,
+          "thickness": 6.209885707264201,
+          "color": "#DEB887",
+          "density": 1953.6133043155935,
+          "properties": {
+            "cohesion": 13.703602870753041,
+            "friction_angle": 33.88326016174304,
+            "elastic_modulus": 16663.817412342494,
+            "poisson_ratio": 0.3884523432282745,
+            "permeability": 9.76589529005146e-06
+          }
+        },
+        {
+          "layer_id": 6,
+          "name": "细砂",
+          "soil_type": "细砂",
+          "top_depth": 18.129350227821277,
+          "bottom_depth": 31.357813877286482,
+          "thickness": 13.228463649465205,
+          "color": "#F4A460",
+          "density": 1993.960511950054,
+          "properties": {
+            "cohesion": 19.35384263686537,
+            "friction_angle": 27.15898187780324,
+            "elastic_modulus": 12228.265002083574,
+            "poisson_ratio": 0.3594579640851366,
+            "permeability": 4.706295167463704e-06
+          }
+        },
+        {
+          "layer_id": 7,
+          "name": "中砂",
+          "soil_type": "中砂",
+          "top_depth": 31.357813877286482,
+          "bottom_depth": 39.48189149182878,
+          "thickness": 8.124077614542301,
+          "color": "#D2691E",
+          "density": 2121.6978885100843,
+          "properties": {
+            "cohesion": 27.92853149631734,
+            "friction_angle": 15.31883886377596,
+            "elastic_modulus": 21592.76192789669,
+            "poisson_ratio": 0.2940960366026866,
+            "permeability": 6.233106998622014e-07
+          }
+        },
+        {
+          "layer_id": 8,
+          "name": "砂质粘土",
+          "soil_type": "砂质粘土",
+          "top_depth": 39.48189149182878,
+          "bottom_depth": 55.384264180550325,
+          "thickness": 15.902372688721542,
+          "color": "#A0522D",
+          "density": 1910.906211329569,
+          "properties": {
+            "cohesion": 35.01135795081562,
+            "friction_angle": 23.502460964119578,
+            "elastic_modulus": 16040.431152006655,
+            "poisson_ratio": 0.26137234703494905,
+            "permeability": 8.76741426598123e-06
+          }
+        }
+      ],
+      "metadata": {
+        "drilling_date": "2024-08-10",
+        "drilling_method": "回转钻进",
+        "sample_quality": "A",
+        "location_accuracy": "±0.1m"
+      }
+    },
+    {
+      "id": "BH011",
+      "name": "钻孔BH011",
+      "x": 55.62,
+      "y": -61.76,
+      "z": -48.09,
+      "ground_elevation": 3.6,
+      "depth": 51.68,
+      "water_level": 0.43,
+      "layers": [
+        {
+          "layer_id": 1,
+          "name": "素填土",
+          "soil_type": "素填土",
+          "top_depth": 0,
+          "bottom_depth": 1.6665881402234832,
+          "thickness": 1.6665881402234832,
+          "color": "#8B7D6B",
+          "density": 1867.2967634029396,
+          "properties": {
+            "cohesion": 17.898865402506388,
+            "friction_angle": 28.624507842848004,
+            "elastic_modulus": 22413.055528700086,
+            "poisson_ratio": 0.25954831351460694,
+            "permeability": 2.2843341155015113e-06
+          }
+        },
+        {
+          "layer_id": 2,
+          "name": "粘土",
+          "soil_type": "粘土",
+          "top_depth": 1.6665881402234832,
+          "bottom_depth": 5.897913840072869,
+          "thickness": 4.231325699849386,
+          "color": "#8B4513",
+          "density": 1793.2778510030291,
+          "properties": {
+            "cohesion": 18.757853630549018,
+            "friction_angle": 33.65081397598427,
+            "elastic_modulus": 9047.617232342163,
+            "poisson_ratio": 0.36966316085650436,
+            "permeability": 1.0077960698710111e-06
+          }
+        },
+        {
+          "layer_id": 3,
+          "name": "淤泥质粘土",
+          "soil_type": "淤泥质粘土",
+          "top_depth": 5.897913840072869,
+          "bottom_depth": 8.178615083995862,
+          "thickness": 2.280701243922992,
+          "color": "#556B2F",
+          "density": 1798.8860925224374,
+          "properties": {
+            "cohesion": 34.84812283973906,
+            "friction_angle": 22.47710743277165,
+            "elastic_modulus": 16606.014004778128,
+            "poisson_ratio": 0.3483139920678671,
+            "permeability": 1.1462295347457457e-06
+          }
+        },
+        {
+          "layer_id": 4,
+          "name": "粉质粘土",
+          "soil_type": "粉质粘土",
+          "top_depth": 8.178615083995862,
+          "bottom_depth": 16.01418478600855,
+          "thickness": 7.8355697020126875,
+          "color": "#CD853F",
+          "density": 1840.7291925417123,
+          "properties": {
+            "cohesion": 39.8078253630534,
+            "friction_angle": 15.403767163176882,
+            "elastic_modulus": 19287.908913432402,
+            "poisson_ratio": 0.3203512805638602,
+            "permeability": 9.740753486235792e-06
+          }
+        },
+        {
+          "layer_id": 5,
+          "name": "粉砂",
+          "soil_type": "粉砂",
+          "top_depth": 16.01418478600855,
+          "bottom_depth": 22.695111845989054,
+          "thickness": 6.680927059980503,
+          "color": "#DEB887",
+          "density": 1832.8694673341492,
+          "properties": {
+            "cohesion": 10.003020894458423,
+            "friction_angle": 16.55376609205201,
+            "elastic_modulus": 14377.926431666452,
+            "poisson_ratio": 0.26187223784085006,
+            "permeability": 6.686786209041074e-06
+          }
+        },
+        {
+          "layer_id": 6,
+          "name": "细砂",
+          "soil_type": "细砂",
+          "top_depth": 22.695111845989054,
+          "bottom_depth": 32.14389322665443,
+          "thickness": 9.448781380665373,
+          "color": "#F4A460",
+          "density": 1935.4527468852825,
+          "properties": {
+            "cohesion": 44.67979658254673,
+            "friction_angle": 15.000062781689413,
+            "elastic_modulus": 17692.729727353308,
+            "poisson_ratio": 0.3909138077225737,
+            "permeability": 6.703009602855393e-06
+          }
+        },
+        {
+          "layer_id": 7,
+          "name": "中砂",
+          "soil_type": "中砂",
+          "top_depth": 32.14389322665443,
+          "bottom_depth": 47.656439878533405,
+          "thickness": 15.512546651878981,
+          "color": "#D2691E",
+          "density": 2003.550360352117,
+          "properties": {
+            "cohesion": 42.73385472253201,
+            "friction_angle": 28.163707367119052,
+            "elastic_modulus": 21087.945389131826,
+            "poisson_ratio": 0.2660604973040217,
+            "permeability": 7.639923066943911e-06
+          }
+        },
+        {
+          "layer_id": 8,
+          "name": "砂质粘土",
+          "soil_type": "砂质粘土",
+          "top_depth": 47.656439878533405,
+          "bottom_depth": 51.68268350314312,
+          "thickness": 4.026243624609714,
+          "color": "#A0522D",
+          "density": 2052.9453047045386,
+          "properties": {
+            "cohesion": 10.47495879715762,
+            "friction_angle": 19.615273663984468,
+            "elastic_modulus": 23614.541232798172,
+            "poisson_ratio": 0.31667315585690803,
+            "permeability": 9.751220868745431e-06
+          }
+        }
+      ],
+      "metadata": {
+        "drilling_date": "2024-09-17",
+        "drilling_method": "回转钻进",
+        "sample_quality": "A",
+        "location_accuracy": "±0.1m"
+      }
+    },
+    {
+      "id": "BH012",
+      "name": "钻孔BH012",
+      "x": 64.65,
+      "y": -40.89,
+      "z": -51.28,
+      "ground_elevation": 4.28,
+      "depth": 55.56,
+      "water_level": 1.1,
+      "layers": [
+        {
+          "layer_id": 1,
+          "name": "素填土",
+          "soil_type": "素填土",
+          "top_depth": 0,
+          "bottom_depth": 1.647148295243877,
+          "thickness": 1.647148295243877,
+          "color": "#8B7D6B",
+          "density": 1712.7989532949457,
+          "properties": {
+            "cohesion": 19.664776891692203,
+            "friction_angle": 15.684370465209724,
+            "elastic_modulus": 15217.26010634462,
+            "poisson_ratio": 0.33438421237770577,
+            "permeability": 9.206631852181809e-06
+          }
+        },
+        {
+          "layer_id": 2,
+          "name": "粘土",
+          "soil_type": "粘土",
+          "top_depth": 1.647148295243877,
+          "bottom_depth": 3.2872620797786984,
+          "thickness": 1.6401137845348213,
+          "color": "#8B4513",
+          "density": 1926.9655843786857,
+          "properties": {
+            "cohesion": 36.00362016293822,
+            "friction_angle": 17.78764893056178,
+            "elastic_modulus": 9934.386689387413,
+            "poisson_ratio": 0.3197387932102052,
+            "permeability": 8.857818765452117e-06
+          }
+        },
+        {
+          "layer_id": 3,
+          "name": "淤泥质粘土",
+          "soil_type": "淤泥质粘土",
+          "top_depth": 3.2872620797786984,
+          "bottom_depth": 7.827586756975938,
+          "thickness": 4.54032467719724,
+          "color": "#556B2F",
+          "density": 1813.049694571061,
+          "properties": {
+            "cohesion": 22.503472655835996,
+            "friction_angle": 16.51661036598583,
+            "elastic_modulus": 17309.56145543703,
+            "poisson_ratio": 0.2713322479186602,
+            "permeability": 3.180140005199201e-06
+          }
+        },
+        {
+          "layer_id": 4,
+          "name": "粉质粘土",
+          "soil_type": "粉质粘土",
+          "top_depth": 7.827586756975938,
+          "bottom_depth": 10.172132095922796,
+          "thickness": 2.3445453389468582,
+          "color": "#CD853F",
+          "density": 1770.5846149507609,
+          "properties": {
+            "cohesion": 32.98260474764346,
+            "friction_angle": 22.04171088313507,
+            "elastic_modulus": 21865.39237522152,
+            "poisson_ratio": 0.27214091765258824,
+            "permeability": 8.695324194095816e-06
+          }
+        },
+        {
+          "layer_id": 5,
+          "name": "粉砂",
+          "soil_type": "粉砂",
+          "top_depth": 10.172132095922796,
+          "bottom_depth": 17.215313521882276,
+          "thickness": 7.043181425959479,
+          "color": "#DEB887",
+          "density": 1964.4852229483906,
+          "properties": {
+            "cohesion": 29.048040868166503,
+            "friction_angle": 29.21429453624176,
+            "elastic_modulus": 18630.21715662354,
+            "poisson_ratio": 0.33674564506088134,
+            "permeability": 8.630969574833939e-06
+          }
+        },
+        {
+          "layer_id": 6,
+          "name": "细砂",
+          "soil_type": "细砂",
+          "top_depth": 17.215313521882276,
+          "bottom_depth": 26.86301340310783,
+          "thickness": 9.647699881225554,
+          "color": "#F4A460",
+          "density": 2044.6916239795494,
+          "properties": {
+            "cohesion": 11.434775921707274,
+            "friction_angle": 30.06854174590616,
+            "elastic_modulus": 9152.825774161913,
+            "poisson_ratio": 0.27448099697441875,
+            "permeability": 3.7723965584358513e-07
+          }
+        },
+        {
+          "layer_id": 7,
+          "name": "中砂",
+          "soil_type": "中砂",
+          "top_depth": 26.86301340310783,
+          "bottom_depth": 39.995045271700626,
+          "thickness": 13.132031868592797,
+          "color": "#D2691E",
+          "density": 1995.462347695754,
+          "properties": {
+            "cohesion": 25.257720910310653,
+            "friction_angle": 17.30048963565251,
+            "elastic_modulus": 14252.601415731962,
+            "poisson_ratio": 0.26492407247968563,
+            "permeability": 7.752247566815905e-06
+          }
+        },
+        {
+          "layer_id": 8,
+          "name": "砂质粘土",
+          "soil_type": "砂质粘土",
+          "top_depth": 39.995045271700626,
+          "bottom_depth": 55.55560147318836,
+          "thickness": 15.560556201487735,
+          "color": "#A0522D",
+          "density": 1855.8740486376507,
+          "properties": {
+            "cohesion": 21.221677387978527,
+            "friction_angle": 34.79751205987854,
+            "elastic_modulus": 14395.872438951432,
+            "poisson_ratio": 0.3517280061568864,
+            "permeability": 1.3462450250240194e-06
+          }
+        }
+      ],
+      "metadata": {
+        "drilling_date": "2024-02-12",
+        "drilling_method": "回转钻进",
+        "sample_quality": "C",
+        "location_accuracy": "±0.1m"
+      }
+    }
+  ],
+  "recommended_domain": {
+    "x_extend": 250,
+    "y_extend": 250,
+    "z_top": 6,
+    "z_bottom": -65
+  },
+  "recommended_resolution": [
+    40,
+    40,
+    30
+  ]
+}

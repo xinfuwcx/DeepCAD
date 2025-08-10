@@ -1047,7 +1047,6 @@ class MainWindow(QMainWindow):
                     file_path,
                     success_callback=self.on_fpn_import_success,
                     error_callback=self.on_fpn_import_error,
-                    progress_callback=self.on_fpn_import_progress,
                     show_progress=True
                 )
             else:

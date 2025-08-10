@@ -151,33 +151,30 @@ class KratosIntegration:
             return False, "Kratos not available"
 
         try:
-            from KratosMultiphysics.analysis_stage import AnalysisStage
-            
-            class MyAnalysisStage(AnalysisStage):
-                def __init__(self, model, project_parameters):
-                    super().__init__(model, project_parameters)
-
-                def Finalize(self):
-                    super().Finalize()
-                    # Optionally, add custom finalization steps here
-                    logger.info("Custom finalization of MyAnalysisStage finished.")
+            import KratosMultiphysics as KM
+            # Prefer using application-specific Analysis class which creates the solver
+            try:
+                from KratosMultiphysics.StructuralMechanicsApplication.structural_mechanics_analysis import StructuralMechanicsAnalysis as AnalysisCls
+            except Exception as inner_e:
+                logger.error(f"Failed to import StructuralMechanicsAnalysis: {inner_e}")
+                raise
 
             # Read the ProjectParameters.json file
             with open(project_path, 'r') as parameter_file:
-                parameters = KratosMultiphysics.Parameters(parameter_file.read())
+                parameters = KM.Parameters(parameter_file.read())
 
             # Create and run the analysis stage
-            model = KratosMultiphysics.Model()
-            simulation = MyAnalysisStage(model, parameters)
+            model = KM.Model()
+            simulation = AnalysisCls(model, parameters)
             simulation.Run()
-            
+
             logger.info("Kratos analysis finished successfully.")
             return True, "Analysis successful"
-            
+
         except Exception as e:
             logger.error(f"An error occurred during Kratos analysis: {e}")
             return False, f"Analysis failed: {str(e)}"
-            
+
     def run_excavation_analysis(self, fpn_data, analysis_stages):
         """
         运行基坑工程专门的分析，包含摩尔-库伦本构模型和非线性求解
