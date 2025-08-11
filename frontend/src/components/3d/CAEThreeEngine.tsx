@@ -4,16 +4,16 @@
  */
 
 import React, { useRef, useEffect, useCallback, useState } from 'react';
+// 集成主视口坐标轴 (复用已有组件)
+import { ViewportAxes } from './ViewportAxes';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 import { ComponentDevHelper } from '../../utils/developmentTools';
 import { GeometryData, MaterialZone } from '../../core/InterfaceProtocol';
 import { LODManager } from './performance/LODManager.simple';
-import { safeRemoveRenderer, handleWebGLContextLoss, disposeMaterial, safeEmptyContainer } from '../../utils/threejsCleanup';
+import { safeRemoveRenderer, disposeMaterial, safeEmptyContainer } from '../../utils/threejsCleanup';
 import { performanceStore } from '../../store/performanceStore';
 
 // CAE特定材质类型
@@ -71,11 +71,12 @@ export class CAEThreeEngineCore {
   public renderer: THREE.WebGLRenderer;
   
   // 坐标轴独立渲染系统
-  private axesRenderer?: THREE.WebGLRenderer;
-  private axesScene?: THREE.Scene;
-  private axesCamera?: THREE.PerspectiveCamera;
-  public orbitControls: OrbitControls;
-  public transformControls: TransformControls;
+  // 旧版内置小坐标轴系统字段（已由 React ViewportAxes 组件取代，保留以便未来可能复用）
+  // private axesRenderer?: THREE.WebGLRenderer;
+  // private axesScene?: THREE.Scene;
+  // private axesCamera?: THREE.PerspectiveCamera;
+  public orbitControls!: OrbitControls; // 在构造函数中初始化
+  public transformControls!: TransformControls; // 在构造函数中初始化
 
   // CAE专用组件
   private raycaster: THREE.Raycaster = new THREE.Raycaster();
@@ -87,8 +88,6 @@ export class CAEThreeEngineCore {
   
   // 加载器
   private stlLoader: STLLoader = new STLLoader();
-  private objLoader: OBJLoader = new OBJLoader();
-  private plyLoader: PLYLoader = new PLYLoader();
 
   // 材质库
   private materials: Map<string, THREE.Material> = new Map();
@@ -104,7 +103,6 @@ export class CAEThreeEngineCore {
   
   // 事件回调
   private onSelectionCallback?: (objects: THREE.Object3D[]) => void;
-  private onMeasurementCallback?: (measurement: any) => void;
 
   // 背景纹理缓存
   private backgroundTexture: THREE.Texture | null = null;
@@ -236,7 +234,7 @@ export class CAEThreeEngineCore {
 
     // 设置回调
     this.onSelectionCallback = props.onSelection;
-    this.onMeasurementCallback = props.onMeasurement;
+  // this._onMeasurementCallback = props.onMeasurement; // 预留（当前未使用）
 
     // 添加基础场景元素（仅在首次初始化时）
     this.addSceneHelpers();
@@ -557,12 +555,12 @@ export class CAEThreeEngineCore {
   }
 
   // 初始化独立的坐标轴系统
+  /* 旧的内嵌独立坐标轴系统（已由 React ViewportAxes 组件替代）
   private initAxesSystem(container: HTMLElement): void {
     try {
       // 创建坐标轴独立场景
       this.axesScene = new THREE.Scene();
-      this.axesScene.background = new THREE.Color(0x000000);
-      this.axesScene.background.setAlpha(0);
+  this.axesScene.background = new THREE.Color(0x000000); // 透明度通过渲染器控制
       
       // 创建坐标轴独立相机
       this.axesCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
@@ -616,8 +614,10 @@ export class CAEThreeEngineCore {
       console.error('❌ 坐标轴系统初始化失败:', error);
     }
   }
+  */
 
   // 创建紧凑的坐标轴（用于独立渲染）
+  /*
   private createCompactAxes(): THREE.Group {
     const group = new THREE.Group();
     group.name = 'compact-axes';
@@ -672,8 +672,10 @@ export class CAEThreeEngineCore {
     
     return group;
   }
+  */
 
   // 创建工业软件风格的小坐标轴（左下角）
+  /*
   private createModernAxes(): THREE.Group {
     const group = new THREE.Group();
     group.name = 'abaqus-axes';
@@ -747,6 +749,7 @@ export class CAEThreeEngineCore {
     
     return group;
   }
+  */
   
   // 添加测试几何体
   private addTestGeometry(): void {
@@ -762,6 +765,7 @@ export class CAEThreeEngineCore {
   }
 
   // 创建ABAQUS风格工程展示对象
+  /*
   private createShowcaseObject(): THREE.Group {
     const group = new THREE.Group();
     group.name = 'abaqus-showcase';
@@ -807,6 +811,7 @@ export class CAEThreeEngineCore {
     
     return group;
   }
+  */
 
   // 创建ABAQUS风格工程地面系统
   private createModernGround(): THREE.Group {
@@ -1252,6 +1257,8 @@ export class CAEThreeEngineCore {
 const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<CAEThreeEngineCore | null>(null);
+  // DXF 覆盖层引用
+  const dxfOverlayRef = useRef<THREE.Group | null>(null);
   const animationIdRef = useRef<number>(0);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
@@ -1303,6 +1310,58 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
       console.log('✅ CAE Three.js引擎组件初始化完成');
       ComponentDevHelper.logDevTip('CAE Three.js引擎组件初始化完成');
 
+      // 暴露全局接口（供基坑设计等模块调用）
+      try {
+        (window as any).__CAE_ENGINE__ = {
+          /**
+           * 渲染 DXF 线段到主 CAE 视口
+           * @param segments 线段集合
+           * @param options 可选: { targetSize?: number; scaleMultiplier?: number }
+           */
+          renderDXFSegments: (segments: Array<{ start:{x:number;y:number}; end:{x:number;y:number} }>, options?: { targetSize?: number; scaleMultiplier?: number }) => {
+            const eng = engineRef.current;
+            if (!eng) return;
+            const scene = eng.scene;
+            if (dxfOverlayRef.current) {
+              scene.remove(dxfOverlayRef.current);
+              dxfOverlayRef.current.traverse(obj => {
+                const anyObj:any = obj as any;
+                if (anyObj.geometry) anyObj.geometry.dispose();
+                if (anyObj.material) {
+                  const m = anyObj.material; if (Array.isArray(m)) m.forEach(mm=>mm.dispose()); else m.dispose();
+                }
+              });
+              dxfOverlayRef.current = null;
+            }
+            if (!segments || !segments.length) return;
+            // 计算范围
+            let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+            segments.forEach(s=>{ minX=Math.min(minX,s.start.x,s.end.x); minY=Math.min(minY,s.start.y,s.end.y); maxX=Math.max(maxX,s.start.x,s.end.x); maxY=Math.max(maxY,s.start.y,s.end.y); });
+            const width = Math.max(1e-6, maxX-minX);
+            const height = Math.max(1e-6, maxY-minY);
+            const centerX=(minX+maxX)/2, centerY=(minY+maxY)/2;
+            const target = options?.targetSize ?? 200;
+            const baseScale=Math.min(target/width, target/height);
+            const scale = baseScale * (options?.scaleMultiplier ?? 1);
+            const group = new THREE.Group(); group.name='DXF_OVERLAY';
+            const mat = new THREE.LineBasicMaterial({ color:0xff00ff, transparent:true, opacity:1, depthTest:false, depthWrite:false });
+            segments.forEach(seg=>{
+              const pts=[
+                new THREE.Vector3((seg.start.x-centerX)*scale,0.2,(seg.start.y-centerY)*scale),
+                new THREE.Vector3((seg.end.x-centerX)*scale,0.2,(seg.end.y-centerY)*scale)
+              ];
+              const geom=new THREE.BufferGeometry().setFromPoints(pts);
+              const line=new THREE.Line(geom, mat); line.renderOrder=999; group.add(line);
+            });
+            scene.add(group); dxfOverlayRef.current=group;
+            // 调整相机
+            try {
+              const cam = eng.camera; const maxDim=Math.max(width,height)*scale; cam.position.set(maxDim*1.2, maxDim*0.9, maxDim*1.2); cam.lookAt(0,0,0); eng.orbitControls.target.set(0,0,0); eng.orbitControls.update();
+            } catch {}
+          }
+        };
+      } catch {}
+
       // WebGL 上下文丢失/恢复监听
       try {
         const canvas = engineRef.current.renderer.domElement;
@@ -1333,6 +1392,7 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
     return () => {
       console.log('🧹 CAE组件清理函数被调用');
   unmountedRef.current = true;
+  try { delete (window as any).__CAE_ENGINE__; } catch {}
       
       // 停止动画循环
       if (animationIdRef.current) {
@@ -1385,7 +1445,7 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
   useEffect(()=>{
     const unsub = performanceStore.subscribe(m=>{
       if(!showPerf) return; // 仅在显示时刷新，避免多余重渲染
-      setPerfStats(ps=> ({
+  setPerfStats(()=> ({
         fps: +m.fps.toFixed(1),
         frameTime: +m.frameTime.toFixed(2),
         triangles: m.triangles,
@@ -1471,6 +1531,16 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
         ...props.style
       }}
     >
+      {/* 左下角坐标轴：提供空间方位反馈 */}
+      {isInitialized && engineRef.current?.camera && (
+        <ViewportAxes
+          camera={engineRef.current.camera}
+          size={96}
+          offset={{ left: 14, bottom: 14 }}
+          zIndex={1050}
+          style={{ backdropFilter: 'blur(2px)' }}
+        />
+      )}
       {!isInitialized && !initError && (
         <div style={{
           position: 'absolute',

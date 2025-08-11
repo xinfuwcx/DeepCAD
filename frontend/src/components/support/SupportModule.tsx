@@ -1,15 +1,12 @@
 import React, { useState } from 'react';
-import { Space, Row, Col, Typography, Collapse, Switch, Select, Alert, Card, InputNumber, Divider, Tabs, Form, Table, Checkbox } from 'antd';
-import { SafetyOutlined, CheckCircleOutlined, BuildOutlined, NodeExpandOutlined, AimOutlined, TableOutlined } from '@ant-design/icons';
-import { useForm, Controller } from 'react-hook-form';
+import { Row, Col, Select, Card, InputNumber, Divider, Tabs, Form, Table, Checkbox } from 'antd';
+import { SafetyOutlined, AimOutlined } from '@ant-design/icons';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { SupportParamsSchema, type SupportParams } from '../../schemas';
-import { GlassCard, GlassButton } from '../ui/GlassComponents';
-import { FormInputNumber, FormSelect, FormGroup } from '../forms';
+// 移除未使用的 UI 组件导入，保持文件精简
 
-const { Text } = Typography;
 const { Option } = Select;
-const { Panel } = Collapse;
 const { TabPane } = Tabs;
 
 interface SupportModuleProps {
@@ -23,11 +20,10 @@ interface SupportModuleProps {
 const SupportModule: React.FC<SupportModuleProps> = ({ 
   params, 
   onParamsChange, 
-  onGenerate, 
-  status,
-  disabled 
+  // onGenerate,
+  // status, disabled 目前未使用（保留 props 以兼容上层）
 }) => {
-  const [activePanel, setActivePanel] = useState<string | string[]>(['diaphragm']);
+  // const [activePanel, setActivePanel] = useState<string | string[]>(['diaphragm']); // 预留折叠面板状态
   const [anchorCount, setAnchorCount] = useState(20);
   const [beamEnabled, setBeamEnabled] = useState(false);
 
@@ -270,11 +266,9 @@ const SupportModule: React.FC<SupportModuleProps> = ({
 
   // React Hook Form with Zod validation
   const {
-    control,
-    handleSubmit,
-    formState: { errors, isValid },
+  // formState: { errors },
     watch,
-    setValue
+  // setValue
   } = useForm<SupportParams>({
     resolver: zodResolver(SupportParamsSchema),
     defaultValues: params,
@@ -287,7 +281,8 @@ const SupportModule: React.FC<SupportModuleProps> = ({
     Object.entries(watchedValues).forEach(([category, categoryValues]) => {
       if (typeof categoryValues === 'object' && categoryValues !== null) {
         Object.entries(categoryValues).forEach(([key, value]) => {
-          if (value !== undefined && value !== params[category as keyof SupportParams][key as keyof any]) {
+          const cat = params[category as keyof SupportParams] as any;
+          if (value !== undefined && cat && value !== cat[key]) {
             onParamsChange(category, key, value);
           }
         });
@@ -296,45 +291,9 @@ const SupportModule: React.FC<SupportModuleProps> = ({
   }, [watchedValues, onParamsChange, params]);
 
   // Form submission handler
-  const onSubmit = (data: SupportParams) => {
-    onGenerate(data);
-  };
+  // onSubmit / getFieldError 暂未使用，移除以减小噪声
 
-  // Validation helper
-  const getFieldError = (category: keyof SupportParams, fieldName: string) => {
-    return errors[category]?.[fieldName as keyof any]?.message;
-  };
-
-  const calculateSupportStats = () => {
-    const enabledComponents = Object.values(params).filter(p => p.enabled).length;
-    let totalLength = 0;
-    let materialTypes = new Set();
-
-    if (params.diaphragmWall.enabled) {
-      totalLength += 500; // 假设周长500m
-      materialTypes.add('混凝土');
-    }
-    if (params.pilePile.enabled) {
-      totalLength += params.pilePile.length * 50; // 假设50根桩
-      materialTypes.add('混凝土');
-    }
-    if (params.anchor.enabled) {
-      totalLength += params.anchor.length * 20; // 假设20根锚杆
-      materialTypes.add('钢材');
-    }
-    if (params.steelSupport.enabled) {
-      totalLength += 200 * params.steelSupport.layers; // 每层200m
-      materialTypes.add('钢材');
-    }
-
-    return {
-      components: enabledComponents,
-      totalLength: (totalLength / 1000).toFixed(1), // 转换为km
-      materials: materialTypes.size
-    };
-  };
-
-  const stats = calculateSupportStats();
+  // 统计函数暂未使用已移除
 
   return (
     <div className="p-4">
@@ -470,7 +429,7 @@ const SupportModule: React.FC<SupportModuleProps> = ({
         </TabPane>
 
         <TabPane 
-          tab={<span><NodeExpandOutlined /> 桩参数</span>}
+          tab={<span>桩参数</span>}
           key="pile_anchor"
         >
           <div style={contentContainerStyle}>
@@ -661,7 +620,8 @@ const SupportModule: React.FC<SupportModuleProps> = ({
           tab={<span><AimOutlined /> 锚杆参数</span>}
           key="anchor"
         >
-          <div style={{ ...contentContainerStyle, height: 'calc(100vh - 200px)' }}>
+          {/* 锚杆参数整体滚动容器 */}
+          <div style={{ display:'flex', flexDirection:'column', gap:16, maxHeight:'calc(100vh - 240px)', overflowY:'auto', padding:'16px', paddingBottom:64 }}>
             {/* 锚杆参数 */}
             <Card
               title="锚杆参数"
@@ -692,17 +652,17 @@ const SupportModule: React.FC<SupportModuleProps> = ({
               title="锚杆详细参数"
               size="small"
               style={{ marginBottom: '16px', borderRadius: '8px' }}
+              bodyStyle={{ padding:12 }}
             >
-              <div style={{ overflowX: 'auto', maxHeight: '400px', overflowY: 'auto' }}>
-                <Table
-                  dataSource={anchorTableData}
-                  columns={anchorColumns}
-                  pagination={false}
-                  size="small"
-                  scroll={{ x: 1330, y: 350 }}
-                  rowKey="key"
-                />
-              </div>
+              <Table
+                dataSource={anchorTableData}
+                columns={anchorColumns}
+                pagination={false}
+                size="small"
+                scroll={{ x: 1200 }}
+                rowKey="key"
+                sticky
+              />
             </Card>
 
 
@@ -785,6 +745,7 @@ const SupportModule: React.FC<SupportModuleProps> = ({
 
             <Divider />
 
+            <div style={{height:4}} />
           </div>
         </TabPane>
       </Tabs>

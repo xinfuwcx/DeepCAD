@@ -3,7 +3,7 @@
  * 支持轮廓导入和开挖参数配置
  */
 
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { Button, Typography, Form, InputNumber, Alert, Progress, message } from 'antd';
 import { FileTextOutlined, PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 // Unified layout components
@@ -12,7 +12,7 @@ import Panel from '../ui/layout/Panel';
 import MetricCard from '../ui/layout/MetricCard';
 
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 // 开挖参数接口
 interface ExcavationParameters {
@@ -49,6 +49,9 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dxfData, setDxfData] = useState<any>(null);
+  // 原始（未旋转）DXF 线段集合
+  const [rawDxfSegments, setRawDxfSegments] = useState<Array<{ start:{x:number;y:number}, end:{x:number;y:number} }>>([]);
+  const [displayScale, setDisplayScale] = useState<number>(1); // 视图显示缩放系数
   const [isParsingDXF, setIsParsingDXF] = useState(false);
   
   const [excavationParams, setExcavationParams] = useState<ExcavationParameters>({
@@ -261,6 +264,30 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
       const result = normalizeEntities(entities);
       console.log('normalizeEntities结果:', result);
       setDxfData(result);
+
+      // === 生成基础线段（未应用旋转）===
+      const baseSegments: Array<{ start:{x:number;y:number}, end:{x:number;y:number} }> = [];
+      entities.forEach(ent => {
+        if (ent.type === 'LWPOLYLINE' && Array.isArray(ent.vertices) && ent.vertices.length >= 2) {
+          for (let i = 0; i < ent.vertices.length - 1; i++) {
+            baseSegments.push({ start: { x: ent.vertices[i].x, y: ent.vertices[i].y }, end: { x: ent.vertices[i+1].x, y: ent.vertices[i+1].y } });
+          }
+          // 闭合
+          if (ent.vertices.length >= 3) {
+            baseSegments.push({ start: { x: ent.vertices[ent.vertices.length - 1].x, y: ent.vertices[ent.vertices.length - 1].y }, end: { x: ent.vertices[0].x, y: ent.vertices[0].y } });
+          }
+        } else if (ent.type === 'LINE' && ent.start && ent.end) {
+          baseSegments.push({ start: { x: ent.start.x, y: ent.start.y }, end: { x: ent.end.x, y: ent.end.y } });
+        }
+      });
+      setRawDxfSegments(baseSegments);
+      console.log('生成DXF基础线段数量:', baseSegments.length);
+
+      // 初次尝试渲染（旋转角度初始为 0）
+      try {
+        (window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments?.(baseSegments);
+        (window as any).__CAE_ENGINE__?.renderDXFSegments?.(baseSegments, { scaleMultiplier: displayScale });
+      } catch (e) { /* 视口可能尚未准备好 */ }
       
       message.success(`DXF文件解析成功！检测到 ${entities.length} 个实体，${result.originalPoints.length} 个点`);
       
@@ -269,8 +296,8 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
         点数量: result.originalPoints.length,
         面积: result.area.toFixed(2) + ' 平方单位',
         周长: result.perimeter.toFixed(2) + ' 单位',
-        宽度: result.width.toFixed(2) + ' 单位',
-        长度: result.length.toFixed(2) + ' 单位'
+  宽度: result.width?.toFixed(2) + ' 单位',
+  长度: result.length?.toFixed(2) + ' 单位'
       });
       
     } catch (error) {
@@ -280,6 +307,45 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
       setIsParsingDXF(false);
     }
   }, [handleContourChange, normalizeEntities]);
+
+  // =========== 旋转 & 渲染同步 ===========
+  useEffect(() => {
+  if (!rawDxfSegments.length) return;
+    const angleDeg = excavationParams.contourImport.rotationAngle;
+    const angleRad = (angleDeg * Math.PI) / 180;
+    if (!dxfData || !dxfData.bounds) {
+      // 没有边界就直接渲染原始线段
+      try {
+        (window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments?.(rawDxfSegments);
+        (window as any).__CAE_ENGINE__?.renderDXFSegments?.(rawDxfSegments, { scaleMultiplier: displayScale });
+      } catch {}
+      return;
+    }
+    const { minX, maxX, minY, maxY } = dxfData.bounds;
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    if (angleDeg === 0) {
+      try {
+        (window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments?.(rawDxfSegments);
+        (window as any).__CAE_ENGINE__?.renderDXFSegments?.(rawDxfSegments, { scaleMultiplier: displayScale });
+      } catch {}
+      return;
+    }
+    const cosA = Math.cos(angleRad);
+    const sinA = Math.sin(angleRad);
+    const rotated = rawDxfSegments.map(seg => {
+      const sx = seg.start.x - cx; const sy = seg.start.y - cy;
+      const ex = seg.end.x - cx; const ey = seg.end.y - cy;
+      return {
+        start: { x: cx + sx * cosA - sy * sinA, y: cy + sx * sinA + sy * cosA },
+        end: { x: cx + ex * cosA - ey * sinA, y: cy + ex * sinA + ey * cosA }
+      };
+    });
+    try {
+      (window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments?.(rotated);
+      (window as any).__CAE_ENGINE__?.renderDXFSegments?.(rotated, { scaleMultiplier: displayScale });
+    } catch {}
+  }, [rawDxfSegments, excavationParams.contourImport.rotationAngle, dxfData, displayScale]);
 
   // 衍生指标
   const derived = useMemo(() => {
@@ -305,7 +371,7 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
   return (
     <UnifiedModuleLayout
       left={
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="dc-left-scroll">
           <Panel title="基坑轮廓导入" subtitle="支持复杂异形基坑" dense>
             <Form layout="vertical" size="large">
               <input
@@ -372,6 +438,17 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
                   max={360}
                   step={1}
                   precision={0}
+                  size="large"
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+              <Form.Item label="显示缩放系数" tooltip="仅影响当前视口显示大小，不改变原始坐标" style={{ marginTop: 8 }}>
+                <InputNumber
+                  value={displayScale}
+                  onChange={(v)=> setDisplayScale(v && v>0 ? v : 1)}
+                  min={0.01}
+                  max={10}
+                  step={0.1}
                   size="large"
                   style={{ width: '100%' }}
                 />
@@ -450,7 +527,7 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
               </div>
             </Form>
           </Panel>
-        </div>
+  </div>
       }
       right={
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -462,8 +539,8 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
               <MetricCard label="应力释放" value={excavationParams.excavationParams.stressReleaseCoefficient.toFixed(1)} accent="green" />
               {dxfData && (
                 <>
-                  <MetricCard label="DXF宽度" value={dxfData.width.toFixed(1) + ' 单位'} accent="cyan" />
-                  <MetricCard label="DXF长度" value={dxfData.length.toFixed(1) + ' 单位'} accent="cyan" />
+                  <MetricCard label="DXF宽度" value={dxfData.width.toFixed(1) + ' 单位'} accent="blue" />
+                  <MetricCard label="DXF长度" value={dxfData.length.toFixed(1) + ' 单位'} accent="blue" />
                   <MetricCard label="DXF面积" value={dxfData.area.toFixed(1) + ' ㎡'} accent="green" />
                   <MetricCard label="DXF周长" value={dxfData.perimeter.toFixed(1) + ' m'} accent="purple" />
                 </>
@@ -492,7 +569,10 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
           </Panel>
         </div>
       }
-    />
+    >
+      {/* 主区域当前为空（由外层工作区3D视口占位时再替换）*/}
+      <div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',color:'#555',fontSize:12,opacity:0.3}}>Excavation Workspace</div>
+    </UnifiedModuleLayout>
   );
 };
 

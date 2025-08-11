@@ -1,7 +1,7 @@
 /**
  * 视口坐标轴组件 - 固定在左下角，跟随主相机旋转
  */
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import * as THREE from 'three';
 
 interface ViewportAxesProps {
@@ -12,6 +12,10 @@ interface ViewportAxesProps {
   zIndex?: number;
   className?: string;
   style?: React.CSSProperties;
+  /** 跟随模式: instant 立即复制; smooth 平滑插值 */
+  followMode?: 'instant' | 'smooth';
+  /** 平滑时的阻尼 (0-1, 越大越快) */
+  damping?: number;
 }
 
 export const ViewportAxes: React.FC<ViewportAxesProps> = ({ 
@@ -21,19 +25,24 @@ export const ViewportAxes: React.FC<ViewportAxesProps> = ({
   offset = { left: 20, bottom: 20 },
   zIndex = 999,
   className,
-  style
+  style,
+  followMode = 'smooth',
+  damping = 0.18
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene>();
   const rendererRef = useRef<THREE.WebGLRenderer>();
   const axesCameraRef = useRef<THREE.PerspectiveCamera>();
   const frameIdRef = useRef<number>();
+  const [fallback, setFallback] = useState(false);
+  const axesGroupRef = useRef<THREE.Group>();
 
   const createAxes = useCallback((): THREE.Group => {
     console.log('ViewportAxes: Creating axes geometry...');
     const group = new THREE.Group();
+  group.name = 'mini-axes-root';
     
-    const axisLength = 1.5;
+  const axisLength = 1.7; // 略微加长，便于观察
     const arrowLength = 0.3;
     const arrowRadius = 0.1;
     const axisRadius = 0.03;
@@ -81,14 +90,57 @@ export const ViewportAxes: React.FC<ViewportAxesProps> = ({
     zArrow.position.z = axisLength + arrowLength / 2;
     group.add(zArrow);
 
-    console.log('ViewportAxes: Axes group created with', group.children.length, 'children');
+  // THREE 自带辅助 (细线) 作为兜底，先放大避免被箭头遮挡
+  const helper = new THREE.AxesHelper(2.2);
+  helper.name = 'axes-helper';
+  group.add(helper);
+
+  // 原点立方体
+    const originCubeGeo = new THREE.BoxGeometry(0.18, 0.18, 0.18);
+    const originCubeMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent:true, opacity:0.9 });
+    const originCube = new THREE.Mesh(originCubeGeo, originCubeMat);
+    originCube.name = 'origin-cube';
+    group.add(originCube);
+
+    // 文本标签创建函数 (基于 Canvas 生成纹理)
+    const createLabelSprite = (text: string, color: string, position: THREE.Vector3) => {
+      const size = 128;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d')!;
+      ctx.clearRect(0,0,size,size);
+      ctx.font = 'bold 72px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      // 背景圆
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath(); ctx.arc(size/2, size/2, size/2-4, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = color;
+      ctx.fillText(text, size/2, size/2+4);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.anisotropy = 4;
+      const material = new THREE.SpriteMaterial({ map: texture, depthTest:false, depthWrite:false, transparent:true });
+      const sprite = new THREE.Sprite(material);
+      const labelScale = 0.55; // 控制标签实体大小
+      sprite.scale.set(labelScale, labelScale, labelScale);
+      sprite.position.copy(position);
+      sprite.renderOrder = 1000;
+      group.add(sprite);
+    };
+
+    // 添加 X/Y/Z 标签 (稍微超出箭头)
+    createLabelSprite('X', '#ff4d4d', new THREE.Vector3(axisLength + arrowLength + 0.55, 0, 0));
+    createLabelSprite('Y', '#4dff4d', new THREE.Vector3(0, axisLength + arrowLength + 0.55, 0));
+    createLabelSprite('Z', '#4d6dff', new THREE.Vector3(0, 0, axisLength + arrowLength + 0.55));
+
+  console.log('ViewportAxes: Axes group created with', group.children.length, 'children');
     return group;
   }, []);
 
   useEffect(() => {
     console.log('ViewportAxes: useEffect triggered, camera:', !!camera, 'mount:', !!mountRef.current);
     
-    if (!mountRef.current) {
+  if (!mountRef.current) {
       console.log('ViewportAxes: mountRef not ready');
       return;
     }
@@ -111,18 +163,29 @@ export const ViewportAxes: React.FC<ViewportAxesProps> = ({
     axesCameraRef.current = axesCamera;
 
     // 创建渲染器
-    const renderer = new THREE.WebGLRenderer({ 
-      alpha: true, 
-      antialias: true,
-      premultipliedAlpha: false
-    });
-    renderer.setSize(size, size);
-    renderer.setClearColor(0x000000, 0);
-    renderer.shadowMap.enabled = false;
-    rendererRef.current = renderer;
+    let renderer:THREE.WebGLRenderer | null = null;
+    try {
+      renderer = new THREE.WebGLRenderer({ 
+        alpha: true, 
+        antialias: true,
+        premultipliedAlpha: false
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(size, size, false);
+      renderer.setClearColor(0x000000, 0);
+      renderer.shadowMap.enabled = false;
+      rendererRef.current = renderer;
+    } catch (e) {
+      console.warn('ViewportAxes: WebGLRenderer init failed, switching to fallback', e);
+      setFallback(true);
+      return;
+    }
 
     try {
-      mountRef.current.appendChild(renderer.domElement);
+  renderer.domElement.style.width = '100%';
+  renderer.domElement.style.height = '100%';
+  renderer.domElement.style.display = 'block';
+  mountRef.current.appendChild(renderer.domElement);
       console.log('ViewportAxes: Renderer added to DOM, canvas size:', renderer.domElement.width, 'x', renderer.domElement.height);
     } catch (error) {
       console.error('ViewportAxes: Failed to add renderer to DOM:', error);
@@ -130,8 +193,9 @@ export const ViewportAxes: React.FC<ViewportAxesProps> = ({
     }
 
     // 创建坐标轴
-    const axesGroup = createAxes();
-    scene.add(axesGroup);
+  const axesGroup = createAxes();
+  axesGroupRef.current = axesGroup;
+  scene.add(axesGroup);
     console.log('ViewportAxes: Axes added to scene, children count:', scene.children.length);
 
     // 添加光照
@@ -141,7 +205,7 @@ export const ViewportAxes: React.FC<ViewportAxesProps> = ({
     console.log('ViewportAxes: Lights added, total children:', scene.children.length);
 
     // 手动渲染一次测试
-    renderer.render(scene, axesCamera);
+  renderer.render(scene, axesCamera);
     console.log('ViewportAxes: Initial render complete');
 
     // 渲染循环
@@ -149,12 +213,16 @@ export const ViewportAxes: React.FC<ViewportAxesProps> = ({
       frameIdRef.current = requestAnimationFrame(animate);
 
       // 同步相机旋转
-      if (camera && axesCamera) {
-        axesCamera.quaternion.copy(camera.quaternion);
-        axesCamera.updateMatrixWorld();
+      if (camera && axesGroupRef.current) {
+        if (followMode === 'instant') {
+          axesGroupRef.current.quaternion.copy(camera.quaternion);
+        } else {
+          // 平滑插值 (四元数球面插值)
+          axesGroupRef.current.quaternion.slerp(camera.quaternion, damping);
+        }
       }
 
-      renderer.render(scene, axesCamera);
+  renderer.render(scene, axesCamera);
     };
 
     console.log('ViewportAxes: Starting animation loop');
@@ -165,12 +233,14 @@ export const ViewportAxes: React.FC<ViewportAxesProps> = ({
       if (frameIdRef.current) {
         cancelAnimationFrame(frameIdRef.current);
       }
-      renderer.dispose();
-      if (mountRef.current && renderer.domElement && mountRef.current.contains(renderer.domElement)) {
-        mountRef.current.removeChild(renderer.domElement);
+      if (rendererRef.current) {
+        rendererRef.current.dispose();
+        if (mountRef.current && rendererRef.current.domElement && mountRef.current.contains(rendererRef.current.domElement)) {
+          mountRef.current.removeChild(rendererRef.current.domElement);
+        }
       }
     };
-  }, [camera, size, createAxes]);
+  }, [camera, size, createAxes, followMode, damping]);
 
   return (
     <div
@@ -186,14 +256,27 @@ export const ViewportAxes: React.FC<ViewportAxesProps> = ({
         height: `${size}px`,
         zIndex,
         pointerEvents: 'none',
-        border: '2px solid rgba(255,255,255,0.35)',
+  border: '1px solid rgba(255,255,255,0.25)',
         borderRadius: '8px',
-        backgroundColor: 'rgba(0,0,0,0.2)',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-        display: 'block', // 确保显示
+        background: 'linear-gradient(135deg, rgba(0,0,0,0.35), rgba(0,0,0,0.1))',
+        boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 10,
+        color: '#fff',
+        fontFamily: 'Inter, system-ui, Arial',
+        letterSpacing: 0.5,
         ...style,
       }}
-    />
+    >
+      {fallback && (
+        <div style={{ textAlign:'center', lineHeight:1.2 }}>
+          <div style={{fontSize:12}}>X Y Z</div>
+          <div style={{opacity:0.6}}>No WebGL</div>
+        </div>
+      )}
+    </div>
   );
 };
 

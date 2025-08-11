@@ -1,14 +1,19 @@
 /* 统一模块布局与面板样式 */
-.dc-module-layout { position: relative; width: 100%; height: 100%; display: flex; background:#0d1117; color:#fff; font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'Noto Sans','PingFang SC','Microsoft YaHei',sans-serif; }
+.dc-module-layout { position: relative; width: 100%; height: 100vh; display: flex; background:#0d1117; color:#fff; font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'Noto Sans','PingFang SC','Microsoft YaHei',sans-serif; }
 .dc-module-left, .dc-module-right { width:320px; padding:12px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; }
+.dc-module-left { min-height:0; }
+.dc-module-right { min-height:0; }
+.dc-left-scroll { flex:1 1 auto; min-height:0; overflow-y:auto; padding-right:4px; display:flex; flex-direction:column; gap:12px; }
+.dc-left-scroll::-webkit-scrollbar { width:8px; }
+.dc-left-scroll::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:4px; }
 .dc-module-left { background:linear-gradient(180deg,rgba(255,255,255,0.04) 0%,rgba(255,255,255,0.02) 100%); border-right:1px solid rgba(255,255,255,0.06); }
-.dc-module-right { background:linear-gradient(180deg,rgba(255,255,255,0.04) 0%,rgba(255,255,255,0.02) 100%); border-left:1px solid rgba(255,255,255,0.06); }
+.dc-module-right { background:linear-gradient(180deg,rgba(255,255,255,0.04) 0%,rgba(255,255,255,0.02) 100%); border-left:1px solid rgba(255,255,255,0.06); scrollbar-gutter:stable; z-index:20; }
 .dc-module-main { flex:1; position:relative; overflow:hidden; }
 .dc-panel { background:rgba(17,25,40,0.85); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:14px 16px 18px; backdrop-filter:blur(18px) saturate(160%); box-shadow:0 4px 12px -2px rgba(0,0,0,0.5),0 0 0 1px rgba(255,255,255,0.03) inset; animation:dc-fade-in .3s ease; }
 .dc-panel-transparent { background:rgba(17,25,40,0.4); }
 .dc-panel-dense { padding:10px 12px 12px; }
 .dc-panel-header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:10px; }
-.dc-panel-title { margin:0; font-size:15px; font-weight:600; letter-spacing:.5px; background:linear-gradient(90deg,#fff,#b3c2ff); -webkit-background-clip:text; color:transparent; }
+.dc-panel-title { margin:0; font-size:15px; font-weight:600; letter-spacing:.5px; background:linear-gradient(90deg,#fff,#b3c2ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
 .dc-panel-subtitle { font-size:11px; color:#8b949e; margin-top:2px; }
 .dc-panel-actions { display:flex; gap:6px; }
 .dc-panel-body { font-size:12px; display:flex; flex-direction:column; gap:10px; }
@@ -29,3 +34,6 @@
 .dc-module-left::-webkit-scrollbar, .dc-module-right::-webkit-scrollbar { width:8px; }
 .dc-module-left::-webkit-scrollbar-track, .dc-module-right::-webkit-scrollbar-track { background:transparent; }
 .dc-module-left::-webkit-scrollbar-thumb, .dc-module-right::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.12); border-radius:4px; }
+.dc-scroll-panel { scrollbar-width: thin; }
+.dc-scroll-panel::-webkit-scrollbar { width:8px; }
+.dc-scroll-panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); border-radius:4px; }
