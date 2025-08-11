@@ -110,6 +110,12 @@ try:
 except ImportError:
     print("⚠️ 可视化模块未找到")
 
+try:
+    from gateway.modules.ai_assistant.routes import router as ai_assistant_router
+    app.include_router(ai_assistant_router, prefix="/api", tags=["AI助手"])
+except ImportError:
+    print("⚠️ AI助手模块未找到")
+
 if __name__ == "__main__":
     print("🚀 启动DeepCAD深基坑CAE平台")
     print(f"📁 项目根目录: {ROOT_DIR}")
