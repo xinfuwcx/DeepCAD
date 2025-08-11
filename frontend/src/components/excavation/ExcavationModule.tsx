@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import { Button, Typography, Form, InputNumber, Alert, Progress, message } from 'antd';
+import { Button, Typography, Form, InputNumber, Alert, Progress, message, Card } from 'antd';
 import { FileTextOutlined, PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 // Unified layout components
 import UnifiedModuleLayout from '../ui/layout/UnifiedModuleLayout';
@@ -371,7 +371,16 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
   return (
     <UnifiedModuleLayout
       left={
-        <div className="dc-left-scroll">
+        <Card 
+          title="基坑设计" 
+          style={{ 
+            background: 'rgba(0, 217, 255, 0.05)',
+            border: '1px solid rgba(0, 217, 255, 0.2)'
+          }}
+          bodyStyle={{
+            padding: '16px'
+          }}
+        >
           <Panel title="基坑轮廓导入" subtitle="支持复杂异形基坑" dense>
             <Form layout="vertical" size="large">
               <input
@@ -527,10 +536,22 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
               </div>
             </Form>
           </Panel>
-  </div>
+        </Card>
       }
       right={
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <Card 
+          title="参数监控" 
+          style={{ 
+            background: 'rgba(0, 217, 255, 0.05)',
+            border: '1px solid rgba(0, 217, 255, 0.2)',
+            height: 'calc(100vh - 120px)'
+          }}
+          bodyStyle={{
+            padding: '16px',
+            height: 'calc(100vh - 170px)',
+            overflowY: 'auto'
+          }}
+        >
           <Panel title="参数指标" dense>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: 12 }}>
               <MetricCard label="总深度" value={excavationParams.excavationParams.depth.toFixed(1) + ' m'} accent="blue" />
@@ -567,7 +588,7 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
               </div>
             )}
           </Panel>
-        </div>
+        </Card>
       }
     >
       {/* 主区域当前为空（由外层工作区3D视口占位时再替换）*/}

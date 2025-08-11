@@ -1,5 +1,13 @@
 /* Component Styles - DeepCAD Design System */
 
+/* === Scroll Components === */
+.dc-left-scroll {
+  overflow-y: auto;
+  max-height: calc(100vh - 180px);
+  padding-right: 8px;
+  padding-bottom: 20px;
+}
+
 /* === Form Components === */
 .form-field-wrapper {
   margin-bottom: var(--space-4);
