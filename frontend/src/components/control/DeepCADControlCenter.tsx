@@ -12,6 +12,9 @@
  */
 
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+// New core visual background & performance overlay
+import { BackgroundVisualization } from '../../core/BackgroundVisualization';
+import { PerformanceOverlay } from '../../core/performance/PerformanceOverlay';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // 超级炫酷的CSS动画样式
@@ -90,9 +93,23 @@ import { ScatterplotLayer, ArcLayer, ColumnLayer } from '@deck.gl/layers';
 // Remove static HeatmapLayer import; will lazy load when building layers
 // Lazy deck layer loader (unifies HeatmapLayer access & reduces initial bundle)
 import { getDeckLayers } from '../../utils/mapLayersUtil';
+import { DeckGlLayerAdapter } from '../../core/layers/DeckGlLayerAdapter';
+import { useThreeScene } from '../../core/useThreeScene';
+import { emitSelection } from '../../core/picking/selectionDispatcher';
+import SelectionToast from './SelectionToast';
+import { Sparkline, Donut } from './KPIWidgets';
 
 // 服务和工具
 import { amapWeatherService, WeatherData } from '../../services/AmapWeatherService';
+import LayerDebugPanel from '../../core/performance/LayerDebugPanel';
+import TimelineControlPanel from '../../core/performance/TimelineControlPanel';
+// 新架构下的示例全局三维地球层（可选显示）
+import EpicGlobeScene from '../../core/EpicGlobeScene';
+import ProjectManagementPanel from '../project/ProjectManagementPanel';
+import { useVisualSettingsStore } from '../../core/visualSettingsStore';
+import { getProjects as fetchProjectItems, ProjectItem } from '../../services/projectService';
+import { useControlCenterStore } from '../../core/controlCenterStore';
+import { startProjectPolling, stopProjectPolling } from '../../services/projectPollingService';
 
 interface DeepCADControlCenterProps {
   onExit: () => void;
@@ -104,16 +121,17 @@ interface ExcavationProject {
   location: { lat: number; lng: number };
   type: 'excavation' | 'tunnel' | 'foundation';
   status: 'planning' | 'excavating' | 'supporting' | 'completed' | 'suspended';
-  depth: number; // 基坑深度 (米)
-  area: number; // 基坑面积 (平方米)
-  progress: number; // 进度百分比 (0-100)
+  depth: number;
+  area: number;
+  progress: number;
   startDate: string;
   estimatedCompletion: string;
-  contractor: string; // 承包商
+  contractor: string;
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
-  weather?: WeatherData; // 当地天气数据
-  workers: number; // 现场工人数量
-  equipment: string[]; // 设备列表
+  weather?: WeatherData;
+  workers: number;
+  equipment: string[];
+  marker?: any;
 }
 
 interface SystemStats {
@@ -126,21 +144,53 @@ interface SystemStats {
 }
 
 export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onExit }) => {
+  // 内联小组件：轮播 KPI 标题
+  const RotatingHeadline: React.FC<{stats: SystemStats}> = ({stats}) => {
+    const items = useMemo(()=>[
+      `控制中心 · 项目总数 ${stats.totalProjects}`,
+      `活跃 ${stats.activeProjects} · 完成 ${stats.completedProjects}`,
+      `总深度 ${stats.totalDepth}m · 平均进度 ${stats.averageProgress}%`,
+      `高风险 ${stats.criticalAlerts}`
+    ], [stats]);
+    const [idx,setIdx]=useState(0);
+    useEffect(()=>{ const t = setInterval(()=> setIdx(i=>(i+1)%items.length), 4000); return ()=> clearInterval(t); },[items.length]);
+    return (
+      <div style={{
+        fontSize: '24px',
+        fontWeight: 'bold',
+        background: 'linear-gradient(45deg,#00eaff,#0077ff)',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        textShadow: '0 0 10px rgba(0,170,255,0.5)',
+        letterSpacing:'1px',
+        minHeight:34
+      }}>
+        {items[idx]}
+      </div>
+    );
+  };
   // 地图容器引用
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null); // 高德地图实例
   const deckRef = useRef<Deck | null>(null);
+  const deckLayerAdapterRef = useRef<DeckGlLayerAdapter | null>(null);
 
   // 状态管理
   const [isInitialized, setIsInitialized] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
-  const [selectedProject, setSelectedProject] = useState<ExcavationProject | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [riskFilter, setRiskFilter] = useState<string>('all');
+  const selectedProjectId = useControlCenterStore(s=>s.selectedProjectId);
+  const setSelectedProjectId = useControlCenterStore(s=>s.setSelectedProjectId);
+  const searchTerm = useControlCenterStore(s=>s.searchTerm);
+  const setSearchTerm = useControlCenterStore(s=>s.setSearchTerm);
+  const statusFilter = useControlCenterStore(s=>s.statusFilter);
+  const setStatusFilter = useControlCenterStore(s=>s.setStatusFilter);
+  const riskFilter = useControlCenterStore(s=>s.riskFilter);
+  const setRiskFilter = useControlCenterStore(s=>s.setRiskFilter);
   const [isFlying, setIsFlying] = useState(false);
-  const [showWeatherPanel, setShowWeatherPanel] = useState(true);
-  const [showProjectDetails, setShowProjectDetails] = useState(false);
+  const showWeatherPanel = useControlCenterStore(s=>s.showWeatherPanel);
+  const setShowWeatherPanel = useControlCenterStore(s=>s.setShowWeatherPanel);
+  const showProjectDetails = useControlCenterStore(s=>s.showProjectDetails);
+  const setShowProjectDetails = useControlCenterStore(s=>s.setShowProjectDetails);
   const [weatherDataMap, setWeatherDataMap] = useState<Map<string, WeatherData>>(new Map());
   const [systemStats, setSystemStats] = useState<SystemStats>({
     totalProjects: 0,
@@ -155,9 +205,30 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     memoryUsage: 0,
     renderTime: 0
   });
+  const [progressHistory, setProgressHistory] = useState<number[]>([]);
+  // 浮动项目管理面板显示状态
+  const [showFloatingProjectPanel, setShowFloatingProjectPanel] = useState(false);
   const [is3DMode, setIs3DMode] = useState(true);
   const [currentPitch, setCurrentPitch] = useState(30);
   const [particles, setParticles] = useState<Array<{id: number, x: number, y: number, delay: number}>>([]);
+  const showEpicGlobe = useVisualSettingsStore(s=>s.showEpicGlobe);
+  const showLegacyParticles = useVisualSettingsStore(s=>s.showLegacyParticles);
+  const enablePostFX = useVisualSettingsStore(s=>s.enablePostFX);
+  const showLayerDebugPanel = useVisualSettingsStore(s=>s.showLayerDebugPanel);
+  const toggle = useVisualSettingsStore(s=>s.toggle);
+  // 从服务加载真实或本地化项目 -> 转换为统一结构
+  const [loadedProjects, setLoadedProjects] = useState<ExcavationProject[] | null>(null);
+  const selectedProject = useMemo(()=> (loadedProjects||[]).find(p=>p.id===selectedProjectId) || null, [loadedProjects, selectedProjectId]);
+  const epicProjects = useMemo(() => (loadedProjects || []).slice(0, 50).map(p => ({
+    id: p.id,
+    name: p.name,
+    lat: p.location.lat,
+    lng: p.location.lng,
+    depth: p.depth,
+    status: p.status === 'excavating' ? 'active' : (p.status === 'supporting' ? 'active' : p.status),
+    progress: p.progress,
+    description: `${p.depth}m 深，进度 ${p.progress}%`
+  })), [loadedProjects]);
 
   // 生成粒子效果
   useEffect(() => {
@@ -176,60 +247,38 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     return () => clearInterval(interval);
   }, []);
 
-  // 生成示例项目数据 - 模拟真实的基坑项目分布
-  const generateProjects = useCallback((): ExcavationProject[] => {
-    const cities = [
-      { name: '北京', lat: 39.9042, lng: 116.4074, projects: 150 },
-      { name: '上海', lat: 31.2304, lng: 121.4737, projects: 200 },
-      { name: '广州', lat: 23.1291, lng: 113.2644, projects: 120 },
-      { name: '深圳', lat: 22.5431, lng: 114.0579, projects: 180 },
-      { name: '杭州', lat: 30.2741, lng: 120.1551, projects: 100 },
-      { name: '南京', lat: 32.0603, lng: 118.7969, projects: 80 },
-      { name: '武汉', lat: 30.5928, lng: 114.3055, projects: 90 },
-      { name: '成都', lat: 30.5728, lng: 104.0668, projects: 110 }
-    ];
-
-    const projectTypes = ['excavation', 'tunnel', 'foundation'] as const;
-    const statuses = ['planning', 'excavating', 'supporting', 'completed', 'suspended'] as const;
-    const riskLevels = ['low', 'medium', 'high', 'critical'] as const;
-    const contractors = ['中建集团', '中铁建设', '中交建设', '上海建工', '北京建工', '广州建设'];
-
-    const projects: ExcavationProject[] = [];
-    let projectId = 1;
-
-    cities.forEach(city => {
-      for (let i = 0; i < city.projects; i++) {
-        // 在城市周围随机分布项目
-        const latOffset = (Math.random() - 0.5) * 0.5; // ±0.25度范围
-        const lngOffset = (Math.random() - 0.5) * 0.5;
-
-        projects.push({
-          id: `project-${projectId++}`,
-          name: `${city.name}${projectTypes[Math.floor(Math.random() * projectTypes.length)] === 'excavation' ? '深基坑' :
-                 projectTypes[Math.floor(Math.random() * projectTypes.length)] === 'tunnel' ? '隧道' : '地基'}工程-${i + 1}`,
-          location: {
-            lat: city.lat + latOffset,
-            lng: city.lng + lngOffset
-          },
-          type: projectTypes[Math.floor(Math.random() * projectTypes.length)],
-          status: statuses[Math.floor(Math.random() * statuses.length)],
-          depth: Math.round(5 + Math.random() * 45), // 5-50米深度
-          area: Math.round(100 + Math.random() * 4900), // 100-5000平方米
-          progress: Math.round(Math.random() * 100),
-          startDate: new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString().split('T')[0],
-          estimatedCompletion: new Date(2025, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString().split('T')[0],
-          contractor: contractors[Math.floor(Math.random() * contractors.length)],
-          riskLevel: riskLevels[Math.floor(Math.random() * riskLevels.length)],
-          workers: Math.round(10 + Math.random() * 90), // 10-100人
-          equipment: ['挖掘机', '塔吊', '混凝土泵车'].slice(0, Math.floor(Math.random() * 3) + 1)
+  // 实际项目加载逻辑
+  useEffect(() => {
+    (async () => {
+      try {
+        const items: ProjectItem[] = await fetchProjectItems();
+        // 转换为 ExcavationProject
+        const converted: ExcavationProject[] = items.map((p, idx) => {
+          const riskPool: ExcavationProject['riskLevel'][] = ['low','medium','high','critical'];
+            return {
+              id: p.id,
+              name: p.name,
+              location: { lat: p.latitude, lng: p.longitude },
+              type: 'excavation',
+              status: (p.status as any) === 'active' ? 'excavating' : (p.status as any || 'planning'),
+              depth: p.depth ?? Math.round(10+Math.random()*30),
+              area: p.area ?? Math.round(500+Math.random()*4500),
+              progress: p.progress ?? Math.round(Math.random()*100),
+              startDate: p.startDate || '2024-01-01',
+              estimatedCompletion: p.endDate || '2025-12-31',
+              contractor: p.manager ? p.manager + '团队' : '中建集团',
+              riskLevel: riskPool[(idx + p.name.length) % riskPool.length],
+              workers: Math.round(20+Math.random()*80),
+              equipment: ['挖掘机','塔吊','混凝土泵车'].slice(0, 1+Math.floor(Math.random()*3))
+            };
         });
+        setLoadedProjects(converted);
+      } catch (e) {
+        console.warn('加载项目数据失败，继续使用内置随机: ', e);
       }
-    });
-
-    return projects;
+    })();
   }, []);
-
-  const projects = useMemo(() => generateProjects(), [generateProjects]);
+  const projects = loadedProjects || [];
 
   // 过滤和搜索项目
   const filteredProjects = useMemo(() => {
@@ -251,7 +300,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
 
   // 计算系统统计数据
   useEffect(() => {
-    const stats: SystemStats = {
+  const stats: SystemStats = {
       totalProjects: projects.length,
       activeProjects: projects.filter(p => p.status === 'excavating' || p.status === 'supporting').length,
       completedProjects: projects.filter(p => p.status === 'completed').length,
@@ -260,6 +309,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       criticalAlerts: projects.filter(p => p.riskLevel === 'critical').length
     };
     setSystemStats(stats);
+  setProgressHistory(prev => [...prev.slice(-59), stats.averageProgress]);
   }, [projects]);
 
   /**
@@ -398,7 +448,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
 
       // 设置默认选中项目
       if (filteredProjects.length > 0) {
-        setSelectedProject(filteredProjects[0]);
+  if (filteredProjects[0]) setSelectedProjectId(filteredProjects[0].id);
       }
 
       setIsInitialized(true);
@@ -448,7 +498,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       console.log('🎨 初始化基坑项目可视化层...');
 
       // 创建Deck.gl实例，覆盖在高德地图上
-      const deck = new Deck({
+  const deck = new Deck({
         canvas: 'deck-canvas',
         width: '100%',
         height: '100%',
@@ -464,7 +514,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           // 基坑项目散点图层
           new ScatterplotLayer({
             id: 'excavation-projects',
-            data: filteredProjects,
+      data: filteredProjects.length > 800 ? filteredProjects.filter((_,i)=> i % 2 === 0) : filteredProjects, // 简单 LOD 采样
             getPosition: (d: ExcavationProject) => [d.location.lng, d.location.lat],
             getRadius: (d: ExcavationProject) => {
               // 根据基坑深度和面积计算显示大小
@@ -481,15 +531,16 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
             radiusMinPixels: 8,
             radiusMaxPixels: 50,
             pickable: true,
-            onClick: (info) => {
+      onClick: (info) => {
               if (info.object) {
                 const project = info.object as ExcavationProject;
-                setSelectedProject(project);
+        setSelectedProjectId(project.id);
+        emitSelection('deck-scatter', project.id);
                 setShowProjectDetails(true);
                 console.log('🎯 选中项目:', project.name);
               }
             },
-            onHover: (info) => {
+            onHover: (_info) => {
               // 悬停效果可以在这里添加
             },
             updateTriggers: {
@@ -518,9 +569,10 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
             radius: 150, // 更大的半径
             elevationScale: 2, // 放大高度
             pickable: true,
-            onClick: (info) => {
+  onClick: (info) => {
               if (info.object) {
-                setSelectedProject(info.object);
+        setSelectedProjectId(info.object.id);
+        emitSelection('deck-column', info.object.id);
                 console.log('🎯 3D柱状图项目被选中:', info.object.name);
               }
             }
@@ -548,7 +600,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         ]
       });
 
-      // 异步懒加载 HeatmapLayer 并追加
+  // 异步懒加载 HeatmapLayer 并追加
       (async () => {
         try {
           const { HeatmapLayer } = await getDeckLayers();
@@ -594,6 +646,9 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       })();
 
       deckRef.current = deck;
+      if (!deckLayerAdapterRef.current) {
+        deckLayerAdapterRef.current = new DeckGlLayerAdapter('deckGL', () => deck);
+      }
 
       // 强制重绘Deck.gl
       setTimeout(() => {
@@ -675,34 +730,14 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         setIs3DMode(true);
       }
     }, 1200);
-    setSelectedProject(null);
+  setSelectedProjectId(null);
     setShowProjectDetails(false);
   }, []);
 
   /**
    * 获取项目统计信息
    */
-  const getProjectStats = useCallback(() => {
-    const stats = {
-      byStatus: {
-        planning: projects.filter(p => p.status === 'planning').length,
-        excavating: projects.filter(p => p.status === 'excavating').length,
-        supporting: projects.filter(p => p.status === 'supporting').length,
-        completed: projects.filter(p => p.status === 'completed').length,
-        suspended: projects.filter(p => p.status === 'suspended').length
-      },
-      byRisk: {
-        low: projects.filter(p => p.riskLevel === 'low').length,
-        medium: projects.filter(p => p.riskLevel === 'medium').length,
-        high: projects.filter(p => p.riskLevel === 'high').length,
-        critical: projects.filter(p => p.riskLevel === 'critical').length
-      },
-      totalWorkers: projects.reduce((sum, p) => sum + p.workers, 0),
-      averageDepth: Math.round(projects.reduce((sum, p) => sum + p.depth, 0) / projects.length),
-      totalArea: projects.reduce((sum, p) => sum + p.area, 0)
-    };
-    return stats;
-  }, [projects]);
+  // getProjectStats removed (unused after architecture refactor)
 
   /**
    * 批量加载项目天气数据 - 优化性能
@@ -737,7 +772,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           }
         } catch (error) {
           console.warn(`⚠️ 项目 ${project.name} 天气数据加载失败，使用默认数据:`, error);
-          weatherMap.set(project.id, this.getDefaultWeatherData());
+          weatherMap.set(project.id, getDefaultWeatherData());
         }
       }
 
@@ -818,7 +853,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     );
 
     // 更新选中项目
-    setSelectedProject(project);
+  setSelectedProjectId(project.id);
     setShowProjectDetails(true);
 
     // 飞行完成后的回调
@@ -834,6 +869,31 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     }
 
   }, [isFlying, initializeDeck]);
+
+  // ==== 将全局项目数据映射为浮动项目管理面板的数据结构 ====
+  const panelProjects = useMemo(() => {
+    return projects.slice(0, 120).map(p => ({
+      id: p.id,
+      name: p.name,
+      description: `${p.depth}m深 / 进度${p.progress}% / 风险${p.riskLevel}`,
+      location: `${p.location.lat.toFixed(2)},${p.location.lng.toFixed(2)}`,
+      status: (p.status === 'excavating' || p.status === 'supporting') ? 'active' :
+              (p.status === 'suspended' ? 'paused' : (p.status as any === 'planning' ? 'planning' : 'completed')),
+      progress: p.progress,
+      startDate: p.startDate,
+      endDate: p.estimatedCompletion,
+      manager: p.contractor.split('')[0] + '工',
+      depth: p.depth,
+      area: p.area
+    }));
+  }, [projects]);
+
+  const handlePanelProjectSelect = useCallback((panelProject: any) => {
+    const target = projects.find(p => p.id === panelProject.id);
+    if (target) {
+  flyToProject(target);
+    }
+  }, [projects, flyToProject]);
 
   // 组件挂载时初始化
   useEffect(() => {
@@ -873,10 +933,79 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
   // 监听过滤条件变化，更新Deck.gl图层
   useEffect(() => {
     if (deckRef.current && isInitialized) {
-      // 重新初始化Deck.gl图层以反映过滤后的数据
-      initializeDeck();
+      const baseScatterData = filteredProjects.length > 800 ? filteredProjects.filter((_,i)=> i % 2 === 0) : filteredProjects;
+      const newScatter = new ScatterplotLayer({
+        id: 'excavation-projects',
+        data: baseScatterData,
+        getPosition: (d: ExcavationProject) => [d.location.lng, d.location.lat],
+        getRadius: (d: ExcavationProject) => {
+          const depthFactor = Math.log(d.depth + 1) * 500;
+          const areaFactor = Math.log(d.area + 1) * 200;
+          return Math.max(depthFactor, areaFactor);
+        },
+        getFillColor: getProjectStatusColor,
+        getLineColor: [255,255,255,150],
+        getLineWidth: 2,
+        stroked: true,
+        filled: true,
+        radiusScale: 1,
+        radiusMinPixels: 8,
+        radiusMaxPixels: 50,
+        pickable: true,
+        onClick: (info) => { if (info.object) { setSelectedProjectId((info.object as ExcavationProject).id); setShowProjectDetails(true);} },
+        updateTriggers: { getFillColor: [selectedProject?.id] }
+      });
+      const newColumns = new ColumnLayer({
+        id: 'project-depth-columns',
+        data: filteredProjects.slice(0,20),
+        getPosition: (d: ExcavationProject) => [d.location.lng, d.location.lat],
+        getElevation: (d: ExcavationProject) => Math.max(500, d.depth * 100),
+        getFillColor: (d: ExcavationProject) => {
+          const depth = d.depth;
+            if (depth > 20) return [255, 50, 50, 255];
+            if (depth > 15) return [255, 150, 0, 255];
+            if (depth > 10) return [255, 255, 0, 255];
+            return [0, 255, 100, 255];
+        },
+        getLineColor: [255,255,255,200],
+        radius: 150,
+        elevationScale: 2,
+        pickable: true,
+        onClick: info => { if (info.object) setSelectedProjectId((info.object as any).id); }
+      });
+      const newArcs = new ArcLayer({
+        id: 'project-data-flow',
+        data: filteredProjects.slice(0,8).map((project, index) => {
+          const nextIndex = (index + 1) % Math.min(8, filteredProjects.length);
+          const nextProject = filteredProjects[nextIndex];
+          return { source:[project.location.lng, project.location.lat], target:[nextProject.location.lng, nextProject.location.lat], value: project.progress };
+        }),
+        getSourcePosition: (d: any) => d.source,
+        getTargetPosition: (d: any) => d.target,
+        getSourceColor: [0,170,255,80],
+        getTargetColor: [0,100,200,80],
+        getWidth: (d: any) => Math.max(1, d.value/25),
+        getHeight: 0.2
+      });
+      // 保留懒加载 heatmap (如果已存在则在其 setProps 时会被替换)
+      const existing = deckRef.current.props.layers || [];
+      const heatmaps = existing.filter((l:any)=> l && (l.id==='risk-heatmap'|| l.id==='weather-temperature'));
+      deckRef.current.setProps({ layers: [newScatter, ...heatmaps, newColumns, newArcs] });
     }
-  }, [filteredProjects, isInitialized, initializeDeck]);
+  }, [filteredProjects, isInitialized, getProjectStatusColor, selectedProject?.id]);
+
+  // 启动项目数据轮询模拟 (增量更新)
+  useEffect(()=>{
+    startProjectPolling(fetchProjectItems, { onUpdate: (items)=> {
+      // 仅刷新 loadedProjects -> downstream 统计 & 图层自动更新
+      setLoadedProjects(prev => {
+        if (!prev) return prev;
+        const map = new Map(items.map(i=> [i.id,i]));
+        return prev.map(p=> map.has(p.id) ? { ...p, progress: map.get(p.id)!.progress ?? p.progress } : p);
+      });
+    }});
+    return ()=> stopProjectPolling();
+  }, []);
 
   // 性能优化：防抖更新地图视图
   useEffect(() => {
@@ -988,8 +1117,11 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     };
   }, [isInitialized]);
 
+  // 将 DeckGlLayerAdapter 注册为一个空的 Three 场景 (无需渲染内容，只参与统计)
+  useThreeScene({ id: 'deck-gl-proxy', layers: deckLayerAdapterRef.current ? [deckLayerAdapterRef.current] : [], cameraInit: ()=>{} });
+
   return (
-    <div style={{
+  <div data-isdmode={is3DMode ? '1' : '0'} style={{
       width: '100%',
       height: '100%',
       position: 'relative',
@@ -1003,8 +1135,21 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       fontFamily: '"Orbitron", "Courier New", monospace',
       animation: 'dreamyBackground 12s ease-in-out infinite alternate'
     }}>
-      {/* 🌟 粒子星空背景效果 */}
-      {particles.map(particle => (
+      {/* 3D R3F 背景可视化 (新的统一渲染架构) */}
+  <BackgroundVisualization enableEffects={enablePostFX} />
+
+      {/* 可选：Epic Globe 场景（Layer 化示例） */}
+      {showEpicGlobe && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'none' }}>
+          <EpicGlobeScene projects={epicProjects} onProjectSelect={(p)=>{
+            const match = projects.find(pr=>pr.id===p.id);
+            if(match){ setSelectedProjectId(match.id); setShowProjectDetails(true); emitSelection('globe', match.id); }
+          }} />
+        </div>
+      )}
+
+      {/* 🌟 旧的CSS粒子星空背景效果 (后续可移除以减少DOM负载) */}
+  {showLegacyParticles && particles.map(particle => (
         <div
           key={particle.id}
           className="particle"
@@ -1044,7 +1189,10 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         pointerEvents: 'none'
       }} />
 
-      {/* 🚀 DeepCAD Logo - 左上角 */}
+  {/* 🚀 DeepCAD Logo - 左上角 */}
+  <PerformanceOverlay />
+  {showLayerDebugPanel && <LayerDebugPanel />}
+  <TimelineControlPanel />
       <motion.div
         initial={{ opacity: 0, x: -50 }}
         animate={{ opacity: 1, x: 0 }}
@@ -1056,17 +1204,8 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           zIndex: 1000
         }}
       >
-        <div style={{
-          fontSize: '24px',
-          fontWeight: 'bold',
-          background: 'linear-gradient(45deg, #00aaff, #0066cc)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          textShadow: '0 0 10px rgba(0, 170, 255, 0.5)',
-          letterSpacing: '1px'
-        }}>
-          控制中心
-        </div>
+  {/* 动态轮播 KPI 标题 */}
+  <RotatingHeadline stats={systemStats} />
       </motion.div>
 
       {/* 🎮 3D视角控制 - 右上角 */}
@@ -1222,7 +1361,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
 
 
 
-      {/* Deck.gl画布 - 覆盖在地图上 */}
+  {/* Deck.gl画布 - 覆盖在地图上 */}
       <canvas
         id="deck-canvas"
         style={{
@@ -1459,7 +1598,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
               transition={{ delay: index * 0.05 }}
               whileHover={{ scale: 1.02, x: 5 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => flyToProject(project)}
+              onClick={() => { flyToProject(project); emitSelection('list', project.id); }}
               style={{
                 background: selectedProject?.id === project.id
                   ? 'linear-gradient(90deg, rgba(0, 255, 255, 0.3), rgba(0, 150, 255, 0.2))'
@@ -1728,6 +1867,38 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={showEpicGlobe} onChange={() => toggle('showEpicGlobe')} style={{ accentColor: '#00ffff' }} />
+              <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '12px' }}>显示Epic Globe</span>
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={showLegacyParticles} onChange={() => toggle('showLegacyParticles')} style={{ accentColor: '#00ffff' }} />
+              <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '12px' }}>旧CSS粒子</span>
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={enablePostFX} onChange={() => toggle('enablePostFX')} style={{ accentColor: '#00ffff' }} />
+              <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '12px' }}>Bloom后处理</span>
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={showLayerDebugPanel} onChange={() => toggle('showLayerDebugPanel')} style={{ accentColor: '#00ffff' }} />
+              <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '12px' }}>Layer调试面板</span>
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={showFloatingProjectPanel}
+                onChange={(e) => setShowFloatingProjectPanel(e.target.checked)}
+                style={{ accentColor: '#00ffff' }}
+              />
+              <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '12px' }}>
+                浮动项目面板(Beta)
+              </span>
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={showWeatherPanel}
@@ -1890,6 +2061,33 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           zIndex: 1500
         }}
       >
+        {/* KPI 小组件: 进度趋势 / 风险分布 / 进度分层Donut */}
+        <div style={{ position:'absolute', top:-80, left:0, width:'100%', display:'flex', justifyContent:'center', gap:24 }}>
+          <div style={{ width:140, height:70, background:'rgba(0,0,0,0.45)', border:'1px solid rgba(0,255,255,0.3)', borderRadius:8, padding:6, display:'flex', flexDirection:'column', gap:4 }}>
+            <div style={{ fontSize:10, color:'#0ff', opacity:0.8 }}>平均进度趋势(最近)</div>
+            <Sparkline values={progressHistory} width={128} height={38} />
+          </div>
+          <div style={{ width:110, height:70, background:'rgba(0,0,0,0.45)', border:'1px solid rgba(255,170,0,0.3)', borderRadius:8, padding:6, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4 }}>
+            <div style={{ fontSize:10, color:'#ffa500', opacity:0.8 }}>风险分布</div>
+            <Donut size={52} segments={['low','medium','high','critical'].map(k=>({
+              value: projects.filter(p=>p.riskLevel===k).length || 0,
+              color: k==='critical'? '#ff4444': k==='high'? '#ff8800': k==='medium'? '#ffff00':'#00ff99'
+            }))} />
+          </div>
+          <div style={{ width:140, height:70, background:'rgba(0,0,0,0.45)', border:'1px solid rgba(0,255,180,0.3)', borderRadius:8, padding:6, display:'flex', flexDirection:'column', gap:4 }}>
+            <div style={{ fontSize:10, color:'#0fa', opacity:0.8 }}>进度区间</div>
+            <div style={{ display:'flex', gap:4, flex:1 }}>
+              {[0,25,50,75].map((b,i)=>{
+                const upper = i===3?101: b+25;
+                const count = projects.filter(p=> p.progress>=b && p.progress<upper).length;
+                return <div key={b} style={{ flex:1, background:'linear-gradient(180deg,#00ffaa22,#00ccaa08)', border:'1px solid #00ffaa44', borderRadius:2, position:'relative' }}>
+                  <div style={{ position:'absolute', bottom:2, left:0, right:0, textAlign:'center', fontSize:10, color:'#0fa' }}>{count}</div>
+                  <div style={{ position:'absolute', top:2, left:0, right:0, textAlign:'center', fontSize:9, color:'#0fa', opacity:0.6 }}>{b}-{upper-1}%</div>
+                </div>;
+              })}
+            </div>
+          </div>
+        </div>
         {/* 左侧 - 系统状态 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <div>
@@ -1984,6 +2182,20 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           )}
         </div>
       </motion.div>
+
+      {/* 浮动项目管理面板 (Beta) */}
+      {showFloatingProjectPanel && (
+        <ProjectManagementPanel
+          visible={true}
+          onClose={() => setShowFloatingProjectPanel(false)}
+          onProjectSelect={handlePanelProjectSelect}
+          projects={panelProjects as any}
+          position={{ x: 480, y: 160 }}
+        />
+      )}
+
+  {/* 统一选中反馈 Toast */}
+  <SelectionToast />
 
       {/* 飞行动画指示器 */}
       <AnimatePresence>

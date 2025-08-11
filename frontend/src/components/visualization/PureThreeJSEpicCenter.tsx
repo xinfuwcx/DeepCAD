@@ -1,13 +1,14 @@
 /**
- * 纯Three.js Epic控制中心
+ * 纯Three.js Epic控制中心 (Legacy / 将逐步迁移)
  * 1号专家 - 替代Mapbox的专业3D地理可视化解决方案
+ * NOTE: 功能正在被统一架构下的 EpicGlobeLayer + useThreeScene 替换。
+ * 后续：可直接在正式控制中心中嵌入 <EpicGlobeScene projects={...}/> 并删除此组件。
  */
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
 import { safeDetachRenderer, deepDispose } from '../../utils/safeThreeDetach';
-import { designTokens } from '../../design/tokens';
 
 interface PureThreeJSEpicCenterProps {
   width: number;
@@ -81,7 +82,7 @@ export const PureThreeJSEpicCenter: React.FC<PureThreeJSEpicCenterProps> = ({
   
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isFlying, setIsFlying] = useState(false);
-  const [weather, setWeather] = useState<WeatherData>({
+  const [weather, _setWeather] = useState<WeatherData>({
     temperature: 22,
     description: '多云',
     windSpeed: 12,

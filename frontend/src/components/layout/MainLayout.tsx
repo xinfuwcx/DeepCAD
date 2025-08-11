@@ -1,5 +1,5 @@
 /* eslint-disable react/jsx-no-inline-styles */
-import React, { useState, Suspense } from 'react';
+import React, { useState } from 'react';
 import { Layout, Menu } from 'antd';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -14,8 +14,8 @@ import {
   EnvironmentOutlined
 } from '@ant-design/icons';
 import TechLogo from '../ui/TechLogo';
-const ProjectManagement3DScreen = React.lazy(() => import('../../views/ProjectManagement3DScreen'));
-import UnifiedControlCenterScreen from '../../views/UnifiedControlCenterScreen';
+// 使用新版炫酷地图 + Deck.gl 控制中心 (替换旧 UnifiedControlCenterScreen & ProjectManagement3DScreen)
+import { DeepCADControlCenter } from '../control/DeepCADControlCenter';
 import EnhancedMainWorkspaceView from '../../views/EnhancedMainWorkspaceView';
 import PhysicsAIView from '../../views/PhysicsAIView';
 import MaterialLibraryView from '../../views/MaterialLibraryView';
@@ -110,11 +110,7 @@ const MainLayout: React.FC = () => {
       icon: <DatabaseOutlined />,
       label: '材料库',
     },
-    {
-      key: 'project-management',
-      icon: <AppstoreOutlined />,
-      label: '项目管理',
-    },
+  // 旧“项目管理”菜单已合并进 控制中心 (DeepCADControlCenter)
     {
       key: 'settings',
       icon: <SettingOutlined />,
@@ -193,11 +189,10 @@ const MainLayout: React.FC = () => {
           position: 'relative'
         }}>
           <Routes>
-            <Route path="/" element={
-              <EnhancedMainWorkspaceView activeModule="excavation-design" />
-            } />
+            {/* 根路径直接进入统一控制中心 */}
+            <Route path="/" element={<DeepCADControlCenter onExit={() => navigate('/workspace')} />} />
             <Route path="dashboard" element={
-              <UnifiedControlCenterScreen />
+              <DeepCADControlCenter onExit={() => navigate('/workspace')} />
             } />
             <Route path="excavation-design" element={<EnhancedMainWorkspaceView activeModule="excavation-design" />} />
             <Route path="support-structure" element={<EnhancedMainWorkspaceView activeModule="support-structure" />} />
@@ -209,23 +204,10 @@ const MainLayout: React.FC = () => {
             <Route path="results" element={<EnhancedMainWorkspaceView activeModule="results" />} />
             <Route path="physics-ai" element={<PhysicsAIView />} />
             <Route path="materials" element={<MaterialLibraryView />} />
-            {/* 新增：项目管理主路由与别名，采用懒加载组件并包裹 Suspense */}
-            <Route path="projects" element={
-              <Suspense fallback={<div style={{color:'#fff', padding: 16}}>Loading Project Management…</div>}>
-                <ProjectManagement3DScreen />
-              </Suspense>
-            } />
-            <Route path="project-management-3d" element={
-              <Suspense fallback={<div style={{color:'#fff', padding: 16}}>Loading Project Management…</div>}>
-                <ProjectManagement3DScreen />
-              </Suspense>
-            } />
-            {/* 保留旧路径以兼容历史链接 */}
-            <Route path="project-management" element={
-              <Suspense fallback={<div style={{color:'#fff', padding: 16}}>Loading Project Management…</div>}>
-                <ProjectManagement3DScreen />
-              </Suspense>
-            } />
+            {/* 旧项目管理路径兼容：统一指向控制中心 */}
+            <Route path="projects" element={<DeepCADControlCenter onExit={() => navigate('/workspace')} />} />
+            <Route path="project-management-3d" element={<DeepCADControlCenter onExit={() => navigate('/workspace')} />} />
+            <Route path="project-management" element={<DeepCADControlCenter onExit={() => navigate('/workspace')} />} />
             <Route path="settings" element={<SettingsView />} />
             {/* 兼容性重定向：避免旧链接404 */}
             <Route path="computation" element={

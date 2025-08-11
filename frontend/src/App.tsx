@@ -3,13 +3,19 @@
  * 深基坑CAE平台的根组件
  */
 import React, { useEffect, Component, ReactNode, ErrorInfo } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import QuickViewportTest from './views/QuickViewportTest';
 import DeepCADAdvancedApp from './components/advanced/DeepCADAdvancedApp';
 import MainLayout from './components/layout/MainLayout';
 import { DeepCADThemeProvider } from './components/ui/DeepCADTheme';
 import { DeepCADControlCenter } from './components/control';
 import './index.css';
+// Core unified loops
+import { startTimelineLoop } from './core/timelineStore';
+import { startRendererScheduler } from './core/rendererScheduler';
+
+// Feature flags (could be moved to config)
+const ENABLE_NEW_CORE = true;
 
 /**
  * 错误边界组件
@@ -135,6 +141,11 @@ const App: React.FC = () => {
     document.body.style.padding = '0';
     document.body.style.backgroundColor = '#0a0a0a';
     document.body.style.overflow = 'hidden';
+
+    if (ENABLE_NEW_CORE) {
+      startTimelineLoop();
+      startRendererScheduler();
+    }
   }, []);
 
   return (
