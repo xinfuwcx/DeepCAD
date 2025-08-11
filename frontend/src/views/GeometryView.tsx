@@ -22,7 +22,7 @@
  * 技术特点: 参数化建模、实时预览、工作流管理
  */
 import React, { useState, useRef } from 'react';
-import { Layout, Card, Typography, Tabs, Row, Col, Space, Button, Badge, Alert } from 'antd';
+import { Layout, Card, Typography, Tabs, Row, Col, Space, Button, Badge, Alert, message } from 'antd';
 import { 
   AppstoreOutlined,
   EnvironmentOutlined,
@@ -31,7 +31,7 @@ import {
   EyeOutlined,
   SettingOutlined
 } from '@ant-design/icons';
-import GeometryViewport3D from '../components/geometry/GeometryViewport3D';
+import GeometryViewport3D, { GeometryViewportRef } from '../components/geometry/GeometryViewport3D';
 import { 
   SimpleGeologyModule, 
   SimpleExcavationModule, 
@@ -49,7 +49,22 @@ const GeometryView: React.FC = () => {
     excavation: false,
     support: false
   });
-  const viewportRef = useRef(null);
+  const viewportRef = useRef<GeometryViewportRef>(null);
+  const [pendingDXFSegments, setPendingDXFSegments] = useState<Array<{ start:{x:number;y:number}, end:{x:number;y:number} }>>([]);
+
+  // 暴露给其他页面的全局入口，便于把DXF画到大窗口
+  React.useEffect(() => {
+    (window as any).__GEOMETRY_VIEWPORT__ = {
+      renderDXFSegments: (segs: Array<{ start:{x:number;y:number}, end:{x:number;y:number} }>) => {
+        if (viewportRef.current?.renderDXFSegments) {
+          viewportRef.current.renderDXFSegments(segs);
+        } else {
+          setPendingDXFSegments(segs);
+        }
+      }
+    };
+    return () => { try { delete (window as any).__GEOMETRY_VIEWPORT__; } catch {} };
+  }, []);
 
   const handleModuleComplete = (module: 'geology' | 'excavation' | 'support') => {
     setModelingProgress(prev => ({
@@ -209,6 +224,13 @@ const GeometryView: React.FC = () => {
                     console.log('3D视口操作:', action);
                   }}
                 />
+                {/* 如果之前有等待渲染的DXF线段，在视口初始化后统一渲染 */}
+                {viewportRef.current && pendingDXFSegments.length > 0 && (() => {
+                  viewportRef.current.renderDXFSegments(pendingDXFSegments);
+                  message.success(`3D视图已初始化，显示DXF文件 (${pendingDXFSegments.length} 个线段)`);
+                  setTimeout(() => setPendingDXFSegments([]), 100); // 清空等待队列
+                  return null;
+                })()}
               </Card>
 
               {/* 建模进度指示器 */}

@@ -163,6 +163,8 @@ const ExcavationView: React.FC = () => {
                     for (let i = 0; i < points.length - 1; i++) segs.push({ start: points[i], end: points[i+1] });
                     if (points.length >= 3) segs.push({ start: points[points.length-1], end: points[0] });
                     setDxfSegments(segs);
+                    // 同步到大视口（几何工作台）如果存在
+                    try { (window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments?.(segs); } catch {}
                     message.success(`${file.name} 解析成功（LWPOLYLINE）`);
                 } else {
                     const lines = dxf.entities.filter((ent: any) => ent.type === 'LINE' && ent.start && ent.end);
@@ -174,6 +176,7 @@ const ExcavationView: React.FC = () => {
                     // 2) 保存为独立线段，并给一个点集用于边界/指标
                     const segs: Array<{start:{x:number;y:number}, end:{x:number;y:number}}> = lines.map((ln: any) => ({ start: { x: ln.start.x, y: ln.start.y }, end: { x: ln.end.x, y: ln.end.y } }));
                     setDxfSegments(segs);
+                    try { (window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments?.(segs); } catch {}
                     const pts: { x:number; y:number }[] = [];
                     segs.forEach(s => { pts.push(s.start); pts.push(s.end); });
                     setDxfContour(pts);
@@ -226,7 +229,14 @@ const ExcavationView: React.FC = () => {
 
         const group = new THREE.Group();
         group.name = 'DXF_OVERLAY';
-        const mat = new THREE.LineBasicMaterial({ color: 0x00d9ff, linewidth: 1 });
+        const mat = new THREE.LineBasicMaterial({ 
+            color: 0xff00ff, 
+            linewidth: 1, 
+            transparent: true, 
+            opacity: 1, 
+            depthTest: false, 
+            depthWrite: false 
+        });
 
         if (dxfSegments && dxfSegments.length > 0) {
             // 按段绘制，兼容散线
@@ -237,6 +247,7 @@ const ExcavationView: React.FC = () => {
                 ];
                 const geom = new THREE.BufferGeometry().setFromPoints(pts);
                 const line = new THREE.Line(geom, mat);
+                line.renderOrder = 999;
                 group.add(line);
             });
         } else {
@@ -245,6 +256,7 @@ const ExcavationView: React.FC = () => {
             if (points3D.length >= 2) {
                 const geom = new THREE.BufferGeometry().setFromPoints(points3D.concat([points3D[0].clone()]));
                 const line = new THREE.Line(geom, mat);
+                line.renderOrder = 999;
                 group.add(line);
             }
         }

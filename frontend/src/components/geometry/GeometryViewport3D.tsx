@@ -74,6 +74,7 @@ export interface GeometryViewportRef {
   setShowBoreholes: (show: boolean) => void;
   handleSectioning: (axis: 'x' | 'y' | 'z') => void;
   updateSectionPosition: (position: number) => void;
+  renderDXFSegments: (segments: Array<{ start: { x: number; y: number }; end: { x: number; y: number } }>) => void;
 }
 
 const GeometryViewport3D = forwardRef<GeometryViewportRef, GeometryViewport3DProps>(({
@@ -134,13 +135,71 @@ const GeometryViewport3D = forwardRef<GeometryViewportRef, GeometryViewport3DPro
   const clippingPlanesRef = useRef<THREE.Plane[]>([]);
 
   // 暴露控制方法给父组件
+  const dxfOverlayRef = useRef<THREE.Group | null>(null);
+
   useImperativeHandle(ref, () => ({
     setShowGeology,
     setShowExcavation,
     setShowSupports,
     setShowBoreholes,
     handleSectioning,
-    updateSectionPosition
+    updateSectionPosition,
+    renderDXFSegments: (segments) => {
+      const scene = sceneRef.current;
+      const camera = cameraRef.current;
+      if (!scene || !camera) return;
+
+      if (dxfOverlayRef.current) {
+        scene.remove(dxfOverlayRef.current);
+        dxfOverlayRef.current.traverse(obj => {
+          if ((obj as any).geometry) (obj as any).geometry.dispose();
+          if ((obj as any).material) {
+            const m = (obj as any).material; if (Array.isArray(m)) m.forEach(x => x.dispose()); else m.dispose();
+          }
+        });
+        dxfOverlayRef.current = null;
+      }
+      if (!segments || segments.length === 0) return;
+
+      // 计算边界与缩放
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      segments.forEach(s => {
+        minX = Math.min(minX, s.start.x, s.end.x);
+        minY = Math.min(minY, s.start.y, s.end.y);
+        maxX = Math.max(maxX, s.start.x, s.end.x);
+        maxY = Math.max(maxY, s.start.y, s.end.y);
+      });
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      const width = Math.max(1e-6, maxX - minX);
+      const height = Math.max(1e-6, maxY - minY);
+      const target = 200;
+      const scale = Math.min(target / width, target / height);
+
+      const group = new THREE.Group();
+      const mat = new THREE.LineBasicMaterial({ color: 0xff00ff, transparent: true, opacity: 1, depthTest: false, depthWrite: false });
+      segments.forEach(seg => {
+        const pts = [
+          new THREE.Vector3((seg.start.x - centerX) * scale, 0.2, (seg.start.y - centerY) * scale),
+          new THREE.Vector3((seg.end.x - centerX) * scale, 0.2, (seg.end.y - centerY) * scale)
+        ];
+        const g = new THREE.BufferGeometry().setFromPoints(pts);
+        const line = new THREE.Line(g, mat);
+        line.renderOrder = 999;
+        group.add(line);
+      });
+      scene.add(group);
+      dxfOverlayRef.current = group;
+
+      // 相机对准
+      if (controlsRef.current) {
+        controlsRef.current.target.set(0, 0, 0);
+        const maxDim = Math.max(width, height) * scale;
+        camera.position.set(maxDim * 1.2, maxDim * 0.9, maxDim * 1.2);
+        camera.lookAt(0, 0, 0);
+        controlsRef.current.update();
+      }
+    }
   }));
 
   // 初始化Three.js场景

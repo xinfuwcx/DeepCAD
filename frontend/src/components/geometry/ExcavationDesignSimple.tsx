@@ -11,6 +11,7 @@ import {
 import { 
   BuildOutlined, CalculatorOutlined, UploadOutlined, EyeOutlined
 } from '@ant-design/icons';
+import { message } from 'antd';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -102,13 +103,64 @@ const ExcavationDesignSimple: React.FC<ExcavationDesignSimpleProps> = ({
     return (width * length * depth).toFixed(0);
   };
 
-  const handleDxfUpload = (file: any) => {
-    setDxfUploaded(true);
-    
-    // 通知主3D视口显示DXF轮廓
-    window.dispatchEvent(new CustomEvent('dxf-uploaded', { 
-      detail: { file, params } 
-    }));
+  const handleDxfUpload = async (file: any) => {
+    try {
+      message.loading('正在解析DXF文件...', 2);
+      
+      // 读取文件内容
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          // 动态导入DXF解析器
+          const { default: DxfParser } = await import('dxf-parser');
+          const parser = new DxfParser();
+          const dxf = parser.parseSync(e.target!.result as string);
+          
+          // 解析几何数据，优先LWPOLYLINE，否则用LINE
+          let segments: Array<{ start: { x: number; y: number }, end: { x: number; y: number } }> = [];
+          
+          const polyline = dxf.entities.find((ent: any) => ent.type === 'LWPOLYLINE');
+          if (polyline && polyline.vertices?.length) {
+            const points = polyline.vertices.map((v: any) => ({ x: v.x, y: v.y }));
+            for (let i = 0; i < points.length - 1; i++) {
+              segments.push({ start: points[i], end: points[i + 1] });
+            }
+            if (points.length >= 3) {
+              segments.push({ start: points[points.length - 1], end: points[0] });
+            }
+          } else {
+            const lines = dxf.entities.filter((ent: any) => ent.type === 'LINE' && ent.start && ent.end);
+            segments = lines.map((ln: any) => ({
+              start: { x: ln.start.x, y: ln.start.y },
+              end: { x: ln.end.x, y: ln.end.y }
+            }));
+          }
+          
+          if (segments.length > 0) {
+            // 调用全局3D视口的渲染方法
+            if ((window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments) {
+              (window as any).__GEOMETRY_VIEWPORT__.renderDXFSegments(segments);
+              message.success(`DXF文件解析成功！显示了 ${segments.length} 个线段`);
+              setDxfUploaded(true);
+            } else {
+              message.warning('3D视图尚未准备好，请稍后重试');
+            }
+          } else {
+            message.error('DXF文件中未找到可用的几何实体');
+          }
+          
+        } catch (error) {
+          console.error('DXF解析失败:', error);
+          message.error('DXF文件解析失败，请检查文件格式');
+        }
+      };
+      
+      reader.readAsText(file);
+      
+    } catch (error) {
+      console.error('文件读取失败:', error);
+      message.error('文件读取失败');
+    }
     
     return false; // 阻止自动上传
   };
@@ -128,7 +180,20 @@ const ExcavationDesignSimple: React.FC<ExcavationDesignSimpleProps> = ({
 
       <Space direction="vertical" style={{ width: '100%' }} size="middle">
         {/* DXF导入 */}
-        <Card title="📄 轮廓导入" size="small">
+        <Card 
+          title="📄 轮廓导入" 
+          size="small"
+          extra={dxfUploaded && (
+            <Button 
+              size="small" 
+              type="text" 
+              onClick={() => setDxfUploaded(false)}
+              style={{ color: '#52c41a' }}
+            >
+              重新上传
+            </Button>
+          )}
+        >
           <Dragger
             accept=".dxf,.dwg"
             beforeUpload={handleDxfUpload}
