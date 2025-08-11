@@ -135,8 +135,11 @@ class PreProcessor:
             if str(project_root) not in sys.path:
                 sys.path.insert(0, str(project_root))
             
-            # 导入所需模块
-            from core.optimized_fpn_parser import OptimizedFPNParser
+            # 导入所需模块（优先从example2.core导入，避免被顶层core包遮蔽）
+            try:
+                from example2.core.optimized_fpn_parser import OptimizedFPNParser
+            except Exception:
+                from core.optimized_fpn_parser import OptimizedFPNParser
             try:
                 from utils.error_handler import handle_error
             except ImportError:
@@ -950,63 +953,81 @@ class PreProcessor:
             # 保存FPN数据
             self.fpn_data = fpn_data
             
-            # 处理节点数据
+            # 处理节点数据（兼容 dict/list）
             nodes = fpn_data.get('nodes', [])
+            if isinstance(nodes, dict):
+                nodes = list(nodes.values())
             if not nodes:
                 print("警告: 没有找到节点数据")
                 self.create_sample_mesh()
                 return
-            
-            # 处理单元数据
+
+            # 处理单元数据（兼容 dict/list）
             elements = fpn_data.get('elements', [])
+            if isinstance(elements, dict):
+                elements = list(elements.values())
             if not elements:
                 print("警告: 没有找到单元数据")
                 self.create_sample_mesh()
                 return
-            
+
             print(f"处理 {len(nodes)} 个节点和 {len(elements)} 个单元")
-            
+
             # 创建节点数组 (需要按照ID排序，确保索引正确)
-            node_dict = {node['id']: node for node in nodes}
+            node_dict = {int(node['id']): node for node in nodes}
             max_node_id = max(node_dict.keys())
-            points = np.zeros((max_node_id, 3))
-            
+            points = np.zeros((max_node_id, 3), dtype=float)
+
             for node_id, node in node_dict.items():
                 points[node_id-1] = [node['x'], node['y'], node['z']]
-            
-            # 创建单元连接信息
-            # 构建不同单元类型的连接列表
-            tetra_cells = []
-            tetra_offsets = []
-            tetra_types = []
-            
-            offset = 0
-            for element in elements:
-                if element['type'] == 'TETRA' and len(element['nodes']) == 4:
-                    # TETRA单元需要5个值：类型 + 4个节点索引
-                    tetra_cells.extend([4] + [n-1 for n in element['nodes']])  # 节点ID从1开始，转换为0开始
-                    tetra_offsets.append(offset)
-                    tetra_types.append(10)  # VTK_TETRA类型
-                    offset += 5
-            
-            if not tetra_cells:
-                print("警告: 没有找到有效的四面体单元")
+
+            # 创建单元连接信息，支持 TETRA/HEXA/PENTA（大小写不敏感）
+            cells = []
+            cell_types = []
+
+            VTK_TETRA = 10
+            VTK_HEXAHEDRON = 12
+            VTK_WEDGE = 13
+
+            for elem in elements:
+                etype = str(elem.get('type', '')).lower()
+                nn = [n-1 for n in elem.get('nodes', [])]
+                if etype == 'tetra' or etype == 'tetra4' or etype == 't4':
+                    if len(nn) >= 4:
+                        cells.extend([4] + nn[:4])
+                        cell_types.append(VTK_TETRA)
+                elif etype == 'hexa' or etype == 'hex' or etype == 'hexa8' or etype == 'h8':
+                    if len(nn) >= 8:
+                        cells.extend([8] + nn[:8])
+                        cell_types.append(VTK_HEXAHEDRON)
+                elif etype == 'penta' or etype == 'wedge' or etype == 'p6' or etype == 'w6':
+                    if len(nn) >= 6:
+                        cells.extend([6] + nn[:6])
+                        cell_types.append(VTK_WEDGE)
+                else:
+                    # 兼容旧格式 'TETRA'/'HEXA'/'PENTA'
+                    etype_upper = str(elem.get('type', '')).upper()
+                    if etype_upper == 'TETRA' and len(nn) >= 4:
+                        cells.extend([4] + nn[:4])
+                        cell_types.append(VTK_TETRA)
+                    elif etype_upper == 'HEXA' and len(nn) >= 8:
+                        cells.extend([8] + nn[:8])
+                        cell_types.append(VTK_HEXAHEDRON)
+                    elif etype_upper == 'PENTA' and len(nn) >= 6:
+                        cells.extend([6] + nn[:6])
+                        cell_types.append(VTK_WEDGE)
+
+            if not cells:
+                print("警告: 没有找到支持的单元类型（TETRA/HEXA/PENTA）")
                 self.create_sample_mesh()
                 return
-            
+
             # 创建PyVista网格
             try:
-                # 直接使用PyVista的构造函数创建非结构化网格
-                # 构造单元数组
-                cell_array = np.array(tetra_cells)
-                offset_array = np.array(tetra_offsets)
-                types_array = np.array(tetra_types)
-                
-                # 创建非结构化网格
-                self.mesh = pv.UnstructuredGrid(cell_array, types_array, points)
-                
+                cells_array = np.asarray(cells, dtype=np.int64)
+                types_array = np.asarray(cell_types, dtype=np.uint8)
+                self.mesh = pv.UnstructuredGrid(cells_array, types_array, points)
                 print(f"成功创建网格: {self.mesh.n_points} 个节点, {self.mesh.n_cells} 个单元")
-                
             except Exception as mesh_error:
                 print(f"网格创建过程出错: {mesh_error}")
                 import traceback
@@ -1017,13 +1038,35 @@ class PreProcessor:
             # 处理材料数据
             materials = fpn_data.get('materials', [])
             material_dict = {}
-            for mat in materials:
-                material_dict[mat['id']] = {
-                    'name': mat.get('name', f'Material_{mat["id"]}'),
-                    'properties': mat.get('properties', {})
-                }
+            # 兼容 materials 为 set/list[int] 或 list[dict]
+            if isinstance(materials, (set, list)):
+                for m in materials:
+                    if isinstance(m, dict):
+                        mid = m.get('id')
+                        if mid is None:
+                            continue
+                        material_dict[mid] = {
+                            'name': m.get('name', f'Material_{mid}'),
+                            'properties': m.get('properties', {'type': 'soil'})
+                        }
+                    else:
+                        try:
+                            mid = int(m)
+                        except Exception:
+                            continue
+                        material_dict[mid] = {
+                            'name': f'Material_{mid}',
+                            'properties': {'type': 'soil'}
+                        }
+            elif isinstance(materials, dict):
+                # 如果解析器返回字典形式 {id: info}
+                for mid, info in materials.items():
+                    material_dict[int(mid)] = {
+                        'name': info.get('name', f'Material_{mid}'),
+                        'properties': info.get('properties', {'type': 'soil'})
+                    }
             self.materials = material_dict
-            print(f"处理了 {len(self.materials)} 种材料")
+            print(f"处理了 {len(self.materials)} 种材料 (已兼容格式)")
             
             # 为网格添加材料ID数据
             if hasattr(self.mesh, 'cell_data') and elements:
@@ -1273,55 +1316,42 @@ class PreProcessor:
         stage_id = stage.get('id', 0)
         stage_name = stage.get('name', 'Unknown')
         
-        # 从阶段数据中直接读取已解析的激活列表
+        # 从阶段数据中直接读取已解析的激活列表（可能是物理组/集合ID，而非材料ID）
         active_materials = stage.get('active_materials', [])
         active_loads = stage.get('active_loads', [])
         active_boundaries = stage.get('active_boundaries', [])
-        
+
         print(f"  从阶段数据读取:")
         print(f"    原始激活材料: {active_materials}")
         print(f"    原始激活荷载: {active_loads}")
         print(f"    原始激活边界: {active_boundaries}")
-        
-        # ✅ 关键修复：如果当前阶段是开挖阶段，需要手动重建MADD/MDEL逻辑
-        # 因为FPN解析器可能没有正确处理阶段间的累积效应
-        if stage_id == 2 and ('开挖' in stage_name or '地连墙' in stage_name):
-            print("  检测到开挖阶段，重建材料激活逻辑")
-            
-            # 获取所有阶段数据
-            all_stages = self.fpn_data.get('analysis_stages', [])
-            all_stages = sorted(all_stages, key=lambda x: x.get('id', 0))
-            
-            # 从阶段1开始累积激活材料，然后应用阶段2的变更
-            final_materials = set()
-            
-            for i, s in enumerate(all_stages):
-                if s.get('id', 0) <= stage_id:
-                    stage_materials = s.get('active_materials', [])
-                    if i == 0:  # 第一个阶段，直接添加所有材料
-                        final_materials.update(stage_materials)
-                        print(f"    阶段{s.get('id', 0)}: 基础材料 {sorted(stage_materials)}")
-                    else:  # 后续阶段，需要分析是添加还是删除
-                        # 根据FPN文件分析，阶段2应该：
-                        # - 添加材料1（地连墙）
-                        # - 删除材料4（开挖土体） 
-                        stage_id_current = s.get('id', 0)
-                        if stage_id_current == 2:
-                            # 手动应用已知的MADD/MDEL逻辑
-                            final_materials.add(1)  # MADD 材料1
-                            final_materials.discard(4)  # MDEL 材料4
-                            print(f"    阶段2修正: 添加材料1, 删除材料4")
-            
-            active_groups['materials'] = sorted(list(final_materials))
-            print(f"    最终重建材料列表: {active_groups['materials']}")
-            
+
+        # 网格中真实存在的材料ID集合
+        mesh_material_ids = set()
+        if hasattr(self, 'mesh') and self.mesh is not None and 'MaterialID' in self.mesh.cell_data:
+            try:
+                import numpy as np
+                mesh_material_ids = set(int(x) for x in np.unique(self.mesh.cell_data['MaterialID']))
+            except Exception:
+                pass
+
+        # 先尝试与网格材料ID求交集（将可能的物理组ID过滤为真实材料ID）
+        intersection = sorted(list(set(int(x) for x in active_materials) & mesh_material_ids)) if active_materials else []
+
+        # ✅ 对开挖阶段提供健壮的回退逻辑：如果交集为空，则按规则剔除“土体”材料
+        if (stage_id == 2 or '开挖' in stage_name) and not intersection and mesh_material_ids:
+            print("  检测到开挖阶段且未能从阶段数据映射到有效材料ID，启用回退规则")
+            # 规则：移除ID为4的材料（常见为土体层），如不存在则移除最小ID
+            remove_id = 4 if 4 in mesh_material_ids else min(mesh_material_ids)
+            active_groups['materials'] = sorted(list(mesh_material_ids - {remove_id}))
+            print(f"    回退后激活材料: {active_groups['materials']} (移除了 {remove_id})")
         else:
-            # 非开挖阶段，直接使用解析的数据
-            active_groups['materials'] = sorted(list(set(active_materials)))
-        
+            # 普通阶段：若有有效交集使用之，否则直接显示全部材料
+            active_groups['materials'] = intersection if intersection else sorted(list(mesh_material_ids))
+
         active_groups['loads'] = sorted(list(set(active_loads)))
         active_groups['boundaries'] = sorted(list(set(active_boundaries)))
-        
+
         return active_groups
 
     def filter_materials_by_stage(self, active_materials: list):
@@ -1627,6 +1657,26 @@ class PreProcessor:
             else:
                 material_ids = all_material_ids
                 print(f"显示所有材料ID: {sorted(list(material_ids))}")
+
+            # 额外：按材料类型(part)开关过滤
+            try:
+                type_map = {mid: self.materials.get(int(mid), {}).get('properties', {}).get('type') for mid in material_ids}
+                show_types = set()
+                if hasattr(self, 'parent') and callable(getattr(self, 'parent')):
+                    parent = self.parent()
+                else:
+                    parent = None
+                if parent and hasattr(parent, 'show_soil_cb'):
+                    if parent.show_soil_cb.isChecked():
+                        show_types.add('soil')
+                    if parent.show_concrete_cb.isChecked():
+                        show_types.add('concrete')
+                    if parent.show_steel_cb.isChecked():
+                        show_types.add('steel')
+                if show_types:
+                    material_ids = [mid for mid in material_ids if type_map.get(int(mid)) in show_types]
+            except Exception as e:
+                print(f"按材料类型过滤失败: {e}")
 
             print(f"网格单元数: {self.mesh.n_cells}")
             print(f"材料ID数组长度: {len(self.mesh.cell_data['MaterialID'])}")
@@ -2052,29 +2102,56 @@ class PreProcessor:
         else:
             print("使用默认物理组显示")
     
-    def set_current_analysis_stage(self, stage_id):
-        """设置当前分析步ID"""
-        self.current_stage_id = stage_id
-        print(f"设置当前分析步ID: {stage_id}")
-    
+    def set_current_analysis_stage(self, stage_idx_or_id: int):
+        """设置当前分析步（支持传入索引或ID），并立即刷新显示"""
+        if not hasattr(self, 'fpn_data') or not self.fpn_data:
+            print("❌ 未找到FPN数据，无法切换分析步")
+            return
+        analysis_stages = self.fpn_data.get('analysis_stages', [])
+        if not analysis_stages:
+            print("❌ 没有可用的分析步")
+            return
+
+        stage = None
+        # 先按索引匹配
+        if isinstance(stage_idx_or_id, int) and 0 <= stage_idx_or_id < len(analysis_stages):
+            self.current_stage_index = stage_idx_or_id
+            stage = analysis_stages[stage_idx_or_id]
+        else:
+            # 再按ID匹配
+            for i, s in enumerate(analysis_stages):
+                if s.get('id') == stage_idx_or_id:
+                    self.current_stage_index = i
+                    stage = s
+                    break
+        # 若仍未找到，回退第一个
+        if stage is None:
+            self.current_stage_index = 0
+            stage = analysis_stages[0]
+
+        self.current_stage_id = stage.get('id', self.current_stage_index)
+        print(f"✅ 切换到分析步: {stage.get('name', 'Unknown')} (ID: {stage.get('id', 'N/A')}, IDX: {self.current_stage_index})")
+
+        # 统一走更新显示逻辑，确保材料过滤实际生效
+        self.update_display_for_stage(stage)
+
     def get_current_analysis_stage(self):
-        """获取当前选择的分析步"""
+        """获取当前选择的分析步（优先按索引，其次按ID）"""
         if not hasattr(self, 'fpn_data') or not self.fpn_data:
             return None
-            
-        analysis_stages = self.fpn_data.get('analysis_stages', [])
-        
-        # 如果有指定的分析步ID，查找对应的分析步
-        if self.current_stage_id is not None:
-            for stage in analysis_stages:
-                if stage.get('id') == self.current_stage_id:
-                    return stage
-        
-        # 否则返回第一个分析步
-        if analysis_stages:
-            return analysis_stages[0]
-        return None
-    
+        stages = self.fpn_data.get('analysis_stages', [])
+        if not stages:
+            return None
+        idx = getattr(self, 'current_stage_index', None)
+        if isinstance(idx, int) and 0 <= idx < len(stages):
+            return stages[idx]
+        sid = getattr(self, 'current_stage_id', None)
+        if sid is not None:
+            for s in stages:
+                if s.get('id') == sid:
+                    return s
+        return stages[0]
+
     
     def filter_display_by_groups(self, active_groups):
         """根据激活的物理组过滤显示内容"""

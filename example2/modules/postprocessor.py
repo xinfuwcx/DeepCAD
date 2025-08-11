@@ -100,7 +100,7 @@ class PostProcessor:
         self.current_time_step = 0
         self.plotter = None
         self.viewer_widget = None
-        
+
         # 显示设置
         self.show_deformed = True
         self.deformation_scale = 10.0
@@ -108,7 +108,9 @@ class PostProcessor:
         self.show_wireframe = False
         self.current_result_type = 'displacement'
         self.current_component = 'magnitude'
-        
+        # 新增：使用StageVisible过滤显示
+        self.use_stage_visible_filter = False
+
         # 动画控制器
         self.animation_controller = AnimationController()
         self.animation_controller.frame_changed.connect(self.update_animation_frame)
@@ -509,11 +511,42 @@ class PostProcessor:
         if scalar_field is not None:
             mesh_to_plot[scalar_name] = scalar_field
             
+        # StageVisible过滤（如有并启用）
+        if self.use_stage_visible_filter and 'StageVisible' in mesh_to_plot.cell_data:
+            try:
+                import numpy as np
+                mask = np.array(mesh_to_plot.cell_data['StageVisible']).astype(bool)
+                # 过滤cells：使用threshold_by_cell_data需要数据在cell_data中
+                mesh_to_plot = mesh_to_plot.extract_cells(mask)
+            except Exception as e:
+                print(f"StageVisible过滤失败: {e}")
+
+        # 显示前：按part类型过滤（如果上层提供了material_type_map与开关）
+        try:
+            type_map = getattr(self, 'material_type_map', None)
+            if type_map and hasattr(mesh_to_plot, 'cell_data') and 'MaterialID' in mesh_to_plot.cell_data:
+                show_types = set()
+                parent = None
+                # 尝试从Qt层拿到复选框（可能拿不到，容错）
+                if hasattr(self, 'parent') and callable(getattr(self, 'parent')):
+                    parent = self.parent()
+                if parent and hasattr(parent, 'show_soil_cb'):
+                    if parent.show_soil_cb.isChecked(): show_types.add('soil')
+                    if parent.show_concrete_cb.isChecked(): show_types.add('concrete')
+                    if parent.show_steel_cb.isChecked(): show_types.add('steel')
+                if show_types:
+                    import numpy as np
+                    mat_ids = np.array(mesh_to_plot.cell_data['MaterialID']).astype(int)
+                    mask = np.array([type_map.get(int(mid)) in show_types for mid in mat_ids])
+                    mesh_to_plot = mesh_to_plot.extract_cells(mask)
+        except Exception as e:
+            print(f"后处理按part过滤失败: {e}")
+
         # 显示网格
         if scalar_field is not None and self.show_contour:
             # 设置专业的彩虹色彩映射
             colormap = self.get_professional_colormap(self.current_result_type)
-            
+
             # 配置专业的标尺参数
             scalar_bar_args = {
                 'title': scalar_name,
