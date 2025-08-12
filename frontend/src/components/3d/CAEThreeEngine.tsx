@@ -65,6 +65,8 @@ export interface CAEThreeEngineProps {
 }
 
 export class CAEThreeEngineCore {
+  // 当为 true 时，不自动补全网格/地面等辅助元素，保持“空画布”模式
+  public blankMode: boolean = false;
   // 核心Three.js组件
   public scene: THREE.Scene;
   public camera: THREE.PerspectiveCamera;
@@ -1116,13 +1118,13 @@ export class CAEThreeEngineCore {
   public render(): void {
     const startTime = performance.now();
     
-    // 场景安全检查（避免重复初始化）
-    if (this.scene.children.length < 3) { // 至少应该有光照、网格、坐标轴
+  // 场景安全检查（避免重复初始化）
+  if (!this.blankMode && this.scene.children.length < 3) { // 至少应该有光照、网格、坐标轴
       console.warn('⚠️ 场景元素不足，检查初始化状态');
       // 不要重复添加，而是检查具体缺失的元素
       const hasGrid = this.scene.getObjectByName('abaqus-grid');
       
-      if (!hasGrid) {
+  if (!hasGrid) {
         console.log('🔧 场景网格缺失，重新添加');
         this.addSceneHelpers();
         // if (!hasShowcase) {
@@ -1358,6 +1360,92 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
             try {
               const cam = eng.camera; const maxDim=Math.max(width,height)*scale; cam.position.set(maxDim*1.2, maxDim*0.9, maxDim*1.2); cam.lookAt(0,0,0); eng.orbitControls.target.set(0,0,0); eng.orbitControls.update();
             } catch {}
+          },
+          /**
+           * 清空场景中的所有对象（不销毁渲染器/相机/控制器），默认删除画布中的所有内容。
+           */
+          clearAll: () => {
+            const eng = engineRef.current;
+            if (!eng) return;
+            const scene = eng.scene;
+            // 进入空画布模式，避免自动补齐网格/地面
+            try { eng.blankMode = true; } catch {}
+            // 记录并移除所有子对象
+            const children = [...scene.children];
+            children.forEach(obj => {
+              scene.remove(obj);
+              obj.traverse?.((child: any) => {
+                if (child.geometry) try { child.geometry.dispose(); } catch {}
+                if (child.material) {
+                  try {
+                    const m = child.material; if (Array.isArray(m)) m.forEach((mm: any)=>mm.dispose()); else m.dispose();
+                  } catch {}
+                }
+                if (child.texture) { try { child.texture.dispose?.(); } catch {} }
+              });
+            });
+            dxfOverlayRef.current = null;
+            try { eng.orbitControls.target.set(0,0,0); eng.orbitControls.update(); } catch {}
+          },
+          /** 恢复默认画布元素（网格/地面等），退出空画布模式 */
+          restoreDefaults: () => {
+            const eng = engineRef.current;
+            if (!eng) return;
+            try { eng.blankMode = false; } catch {}
+            // 下一帧 render() 会自动检测并补充缺失的网格/地面等
+          },
+          /** 禁止自动补全网格/地面等辅助元素 */
+          disableHelpers: () => { const eng = engineRef.current; if (eng) eng.blankMode = true; },
+          /** 允许自动补全网格/地面等辅助元素 */
+          enableHelpers: () => { const eng = engineRef.current; if (eng) eng.blankMode = false; },
+          /** 仅隐藏/移除中心网格（abaqus-grid） */
+          hideGrid: () => {
+            const eng = engineRef.current; if (!eng) return;
+            const scene = eng.scene;
+            const grid = scene.getObjectByName('abaqus-grid');
+            if (grid) {
+              scene.remove(grid);
+              grid.traverse((child: any) => {
+                try { child.geometry?.dispose?.(); } catch {}
+                try {
+                  const m = child.material; if (Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.();
+                } catch {}
+              });
+            }
+          },
+          /** 显示中心网格（若已移除则重新添加） */
+          showGrid: () => {
+            const eng = engineRef.current; if (!eng) return;
+            const scene = eng.scene;
+            const exists = scene.getObjectByName('abaqus-grid');
+            if (exists) return;
+            // 直接创建一个与默认近似的双层网格
+            try {
+              const group = new THREE.Group();
+              group.name = 'abaqus-grid';
+              const mainGrid = new THREE.GridHelper(100, 20, 0x5a6c7d, 0x3d4c5c) as any;
+              if (mainGrid.material) { mainGrid.material.opacity = 0.8; mainGrid.material.transparent = true; }
+              group.add(mainGrid);
+              const fineGrid = new THREE.GridHelper(100, 100, 0x3d4c5c, 0x2c3e50) as any;
+              if (fineGrid.material) { fineGrid.material.opacity = 0.3; fineGrid.material.transparent = true; }
+              group.add(fineGrid);
+              scene.add(group);
+            } catch {}
+          },
+          /** 仅隐藏/移除地面大平面（abaqus-ground） */
+          hideGround: () => {
+            const eng = engineRef.current; if (!eng) return;
+            const scene = eng.scene;
+            const ground = scene.getObjectByName('abaqus-ground');
+            if (ground) {
+              scene.remove(ground);
+              ground.traverse((child: any) => {
+                try { child.geometry?.dispose?.(); } catch {}
+                try {
+                  const m = child.material; if (Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.();
+                } catch {}
+              });
+            }
           }
         };
       } catch {}

@@ -75,6 +75,8 @@ export interface GeometryViewportRef {
   handleSectioning: (axis: 'x' | 'y' | 'z') => void;
   updateSectionPosition: (position: number) => void;
   renderDXFSegments: (segments: Array<{ start: { x: number; y: number }; end: { x: number; y: number } }>) => void;
+  clearAll: () => void;
+  restoreDefaults: () => void;
 }
 
 const GeometryViewport3D = forwardRef<GeometryViewportRef, GeometryViewport3DProps>(({
@@ -144,7 +146,7 @@ const GeometryViewport3D = forwardRef<GeometryViewportRef, GeometryViewport3DPro
     setShowBoreholes,
     handleSectioning,
     updateSectionPosition,
-    renderDXFSegments: (segments) => {
+  renderDXFSegments: (segments) => {
       const scene = sceneRef.current;
       const camera = cameraRef.current;
       if (!scene || !camera) return;
@@ -198,6 +200,39 @@ const GeometryViewport3D = forwardRef<GeometryViewportRef, GeometryViewport3DPro
         camera.position.set(maxDim * 1.2, maxDim * 0.9, maxDim * 1.2);
         camera.lookAt(0, 0, 0);
         controlsRef.current.update();
+      }
+    },
+    clearAll: () => {
+      const scene = sceneRef.current;
+      if (!scene) return;
+      // 仅移除网格、地面、模型、叠加物等，保留灯光等必要组件
+      const toRemove: THREE.Object3D[] = [];
+      scene.children.forEach(obj => {
+        const name = obj.name || '';
+        const keep = name.includes('light') || name.includes('Light');
+        if (!keep) toRemove.push(obj);
+      });
+      toRemove.forEach(obj => {
+        scene.remove(obj);
+        (obj as any).traverse?.((child: any) => {
+          if (child.geometry) try { child.geometry.dispose(); } catch {}
+          if (child.material) {
+            try { const m = child.material; if (Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m.dispose(); } catch {}
+          }
+          if (child.texture) { try { child.texture.dispose?.(); } catch {} }
+        });
+      });
+      dxfOverlayRef.current = null;
+    },
+    restoreDefaults: () => {
+      const scene = sceneRef.current;
+      if (!scene) return;
+      // 保持背景与灯光，(re)添加网格
+      const exists = scene.children.some(o => (o as any).isGridHelper || o.name?.includes('grid'));
+      if (!exists) {
+        const gridHelper = new THREE.GridHelper(1000, 50, 0x444444, 0x222222);
+        gridHelper.position.y = -15;
+        scene.add(gridHelper);
       }
     }
   }));

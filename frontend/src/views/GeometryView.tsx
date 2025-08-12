@@ -61,6 +61,12 @@ const GeometryView: React.FC = () => {
         } else {
           setPendingDXFSegments(segs);
         }
+      },
+      clearAll: () => {
+        try { viewportRef.current?.clearAll?.(); } catch {}
+      },
+      restoreDefaults: () => {
+        try { viewportRef.current?.restoreDefaults?.(); } catch {}
       }
     };
     return () => { try { delete (window as any).__GEOMETRY_VIEWPORT__; } catch {} };

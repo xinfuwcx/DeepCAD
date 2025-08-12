@@ -8,7 +8,6 @@ import { Button, Typography, Form, InputNumber, Alert, Progress, message, Card }
 import { FileTextOutlined, PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 // Unified layout components
 import UnifiedModuleLayout from '../ui/layout/UnifiedModuleLayout';
-import Panel from '../ui/layout/Panel';
 import MetricCard from '../ui/layout/MetricCard';
 
 
@@ -67,6 +66,42 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
       stressReleaseCoefficient: 0.7
     }
   });
+
+  // 恢复默认画布（网格/地面等）并在 CAE 引擎就绪后移除地面与网格
+  useEffect(() => {
+    let cancelled = false;
+    // 先恢复几何视口默认（若存在）
+    try { (window as any).__GEOMETRY_VIEWPORT__?.restoreDefaults?.(); } catch {}
+
+    const applyRemoval = () => {
+      try {
+        const eng = (window as any).__CAE_ENGINE__;
+        if (eng?.hideGround && eng?.hideGrid && eng?.disableHelpers) {
+          eng.hideGround();
+          eng.hideGrid();
+          eng.disableHelpers(); // 防止自动补回
+          return true;
+        }
+      } catch {}
+      return false;
+    };
+
+    // 立即尝试一次；若失败则重试等待引擎初始化完成
+    if (!applyRemoval()) {
+      let attempts = 0;
+      const timer = setInterval(() => {
+        if (cancelled) { clearInterval(timer); return; }
+        attempts++;
+        if (applyRemoval() || attempts > 50) { // 最长重试 ~10s (50*200ms)
+          clearInterval(timer);
+        }
+      }, 200);
+      return () => { cancelled = true; clearInterval(timer); };
+    }
+
+    return () => { cancelled = true; };
+  }, []);
+
 
 
 
@@ -371,17 +406,8 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
   return (
     <UnifiedModuleLayout
       left={
-        <Card 
-          title="基坑设计" 
-          style={{ 
-            background: 'rgba(0, 217, 255, 0.05)',
-            border: '1px solid rgba(0, 217, 255, 0.2)'
-          }}
-          bodyStyle={{
-            padding: '16px'
-          }}
-        >
-          <Panel title="基坑轮廓导入" subtitle="支持复杂异形基坑" dense>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxHeight: 'calc(100vh - 240px)', overflowY: 'auto', padding: '16px', paddingBottom: 64 }}>
+          <Card title="基坑轮廓导入" size="small" style={{ borderRadius: 8 }}>
             <Form layout="vertical" size="large">
               <input
                 ref={fileInputRef}
@@ -463,8 +489,8 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
                 />
               </Form.Item>
             </Form>
-          </Panel>
-          <Panel title="开挖参数" subtitle="分层与应力释放配置" dense>
+          </Card>
+          <Card title="开挖参数" size="small" style={{ borderRadius: 8 }}>
             <Form layout="vertical" size="large">
               <Form.Item label="开挖深度 (m)" tooltip="基坑总开挖深度">
                 <InputNumber
@@ -535,25 +561,9 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
                 >重置</Button>
               </div>
             </Form>
-          </Panel>
-        </Card>
-      }
-      right={
-        <Card 
-          title="参数监控" 
-          style={{ 
-            background: 'rgba(0, 217, 255, 0.05)',
-            border: '1px solid rgba(0, 217, 255, 0.2)',
-            height: 'calc(100vh - 120px)'
-          }}
-          bodyStyle={{
-            padding: '16px',
-            height: 'calc(100vh - 170px)',
-            overflowY: 'auto'
-          }}
-        >
-          <Panel title="参数指标" dense>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: 12 }}>
+          </Card>
+          <Card title="参数指标" size="small" style={{ borderRadius: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
               <MetricCard label="总深度" value={excavationParams.excavationParams.depth.toFixed(1) + ' m'} accent="blue" />
               <MetricCard label="层厚" value={excavationParams.excavationParams.layerDepth.toFixed(1) + ' m'} accent="purple" />
               <MetricCard label="层数" value={excavationParams.excavationParams.layerCount} accent="orange" />
@@ -576,8 +586,8 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
                 {derived.coverageStatus === 'excess' && ' 当前层数/层厚总和超过目标深度, 可适当减少。'}
               </Text>
             </div>
-          </Panel>
-          <Panel title="执行状态" dense>
+          </Card>
+          <Card title="执行状态" size="small" style={{ borderRadius: 8 }}>
             {statusAlert || (
               <Alert message="就绪" description="配置参数后点击开始开挖。" type="info" showIcon />
             )}
@@ -587,8 +597,8 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
                 <Text style={{ fontSize: 12, color: '#ffffff60' }}>模拟进度示例 (占位)</Text>
               </div>
             )}
-          </Panel>
-        </Card>
+          </Card>
+        </div>
       }
     >
       {/* 主区域当前为空（由外层工作区3D视口占位时再替换）*/}
