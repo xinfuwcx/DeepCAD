@@ -398,6 +398,4542 @@
             3.0
           ]
         }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_537446",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -333008.2934041645,
+            -12582.96295021787,
+            -89286.87231300771
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_537447",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            333008.2934041645,
+            12582.96295021787,
+            89286.87231300771
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_537465",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -347485.0410225899,
+            -13131.006944659328,
+            -93175.76359841836
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_537466",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            347485.0410225899,
+            13131.006944659328,
+            93175.76359841836
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_537488",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -434357.3599224265,
+            -16413.76829979978,
+            -116465.75501588479
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_537489",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            434357.3599224265,
+            16413.76829979978,
+            116465.75501588479
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_537516",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -646708.8260906105,
+            -24438.775059804422,
+            -173408.30582783735
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_537517",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            646708.8260906105,
+            24438.775059804422,
+            173408.30582783735
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_537545",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -617750.2770092842,
+            -23344.476164107167,
+            -165649.1191874442
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_537546",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            617750.2770092842,
+            23344.476164107167,
+            165649.1191874442
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_537571",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -530879.2697467656,
+            -20060.657431452117,
+            -142354.38516799812
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_537572",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            530879.2697467656,
+            20060.657431452117,
+            142354.38516799812
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_543391",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -221665.90408846157,
+            248831.45214543043,
+            -89286.8153079799
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_543392",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            221665.90408846157,
+            -248831.45214543043,
+            89286.8153079799
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_543410",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -231302.5284847814,
+            259648.66609876958,
+            -93175.69699055955
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_543411",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            231302.5284847814,
+            -259648.66609876958,
+            93175.69699055955
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_543433",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -289128.4997351682,
+            324561.8652126219,
+            -116465.90183652326
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_543434",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            289128.4997351682,
+            -324561.8652126219,
+            116465.90183652326
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_543461",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -430479.0033757539,
+            483236.4205329916,
+            -173408.15875580756
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_543462",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            430479.0033757539,
+            -483236.4205329916,
+            173408.15875580756
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_543490",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -411203.1993659594,
+            461597.5331990485,
+            -165649.16593738823
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_543491",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            411203.1993659594,
+            -461597.5331990485,
+            165649.16593738823
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_543516",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -353378.58218400634,
+            396684.9568370239,
+            -142353.86427080212
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_543517",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            353378.58218400634,
+            -396684.9568370239,
+            142353.86427080212
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_544261",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -333245.91802503023,
+            1.3800004672583164,
+            -89286.9425938107
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_544262",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            333245.91802503023,
+            -1.3800004672583164,
+            89286.9425938107
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_544280",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -347733.0630206302,
+            1.2857150952454308,
+            -93175.73117844241
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_544281",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            347733.0630206302,
+            -1.2857150952454308,
+            93175.73117844241
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_544303",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -434667.33323682233,
+            1.4062519767729806,
+            -116465.91524910532
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_544304",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            434667.33323682233,
+            -1.4062519767729806,
+            116465.91524910532
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_544331",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -647170.513128229,
+            2.0303273534770754,
+            -173407.978285956
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_544332",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            647170.513128229,
+            -2.0303273534770754,
+            173407.978285956
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_544360",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -618191.0898355104,
+            2.2068470718222852,
+            -165649.55913950905
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_544361",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            618191.0898355104,
+            -2.2068470718222852,
+            165649.55913950905
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_544386",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -531258.2457904088,
+            2.391288872021139,
+            -142354.05253795668
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_544387",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            531258.2457904088,
+            -2.391288872021139,
+            142354.05253795668
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_547741",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -13.800127672341604,
+            -333245.9177616233,
+            -89286.94252112074
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_547742",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            13.800127672341604,
+            333245.9177616233,
+            89286.94252112074
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_547760",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -14.1428570667618,
+            -347733.0627551363,
+            -93175.73110478949
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_547761",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            14.1428570667618,
+            347733.0627551363,
+            93175.73110478949
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_547783",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -18.281323720111303,
+            -434667.3328790323,
+            -116465.91515813438
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_547784",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            18.281323720111303,
+            434667.3328790323,
+            116465.91515813438
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_547811",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -26.393865601700853,
+            -647170.5126329573,
+            -173407.97813756767
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_547812",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            26.393865601700853,
+            647170.5126329573,
+            173407.97813756767
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_547840",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -26.482686401753654,
+            -618191.0893112329,
+            -165649.55899385473
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_547841",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            26.482686401753654,
+            618191.0893112329,
+            165649.55899385473
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_547866",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -21.521715096521827,
+            -531258.2453938322,
+            -142354.0524111714
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_547867",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            21.521715096521827,
+            531258.2453938322,
+            142354.0524111714
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_556876",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -236858.6090003449,
+            -234415.9851949952,
+            -89286.87040926854
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_556877",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            236858.6090003449,
+            234415.9851949952,
+            89286.87040926854
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_556895",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -247155.2627185421,
+            -244606.97870173704,
+            -93175.65176019112
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_556896",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            247155.2627185421,
+            244606.97870173704,
+            93175.65176019112
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_556918",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -308945.37957544124,
+            -305758.80995086377,
+            -116465.88589118316
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_556919",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            308945.37957544124,
+            305758.80995086377,
+            116465.88589118316
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_556946",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -459983.8417076324,
+            -455241.04961979715,
+            -173408.33921398706
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_556947",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            459983.8417076324,
+            455241.04961979715,
+            173408.33921398706
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_556975",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -439387.76190767833,
+            -434854.8060005274,
+            -165649.30541359057
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_556976",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            439387.76190767833,
+            434854.8060005274,
+            165649.30541359057
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_557001",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -377597.80430456507,
+            -373704.77230641164,
+            -142353.92983611117
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_557002",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            377597.80430456507,
+            373704.77230641164,
+            142353.92983611117
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_558326",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -333239.5016411753,
+            2078.2963445759833,
+            -89286.70242676263
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_558327",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            333239.5016411753,
+            -2078.2963445759833,
+            89286.70242676263
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_558345",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -347726.3208682658,
+            2168.998455824842,
+            -93175.6471462282
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_558346",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            347726.3208682658,
+            -2168.998455824842,
+            93175.6471462282
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_558368",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -434658.87859747856,
+            2711.2566747818228,
+            -116465.9106503952
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_558369",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            434658.87859747856,
+            -2711.2566747818228,
+            116465.9106503952
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_558396",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -647157.8175670637,
+            4036.2471649381573,
+            -173408.38466077286
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_558397",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            647157.8175670637,
+            -4036.2471649381573,
+            173408.38466077286
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_558425",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -618179.1334161636,
+            3855.440258799799,
+            -165649.3120699622
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_558426",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            618179.1334161636,
+            -3855.440258799799,
+            165649.3120699622
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_558451",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -531247.9590100321,
+            3314.33640972286,
+            -142353.85917437717
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_558452",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            531247.9590100321,
+            -3314.33640972286,
+            142353.85917437717
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_559776",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -257477.30460100286,
+            211558.99830480822,
+            -89292.9328204006
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_559777",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            257477.30460100286,
+            -211558.99830480822,
+            89292.9328204006
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_559795",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -268672.0482705843,
+            220757.27993031312,
+            -93174.85624275575
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_559796",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            268672.0482705843,
+            -220757.27993031312,
+            93174.85624275575
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_559818",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -335840.06032850203,
+            275946.5999277705,
+            -116468.57029624385
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_559819",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            335840.06032850203,
+            -275946.5999277705,
+            116468.57029624385
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_559846",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -500028.53426644934,
+            410853.8265587705,
+            -173408.76022093568
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_559847",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            500028.53426644934,
+            -410853.8265587705,
+            173408.76022093568
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_559875",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -477639.19694924616,
+            392457.3865150445,
+            -165644.18887319943
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_559876",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            477639.19694924616,
+            -392457.3865150445,
+            165644.18887319943
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_559901",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -410471.1848789809,
+            337268.0665369599,
+            -142350.47480941634
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_559902",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            410471.1848789809,
+            -337268.0665369599,
+            142350.47480941634
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561081",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -47381.133642751134,
+            329858.7472230617,
+            -89292.9731566828
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561082",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            47381.133642751134,
+            -329858.7472230617,
+            89292.9731566828
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561100",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -49441.19893634871,
+            344200.54330740345,
+            -93174.8562361364
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561101",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            49441.19893634871,
+            -344200.54330740345,
+            93174.8562361364
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561123",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -61801.49864504286,
+            430250.6791386985,
+            -116468.57029222733
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561124",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            61801.49864504286,
+            -430250.6791386985,
+            116468.57029222733
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561151",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -92015.56464924238,
+            640595.4556062026,
+            -173408.76021401794
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561152",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            92015.56464924238,
+            -640595.4556062026,
+            173408.76021401794
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561180",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -87895.46469547208,
+            611912.0770063562,
+            -165644.18884987876
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561181",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            87895.46469547208,
+            -611912.0770063562,
+            165644.18884987876
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561206",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -75535.16497264005,
+            525861.9411771196,
+            -142350.4747936857
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561207",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            75535.16497264005,
+            -525861.9411771196,
+            142350.4747936857
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561806",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -306460.09561833565,
+            130896.6636381026,
+            -89293.18698542473
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561807",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            306460.09561833565,
+            -130896.6636381026,
+            89293.18698542473
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561825",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -319784.60610669176,
+            136587.8906174061,
+            -93174.85623211609
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561826",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            319784.60610669176,
+            -136587.8906174061,
+            93174.85623211609
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561848",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -399730.7576197916,
+            170734.86329932063,
+            -116468.57029632373
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561849",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            399730.7576197916,
+            -170734.86329932063,
+            116468.57029632373
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561876",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -595154.6835676305,
+            254205.24091248633,
+            -173408.76021740818
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561877",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            595154.6835676305,
+            -254205.24091248633,
+            173408.76021740818
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561905",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -568505.966434548,
+            242822.9166002204,
+            -165644.1888569684
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561906",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            568505.966434548,
+            -242822.9166002204,
+            165644.1888569684
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561931",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -488559.81490466435,
+            208675.9439533036,
+            -142350.47479906003
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_561932",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            488559.81490466435,
+            -208675.9439533036,
+            142350.47479906003
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_565866",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -160833.18697679302,
+            291863.69255947607,
+            -89293.17405286683
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_565867",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            160833.18697679302,
+            -291863.69255947607,
+            89293.17405286683
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_565885",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -167826.0156791908,
+            304553.5661020788,
+            -93174.85624220042
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_565886",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            167826.0156791908,
+            -304553.5661020788,
+            93174.85624220042
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_565908",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -209782.51959236574,
+            380691.95763091656,
+            -116468.57030383404
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_565909",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            209782.51959236574,
+            -380691.95763091656,
+            116468.57030383404
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_565936",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -312342.86250418896,
+            566808.0258060312,
+            -173408.76023015307
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_565937",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            312342.86250418896,
+            -566808.0258060312,
+            173408.76023015307
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_565965",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -298357.3611791245,
+            541428.561973717,
+            -165644.18887876067
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_565966",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            298357.3611791245,
+            -541428.561973717,
+            165644.18887876067
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_565991",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -256400.85734827718,
+            465290.17040282564,
+            -142350.47480629635
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_565992",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            256400.85734827718,
+            -465290.17040282564,
+            142350.47480629635
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_567461",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -320745.68692014006,
+            90409.86876604911,
+            -89293.11256660984
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_567462",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            320745.68692014006,
+            -90409.86876604911,
+            89293.11256660984
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_567480",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -334691.29742798524,
+            94340.77374789321,
+            -93174.8562361152
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_567481",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            334691.29742798524,
+            -94340.77374789321,
+            93174.8562361152
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_567503",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -418364.12178263755,
+            117925.96718333497,
+            -116468.57030511455
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_567504",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            418364.12178263755,
+            -117925.96718333497,
+            116468.57030511455
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_567531",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -622897.6924315508,
+            175578.66225063714,
+            -173408.7602335182
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_567532",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            622897.6924315508,
+            -175578.66225063714,
+            173408.7602335182
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_567560",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -595006.7509895486,
+            167716.93108006386,
+            -165644.18886862995
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_567561",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            595006.7509895486,
+            -167716.93108006386,
+            165644.18886862995
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_567586",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -511333.9266306641,
+            144131.73764665387,
+            -142350.47481277602
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_567587",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            511333.9266306641,
+            -144131.73764665387,
+            142350.47481277602
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_577321",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -297143.0348850223,
+            -150856.80846021045,
+            -89293.00174435745
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_577322",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            297143.0348850223,
+            150856.80846021045,
+            89293.00174435745
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_577340",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -310062.4047624266,
+            -157415.85472548183,
+            -93174.85623271504
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_577341",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            310062.4047624266,
+            157415.85472548183,
+            93174.85623271504
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_577363",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -387578.005944592,
+            -196769.81842266748,
+            -116468.57029226518
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_577364",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            387578.005944592,
+            196769.81842266748,
+            116468.57029226518
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_577391",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -577060.5866278928,
+            -292968.3963178273,
+            -173408.76021594965
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_577392",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            577060.5866278928,
+            292968.3963178273,
+            173408.76021594965
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_577420",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -551222.052926961,
+            -279850.40835470305,
+            -165644.1888829567
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_577421",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            551222.052926961,
+            279850.40835470305,
+            165644.1888829567
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_577446",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -473706.4516924761,
+            -240496.44476753558,
+            -142350.4748116405
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_577447",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            473706.4516924761,
+            240496.44476753558,
+            142350.4748116405
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_578046",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -326950.70647294965,
+            64458.91020625716,
+            -89293.24964330053
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_578047",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            326950.70647294965,
+            -64458.91020625716,
+            89293.24964330053
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_578065",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -341166.14086730254,
+            67261.50823486397,
+            -93174.85624181658
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_578066",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            341166.14086730254,
+            -67261.50823486397,
+            93174.85624181658
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_578088",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -426457.6760769458,
+            84076.8853466691,
+            -116468.57029024535
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_578089",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            426457.6760769458,
+            -84076.8853466691,
+            116468.57029024535
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_578116",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -634948.0954928619,
+            125181.14040514326,
+            -173408.76020794135
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_578117",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            634948.0954928619,
+            -125181.14040514326,
+            173408.76020794135
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_578145",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -606517.5837497606,
+            119576.01472128804,
+            -165644.1888679659
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_578146",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            606517.5837497606,
+            -119576.01472128804,
+            165644.1888679659
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_578171",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -521226.04853438394,
+            102760.6376509952,
+            -142350.47481056344
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_578172",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            521226.04853438394,
+            -102760.6376509952,
+            142350.47481056344
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_580511",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -278947.6984190727,
+            -182318.23399373703,
+            -89293.01820471193
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_580512",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            278947.6984190727,
+            182318.23399373703,
+            89293.01820471193
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_580530",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -291075.96399658336,
+            -190245.18219448644,
+            -93174.85623947262
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_580531",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            291075.96399658336,
+            190245.18219448644,
+            93174.85623947262
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_580553",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -363844.95496816695,
+            -237806.47778401856,
+            -116468.57030191289
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_580554",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            363844.95496816695,
+            237806.47778401856,
+            116468.57030191289
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_580581",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -541724.7107303352,
+            -354067.42247839714,
+            -173408.76022750096
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_580582",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            541724.7107303352,
+            354067.42247839714,
+            173408.76022750096
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_580610",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -517468.38043947093,
+            -338213.65723191825,
+            -165644.1888722975
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_580611",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            517468.38043947093,
+            338213.65723191825,
+            165644.1888722975
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_580636",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -444699.3894395949,
+            -290652.3616833036,
+            -142350.4748146965
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_580637",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            444699.3894395949,
+            290652.3616833036,
+            142350.4748146965
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_581816",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -329807.9805613022,
+            47733.07771851911,
+            -89293.05263901291
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_581817",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            329807.9805613022,
+            -47733.07771851911,
+            89293.05263901291
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_581835",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -344147.5913786761,
+            49808.44820823377,
+            -93174.85623999366
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_581836",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            344147.5913786761,
+            -49808.44820823377,
+            93174.85623999366
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_581858",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -430184.489221089,
+            62260.560295522446,
+            -116468.57028949213
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_581859",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            430184.489221089,
+            -62260.560295522446,
+            116468.57028949213
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_581886",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -640496.9061886783,
+            92699.05633168171,
+            -173408.76021108925
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_581887",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            640496.9061886783,
+            -92699.05633168171,
+            173408.76021108925
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_581915",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -611817.9402287812,
+            88548.35238323545,
+            -165644.1888640403
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_581916",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            611817.9402287812,
+            -88548.35238323545,
+            165644.1888640403
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_581941",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -525781.0423838912,
+            76096.24032931146,
+            -142350.47480585537
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_581942",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            525781.0423838912,
+            -76096.24032931146,
+            142350.47480585537
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_585006",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -325664.5757000751,
+            70670.34592196949,
+            -89293.26033558899
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_585007",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            325664.5757000751,
+            -70670.34592196949,
+            89293.26033558899
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_585025",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -339824.09355268657,
+            73743.01055962221,
+            -93174.8562365318
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_585026",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            339824.09355268657,
+            -73743.01055962221,
+            93174.8562365318
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_585048",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -424780.1169441181,
+            92178.76319618072,
+            -116468.57028642428
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_585049",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            424780.1169441181,
+            -92178.76319618072,
+            116468.57028642428
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_585076",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -632450.396338502,
+            137243.936314201,
+            -173408.76020621145
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_585077",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            632450.396338502,
+            -137243.936314201,
+            173408.76020621145
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_585105",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -604131.7218679454,
+            131098.68544638198,
+            -165644.1888721182
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_585106",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            604131.7218679454,
+            -131098.68544638198,
+            165644.1888721182
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_585131",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -519175.6984809375,
+            112662.93280563033,
+            -142350.47480941075
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_585132",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            519175.6984809375,
+            -112662.93280563033,
+            142350.47480941075
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_586166",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -152129.39465704034,
+            296493.48062554025,
+            -89293.13091069697
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_586167",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            152129.39465704034,
+            -296493.48062554025,
+            89293.13091069697
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_586185",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -158743.78771055385,
+            309384.64090613433,
+            -93174.85623648125
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_586186",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            158743.78771055385,
+            -309384.64090613433,
+            93174.85623648125
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_586208",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -198429.73461949037,
+            386730.80114304327,
+            -116468.5702930133
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_586209",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            198429.73461949037,
+            -386730.80114304327,
+            116468.5702930133
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_586236",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -295439.82710001536,
+            575799.192812752,
+            -173408.7602149798
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_586237",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            295439.82710001536,
+            -575799.192812752,
+            173408.7602149798
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_586265",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -282211.1780913315,
+            550017.139422634,
+            -165644.18885564813
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_586266",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            282211.1780913315,
+            -550017.139422634,
+            165644.18885564813
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_586291",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -242525.2311721501,
+            472670.97919115477,
+            -142350.47479854088
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_586292",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            242525.2311721501,
+            -472670.97919115477,
+            142350.47479854088
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_587761",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            137497.0474878645,
+            303556.11027016,
+            -89293.05599972708
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_587762",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -137497.0474878645,
+            -303556.11027016,
+            89293.05599972708
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_587780",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            143475.2359712749,
+            316754.3256662831,
+            -93174.85623646152
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_587781",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -143475.2359712749,
+            -316754.3256662831,
+            93174.85623646152
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_587803",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            179344.04497360863,
+            395942.9070779833,
+            -116468.57029748321
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_587804",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -179344.04497360863,
+            -395942.9070779833,
+            116468.57029748321
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_587831",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            267023.3558496296,
+            589514.9949828513,
+            -173408.7602203846
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_587832",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -267023.3558496296,
+            -589514.9949828513,
+            173408.7602203846
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_587860",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            255067.08621277448,
+            563118.8011641602,
+            -165644.18886989038
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_587861",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -255067.08621277448,
+            -563118.8011641602,
+            165644.18886989038
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_587886",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            219198.27721414846,
+            483930.2197505505,
+            -142350.4748096515
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_587887",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -219198.27721414846,
+            -483930.2197505505,
+            142350.4748096515
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_588631",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            13.800087508221338,
+            333244.2751534469,
+            -89293.07300687642
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_588632",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -13.800087508221338,
+            -333244.2751534469,
+            89293.07300687642
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_588650",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            14.400103662102818,
+            347733.29716517264,
+            -93174.85623962476
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_588651",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -14.400103662102818,
+            -347733.29716517264,
+            93174.85623962476
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_588673",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            18.000075942202916,
+            434666.6214587206,
+            -116468.57029112417
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_588674",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -18.000075942202916,
+            -434666.6214587206,
+            116468.57029112417
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_588701",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            26.800113069477838,
+            647170.3030601755,
+            -173408.76021341723
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_588702",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -26.800113069477838,
+            -647170.3030601755,
+            173408.76021341723
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_588730",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            25.600127877316584,
+            618192.528291788,
+            -165644.1888773653
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_588731",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -25.600127877316584,
+            -618192.528291788,
+            165644.1888773653
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_588756",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            22.000109894612216,
+            531259.2040018003,
+            -142350.4748125858
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_588757",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -22.000109894612216,
+            -531259.2040018003,
+            142350.4748125858
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_616181",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            13281.671440319606,
+            -329636.2962254577,
+            -100938.146478493
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_616182",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -13281.671440319606,
+            329636.2962254577,
+            100938.146478493
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_616200",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            13999.474904196899,
+            -347451.3791419536,
+            -93174.85623686865
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_616201",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -13999.474904196899,
+            347451.3791419536,
+            93174.85623686865
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_616223",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            17499.34364927983,
+            -434314.22392675467,
+            -116468.57029578926
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_616224",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -17499.34364927983,
+            434314.22392675467,
+            116468.57029578926
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_616251",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            26054.578322267822,
+            -646645.6222911131,
+            -173408.76021755012
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_616252",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -26054.578322267822,
+            646645.6222911131,
+            173408.76021755012
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_616280",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            24887.955331381276,
+            -617691.3406965216,
+            -165644.18887469903
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_616281",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -24887.955331381276,
+            617691.3406965216,
+            165644.18887469903
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_616306",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            21388.086612901352,
+            -530828.4959109633,
+            -142350.47481460503
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_616307",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -21388.086612901352,
+            530828.4959109633,
+            142350.47481460503
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_627220",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -1.3800004671748825,
+            -333244.27541685116,
+            -89293.07307957012
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_627221",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            1.3800004671748825,
+            333244.27541685116,
+            89293.07307957012
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_627285",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -1.4399989907195594,
+            -347733.2974612629,
+            -93174.85623623601
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_627286",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            1.4399989907195594,
+            347733.2974612629,
+            93174.85623623601
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_627308",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -1.8000006092749983,
+            -434666.62182788545,
+            -116468.57029041786
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_627309",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            1.8000006092749983,
+            434666.62182788545,
+            116468.57029041786
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_627335",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -2.680000907141272,
+            -647170.3036100442,
+            -173408.76021153224
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_627336",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            2.680000907141272,
+            647170.3036100442,
+            173408.76021153224
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_627364",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -2.5599971415836325,
+            -618192.5288156278,
+            -165644.1888808222
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_627365",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            2.5599971415836325,
+            618192.5288156278,
+            165644.1888808222
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_627390",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            -2.199997543546271,
+            -531259.2044504079,
+            -142350.47482140627
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.NODE_627391",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            2.199997543546271,
+            531259.2044504079,
+            142350.47482140627
+          ],
+          "interval": [
+            2.0,
+            3.0
+          ]
+        }
       }
     ]
   },

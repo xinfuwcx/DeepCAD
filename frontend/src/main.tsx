@@ -1,3 +1,4 @@
+import './shims/threeColorSpaceShim'; // must be first to patch three
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'

@@ -214,7 +214,9 @@ class OptimizedFPNParser:
                     'name': parts[3].strip() if parts[3] else f"Stage_{parts[1]}",
                     'active_materials': [],
                     'active_loads': [],
-                    'active_boundaries': []
+                    'active_boundaries': [],
+                    # 新增：按阶段记录物理组命令，便于累计应用（MADD/MDEL/LADD/BADD）
+                    'group_commands': []
                 }
         except (ValueError, IndexError) as e:
             logger.debug(f"解析分析步行失败: {line[:50]}... - {e}")
@@ -388,6 +390,7 @@ class OptimizedFPNParser:
             'prestress_loads': [],  # 预应力（假力）条目
 
             'elements': {},
+            'materials': {},  # 解析到的材料: id -> { name, properties }
             'material_groups': {},
             'load_groups': {},
             'boundary_groups': {},
@@ -429,29 +432,53 @@ class OptimizedFPNParser:
                         if element_data:
                             result['elements'][element_data['id']] = element_data
 
-                        elif line.startswith('PSTRST'):
-                            # 格式: PSTRST , load_set_id, elem_id, value, , stage(optional)
+                    elif line.startswith('LINE'):
+                        # 线单元（用于锚杆/拉索）: LINE, EID, PropId, N1, N2, ...
+                        current_section = "line_elements"
+                        try:
+                            parts = [p.strip() for p in line.split(',')]
+                            if len(parts) >= 5:
+                                eid = int(parts[1])
+                                prop = int(parts[2]) if parts[2] else None
+                                n1 = int(parts[3])
+                                n2 = int(parts[4])
+                                result.setdefault('line_elements', {})[eid] = {
+                                    'id': eid, 'prop_id': prop, 'n1': n1, 'n2': n2
+                                }
+                        except Exception:
+                            pass
+
+                        if line.startswith('MISO') or line.startswith('MATGEN') or line.startswith('MATPORO'):
+                            # 材料定义区：提取材料ID和名称（优先MISO行带的名称）
                             try:
                                 parts = [p.strip() for p in line.split(',')]
-                                load_set = int(parts[1]) if parts[1] else None
-                                elem_id = int(parts[2])
-                                value = float(parts[3])
-                                stage_id = None
-                                if len(parts) > 5 and parts[5].strip():
-                                    try:
-                                        stage_id = int(parts[5])
-                                    except:
-                                        stage_id = None
-                                result['prestress_loads'].append({
-                                    'load_set': load_set,
-                                    'element_id': elem_id,
-                                    'value': value,
-                                    'stage_id': stage_id
-                                })
-                            except Exception as e:
-                                logger.debug(f"解析PSTRST失败: {line[:60]} - {e}")
-
-                            progress.elements_count += 1
+                                if line.startswith('MISO') and len(parts) >= 3:
+                                    mid = int(parts[1]) if parts[1] else None
+                                    mname = parts[2] if len(parts) > 2 else f"Material_{mid}"
+                                    if mid is not None:
+                                        result.setdefault('materials', {}).setdefault(mid, {
+                                            'id': mid,
+                                            'name': mname,
+                                            'properties': {'type': 'soil'}
+                                        })
+                                elif line.startswith('MATGEN') and len(parts) >= 2:
+                                    mid = int(parts[1]) if parts[1] else None
+                                    if mid is not None:
+                                        result.setdefault('materials', {}).setdefault(mid, {
+                                            'id': mid,
+                                            'name': f"Material_{mid}",
+                                            'properties': {'type': 'soil'}
+                                        })
+                                elif line.startswith('MATPORO') and len(parts) >= 2:
+                                    mid = int(parts[1]) if parts[1] else None
+                                    if mid is not None:
+                                        result.setdefault('materials', {}).setdefault(mid, {
+                                            'id': mid,
+                                            'name': f"Material_{mid}",
+                                            'properties': {'type': 'soil'}
+                                        })
+                            except Exception:
+                                pass
 
                     elif line.startswith('MSET'):
                         current_section = "mesh_sets"
@@ -474,6 +501,17 @@ class OptimizedFPNParser:
                             result['analysis_stages'][-1]['active_materials'].extend(madd_data['materials'])
                             # 存储当前操作以处理后续行
                             self.current_madd_stage = len(result['analysis_stages']) - 1
+                            # 记录到group_commands，使用行内stage_id（若缺省则使用最近STAGE的id）
+                            try:
+                                stage_obj = result['analysis_stages'][-1]
+                                sid = madd_data.get('stage_id') or stage_obj.get('id')
+                                stage_obj.setdefault('group_commands', []).append({
+                                    'stage_id': int(sid) if sid is not None else stage_obj.get('id', 0),
+                                    'command': 'MADD',
+                                    'group_ids': list(madd_data.get('materials') or [])
+                                })
+                            except Exception:
+                                pass
 
                     elif line.startswith('MDEL'):
                         # 材料删除操作 - 可能跨多行
@@ -487,12 +525,34 @@ class OptimizedFPNParser:
                                     stage['active_materials'].remove(mat_id)
                             # 存储当前操作以处理后续行
                             self.current_mdel_stage = len(result['analysis_stages']) - 1
+                            # 记录到group_commands
+                            try:
+                                stage_obj = result['analysis_stages'][-1]
+                                sid = mdel_data.get('stage_id') or stage_obj.get('id')
+                                stage_obj.setdefault('group_commands', []).append({
+                                    'stage_id': int(sid) if sid is not None else stage_obj.get('id', 0),
+                                    'command': 'MDEL',
+                                    'group_ids': list(mdel_data.get('materials') or [])
+                                })
+                            except Exception:
+                                pass
 
                     elif line.startswith('LADD'):
                         # 荷载添加操作
                         ladd_data = self.parse_ladd_line(line)
                         if ladd_data and result['analysis_stages']:
                             result['analysis_stages'][-1]['active_loads'].extend(ladd_data['loads'])
+                            # 记录到group_commands
+                            try:
+                                stage_obj = result['analysis_stages'][-1]
+                                sid = ladd_data.get('stage_id') or stage_obj.get('id')
+                                stage_obj.setdefault('group_commands', []).append({
+                                    'stage_id': int(sid) if sid is not None else stage_obj.get('id', 0),
+                                    'command': 'LADD',
+                                    'group_ids': list(ladd_data.get('loads') or [])
+                                })
+                            except Exception:
+                                pass
 
                     elif line.startswith('BADD'):
                         # 边界添加操作
@@ -500,6 +560,17 @@ class OptimizedFPNParser:
                         badd_data = self.parse_badd_line(line)
                         if badd_data and result['analysis_stages']:
                             result['analysis_stages'][-1]['active_boundaries'].extend(badd_data['boundaries'])
+                            # 记录到group_commands
+                            try:
+                                stage_obj = result['analysis_stages'][-1]
+                                sid = badd_data.get('stage_id') or stage_obj.get('id')
+                                stage_obj.setdefault('group_commands', []).append({
+                                    'stage_id': int(sid) if sid is not None else stage_obj.get('id', 0),
+                                    'command': 'BADD',
+                                    'group_ids': list(badd_data.get('boundaries') or [])
+                                })
+                            except Exception:
+                                pass
 
                     elif current_section in ["madd_operation", "mdel_operation"] and line.strip().startswith(','):
                         # 处理跨行的材料ID列表
@@ -508,18 +579,66 @@ class OptimizedFPNParser:
                             if current_section == "madd_operation" and hasattr(self, 'current_madd_stage'):
                                 stage_idx = self.current_madd_stage
                                 result['analysis_stages'][stage_idx]['active_materials'].extend(additional_materials)
+                                # 同时追加一条等效的group_commands记录，确保累计逻辑正确
+                                try:
+                                    stage_obj = result['analysis_stages'][stage_idx]
+                                    sid = stage_obj.get('id')
+                                    stage_obj.setdefault('group_commands', []).append({
+                                        'stage_id': int(sid) if sid is not None else 0,
+                                        'command': 'MADD',
+                                        'group_ids': list(additional_materials)
+                                    })
+                                except Exception:
+                                    pass
                             elif current_section == "mdel_operation" and hasattr(self, 'current_mdel_stage'):
                                 stage_idx = self.current_mdel_stage
                                 stage = result['analysis_stages'][stage_idx]
                                 for mat_id in additional_materials:
                                     if mat_id in stage['active_materials']:
                                         stage['active_materials'].remove(mat_id)
+                                # 同步记录MDEL命令
+                                try:
+                                    stage_obj = result['analysis_stages'][stage_idx]
+                                    sid = stage_obj.get('id')
+                                    stage_obj.setdefault('group_commands', []).append({
+                                        'stage_id': int(sid) if sid is not None else 0,
+                                        'command': 'MDEL',
+                                        'group_ids': list(additional_materials)
+                                    })
+                                except Exception:
+                                    pass
 
                     elif line.startswith('LSET'):
                         current_section = "load_groups"
                         load_group_data = self.parse_load_group_line(line)
                         if load_group_data:
                             result['load_groups'][load_group_data['id']] = load_group_data
+
+                    elif line.startswith('PETRUSS'):
+                        # TRUSS截面/属性定义: PETRUSS, PropId, Name, ...
+                        current_section = "truss_sections"
+                        try:
+                            parts = [p.strip() for p in line.split(',')]
+                            if len(parts) >= 3:
+                                pid = int(parts[1])
+                                name = parts[2]
+                                result.setdefault('truss_sections', {})[pid] = {'id': pid, 'name': name}
+                        except Exception:
+                            pass
+
+                    elif line.startswith('PSTRST'):
+                        # 预应力定义: PSTRST, group_or_stage, element_id, force(N), ...
+                        try:
+                            parts = [p.strip() for p in line.split(',')]
+                            if len(parts) >= 4:
+                                grp = int(parts[1]) if parts[1] else None
+                                eid = int(parts[2])
+                                force = float(parts[3])
+                                result.setdefault('prestress_loads', []).append({
+                                    'group': grp, 'element_id': eid, 'force': force
+                                })
+                        except Exception:
+                            pass
 
                     elif line.startswith('BSET'):
                         current_section = "boundary_groups"

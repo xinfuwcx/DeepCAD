@@ -260,6 +260,22 @@ class MainWindow(QMainWindow):
         self.show_concrete_cb.setChecked(True)
         self.show_steel_cb = QCheckBox("显示钢构/钢筋")
         self.show_steel_cb.setChecked(True)
+        # 预应力路径显示（锚杆线元）
+        self.show_anchors_cb = QCheckBox("显示预应力路径")
+        self.show_anchors_cb.setChecked(False)
+
+        # 土体分层选择
+        soil_layer_layout = QHBoxLayout()
+        soil_layer_layout.addWidget(QLabel("土体分层:"))
+        self.soil_layer_combo = QComboBox()
+        self.soil_layer_combo.addItem("全部土体", None)
+        soil_layer_layout.addWidget(self.soil_layer_combo)
+        display_layout.addLayout(soil_layer_layout)
+
+        # 按阶段过滤预应力路径
+        self.filter_anchors_by_stage_cb = QCheckBox("按分析步过滤预应力路径")
+        self.filter_anchors_by_stage_cb.setChecked(False)
+
 
         for cb in [
             self.show_mesh_cb,
@@ -270,6 +286,8 @@ class MainWindow(QMainWindow):
             self.show_soil_cb,
             self.show_concrete_cb,
             self.show_steel_cb,
+            self.show_anchors_cb,
+            self.filter_anchors_by_stage_cb,
         ]:
             display_layout.addWidget(cb)
 
@@ -1021,6 +1039,31 @@ class MainWindow(QMainWindow):
             if cb:
                 cb.stateChanged.connect(self.update_display)
 
+        # 锚杆显示开关联动
+        try:
+            if hasattr(self.preprocessor, 'toggle_show_anchors'):
+                self.show_anchors_cb.stateChanged.connect(
+                    lambda _: self.preprocessor.toggle_show_anchors(self.show_anchors_cb.isChecked())
+                )
+        except Exception as e:
+            print(f"锚杆显示复选框联动失败: {e}")
+
+        # 土体分层选择联动
+        try:
+            if hasattr(self, 'soil_layer_combo'):
+                self.soil_layer_combo.currentIndexChanged.connect(self.on_soil_layer_changed)
+        except Exception as e:
+            print(f"土体分层联动失败: {e}")
+
+        # 预应力路径阶段过滤联动
+        try:
+            if hasattr(self.preprocessor, 'filter_anchors_by_stage'):
+                self.filter_anchors_by_stage_cb.stateChanged.connect(
+                    lambda _: setattr(self.preprocessor, 'filter_anchors_by_stage', self.filter_anchors_by_stage_cb.isChecked()) or self.preprocessor.display_mesh()
+                )
+        except Exception as e:
+            print(f"预应力阶段过滤复选框联动失败: {e}")
+
         # 分析连接
         self.run_analysis_btn.clicked.connect(self.run_analysis)
         self.pause_analysis_btn.clicked.connect(self.pause_analysis)
@@ -1396,6 +1439,29 @@ class MainWindow(QMainWindow):
             for group_id, group_info in material_groups.items():
                 self.material_group_combo.addItem(f"材料组 {group_id} ({group_info.get('material_count', 0)} 材料)")
 
+        # 填充“土体分层”下拉（按材料ID切换土层）
+        try:
+            if hasattr(self, 'soil_layer_combo'):
+                self.soil_layer_combo.clear()
+                self.soil_layer_combo.addItem("全部土体", None)
+
+                # 优先使用解析到的材料字典，并筛选出 type=='soil'
+                materials = getattr(self.preprocessor, 'materials', {}) or {}
+                if materials:
+                    for mid in sorted(materials.keys(), key=lambda x: int(x)):
+                        info = materials[mid]
+                        mtype = (info.get('properties') or {}).get('type')
+                        if mtype == 'soil':
+                            name = info.get('name', f'Material_{mid}')
+                            self.soil_layer_combo.addItem(f"{mid}: {name}", int(mid))
+                # 回退：从网格 MaterialID 提取
+                elif hasattr(self.preprocessor, 'mesh') and hasattr(self.preprocessor.mesh, 'cell_data') and 'MaterialID' in self.preprocessor.mesh.cell_data:
+                    import numpy as np
+                    for mid in sorted(np.unique(self.preprocessor.mesh.cell_data['MaterialID'])):
+                        self.soil_layer_combo.addItem(f"{int(mid)}", int(mid))
+        except Exception as e:
+            print(f"填充土体分层失败: {e}")
+
         # 更新荷载组
         self.load_group_combo.clear()
         self.load_group_combo.addItem("所有荷载组")
@@ -1553,6 +1619,23 @@ class MainWindow(QMainWindow):
             print(f"智能更新物理组失败: {e}")
             import traceback
             traceback.print_exc()
+
+    def on_soil_layer_changed(self):
+        """切换土体分层过滤"""
+        try:
+            if not hasattr(self.preprocessor, 'materials'):
+                return
+            # 从下拉取选中的材料ID（存储在 itemData）
+            mid = self.soil_layer_combo.currentData()
+            if mid is None:
+                # 显示全部土体
+                self.preprocessor.display_mesh()
+                return
+            # 只显示选中的单一土体材料
+            self.preprocessor.filter_materials_by_stage([int(mid)])
+            self.preprocessor.display_mesh()
+        except Exception as e:
+            print(f"切换土体分层失败: {e}")
 
     def auto_select_physics_groups(self, active_groups):
         """自动选择相关的物理组"""
