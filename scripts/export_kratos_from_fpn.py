@@ -62,7 +62,7 @@ def write_mdpa(nodes: List[Dict], elements: List[Dict], out_path: Path, subparts
             if len(conn) == 4:
                 f.write(f"{i} 1 {conn[0]} {conn[1]} {conn[2]} {conn[3]}\n")
         f.write('End Elements\n\n')
-        # SubModelParts for boundary groups
+        # SubModelParts for boundary groups and anchor nodes
         for name, node_ids in subparts_nodes.items():
             if not node_ids:
                 continue
@@ -110,14 +110,15 @@ def write_materials(out_path: Path, density: float = 2000.0, young: float = 3.0e
     out_path.write_text(json.dumps(materials, indent=2), encoding='utf-8')
 
 
-def write_project_parameters(out_path: Path, constraints_processes: List[Dict], stage_intervals: List[Tuple[float, float]], active_groups_per_stage: List[Dict[str, List[int]]]):
-    # map stages to intervals and generate activation processes for materials/boundaries
+def write_project_parameters(out_path: Path, constraints_processes: List[Dict], stage_intervals: List[Tuple[float, float]], active_groups_per_stage: List[Dict[str, List[int]]], stage_nodal_forces: List[Dict[int, Tuple[float, float, float]]]):
+    # map stages to intervals and generate activation processes for materials/boundaries and prestress nodal loads
     loads_processes: List[Dict] = []
     constraints_processes = list(constraints_processes)  # base copy
 
-    # Stage-wise: material activation (ACTIVE flag)
+    # Stage-wise: material activation (ACTIVE flag) and boundaries
     for sidx, interval in enumerate(stage_intervals):
         groups = active_groups_per_stage[sidx]
+        # Materials ACTIVE
         for mid in groups.get('materials', []):
             loads_processes.append({
                 "python_module": "assign_flag_process",
@@ -130,7 +131,7 @@ def write_project_parameters(out_path: Path, constraints_processes: List[Dict], 
                     "interval": list(interval)
                 }
             })
-        # Stage-wise: boundary constraints activation
+        # Boundary constraints
         for bid in groups.get('boundaries', []):
             constraints_processes.append({
                 "python_module": "assign_vector_variable_process",
@@ -141,6 +142,20 @@ def write_project_parameters(out_path: Path, constraints_processes: List[Dict], 
                     "variable_name": "DISPLACEMENT",
                     "constrained": [True, True, True],
                     "value": [0.0, 0.0, 0.0],
+                    "interval": list(interval)
+                }
+            })
+        # Prestress nodal forces as POINT_LOAD via per-node process on single-node SubModelPart
+        nodal_map = stage_nodal_forces[sidx] if sidx < len(stage_nodal_forces) else {}
+        for nid, vec in nodal_map.items():
+            loads_processes.append({
+                "python_module": "assign_vector_variable_process",
+                "kratos_module": "KratosMultiphysics",
+                "process_name": "AssignVectorVariableProcess",
+                "Parameters": {
+                    "model_part_name": f"Structure.NODE_{int(nid)}",
+                    "variable_name": "POINT_LOAD",
+                    "value": [float(vec[0]), float(vec[1]), float(vec[2])],
                     "interval": list(interval)
                 }
             })
@@ -229,12 +244,17 @@ def main():
         elements = elements_all
         print(f"Using full elements: {len(elements)}")
 
-    # assemble submodelparts from FPN boundary groups
+    # assemble submodelparts from FPN boundary groups and anchor nodes for nodal loads
     subparts_nodes = {}
     for gid, grp in (res.get('boundary_groups', {}) or {}).items():
         node_ids = grp.get('nodes', []) or []
         if node_ids:
             subparts_nodes[f"BSET_{gid}"] = node_ids
+
+    # prepare single-node submodelparts for all nodes to support nodal loads
+    for n in nodes:
+        nid = int(n['id'])
+        subparts_nodes[f"NODE_{nid}"] = [nid]
 
     # write mdpa with submodelparts
     mdpa_path = OUT_DIR / f"{MODEL_NAME}.mdpa"
@@ -270,10 +290,63 @@ def main():
             'boundaries': sorted(set(st.get('active_boundaries', []) or [])),
             'loads': sorted(set(st.get('active_loads', []) or [])),
         })
+    # Fallback: if no stages found, create a single stage to host prestress
+    if not stage_intervals:
+        stage_intervals = [(1.0, 2.0)]
+        active_groups_per_stage = [{'materials': [], 'boundaries': [], 'loads': []}]
+
+    # Hard-stop if any defined stage has no active materials (per user policy)
+    if stages:
+        empty_material_stages = [i for i, g in enumerate(active_groups_per_stage) if not g.get('materials')]
+        if empty_material_stages:
+            details = []
+            for i in empty_material_stages:
+                name = stages[i].get('name', f'Stage_{i+1}')
+                details.append(f"#{i+1}('{name}')")
+            raise RuntimeError(
+                "检测到分析步激活材料为空，已中止导出: " + ", ".join(details) +
+                "。请在该阶段指定至少一个激活材料组，或调整施工阶段定义。")
 
     # write materials & params
     write_materials(OUT_DIR / 'materials.json')
-    write_project_parameters(OUT_DIR / 'ProjectParameters.json', constraints, stage_intervals, active_groups_per_stage)
+    # Build stage-wise nodal forces from prestress
+    # Aggregate PSTRST items by stage index derived from load_set if stages exist
+    prestress_items = res.get('prestress_loads', []) or []
+    line_elems = {le['id']: le for le in (res.get('line_elements') or {}).values()} if isinstance(res.get('line_elements'), dict) else {}
+    # node coords
+    nid2xyz = {int(n['id']): (n['x'], n['y'], n['z']) for n in nodes}
+
+    def unit_vec(a, b):
+        import math
+        dx, dy, dz = b[0]-a[0], b[1]-a[1], b[2]-a[2]
+        L = math.sqrt(dx*dx+dy*dy+dz*dz) or 1.0
+        return (dx/L, dy/L, dz/L)
+
+    # build map stage_index -> {node_id: vec3}
+    stage_nodal_forces: List[Dict[int, Tuple[float, float, float]]] = [dict() for _ in stage_intervals]
+
+    # heuristic: map load_set to nearest stage index (1-based load_set -> 0-based stage idx)
+    for it in prestress_items:
+        load_set = int(it.get('group') or it.get('load_set') or 1)
+        elem_id = int(it.get('element_id'))
+        force = float(it.get('force') or it.get('value'))
+        # stage index
+        sidx = min(max(load_set-1, 0), len(stage_intervals)-1) if stage_intervals else 0
+        le = line_elems.get(elem_id)
+        if not le:
+            continue
+        n1, n2 = le['n1'], le['n2']
+        a, b = nid2xyz.get(n1), nid2xyz.get(n2)
+        if not a or not b:
+            continue
+        ex, ey, ez = unit_vec(a, b)
+        # accumulate
+        for nid, sign in ((n1, 1.0), (n2, -1.0)):
+            fx, fy, fz = force*sign*ex, force*sign*ey, force*sign*ez
+            acc = stage_nodal_forces[sidx].get(nid, (0.0, 0.0, 0.0))
+            stage_nodal_forces[sidx][nid] = (acc[0]+fx, acc[1]+fy, acc[2]+fz)
+
+    write_project_parameters(OUT_DIR / 'ProjectParameters.json', constraints, stage_intervals, active_groups_per_stage, stage_nodal_forces)
 
     print('Exported to:', OUT_DIR)
     print('MDPA:', mdpa_path)

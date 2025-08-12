@@ -13,7 +13,6 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 // import { FXAAPass } from 'three/examples/jsm/postprocessing/FXAAPass.js';
 import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js';
 import { TAARenderPass } from 'three/examples/jsm/postprocessing/TAARenderPass.js';
@@ -86,38 +85,35 @@ export const QUALITY_PRESETS: Record<string, RenderingQuality> = {
 
 export class RealisticRenderingEngine {
   private renderer: THREE.WebGLRenderer | any; // WebGLRenderer 或 WebGPURenderer
-  private composer: EffectComposer;
+  private composer!: EffectComposer; // initialized in setupPostProcessing
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private container: HTMLElement;
   
   // 后处理passes
-  private renderPass: RenderPass;
+  private renderPass!: RenderPass; // initialized in setupPostProcessing
   private ssaoPass?: SSAOPass;
   private bloomPass?: UnrealBloomPass;
   // private fxaaPass?: FXAAPass; // 暂时移除FXAA支持
   private smaaPass?: SMAAPass;
   private taaPass?: TAARenderPass;
-  private outputPass: OutputPass;
+  private outputPass: any; // Optional OutputPass (newer three only)
   
   private quality: RenderingQuality;
   private postProcessingSettings: PostProcessingSettings;
   private isInitialized = false;
   private usingWebGPU = false;
-  private backend: 'auto' | 'webgl' | 'webgpu';
 
   constructor(
     container: HTMLElement,
     scene: THREE.Scene,
     camera: THREE.PerspectiveCamera,
-    qualityLevel: keyof typeof QUALITY_PRESETS = 'high',
-    backend: 'auto' | 'webgl' | 'webgpu' = 'auto'
+  qualityLevel: keyof typeof QUALITY_PRESETS = 'high'
   ) {
     this.container = container;
     this.scene = scene;
     this.camera = camera;
     this.quality = { ...QUALITY_PRESETS[qualityLevel] };
-    this.backend = backend;
     
     // 默认后处理设置
     this.postProcessingSettings = {
@@ -222,9 +218,17 @@ export class RealisticRenderingEngine {
       this.setupAntiAliasing();
     }
 
-    // 输出pass
-    this.outputPass = new OutputPass();
-    this.composer.addPass(this.outputPass);
+    // 输出pass (仅在当前three版本存在时动态加载)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const maybeOutput = (require as any)('three/examples/jsm/postprocessing/OutputPass.js');
+      if (maybeOutput?.OutputPass) {
+        this.outputPass = new maybeOutput.OutputPass();
+        this.composer.addPass(this.outputPass);
+      }
+    } catch (_) {
+      // 忽略：旧版本three未提供 OutputPass
+    }
   }
 
   private setupAntiAliasing(): void {
@@ -235,7 +239,7 @@ export class RealisticRenderingEngine {
           this.container.clientWidth * window.devicePixelRatio,
           this.container.clientHeight * window.devicePixelRatio
         );
-        this.composer.addPass(this.smaaPass);
+  if (this.smaaPass) this.composer.addPass(this.smaaPass as any);
         break;
       
       case 'FXAA':
@@ -258,15 +262,7 @@ export class RealisticRenderingEngine {
     this.ssaoPass.output = SSAOPass.OUTPUT.Default;
   }
 
-  private updateFXAASettings(): void {
-    // FXAA暂时不可用
-    // if (!this.fxaaPass) return;
-    // const pixelRatio = window.devicePixelRatio;
-    // this.fxaaPass.material.uniforms['resolution'].value.set(
-    //   1 / (this.container.clientWidth * pixelRatio),
-    //   1 / (this.container.clientHeight * pixelRatio)
-    // );
-  }
+  // FXAA 设置函数暂时移除
 
   // 公共方法
 
