@@ -389,8 +389,13 @@ class OptimizedFPNParser:
             'nodes': {},
             'prestress_loads': [],  # 预应力（假力）条目
 
-            'elements': {},
-            'materials': {},  # 解析到的材料: id -> { name, properties }
+            'elements': {},                    # 体单元（TETRA/HEXA/PENTA）
+            'line_elements': {},               # 线单元（锚杆/拉索）
+            'plate_elements': {},              # 板单元（TRIA/QUAD 等）
+            'materials': {},                   # 材料: id -> { id, name, properties }
+            'shell_properties': {},            # PSHELL: prop_id -> { id, name, thickness, ... }
+            'truss_sections': {},              # PETRUSS: prop_id -> { id, name, ... }
+
             'material_groups': {},
             'load_groups': {},
             'boundary_groups': {},
@@ -442,43 +447,79 @@ class OptimizedFPNParser:
                                 prop = int(parts[2]) if parts[2] else None
                                 n1 = int(parts[3])
                                 n2 = int(parts[4])
-                                result.setdefault('line_elements', {})[eid] = {
+                                result['line_elements'][eid] = {
                                     'id': eid, 'prop_id': prop, 'n1': n1, 'n2': n2
                                 }
                         except Exception:
                             pass
 
-                        if line.startswith('MISO') or line.startswith('MATGEN') or line.startswith('MATPORO'):
-                            # 材料定义区：提取材料ID和名称（优先MISO行带的名称）
-                            try:
-                                parts = [p.strip() for p in line.split(',')]
-                                if line.startswith('MISO') and len(parts) >= 3:
-                                    mid = int(parts[1]) if parts[1] else None
-                                    mname = parts[2] if len(parts) > 2 else f"Material_{mid}"
-                                    if mid is not None:
-                                        result.setdefault('materials', {}).setdefault(mid, {
-                                            'id': mid,
-                                            'name': mname,
-                                            'properties': {'type': 'soil'}
-                                        })
-                                elif line.startswith('MATGEN') and len(parts) >= 2:
-                                    mid = int(parts[1]) if parts[1] else None
-                                    if mid is not None:
-                                        result.setdefault('materials', {}).setdefault(mid, {
-                                            'id': mid,
-                                            'name': f"Material_{mid}",
-                                            'properties': {'type': 'soil'}
-                                        })
-                                elif line.startswith('MATPORO') and len(parts) >= 2:
-                                    mid = int(parts[1]) if parts[1] else None
-                                    if mid is not None:
-                                        result.setdefault('materials', {}).setdefault(mid, {
-                                            'id': mid,
-                                            'name': f"Material_{mid}",
-                                            'properties': {'type': 'soil'}
-                                        })
-                            except Exception:
-                                pass
+                    elif line.startswith(('TRIA', 'CTRIA', 'CQUAD', 'QUAD')):
+                        # 板单元：TRIA/QUAD，格式示例：TRIA, EID, PropId, N1, N2, N3[, N4]
+                        current_section = "plate_elements"
+                        try:
+                            parts = [p.strip() for p in line.split(',')]
+                            if len(parts) >= 6:
+                                eid = int(parts[1])
+                                prop = int(parts[2]) if parts[2] else None
+                                nodes = [int(n) for n in parts[3:] if n]
+                                result['plate_elements'][eid] = {
+                                    'id': eid, 'prop_id': prop, 'nodes': nodes
+                                }
+                        except Exception:
+                            pass
+
+                    elif line.startswith(('PSHELL')):
+                        # 板属性：PSHELL, PropId, Name, ... 厚度通常在参数7或8位
+                        current_section = "shell_properties"
+                        try:
+                            parts = [p.strip() for p in line.split(',')]
+                            if len(parts) >= 3:
+                                pid = int(parts[1])
+                                name = parts[2]
+                                thickness = None
+                                try:
+                                    # 常见：..., 1, 0, -1, 1, 0.8, 1., 1., 1., ...
+                                    # 先尝试第7个字段
+                                    thickness = float(parts[7]) if len(parts) > 7 and parts[7] else None
+                                except Exception:
+                                    thickness = None
+                                result['shell_properties'][pid] = {
+                                    'id': pid, 'name': name, 'thickness': thickness
+                                }
+                        except Exception:
+                            pass
+
+                    elif line.startswith(('MISO', 'MATGEN', 'MATPORO')):
+                        # 材料定义区：提取材料ID和名称（优先MISO行带的名称）
+                        try:
+                            parts = [p.strip() for p in line.split(',')]
+                            if line.startswith('MISO') and len(parts) >= 3:
+                                mid = int(parts[1]) if parts[1] else None
+                                mname = parts[2] if len(parts) > 2 else f"Material_{mid}"
+                                if mid is not None:
+                                    result['materials'].setdefault(mid, {
+                                        'id': mid,
+                                        'name': mname,
+                                        'properties': {'type': 'soil'}
+                                    })
+                            elif line.startswith('MATGEN') and len(parts) >= 2:
+                                mid = int(parts[1]) if parts[1] else None
+                                if mid is not None:
+                                    result['materials'].setdefault(mid, {
+                                        'id': mid,
+                                        'name': f"Material_{mid}",
+                                        'properties': {'type': 'soil'}
+                                    })
+                            elif line.startswith('MATPORO') and len(parts) >= 2:
+                                mid = int(parts[1]) if parts[1] else None
+                                if mid is not None:
+                                    result['materials'].setdefault(mid, {
+                                        'id': mid,
+                                        'name': f"Material_{mid}",
+                                        'properties': {'type': 'soil'}
+                                    })
+                        except Exception:
+                            pass
 
                     elif line.startswith('MSET'):
                         current_section = "mesh_sets"
@@ -671,11 +712,13 @@ class OptimizedFPNParser:
             progress.processed_lines = total_lines
             self.progress_callback(progress)
 
-        # 转换为列表格式以兼容现有代码
+        # 转换为列表格式以兼容现有代码（仅体单元转列表）
         result['nodes'] = list(result['nodes'].values())
         result['elements'] = list(result['elements'].values())
+        # 线元/板元/属性字典保持字典结构，便于通过id/prop_id查询
 
-        logger.info(f"解析完成: {len(result['nodes'])}个节点, {len(result['elements'])}个单元")
+        logger.info(f"解析完成: {len(result['nodes'])}个节点, {len(result['elements'])}个体单元, "
+                    f"{len(result.get('plate_elements') or {})}个板单元, {len(result.get('line_elements') or {})}个线元")
 
         return result
 

@@ -5,6 +5,13 @@ interface VisualSettingsState {
   showLegacyParticles: boolean;
   enablePostFX: boolean;
   showLayerDebugPanel: boolean;
+  // 新增：主题与简约模式
+  theme: 'dark' | 'minimal' | 'business';
+  minimalMode: boolean;
+  // 新增：是否显示 3D 柱状图
+  showColumns: boolean;
+  // 新增：是否显示 Hex 聚合热区
+  showHex: boolean;
   toggle: (key: keyof Omit<VisualSettingsState, 'toggle' | 'set'>) => void;
   set: (partial: Partial<Omit<VisualSettingsState, 'toggle' | 'set'>>) => void;
 }
@@ -20,11 +27,24 @@ function loadInitial(): Omit<VisualSettingsState, 'toggle' | 'set'> {
         showEpicGlobe: parsed.showEpicGlobe ?? true,
         showLegacyParticles: parsed.showLegacyParticles ?? true,
         enablePostFX: parsed.enablePostFX ?? true,
-        showLayerDebugPanel: parsed.showLayerDebugPanel ?? true
+        showLayerDebugPanel: parsed.showLayerDebugPanel ?? true,
+        theme: parsed.theme ?? 'dark',
+    minimalMode: parsed.minimalMode ?? false,
+  showColumns: parsed.showColumns ?? false,
+  showHex: parsed.showHex ?? true
       };
     }
   } catch {}
-  return { showEpicGlobe: true, showLegacyParticles: true, enablePostFX: true, showLayerDebugPanel: true };
+  return {
+    showEpicGlobe: true,
+    showLegacyParticles: true,
+    enablePostFX: true,
+    showLayerDebugPanel: true,
+    theme: 'dark',
+  minimalMode: false,
+  showColumns: false,
+  showHex: true
+  };
 }
 
 export const useVisualSettingsStore = create<VisualSettingsState>((set, get) => ({

@@ -88,8 +88,16 @@ if (typeof document !== 'undefined' && !document.getElementById('dreamy-styles')
 
 // 高德地图和可视化相关
 import AMapLoader from '@amap/amap-jsapi-loader';
+
+// AMap v2 安全密钥声明（放在顶层，避免 TS 报错）
+declare global {
+  interface Window {
+    _AMapSecurityConfig?: { securityJsCode: string };
+  }
+}
 import { Deck } from '@deck.gl/core';
-import { ScatterplotLayer, ArcLayer, ColumnLayer } from '@deck.gl/layers';
+import { ScatterplotLayer, ColumnLayer, LineLayer } from '@deck.gl/layers';
+import { HexagonLayer } from '@deck.gl/aggregation-layers';
 // Remove static HeatmapLayer import; will lazy load when building layers
 // Lazy deck layer loader (unifies HeatmapLayer access & reduces initial bundle)
 import { getDeckLayers } from '../../utils/mapLayersUtil';
@@ -144,6 +152,14 @@ interface SystemStats {
 }
 
 export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onExit }) => {
+  // —— 轻量主题与布局常量 ——
+  const PADDING = 16; // 统一边距
+  const TOPBAR_H = 64; // 顶部状态栏高度（px）
+  const PANEL_W = 22; // 左右面板宽度（百分比）
+  const topOffset = TOPBAR_H + PADDING; // 地图与 Deck 画布距顶部偏移
+  const GLASS_BG = 'rgba(6, 19, 38, 0.75)';
+  const GLASS_BORDER = '1px solid rgba(0, 188, 255, 0.25)';
+  const CARD_SHADOW = '0 8px 32px rgba(0, 0, 0, 0.45)';
   // 内联小组件：轮播 KPI 标题
   const RotatingHeadline: React.FC<{stats: SystemStats}> = ({stats}) => {
     const items = useMemo(()=>[
@@ -211,15 +227,63 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
   const [is3DMode, setIs3DMode] = useState(true);
   const [currentPitch, setCurrentPitch] = useState(30);
   const [particles, setParticles] = useState<Array<{id: number, x: number, y: number, delay: number}>>([]);
+  // 当高德地图不可用时，启用 Deck 独立模式，避免离线遮罩挡住可视层
+  const [deckStandaloneMode, setDeckStandaloneMode] = useState(false);
   const showEpicGlobe = useVisualSettingsStore(s=>s.showEpicGlobe);
   const showLegacyParticles = useVisualSettingsStore(s=>s.showLegacyParticles);
   const enablePostFX = useVisualSettingsStore(s=>s.enablePostFX);
   const showLayerDebugPanel = useVisualSettingsStore(s=>s.showLayerDebugPanel);
+  const theme = useVisualSettingsStore(s=>s.theme);
+  const minimalMode = useVisualSettingsStore(s=>s.minimalMode);
+  const showColumns = useVisualSettingsStore(s=>s.showColumns);
+  const showHex = useVisualSettingsStore(s=>s.showHex);
   const toggle = useVisualSettingsStore(s=>s.toggle);
+  const setVisual = useVisualSettingsStore(s=>s.set);
   // 从服务加载真实或本地化项目 -> 转换为统一结构
   const [loadedProjects, setLoadedProjects] = useState<ExcavationProject[] | null>(null);
   const selectedProject = useMemo(()=> (loadedProjects||[]).find(p=>p.id===selectedProjectId) || null, [loadedProjects, selectedProjectId]);
-  const epicProjects = useMemo(() => (loadedProjects || []).slice(0, 50).map(p => ({
+  // 主题色板
+  const palette = useMemo(() => {
+    if (theme === 'business') {
+      return {
+        accent: [0, 170, 255, 120] as [number,number,number,number],
+        accent2: [0, 120, 220, 100] as [number,number,number,number],
+        selection: [0, 255, 255, 255] as [number,number,number,number],
+        scatterStroke: [220, 240, 255, 140] as [number,number,number,number],
+      };
+    }
+    if (theme === 'minimal') {
+      return {
+        accent: [0, 200, 200, 100] as [number,number,number,number],
+        accent2: [0, 120, 160, 90] as [number,number,number,number],
+        selection: [0, 230, 230, 255] as [number,number,number,number],
+        scatterStroke: [200, 230, 240, 120] as [number,number,number,number],
+      };
+    }
+    // dark (默认)
+    return {
+      accent: [0, 170, 255, 120] as [number,number,number,number],
+      accent2: [0, 100, 200, 100] as [number,number,number,number],
+      selection: [0, 255, 255, 255] as [number,number,number,number],
+      scatterStroke: [255, 255, 255, 150] as [number,number,number,number],
+    };
+  }, [theme]);
+  const appBackground = useMemo(()=>{
+    if (theme === 'minimal') {
+      return 'linear-gradient(135deg, #0a0f1a 0%, #0b1e2e 50%, #0a0f1a 100%)';
+    }
+    if (theme === 'business') {
+      return 'linear-gradient(135deg, #071a2f 0%, #0a2b4a 50%, #0c3a66 100%)';
+    }
+    // dark (default)
+    return `
+      radial-gradient(circle at 20% 80%, rgba(0, 100, 200, 0.3) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(0, 150, 255, 0.2) 0%, transparent 50%),
+      radial-gradient(circle at 40% 40%, rgba(0, 170, 255, 0.25) 0%, transparent 50%),
+      linear-gradient(135deg, #000011 0%, #001133 30%, #002255 60%, #003377 100%)
+    `;
+  }, [theme]);
+  const epicProjects = useMemo(() => (loadedProjects || []).slice(0, minimalMode ? 24 : 50).map(p => ({
     id: p.id,
     name: p.name,
     lat: p.location.lat,
@@ -233,7 +297,8 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
   // 生成粒子效果
   useEffect(() => {
     const generateParticles = () => {
-      const newParticles = Array.from({ length: 50 }, (_, i) => ({
+  // 减少数量，避免干扰视觉主体
+  const newParticles = Array.from({ length: 20 }, (_, i) => ({
         id: i,
         x: Math.random() * 100,
         y: Math.random() * 100,
@@ -312,6 +377,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
   setProgressHistory(prev => [...prev.slice(-59), stats.averageProgress]);
   }, [projects]);
 
+
   /**
    * 初始化高德地图 - 暗色科技风主题
    */
@@ -320,6 +386,15 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
 
     try {
       console.log('🗺️ 初始化高德地图大屏版...');
+
+      // 若提供了安全密钥，则启用 AMap v2 安全配置
+      const secCode = (import.meta as any).env?.VITE_AMAP_SECURITY_JS_CODE as string | undefined;
+      if (secCode) {
+        (window as any)._AMapSecurityConfig = { securityJsCode: secCode };
+        console.log('🔐 已注入 AMap 安全密钥配置');
+      } else {
+        console.log('ℹ️ 未检测到 VITE_AMAP_SECURITY_JS_CODE，按无安全校验模式加载');
+      }
 
       // 加载高德地图JS API
       const AMap = await AMapLoader.load({
@@ -345,7 +420,8 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         zoom: 17, // 更高缩放级别
         pitch: 70, // 更强烈的3D倾斜视角
         viewMode: '3D', // 强制3D视图
-        mapStyle: 'amap://styles/normal', // 使用标准样式，确保3D兼容性
+        // 统一暗色风格，兼顾 3D 兼容性
+        mapStyle: 'amap://styles/dark',
         showLabel: true,
         showIndoorMap: false,
         features: ['bg', 'road', 'building', 'point'],
@@ -394,8 +470,8 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           heightFactor: 3.0, // 建筑物高度放大3倍
           visible: true,
           // 3D建筑物样式
-          topColor: '#ffffff',
-          sideColor: '#ccddff'
+          topColor: '#dfe7ff',
+          sideColor: '#a8c1ff'
         });
         map.add(buildings);
 
@@ -440,8 +516,9 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
 
       console.log('✅ 高德地图3D暗色主题加载完成');
 
-      // 初始化Deck.gl可视化层
-      await initializeDeck();
+  // 初始化Deck.gl可视化层
+  await initializeDeck();
+  setDeckStandaloneMode(false);
 
       // 使用高德天气API加载项目天气数据
       await loadProjectsWeatherData();
@@ -457,7 +534,16 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     } catch (error) {
       console.error('❌ 地图初始化失败:', error);
       // 不直接操作DOM，让React处理错误状态
-      setMapError(error instanceof Error ? error.message : '地图初始化失败');
+      setMapError('地图服务不可用，已切换到离线可视模式');
+      // 离线回退：启用 Deck.gl 独立控制，继续展示数据层
+      try {
+        await initializeDeck({ controllerEnabled: true });
+        setIsInitialized(true);
+        setDeckStandaloneMode(true);
+        console.log('🧭 已启用 Deck.gl 离线模式');
+      } catch (e) {
+        console.error('❌ 离线 Deck.gl 初始化失败:', e);
+      }
     }
   }, [filteredProjects]);
 
@@ -484,16 +570,15 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
 
     // 选中项目高亮
     if (selectedProject?.id === project.id) {
-      return [0, 255, 255, 255]; // 青色高亮
+      return palette.selection; // 主题选择色
     }
-
     return color as [number, number, number, number];
-  }, [selectedProject]);
+  }, [selectedProject, palette.selection]);
 
   /**
    * 初始化Deck.gl可视化层 - 基坑项目专用
    */
-  const initializeDeck = async () => {
+  const initializeDeck = async (options?: { controllerEnabled?: boolean }) => {
     try {
       console.log('🎨 初始化基坑项目可视化层...');
 
@@ -509,7 +594,14 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           pitch: 60, // 保持3D视角
           bearing: 0
         },
-  controller: false, // 禁用Deck.gl控制器，使用高德地图的控制器
+  controller: options?.controllerEnabled ?? false, // 地图失败时启用Deck交互控制
+  getTooltip: (info:any) => {
+          const p = info?.object as ExcavationProject | undefined;
+          if (!p) return null;
+          return {
+            text: `${p.name}\n深度: ${p.depth}m  进度: ${p.progress}%  风险: ${p.riskLevel}`,
+          };
+        },
   layers: [
           // 基坑项目散点图层
           new ScatterplotLayer({
@@ -523,13 +615,13 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
               return Math.max(depthFactor, areaFactor);
             },
             getFillColor: getProjectStatusColor,
-            getLineColor: [255, 255, 255, 150],
+            getLineColor: palette.scatterStroke,
             getLineWidth: 2,
             stroked: true,
             filled: true,
             radiusScale: 1,
             radiusMinPixels: 8,
-            radiusMaxPixels: 50,
+            radiusMaxPixels: 40, // 收敛散点可见尺寸，避免遮挡
             pickable: true,
       onClick: (info) => {
               if (info.object) {
@@ -551,54 +643,67 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
 
           // Heatmap layers will be appended asynchronously after lazy load to reduce initial bundle size
 
-          // 🏗️ 项目深度3D柱状图
-          new ColumnLayer({
-            id: 'project-depth-columns',
-            data: filteredProjects.slice(0, 20), // 限制数量避免性能问题
-            getPosition: (d: ExcavationProject) => [d.location.lng, d.location.lat],
-            getElevation: (d: ExcavationProject) => Math.max(500, d.depth * 100), // 更高的柱子
-            getFillColor: (d: ExcavationProject) => {
-              // 根据深度设置颜色 - 更鲜艳
-              const depth = d.depth;
-              if (depth > 20) return [255, 50, 50, 255];  // 深红 - 很深
-              if (depth > 15) return [255, 150, 0, 255];  // 橙色 - 深
-              if (depth > 10) return [255, 255, 0, 255];  // 黄色 - 中等
-              return [0, 255, 100, 255];                  // 绿色 - 浅
-            },
-            getLineColor: [255, 255, 255, 200],
-            radius: 150, // 更大的半径
-            elevationScale: 2, // 放大高度
-            pickable: true,
-  onClick: (info) => {
-              if (info.object) {
-        setSelectedProjectId(info.object.id);
-        emitSelection('deck-column', info.object.id);
-                console.log('🎯 3D柱状图项目被选中:', info.object.name);
-              }
-            }
-          }),
+          // 🧊 六边形聚合层（热区）— 使用 HeatmapLayer 作为补充，Hex 聚合更具科技感
+          // 注意：此 Hex 层通过 mapLayersUtil 懒加载 HeatmapLayer；为简洁此处先保留热力图，Hex 可在后续加入
 
-          // ⚡ 项目连接线 - 数据流效果
-          new ArcLayer({
-            id: 'project-data-flow',
-            data: filteredProjects.slice(0, 8).map((project, index) => {
-              const nextIndex = (index + 1) % Math.min(8, filteredProjects.length);
-              const nextProject = filteredProjects[nextIndex];
+          // ⚡ 动感飞线（Arc 的轻量替代，控制更细）
+          new LineLayer({
+            id: 'project-fly-lines',
+            data: filteredProjects.slice(0, minimalMode ? 4 : 10).map((project, index) => {
+              const nextIndex = (index + 1) % Math.min(10, filteredProjects.length);
+              const next = filteredProjects[nextIndex];
               return {
-                source: [project.location.lng, project.location.lat],
-                target: [nextProject.location.lng, nextProject.location.lat],
-                value: project.progress
+                sourcePosition: [project.location.lng, project.location.lat],
+                targetPosition: [next.location.lng, next.location.lat],
+                value: (project.progress + next.progress) / 2
               };
             }),
-            getSourcePosition: (d: any) => d.source,
-            getTargetPosition: (d: any) => d.target,
-            getSourceColor: [0, 170, 255, 80],
-            getTargetColor: [0, 100, 200, 80],
-            getWidth: (d: any) => Math.max(1, d.value / 25),
-            getHeight: 0.2
+            getSourcePosition: (d:any) => d.sourcePosition,
+            getTargetPosition: (d:any) => d.targetPosition,
+            getColor: (d:any) => d.value > 66 ? [0,255,200,160] : d.value > 33 ? [0,180,255,140] : [0,120,255,120],
+            getWidth: (d:any) => Math.max(1.5, d.value / 30),
+            parameters: { depthTest: false }
           })
         ]
       });
+
+      // 条件追加：Hex 聚合与 3D 柱体
+      const baseLayers = deck.props.layers ? [...deck.props.layers] : [];
+      if (showHex) {
+        baseLayers.push(new HexagonLayer({
+          id: 'hex-hotspots',
+          data: filteredProjects,
+          getPosition: (d: ExcavationProject) => [d.location.lng, d.location.lat],
+          getElevationWeight: (d: ExcavationProject) => Math.max(1, (d.riskLevel === 'critical' ? 4 : d.riskLevel === 'high' ? 2 : 1) * (d.progress / 25 + 0.5)),
+          elevationScale: minimalMode ? 20 : 40,
+          extruded: true,
+          radius: minimalMode ? 200 : 300,
+          coverage: 0.85,
+          colorRange: theme === 'business'
+            ? [[0,120,220,80],[0,150,240,120],[0,180,255,160],[0,210,255,200],[50,240,255,220]]
+            : [[0,180,255,60],[0,210,255,120],[0,240,255,160],[100,255,220,200],[180,255,200,220]],
+          pickable: false,
+          opacity: 0.8
+        } as any));
+      }
+      if (showColumns) {
+        baseLayers.push(new ColumnLayer({
+          id: 'project-columns',
+          data: filteredProjects,
+          diskResolution: 12,
+          radius: 120,
+          extruded: true,
+          elevationScale: 30,
+          getPosition: (d: ExcavationProject) => [d.location.lng, d.location.lat],
+          getFillColor: (d: ExcavationProject) => getProjectStatusColor(d),
+          getLineColor: palette.scatterStroke,
+          getElevation: (d: ExcavationProject) => Math.max(50, d.depth * 10),
+          wireframe: true,
+          opacity: 0.6,
+          visible: true
+        } as any));
+      }
+      if (baseLayers.length) deck.setProps({ layers: baseLayers });
 
   // 异步懒加载 HeatmapLayer 并追加
       (async () => {
@@ -675,12 +780,36 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         });
       }
 
-      console.log('✅ 基坑项目可视化层初始化完成');
+  console.log('✅ 基坑项目可视化层初始化完成');
 
     } catch (error) {
       console.error('❌ Deck.gl初始化失败:', error);
     }
   };
+
+  // 选中脉冲光环动画
+  const [pulse, setPulse] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      setPulse((p) => (p + 0.02) % (Math.PI * 2));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // 飞线尾迹相位（驱动粒子沿线运动）
+  const [flyPhase, setFlyPhase] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      setFlyPhase((t) => (t + 0.01) % 1);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   /**
    * 同步高德地图和Deck.gl的视图状态
@@ -944,55 +1073,116 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           return Math.max(depthFactor, areaFactor);
         },
         getFillColor: getProjectStatusColor,
-        getLineColor: [255,255,255,150],
+        getLineColor: palette.scatterStroke,
         getLineWidth: 2,
         stroked: true,
         filled: true,
         radiusScale: 1,
         radiusMinPixels: 8,
-        radiusMaxPixels: 50,
+        radiusMaxPixels: minimalMode ? 32 : 40,
         pickable: true,
         onClick: (info) => { if (info.object) { setSelectedProjectId((info.object as ExcavationProject).id); setShowProjectDetails(true);} },
         updateTriggers: { getFillColor: [selectedProject?.id] }
       });
-      const newColumns = new ColumnLayer({
-        id: 'project-depth-columns',
-        data: filteredProjects.slice(0,20),
+      // 选中项目脉冲光环层（像素半径）
+      const haloLayer = new ScatterplotLayer({
+        id: 'selection-halo',
+        data: selectedProject ? [selectedProject] : [],
         getPosition: (d: ExcavationProject) => [d.location.lng, d.location.lat],
-        getElevation: (d: ExcavationProject) => Math.max(500, d.depth * 100),
+        getFillColor: [0,0,0,0],
+        getLineColor: palette.selection,
+        getLineWidth: 2,
+        stroked: true,
+        filled: false,
+        radiusUnits: 'pixels',
+        radiusMinPixels: 0,
+        radiusMaxPixels: 999,
+        getRadius: () => 24 + Math.sin(pulse) * 8,
+        updateTriggers: { getRadius: [pulse, selectedProject?.id] }
+      });
+      const newColumns = showColumns ? new ColumnLayer({
+        id: 'project-depth-columns',
+        data: filteredProjects.slice(0, minimalMode ? 10 : 20),
+        getPosition: (d: ExcavationProject) => [d.location.lng, d.location.lat],
+        getElevation: (d: ExcavationProject) => Math.max(minimalMode ? 300 : 400, d.depth * (minimalMode ? 60 : 80)),
         getFillColor: (d: ExcavationProject) => {
           const depth = d.depth;
-            if (depth > 20) return [255, 50, 50, 255];
-            if (depth > 15) return [255, 150, 0, 255];
-            if (depth > 10) return [255, 255, 0, 255];
-            return [0, 255, 100, 255];
+            if (depth > 20) return [255, 50, 50, 220];
+            if (depth > 15) return [255, 150, 0, 220];
+            if (depth > 10) return [255, 255, 0, 210];
+            return [0, 255, 100, 210];
         },
         getLineColor: [255,255,255,200],
-        radius: 150,
-        elevationScale: 2,
+        radius: minimalMode ? 80 : 100,
+        elevationScale: minimalMode ? 1 : 1.2,
+        wireframe: true,
         pickable: true,
         onClick: info => { if (info.object) setSelectedProjectId((info.object as any).id); }
-      });
-      const newArcs = new ArcLayer({
-        id: 'project-data-flow',
-        data: filteredProjects.slice(0,8).map((project, index) => {
-          const nextIndex = (index + 1) % Math.min(8, filteredProjects.length);
-          const nextProject = filteredProjects[nextIndex];
-          return { source:[project.location.lng, project.location.lat], target:[nextProject.location.lng, nextProject.location.lat], value: project.progress };
+      }) : null;
+      const newArcs = new LineLayer({
+        id: 'project-fly-lines',
+        data: filteredProjects.slice(0, minimalMode ? 4 : 10).map((project, index) => {
+          const nextIndex = (index + 1) % Math.min(10, filteredProjects.length);
+          const next = filteredProjects[nextIndex];
+          return { sourcePosition:[project.location.lng, project.location.lat], targetPosition:[next.location.lng, next.location.lat], value: (project.progress + next.progress)/2 };
         }),
-        getSourcePosition: (d: any) => d.source,
-        getTargetPosition: (d: any) => d.target,
-        getSourceColor: [0,170,255,80],
-        getTargetColor: [0,100,200,80],
-        getWidth: (d: any) => Math.max(1, d.value/25),
-        getHeight: 0.2
+        getSourcePosition: (d: any) => d.sourcePosition,
+        getTargetPosition: (d: any) => d.targetPosition,
+        getColor: (d:any) => d.value > 66 ? [0,255,200,160] : d.value > 33 ? [0,180,255,140] : [0,120,255,120],
+        getWidth: (d: any) => Math.max(1.5, d.value/30),
+        parameters: { depthTest: false }
       });
       // 保留懒加载 heatmap (如果已存在则在其 setProps 时会被替换)
       const existing = deckRef.current.props.layers || [];
       const heatmaps = existing.filter((l:any)=> l && (l.id==='risk-heatmap'|| l.id==='weather-temperature'));
-      deckRef.current.setProps({ layers: [newScatter, ...heatmaps, newColumns, newArcs] });
+
+      // 飞线尾迹粒子
+      const flyLines = (newArcs.props.data as any[]) || [];
+      const particleData = flyLines.map((ln:any) => ({ source: ln.sourcePosition, target: ln.targetPosition, value: ln.value }));
+      const flyParticles = new ScatterplotLayer({
+        id: 'fly-particles',
+        data: particleData,
+        getPosition: (d:any) => {
+          const t = flyPhase; // 0..1
+          const x = d.source[0] + (d.target[0] - d.source[0]) * t;
+          const y = d.source[1] + (d.target[1] - d.source[1]) * t;
+          return [x, y];
+        },
+        getRadius: () => 40 + Math.sin(flyPhase * Math.PI * 2) * 10,
+        getFillColor: (d:any) => d.value > 66 ? [0,255,200,220] : d.value > 33 ? [0,200,255,200] : [0,150,255,180],
+        pickable: false,
+        updateTriggers: { getPosition: [flyPhase], getRadius: [flyPhase] },
+        parameters: { depthTest: false }
+      });
+
+      // Hex 聚合热区
+      const getHexColorRange = () => {
+        if (theme === 'business') return [[0,120,255,50],[0,160,255,100],[0,200,255,140],[0,240,255,180],[0,255,220,220],[0,255,180,240]];
+        if (theme === 'minimal') return [[0,100,160,50],[0,130,180,90],[0,160,200,120],[0,190,210,150],[0,210,220,180],[0,230,230,210]];
+        return [[0,90,255,50],[0,120,255,100],[0,160,255,140],[0,200,255,180],[0,240,255,220],[0,255,220,240]];
+      };
+      const hex = showHex ? new HexagonLayer({
+        id: 'project-hex-aggregation',
+        data: filteredProjects,
+        getPosition: (d: ExcavationProject) => [d.location.lng, d.location.lat],
+        getWeight: (d: ExcavationProject) => d.riskLevel === 'critical' ? 3 : d.riskLevel === 'high' ? 2 : 1,
+        radius: minimalMode ? 400 : 600,
+        elevationScale: minimalMode ? 30 : 50,
+        extruded: true,
+        colorRange: getHexColorRange() as any,
+        coverage: 0.8,
+        opacity: 0.7,
+        pickable: false,
+        parameters: { depthTest: false }
+      }) : null;
+
+      const layers = [newScatter, haloLayer, ...heatmaps];
+      if (hex) layers.push(hex);
+      if (newColumns) layers.push(newColumns);
+      layers.push(newArcs, flyParticles);
+      deckRef.current.setProps({ layers });
     }
-  }, [filteredProjects, isInitialized, getProjectStatusColor, selectedProject?.id]);
+  }, [filteredProjects, isInitialized, getProjectStatusColor, selectedProject?.id, minimalMode, pulse, palette, showColumns, showHex, flyPhase, theme]);
 
   // 启动项目数据轮询模拟 (增量更新)
   useEffect(()=>{
@@ -1051,6 +1241,19 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         }
       }
 
+      // T 键循环主题
+      if (event.key === 't' || event.key === 'T') {
+        const order: Array<typeof theme> = ['dark', 'minimal', 'business'];
+        const idx = order.indexOf(theme);
+        const next = order[(idx + 1) % order.length];
+        setVisual({ theme: next });
+      }
+
+      // M 键切换简约模式
+      if (event.key === 'm' || event.key === 'M') {
+        setVisual({ minimalMode: !minimalMode });
+      }
+
       // 数字键快速缩放
       if (event.key >= '1' && event.key <= '9') {
         const zoomLevel = parseInt(event.key) + 5; // 6-14级缩放
@@ -1072,7 +1275,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     return () => {
       window.removeEventListener('keydown', handleKeyPress);
     };
-  }, [onExit, resetMapView]);
+  }, [onExit, resetMapView, theme, minimalMode, setVisual]);
 
   // 性能监控
   useEffect(() => {
@@ -1125,18 +1328,13 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       width: '100%',
       height: '100%',
       position: 'relative',
-      background: `
-        radial-gradient(circle at 20% 80%, rgba(0, 100, 200, 0.3) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(0, 150, 255, 0.2) 0%, transparent 50%),
-        radial-gradient(circle at 40% 40%, rgba(0, 170, 255, 0.25) 0%, transparent 50%),
-        linear-gradient(135deg, #000011 0%, #001133 30%, #002255 60%, #003377 100%)
-      `,
+  background: appBackground as any,
       overflow: 'hidden',
       fontFamily: '"Orbitron", "Courier New", monospace',
       animation: 'dreamyBackground 12s ease-in-out infinite alternate'
     }}>
       {/* 3D R3F 背景可视化 (新的统一渲染架构) */}
-  <BackgroundVisualization enableEffects={enablePostFX} />
+  <BackgroundVisualization enableEffects={enablePostFX && !minimalMode} />
 
       {/* 可选：Epic Globe 场景（Layer 化示例） */}
       {showEpicGlobe && (
@@ -1149,7 +1347,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       )}
 
       {/* 🌟 旧的CSS粒子星空背景效果 (后续可移除以减少DOM负载) */}
-  {showLegacyParticles && particles.map(particle => (
+  {showLegacyParticles && !minimalMode && particles.map(particle => (
         <div
           key={particle.id}
           className="particle"
@@ -1162,7 +1360,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       ))}
 
       {/* ⚡ 数据流动画效果 */}
-      {Array.from({ length: 8 }, (_, i) => (
+  {!minimalMode && Array.from({ length: 3 }, (_, i) => (
         <div
           key={`stream-${i}`}
           className="data-stream"
@@ -1175,19 +1373,21 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         />
       ))}
 
-      {/* 🔮 能量波纹效果 */}
-      <div style={{
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        width: '300px',
-        height: '300px',
-        transform: 'translate(-50%, -50%)',
-        border: '1px solid rgba(0, 255, 255, 0.3)',
-        borderRadius: '50%',
-        animation: 'neonGlow 3s ease-in-out infinite alternate',
-        pointerEvents: 'none'
-      }} />
+      {/* 🔮 能量波纹效果（简约模式隐藏） */}
+      {!minimalMode && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          width: '300px',
+          height: '300px',
+          transform: 'translate(-50%, -50%)',
+          border: '1px solid rgba(0, 255, 255, 0.3)',
+          borderRadius: '50%',
+          animation: 'neonGlow 3s ease-in-out infinite alternate',
+          pointerEvents: 'none'
+        }} />
+      )}
 
   {/* 🚀 DeepCAD Logo - 左上角 */}
   <PerformanceOverlay />
@@ -1309,25 +1509,25 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         </div>
       </motion.div>
 
-      {/* 🗺️ 3D地图容器 - 占据大部分区域 */}
+    {/* 🗺️ 3D地图容器 - 占据大部分区域（扩大可视区） */}
       <div
         ref={mapContainerRef}
         className="neon-border"
         style={{
           position: 'absolute',
-          left: '20px',
-          top: '80px', // 为顶部Logo留出空间
-          right: '20px',
-          bottom: '20px',
-          borderRadius: '10px',
-          overflow: 'hidden',
-          boxShadow: '0 0 50px rgba(0, 255, 255, 0.5)',
+      left: `${PADDING}px`,
+      top: `${topOffset}px`, // 固定顶部状态栏高度 + 统一边距
+      right: `${PADDING}px`,
+      bottom: `${PADDING}px`,
+      borderRadius: '12px',
+      overflow: 'hidden',
+      boxShadow: CARD_SHADOW,
           zIndex: 10,
           minHeight: '400px' // 确保最小高度
         }}
       >
         {/* 地图错误状态显示 */}
-        {mapError && (
+  {mapError && !deckStandaloneMode && (
           <div style={{
             position: 'absolute',
             top: 0,
@@ -1366,18 +1566,18 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         id="deck-canvas"
         style={{
           position: 'absolute',
-          left: '20px',
-          top: '80px',
-          right: '20px',
-          bottom: '20px',
+          left: `${PADDING}px`,
+          top: `${topOffset}px`,
+          right: `${PADDING}px`,
+          bottom: `${PADDING}px`,
           pointerEvents: 'auto', // 允许交互
-          borderRadius: '10px',
+          borderRadius: '12px',
           zIndex: 15 // 确保在地图上方
         }}
       />
 
       {/* 顶部状态栏 - 大屏设计 */}
-      <motion.div
+    <motion.div
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         style={{
@@ -1385,14 +1585,14 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           top: 0,
           left: 0,
           right: 0,
-          height: '5%',
-          background: 'linear-gradient(90deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 20, 40, 0.9) 50%, rgba(0, 0, 0, 0.9) 100%)',
-          backdropFilter: 'blur(10px)',
-          borderBottom: '2px solid rgba(0, 255, 255, 0.3)',
+      height: `${TOPBAR_H}px`,
+          background: theme === 'business' ? 'rgba(10, 18, 30, 0.8)' : theme === 'minimal' ? 'rgba(8, 14, 22, 0.7)' : GLASS_BG,
+      backdropFilter: 'blur(10px)',
+      borderBottom: GLASS_BORDER,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 2%',
+      padding: `0 ${PADDING}px`,
           zIndex: 2000
         }}
       >
@@ -1483,29 +1683,45 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       </motion.div>
 
       {/* 左侧项目面板 - 大屏设计 */}
-      <motion.div
+    <motion.div
         initial={{ x: -400, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.8, ease: 'easeOut' }}
         style={{
           position: 'absolute',
           left: 0,
-          top: '5%',
-          width: '25%',
-          height: '95%',
-          background: 'linear-gradient(180deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 20, 40, 0.9) 50%, rgba(0, 0, 0, 0.9) 100%)',
-          backdropFilter: 'blur(15px)',
-          borderRight: '2px solid rgba(0, 255, 255, 0.3)',
+      top: `${TOPBAR_H}px`,
+      width: `${PANEL_W}%`,
+      height: `calc(100% - ${TOPBAR_H}px)`,
+          background: theme === 'business' ? 'rgba(10, 18, 30, 0.8)' : theme === 'minimal' ? 'rgba(8, 14, 22, 0.7)' : GLASS_BG,
+      backdropFilter: 'blur(12px)',
+      borderRight: GLASS_BORDER,
           display: 'flex',
           flexDirection: 'column',
           zIndex: 1500
         }}
       >
         {/* 搜索和过滤区域 */}
-        <div style={{ padding: '20px', borderBottom: '1px solid rgba(0, 255, 255, 0.2)' }}>
+        <div style={{ padding: '16px', borderBottom: GLASS_BORDER }}>
           <h3 style={{ color: '#00ffff', margin: '0 0 15px 0', fontSize: 18, textAlign: 'center' }}>
             🏗️ 项目管理中心
           </h3>
+          {/* 主题与模式切换 */}
+          <div style={{ display:'flex', gap: 8, marginBottom: 10 }}>
+            <select
+              value={theme}
+              onChange={(e)=> setVisual({ theme: e.target.value as any })}
+              style={{ flex:1, padding:'6px', background:'rgba(0,0,0,0.5)', border: GLASS_BORDER, borderRadius:6, color:'#fff', fontSize:11 }}
+            >
+              <option value="dark">暗色 · 科技</option>
+              <option value="minimal">极简 · 低噪</option>
+              <option value="business">商务蓝 · 稳重</option>
+            </select>
+            <label style={{ display:'flex', alignItems:'center', gap:6, color:'#fff', fontSize:11 }}>
+              <input type="checkbox" checked={minimalMode} onChange={(e)=> setVisual({ minimalMode: e.target.checked })} style={{ accentColor:'#00ffff' }}/>
+              简约模式
+            </label>
+          </div>
 
           {/* 搜索框 */}
           <input
@@ -1586,7 +1802,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         <div style={{
           flex: 1,
           overflowY: 'auto',
-          padding: '10px',
+          padding: '12px',
           scrollbarWidth: 'thin',
           scrollbarColor: 'rgba(0, 255, 255, 0.3) transparent'
         }}>
@@ -1601,12 +1817,12 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
               onClick={() => { flyToProject(project); emitSelection('list', project.id); }}
               style={{
                 background: selectedProject?.id === project.id
-                  ? 'linear-gradient(90deg, rgba(0, 255, 255, 0.3), rgba(0, 150, 255, 0.2))'
-                  : 'rgba(255, 255, 255, 0.05)',
+                  ? 'linear-gradient(90deg, rgba(0, 255, 255, 0.22), rgba(0, 150, 255, 0.18))'
+                  : 'rgba(255, 255, 255, 0.04)',
                 border: selectedProject?.id === project.id
-                  ? '2px solid rgba(0, 255, 255, 0.6)'
-                  : '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '8px',
+                  ? '1px solid rgba(0, 255, 255, 0.45)'
+                  : '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '10px',
                 padding: '12px',
                 marginBottom: '8px',
                 cursor: 'pointer',
@@ -1700,26 +1916,26 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       </motion.div>
 
       {/* 右侧控制面板 - 大屏设计 */}
-      <motion.div
+    <motion.div
         initial={{ x: 400, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
         style={{
           position: 'absolute',
           right: 0,
-          top: '5%',
-          width: '25%',
-          height: '95%',
-          background: 'linear-gradient(180deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 20, 40, 0.9) 50%, rgba(0, 0, 0, 0.9) 100%)',
-          backdropFilter: 'blur(15px)',
-          borderLeft: '2px solid rgba(0, 255, 255, 0.3)',
+      top: `${TOPBAR_H}px`,
+      width: `${PANEL_W}%`,
+      height: `calc(100% - ${TOPBAR_H}px)`,
+      background: GLASS_BG,
+      backdropFilter: 'blur(12px)',
+      borderLeft: GLASS_BORDER,
           display: 'flex',
           flexDirection: 'column',
           zIndex: 1500
         }}
       >
         {/* 选中项目详情 */}
-        <div style={{ padding: '20px', borderBottom: '1px solid rgba(0, 255, 255, 0.2)' }}>
+  <div style={{ padding: '16px', borderBottom: GLASS_BORDER }}>
           <h3 style={{ color: '#00ffff', margin: '0 0 15px 0', fontSize: 18, textAlign: 'center' }}>
             📊 项目详情
           </h3>
@@ -1731,11 +1947,11 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
               animate={{ opacity: 1, y: 0 }}
               className="neon-border hologram-effect"
               style={{
-                background: 'linear-gradient(135deg, rgba(0, 255, 255, 0.15) 0%, rgba(255, 0, 255, 0.15) 100%)',
-                borderRadius: '10px',
-                padding: '15px',
+                background: 'linear-gradient(135deg, rgba(0, 255, 255, 0.12) 0%, rgba(255, 0, 255, 0.1) 100%)',
+                borderRadius: '12px',
+                padding: '14px',
                 backdropFilter: 'blur(10px)',
-                boxShadow: '0 8px 32px rgba(0, 255, 255, 0.3)'
+                boxShadow: CARD_SHADOW
               }}
             >
               <div style={{ color: '#fff', fontSize: '16px', fontWeight: 'bold', marginBottom: '10px' }}>
@@ -1814,7 +2030,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         </div>
 
         {/* 天气信息 */}
-        <div style={{ padding: '20px', borderBottom: '1px solid rgba(0, 255, 255, 0.2)' }}>
+  <div style={{ padding: '16px', borderBottom: GLASS_BORDER }}>
           <h4 style={{ color: '#00ffff', margin: '0 0 10px 0', fontSize: 16 }}>
             🌤️ 当地天气
           </h4>
@@ -1860,7 +2076,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         </div>
 
         {/* 图层控制 */}
-        <div style={{ padding: '20px', flex: 1 }}>
+  <div style={{ padding: '16px', flex: 1 }}>
           <h4 style={{ color: '#00ffff', margin: '0 0 15px 0', fontSize: 16 }}>
             🎛️ 显示控制
           </h4>
@@ -1871,13 +2087,25 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
               <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '12px' }}>显示Epic Globe</span>
             </label>
 
+            {/* Hex 热区 */}
             <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-              <input type="checkbox" checked={showLegacyParticles} onChange={() => toggle('showLegacyParticles')} style={{ accentColor: '#00ffff' }} />
+              <input type="checkbox" checked={showHex} onChange={() => toggle('showHex')} style={{ accentColor: '#00ffff' }} />
+              <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '12px' }}>热区聚合 Hex</span>
+            </label>
+
+            {/* 3D 柱体 */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={showColumns} onChange={() => toggle('showColumns')} style={{ accentColor: '#00ffff' }} />
+              <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '12px' }}>3D 柱体</span>
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={showLegacyParticles && !minimalMode} onChange={() => toggle('showLegacyParticles')} style={{ accentColor: '#00ffff' }} />
               <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '12px' }}>旧CSS粒子</span>
             </label>
 
             <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-              <input type="checkbox" checked={enablePostFX} onChange={() => toggle('enablePostFX')} style={{ accentColor: '#00ffff' }} />
+              <input type="checkbox" checked={enablePostFX && !minimalMode} onChange={() => toggle('enablePostFX')} style={{ accentColor: '#00ffff' }} />
               <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '12px' }}>Bloom后处理</span>
             </label>
 
@@ -1923,6 +2151,14 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
             </label>
 
             <div style={{ marginTop: '20px' }}>
+              <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '12px', marginBottom: '8px' }}>
+                快速预设
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <button onClick={() => { setVisual({ theme: 'dark', minimalMode: false }); }} className="neon-border" style={{ background:'linear-gradient(45deg, rgba(0,255,255,0.25), rgba(0,100,255,0.25))', borderRadius:4, color:'#fff', padding:'4px 8px', fontSize:10 }}>炫酷密集</button>
+                <button onClick={() => { setVisual({ theme: 'minimal', minimalMode: true }); }} className="neon-border" style={{ background:'linear-gradient(45deg, rgba(0,255,200,0.2), rgba(0,200,160,0.2))', borderRadius:4, color:'#fff', padding:'4px 8px', fontSize:10 }}>极简演示</button>
+                <button onClick={() => { setVisual({ theme: 'business', minimalMode: false }); }} className="neon-border" style={{ background:'linear-gradient(45deg, rgba(0,120,220,0.25), rgba(0,160,255,0.25))', borderRadius:4, color:'#fff', padding:'4px 8px', fontSize:10 }}>商务蓝</button>
+              </div>
               <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '12px', marginBottom: '8px' }}>
                 地图缩放级别
               </div>

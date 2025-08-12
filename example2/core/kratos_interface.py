@@ -166,7 +166,7 @@ class KratosInterface:
             }
             kratos_data["nodes"].append(kratos_node)
         
-        # 转换单元
+        # 转换体单元
         elements = fpn_data.get('elements', [])
         for element in elements:
             kratos_element = {
@@ -176,7 +176,32 @@ class KratosInterface:
                 "material_id": element.get('material_id', 1)
             }
             kratos_data["elements"].append(kratos_element)
-        
+
+        # 转换板单元（TRIA/QUAD -> Triangle2D3N/Quadrilateral2D4N）
+        plate_elements = fpn_data.get('plate_elements') or {}
+        if isinstance(plate_elements, dict):
+            for eid, elem in plate_elements.items():
+                nodes = elem.get('nodes', [])
+                e_type = 'triangle' if len(nodes) == 3 else 'quad'
+                kratos_element = {
+                    "id": int(eid),
+                    "type": self._map_element_type(e_type),
+                    "nodes": nodes,
+                    "material_id": elem.get('material_id') or elem.get('prop_id') or 1,
+                }
+                kratos_data["elements"].append(kratos_element)
+
+        # 转换杆单元（LINE+PETRUSS -> TrussElement3D2N）
+        line_elements = fpn_data.get('line_elements') or {}
+        if isinstance(line_elements, dict):
+            for eid, elem in line_elements.items():
+                kratos_data["elements"].append({
+                    "id": int(eid),
+                    "type": "TrussElement3D2N",
+                    "nodes": [elem.get('n1'), elem.get('n2')],
+                    "material_id": elem.get('prop_id') or 1,
+                })
+
         # 设置默认材料
         self._setup_default_materials(kratos_data)
         

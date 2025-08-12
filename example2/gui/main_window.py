@@ -260,8 +260,11 @@ class MainWindow(QMainWindow):
         self.show_concrete_cb.setChecked(True)
         self.show_steel_cb = QCheckBox("显示钢构/钢筋")
         self.show_steel_cb.setChecked(True)
-        # 预应力路径显示（锚杆线元）
-        self.show_anchors_cb = QCheckBox("显示预应力路径")
+        # 板元显示
+        self.show_plates_cb = QCheckBox("显示板单元 (PSHELL)")
+        self.show_plates_cb.setChecked(True)
+        # 预应力锚杆显示（锚杆线元）
+        self.show_anchors_cb = QCheckBox("显示预应力锚杆")
         self.show_anchors_cb.setChecked(False)
 
         # 土体分层选择
@@ -286,6 +289,7 @@ class MainWindow(QMainWindow):
             self.show_soil_cb,
             self.show_concrete_cb,
             self.show_steel_cb,
+            self.show_plates_cb,
             self.show_anchors_cb,
             self.filter_anchors_by_stage_cb,
         ]:
@@ -1039,14 +1043,18 @@ class MainWindow(QMainWindow):
             if cb:
                 cb.stateChanged.connect(self.update_display)
 
-        # 锚杆显示开关联动
+        # 板元/锚杆 显示开关联动
         try:
+            if hasattr(self.preprocessor, 'toggle_show_plates'):
+                self.show_plates_cb.stateChanged.connect(
+                    lambda _: self.preprocessor.toggle_show_plates(self.show_plates_cb.isChecked())
+                )
             if hasattr(self.preprocessor, 'toggle_show_anchors'):
                 self.show_anchors_cb.stateChanged.connect(
                     lambda _: self.preprocessor.toggle_show_anchors(self.show_anchors_cb.isChecked())
                 )
         except Exception as e:
-            print(f"锚杆显示复选框联动失败: {e}")
+            print(f"板元/锚杆 显示复选框联动失败: {e}")
 
         # 土体分层选择联动
         try:

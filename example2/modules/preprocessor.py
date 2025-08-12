@@ -40,6 +40,9 @@ class PreProcessor:
         # 开挖阶段是否强制隐藏所有土体（不依赖active_materials），默认开启
         self.hide_soil_in_excavation_stage = True
 
+        # 板元显示开关
+        self.show_plates = True
+        self._plates_cached = None
         # 锚杆显示开关
         self.show_anchors = False
         # 是否按当前分析步过滤预应力路径（仅显示本阶段施加预应力的线元）
@@ -76,7 +79,7 @@ class PreProcessor:
             non_soil_types = ['concrete', 'steel', 'rock', 'pile', 'wall', 'diaphragm']
             if any(ns in t for ns in non_soil_types):
                 return False
-            # 若类型未知，保守认为非土体（避免误删结构）
+            # 若类型未知，保守认为非土体（避免误删全部材料）
             return False
         except Exception:
             return False
@@ -1670,6 +1673,24 @@ class PreProcessor:
         else:
             self.display_transparent_layers()  # 默认半透明
 
+        # 叠加显示：板元（TRIA/QUAD）
+        try:
+            if self.show_plates:
+                if self._plates_cached is None:
+                    self._plates_cached = self._build_plate_geometry()
+                plate_data = self._plates_cached
+                if plate_data is not None:
+                    self.plotter.add_mesh(
+                        plate_data,
+                        color='lightgray',
+                        opacity=0.8,
+                        show_edges=True,
+                        edge_color='black',
+                        name='plate_elements'
+                    )
+        except Exception as e:
+            print(f"显示板元失败: {e}")
+
         # 叠加显示：锚杆线元
         try:
             if self.show_anchors:
@@ -1680,8 +1701,6 @@ class PreProcessor:
                 # 按阶段过滤（可选）
                 if pdata is not None and self.filter_anchors_by_stage:
                     stage_eids = self._get_stage_prestress_element_ids()
-                    # 如果解析的line_elements包含id，且我们能映射出相同的几何顺序，可在此精细过滤。
-                    # 当前实现：若有stage_eids但无法逐段映射，就先全部显示，并提示数量。
                     print(f"预应力阶段过滤启用: 当前阶段线元数={len(stage_eids)}")
                 if pdata is not None:
                     self.plotter.add_mesh(
@@ -2417,6 +2436,67 @@ class PreProcessor:
         """根据当前分析步智能显示相关的物理组"""
         if not hasattr(self, 'fpn_data') or not self.fpn_data:
             return
+
+    def _build_plate_geometry(self):
+        """从已解析的FPN数据构建板元（三角/四边形）几何"""
+        if not PYVISTA_AVAILABLE:
+            return None
+        if not hasattr(self, 'fpn_data') or not self.fpn_data:
+            return None
+        try:
+            import pyvista as pv
+            pe = self.fpn_data.get('plate_elements') or {}
+            if not pe:
+                return None
+            nodes = self.fpn_data.get('nodes') or []
+            if isinstance(nodes, list):
+                nid2xyz = {int(n['id']): (n['x'], n['y'], n['z']) for n in nodes if 'id' in n}
+            else:
+                nid2xyz = {int(k): (v['x'], v['y'], v['z']) for k, v in nodes.items()}
+
+            # 组装为 PolyData：把每个面转为单独的 PolyData 再并入
+            pdata = pv.PolyData()
+            count = 0
+            for _, elem in pe.items():
+                ns = [int(x) for x in elem.get('nodes', []) if x]
+                if len(ns) < 3:
+                    continue
+                pts = [nid2xyz.get(nid) for nid in ns]
+                if any(p is None for p in pts):
+                    continue
+                # 三角或四边形
+                if len(pts) == 3:
+                    face = pv.PolyData(np.array(pts))
+                    try:
+                        tri = pv.Triangle()
+                        tri.points = np.array(pts)
+                        face = tri
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        face = pv.PolyData(np.array(pts), faces=[len(pts)] + list(range(len(pts))))
+                    except Exception:
+                        # 回退：不构面
+                        continue
+                pdata = pdata.merge(face)
+                count += 1
+            if count == 0:
+                return None
+            return pdata
+        except Exception as e:
+            print(f"构建板元几何失败: {e}")
+            return None
+
+    def toggle_show_plates(self, enabled: Optional[bool] = None):
+        """切换板元显示"""
+        if enabled is None:
+            self.show_plates = not self.show_plates
+        else:
+            self.show_plates = bool(enabled)
+        print(f"板元显示: {'开' if self.show_plates else '关'}")
+        self.display_mesh()
+
 
         # 获取当前选择的分析步（从UI获取，这里先用默认值）
         current_stage = self.get_current_analysis_stage()
