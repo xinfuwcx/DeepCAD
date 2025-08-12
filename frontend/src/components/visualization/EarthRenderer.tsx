@@ -88,8 +88,9 @@ class Earth3DRenderer {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  // @ts-ignore legacy three typings compatibility
-  this.renderer.outputEncoding = (THREE as any).sRGBEncoding;
+  // Prefer modern color space API; shim keeps legacy code working elsewhere
+  // @ts-ignore for older typings
+  this.renderer.outputColorSpace = (THREE as any).SRGBColorSpace ?? (THREE as any).LinearSRGBColorSpace ?? 3000;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.2;
 

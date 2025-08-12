@@ -5,9 +5,13 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+    alias: [
+      { find: '@', replacement: path.resolve(__dirname, './src') },
+      // Exact-match only 'three' (not 'three/*') so examples subpaths continue to work
+      { find: /^three$/, replacement: path.resolve(__dirname, './src/shims/three-compat.ts') },
+      // Explicitly map three/src/Three.js back to the real module to avoid recursion
+      { find: /^three\/src\/Three\.js$/, replacement: 'three/src/Three.js' },
+    ],
   },
   build: {
     rollupOptions: {

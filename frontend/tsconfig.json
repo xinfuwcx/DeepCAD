@@ -27,7 +27,8 @@
     /* Path mapping */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+  "@/*": ["./src/*"],
+  "three": ["./src/shims/three-compat.ts"]
     }
   },
   "include": ["src"],
