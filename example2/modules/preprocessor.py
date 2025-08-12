@@ -37,8 +37,8 @@ class PreProcessor:
         self.viewer_widget = None
         self.display_mode = 'transparent'  # 默认半透明模式
         self.current_stage_id = None  # 当前分析步ID
-    # 开挖阶段是否强制隐藏所有土体（不依赖active_materials），默认开启
-    self.hide_soil_in_excavation_stage = True
+        # 开挖阶段是否强制隐藏所有土体（不依赖active_materials），默认开启
+        self.hide_soil_in_excavation_stage = True
 
         # 锚杆显示开关
         self.show_anchors = False
