@@ -101,6 +101,7 @@ import { HexagonLayer } from '@deck.gl/aggregation-layers';
 // Remove static HeatmapLayer import; will lazy load when building layers
 // Lazy deck layer loader (unifies HeatmapLayer access & reduces initial bundle)
 import { getDeckLayers } from '../../utils/mapLayersUtil';
+import { TileLayer } from '@deck.gl/geo-layers';
 import { DeckGlLayerAdapter } from '../../core/layers/DeckGlLayerAdapter';
 import { useThreeScene } from '../../core/useThreeScene';
 import { emitSelection } from '../../core/picking/selectionDispatcher';
@@ -537,9 +538,9 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       setMapError('地图服务不可用，已切换到离线可视模式');
       // 离线回退：启用 Deck.gl 独立控制，继续展示数据层
       try {
+        setDeckStandaloneMode(true);
         await initializeDeck({ controllerEnabled: true });
         setIsInitialized(true);
-        setDeckStandaloneMode(true);
         console.log('🧭 已启用 Deck.gl 离线模式');
       } catch (e) {
         console.error('❌ 离线 Deck.gl 初始化失败:', e);
@@ -669,6 +670,34 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
 
       // 条件追加：Hex 聚合与 3D 柱体
       const baseLayers = deck.props.layers ? [...deck.props.layers] : [];
+      // 离线 Deck 独立模式下，插入 OSM 瓦片底图
+      if (deckStandaloneMode) {
+        try {
+          baseLayers.unshift(new (TileLayer as any)({
+            id: 'osm-tiles',
+            data: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            minZoom: 0,
+            maxZoom: 19,
+            tileSize: 256
+          }));
+        } catch (e) {
+          console.warn('TileLayer unavailable:', e);
+        }
+      }
+      // 如果当前为 Deck 独立模式，插入 OSM 瓦片底图
+      if (deckStandaloneMode) {
+        try {
+          baseLayers.unshift(new (TileLayer as any)({
+            id: 'osm-tiles',
+            data: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            minZoom: 0,
+            maxZoom: 19,
+            tileSize: 256,
+          }));
+        } catch (e) {
+          console.warn('TileLayer unavailable:', e);
+        }
+      }
       if (showHex) {
         baseLayers.push(new HexagonLayer({
           id: 'hex-hotspots',
