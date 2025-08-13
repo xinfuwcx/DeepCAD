@@ -17,6 +17,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+# 可选的编码探测库
+try:
+    import chardet  # type: ignore
+    HAS_CHARDET = True
+except Exception:
+    HAS_CHARDET = False
+
+import codecs
+
+
 @dataclass
 class ParseProgress:
     """解析进度信息"""
@@ -47,39 +57,63 @@ class OptimizedFPNParser:
         self.coordinate_offset = None
         self.encoding_used = None
 
-        # 支持的编码列表
-        self.encodings = ['utf-8', 'gbk', 'latin1', 'cp1252']
+        # 支持的编码列表（含BOM与常见中文编码）
+        self.encodings = [
+            'utf-8-sig', 'utf-8', 'gb18030', 'gbk', 'cp936', 'big5',
+            'utf-16', 'utf-16-le', 'utf-16-be', 'latin1', 'cp1252'
+        ]
 
         # 数据缓存
         self.nodes_cache = {}
         self.elements_cache = {}
 
     def detect_file_encoding(self, file_path: str) -> str:
-        """检测文件编码"""
+        """检测文件编码（优先BOM/候选列表；可选chardet作为最后尝试）"""
+        # 1) BOM 检测
+        try:
+            with open(file_path, 'rb') as fb:
+                raw = fb.read(4)
+            for enc, bom in [("utf-8-sig", codecs.BOM_UTF8), ("utf-16-le", codecs.BOM_UTF16_LE), ("utf-16-be", codecs.BOM_UTF16_BE)]:
+                if raw.startswith(bom):
+                    logger.info(f"检测到文件BOM，编码使用: {enc}")
+                    return enc
+        except Exception:
+            pass
+
+        # 2) 逐个候选尝试（容错读取，errors='strict'，快速失败）
         for encoding in self.encodings:
             try:
-                with open(file_path, 'r', encoding=encoding) as f:
-                    # 读取前1000行进行编码检测
+                with open(file_path, 'r', encoding=encoding, errors='strict') as f:
                     for i, line in enumerate(f):
                         if i > 1000:
                             break
-                        # 尝试解码，如果成功则认为编码正确
-                        line.encode('utf-8')
-
+                        _ = line  # 触发解码
                 logger.info(f"检测到文件编码: {encoding}")
                 return encoding
-
-            except (UnicodeDecodeError, UnicodeEncodeError):
+            except Exception:
                 continue
 
-        # 如果都失败，使用latin1作为fallback
-        logger.warning("无法检测文件编码，使用latin1作为fallback")
+        # 3) 可选 chardet 猜测（较慢，少用）
+        if HAS_CHARDET:
+            try:
+                with open(file_path, 'rb') as fb:
+                    sample = fb.read(200000)
+                guess = chardet.detect(sample)
+                enc = (guess.get('encoding') or '').lower()
+                if enc:
+                    logger.info(f"chardet 猜测编码: {enc}")
+                    return enc
+            except Exception:
+                pass
+
+        # 4) 仍失败：使用最兼容的 latin1
+        logger.warning("无法检测文件编码，使用 latin1 作为 fallback")
         return 'latin1'
 
     def count_file_lines(self, file_path: str, encoding: str) -> int:
-        """快速统计文件行数"""
+        """快速统计文件行数（容错读取）"""
         try:
-            with open(file_path, 'r', encoding=encoding) as f:
+            with open(file_path, 'r', encoding=encoding, errors='replace') as f:
                 return sum(1 for _ in f)
         except Exception as e:
             logger.error(f"统计文件行数失败: {e}")
@@ -94,7 +128,7 @@ class OptimizedFPNParser:
         node_count = 0
 
         try:
-            with open(file_path, 'r', encoding=encoding) as f:
+            with open(file_path, 'r', encoding=encoding, errors='replace') as f:
                 for line in f:
                     line = line.strip()
                     if not line or line.startswith('$$'):
@@ -411,7 +445,8 @@ class OptimizedFPNParser:
         current_section = "unknown"
 
         try:
-            with open(file_path, 'r', encoding=encoding) as f:
+            # 容错读取，避免解码失败导致中断
+            with open(file_path, 'r', encoding=encoding, errors='replace') as f:
                 for line_num, line in enumerate(f, 1):
                     line = line.strip()
 
