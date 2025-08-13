@@ -50,8 +50,15 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
   const [dxfData, setDxfData] = useState<any>(null);
   // 原始（未旋转）DXF 线段集合
   const [rawDxfSegments, setRawDxfSegments] = useState<Array<{ start:{x:number;y:number}, end:{x:number;y:number} }>>([]);
-  const [displayScale, setDisplayScale] = useState<number>(1); // 视图显示缩放系数
+  const [displayScale, setDisplayScale] = useState<number>(1); // 视图显示缩放系数（仅影响DXF渲染大小）
   const [isParsingDXF, setIsParsingDXF] = useState(false);
+  // 标记旋转角度最近一次更新来源：'input' 表示用户输入，'camera' 表示视角变动
+  const angleUpdateByRef = useRef<null | 'input' | 'camera'>(null);
+  const initialFitDoneRef = useRef<boolean>(false);
+  // 旋转角度输入的本地草稿，仅在失焦/回车时提交到全局状态
+  const [rotationDraft, setRotationDraft] = useState<number>(0);
+  const editingAngleRef = useRef<boolean>(false);
+  
   
   const [excavationParams, setExcavationParams] = useState<ExcavationParameters>({
     contourImport: {
@@ -66,6 +73,10 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
       stressReleaseCoefficient: 0.7
     }
   });
+
+  // 已移除“旋转角度跟随视角”的联动功能
+
+  // 移除单独的“当前视角角度”显示，旋转角度可按需跟随视角（通过开关控制）
 
   // 恢复默认画布（网格/地面等）并在 CAE 引擎就绪后移除地面与网格
   useEffect(() => {
@@ -118,6 +129,21 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
     const newContour = { ...excavationParams.contourImport, [field]: value };
     updateParams({ contourImport: newContour });
   }, [excavationParams.contourImport, updateParams]);
+
+  // 提交旋转角度（在失焦或按回车时调用）
+  const commitRotationDraft = useCallback((val?: number) => {
+    const clamp = (v:number)=> {
+      if (Number.isNaN(v)) return 0;
+      let x = Math.round(v);
+      x = ((x % 360) + 360) % 360; // 归一化到 0-360
+      return x;
+    };
+    const src = typeof val === 'number' ? val : (rotationDraft as number);
+    const next = clamp(src);
+    setRotationDraft(next);
+    angleUpdateByRef.current = 'input';
+    handleContourChange('rotationAngle', next);
+  }, [rotationDraft, handleContourChange]);
 
   const handleExcavationChange = useCallback((field: string, value: any) => {
     const newExcav = { ...excavationParams.excavationParams, [field]: value };
@@ -318,10 +344,11 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
       setRawDxfSegments(baseSegments);
       console.log('生成DXF基础线段数量:', baseSegments.length);
 
-      // 初次尝试渲染（旋转角度初始为 0）
+      // 初次尝试渲染（旋转角度初始为 0），并进行一次相机自适应
       try {
         (window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments?.(baseSegments);
-        (window as any).__CAE_ENGINE__?.renderDXFSegments?.(baseSegments, { scaleMultiplier: displayScale });
+  (window as any).__CAE_ENGINE__?.renderDXFSegments?.(baseSegments, { scaleMultiplier: displayScale, autoFit: true });
+        initialFitDoneRef.current = true;
       } catch (e) { /* 视口可能尚未准备好 */ }
       
       message.success(`DXF文件解析成功！检测到 ${entities.length} 个实体，${result.originalPoints.length} 个点`);
@@ -343,16 +370,61 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
     }
   }, [handleContourChange, normalizeEntities]);
 
-  // =========== 旋转 & 渲染同步 ===========
+  // 订阅相机方位角，更新“旋转角度”显示，但不触发DXF重渲染
+  useEffect(() => {
+    let unsub: (()=>void) | undefined;
+    const trySubscribe = () => {
+      const bridge = (window as any).__CAE_ENGINE__;
+      if (bridge?.subscribeCameraAzimuth && bridge?.getCameraAzimuthDeg) {
+        // 初始化同步
+        try {
+          const deg = Math.round(bridge.getCameraAzimuthDeg());
+          angleUpdateByRef.current = 'camera';
+          setExcavationParams(prev => ({ ...prev, contourImport: { ...prev.contourImport, rotationAngle: deg } }));
+          if (!editingAngleRef.current) setRotationDraft(deg);
+        } catch {}
+        unsub = bridge.subscribeCameraAzimuth((deg:number)=>{
+          angleUpdateByRef.current = 'camera';
+          setExcavationParams(prev => (
+            prev.contourImport.rotationAngle === Math.round(deg)
+              ? prev
+              : { ...prev, contourImport: { ...prev.contourImport, rotationAngle: Math.round(deg) } }
+          ));
+          if (!editingAngleRef.current) setRotationDraft(Math.round(deg));
+        });
+        return true;
+      }
+      return false;
+    };
+    if (!trySubscribe()) {
+      const t = setInterval(()=>{ if (trySubscribe()) clearInterval(t); }, 300);
+      return ()=> clearInterval(t);
+    }
+    return ()=> { try { unsub?.(); } catch{} };
+  }, []);
+
+  // =========== 旋转 & 渲染同步 ==========='
   useEffect(() => {
   if (!rawDxfSegments.length) return;
-    const angleDeg = excavationParams.contourImport.rotationAngle;
+    // 若角度来自相机，仅更新显示，不触发DXF重绘，避免用户自由旋转时模型抖动
+    const updatedBy = angleUpdateByRef.current;
+    angleUpdateByRef.current = null;
+    const skipRotate = updatedBy === 'camera';
+    
+    if (skipRotate) {
+      // 仍同步几何视口的原始线段（保持显示），不改变DXF旋转
+      try {
+        (window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments?.(rawDxfSegments);
+      } catch {}
+      return;
+    }
+  const angleDeg = excavationParams.contourImport.rotationAngle;
     const angleRad = (angleDeg * Math.PI) / 180;
     if (!dxfData || !dxfData.bounds) {
       // 没有边界就直接渲染原始线段
       try {
-        (window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments?.(rawDxfSegments);
-        (window as any).__CAE_ENGINE__?.renderDXFSegments?.(rawDxfSegments, { scaleMultiplier: displayScale });
+  (window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments?.(rawDxfSegments);
+  (window as any).__CAE_ENGINE__?.renderDXFSegments?.(rawDxfSegments, { scaleMultiplier: displayScale, autoFit: !initialFitDoneRef.current });
       } catch {}
       return;
     }
@@ -378,9 +450,37 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
     });
     try {
       (window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments?.(rotated);
-      (window as any).__CAE_ENGINE__?.renderDXFSegments?.(rotated, { scaleMultiplier: displayScale });
+      (window as any).__CAE_ENGINE__?.renderDXFSegments?.(rotated, { scaleMultiplier: displayScale, autoFit: !initialFitDoneRef.current });
     } catch {}
   }, [rawDxfSegments, excavationParams.contourImport.rotationAngle, dxfData, displayScale]);
+  
+  // 显示缩放系数变化时，按比例重渲染（不再自动相机适配以保留视觉缩放效果）
+  useEffect(() => {
+    if (!rawDxfSegments.length) return;
+    try {
+      const angleDeg = excavationParams.contourImport.rotationAngle;
+      const angleRad = (angleDeg * Math.PI) / 180;
+      if (!dxfData?.bounds || angleDeg === 0) {
+        (window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments?.(rawDxfSegments);
+        (window as any).__CAE_ENGINE__?.renderDXFSegments?.(rawDxfSegments, { scaleMultiplier: displayScale, autoFit: false });
+        return;
+      }
+      const { minX, maxX, minY, maxY } = dxfData.bounds;
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      const cosA = Math.cos(angleRad); const sinA = Math.sin(angleRad);
+      const rotated = rawDxfSegments.map(seg => {
+        const sx = seg.start.x - cx; const sy = seg.start.y - cy;
+        const ex = seg.end.x - cx; const ey = seg.end.y - cy;
+        return {
+          start: { x: cx + sx * cosA - sy * sinA, y: cy + sx * sinA + sy * cosA },
+          end: { x: cx + ex * cosA - ey * sinA, y: cy + ex * sinA + ey * sinA }
+        };
+      });
+      (window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments?.(rotated);
+      (window as any).__CAE_ENGINE__?.renderDXFSegments?.(rotated, { scaleMultiplier: displayScale, autoFit: false });
+    } catch {}
+  }, [displayScale]);
 
   // 衍生指标
   const derived = useMemo(() => {
@@ -467,16 +567,27 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
               )}
               <Form.Item label="旋转角度 (度)" tooltip="导入轮廓的旋转角度, 0-360 度" style={{ marginTop: 16 }}>
                 <InputNumber
-                  value={excavationParams.contourImport.rotationAngle}
-                  onChange={(value) => handleContourChange('rotationAngle', value || 0)}
+                  value={rotationDraft}
+                  onChange={(value) => {
+                    if (typeof value === 'number') {
+                      editingAngleRef.current = true; // 正在编辑
+                      setRotationDraft(value);
+                      // 立即提交并驱动模型旋转（双向联动）
+                      commitRotationDraft(value);
+                    }
+                  }}
                   min={0}
                   max={360}
                   step={1}
                   precision={0}
                   size="large"
                   style={{ width: '100%' }}
+                  onFocus={() => { editingAngleRef.current = true; }}
+                  onBlur={() => { editingAngleRef.current = false; commitRotationDraft(); }}
+                  onPressEnter={() => { editingAngleRef.current = false; commitRotationDraft(); }}
                 />
               </Form.Item>
+              {/* 已移除跟随视角开关 */}
               <Form.Item label="显示缩放系数" tooltip="仅影响当前视口显示大小，不改变原始坐标" style={{ marginTop: 8 }}>
                 <InputNumber
                   value={displayScale}

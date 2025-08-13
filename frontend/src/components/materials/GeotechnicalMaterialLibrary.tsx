@@ -3,12 +3,12 @@
  * 专业的岩土工程有限元材料库管理界面
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import {
   Table, Button, Modal, Form, Input, Select, InputNumber, Space, Typography,
   Card, Row, Col, Popconfirm, message, Tabs, Alert, Tag, Descriptions,
   Divider, Tooltip, Badge, Progress, Statistic, TreeSelect, Collapse,
-  Switch, Rate, Timeline, Upload
+  Switch, Rate, Timeline, Upload, Spin, Empty, Drawer, BackTop
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined,
@@ -28,6 +28,7 @@ import {
   ArtificialMaterialProperties
 } from '../../types/GeotechnicalMaterials';
 import { geotechnicalMaterialService } from '../../services/GeotechnicalMaterialService';
+import MaterialVisualization from './MaterialVisualization';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -50,8 +51,9 @@ const GeotechnicalMaterialLibrary: React.FC<Props> = ({
   // 状态管理
   const [materials, setMaterials] = useState<GeotechnicalMaterial[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [detailDrawerVisible, setDetailDrawerVisible] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<GeotechnicalMaterial | null>(null);
   const [selectedMaterial, setSelectedMaterial] = useState<GeotechnicalMaterial | null>(null);
   const [searchCriteria, setSearchCriteria] = useState<MaterialSearchCriteria>({
@@ -60,6 +62,12 @@ const GeotechnicalMaterialLibrary: React.FC<Props> = ({
   });
   const [activeTab, setActiveTab] = useState('materials');
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 20,
+    total: 0
+  });
 
   // 表单管理
   const [form] = Form.useForm();
@@ -88,23 +96,53 @@ const GeotechnicalMaterialLibrary: React.FC<Props> = ({
     { value: ConstitutiveModel.HOEK_BROWN, label: '霍克-布朗', description: '岩石材料的经典模型' }
   ];
 
+  // 防抖搜索
+  const debounceSearch = useCallback(
+    React.useMemo(
+      () => {
+        let timeoutId: NodeJS.Timeout;
+        return (criteria: MaterialSearchCriteria) => {
+          clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => {
+            loadMaterials(criteria);
+          }, 300);
+        };
+      },
+      []
+    ),
+    []
+  );
+
   // 初始化数据
   useEffect(() => {
     loadMaterials();
-  }, [searchCriteria]);
+  }, []);
 
-  const loadMaterials = async () => {
-    setLoading(true);
+  const loadMaterials = useCallback(async (criteria?: MaterialSearchCriteria) => {
+    const currentCriteria = criteria || searchCriteria;
+    setTableLoading(true);
+    
     try {
-      const results = geotechnicalMaterialService.searchMaterials(searchCriteria);
+      const results = geotechnicalMaterialService.searchMaterials({
+        ...currentCriteria,
+        page: pagination.current,
+        pageSize: pagination.pageSize
+      });
       setMaterials(results);
+      
+      // 更新分页信息
+      setPagination(prev => ({
+        ...prev,
+        total: results.length // 这里应该从服务返回总数
+      }));
     } catch (error) {
       message.error('加载材料数据失败');
       console.error('Load materials error:', error);
     } finally {
+      setTableLoading(false);
       setLoading(false);
     }
-  };
+  }, [searchCriteria, pagination.current, pagination.pageSize]);
 
   // 统计信息
   const statistics = useMemo(() => {
@@ -112,16 +150,21 @@ const GeotechnicalMaterialLibrary: React.FC<Props> = ({
   }, [materials]);
 
   // 处理搜索
-  const handleSearch = (values: any) => {
+  const handleSearch = useCallback((values: any) => {
+    setSearchLoading(true);
     const newCriteria: MaterialSearchCriteria = {
       ...searchCriteria,
       ...values,
       keyword: values.keyword || undefined,
       type: values.type && values.type.length > 0 ? values.type : undefined,
-      constitutiveModel: values.constitutiveModel && values.constitutiveModel.length > 0 ? values.constitutiveModel : undefined
+      constitutiveModel: values.constitutiveModel && values.constitutiveModel.length > 0 ? values.constitutiveModel : undefined,
+      page: 1 // 重置到第一页
     };
     setSearchCriteria(newCriteria);
-  };
+    setPagination(prev => ({ ...prev, current: 1 }));
+    debounceSearch(newCriteria);
+    setSearchLoading(false);
+  }, [searchCriteria, debounceSearch]);
 
   // 重置搜索
   const handleResetSearch = () => {
@@ -217,10 +260,10 @@ const GeotechnicalMaterialLibrary: React.FC<Props> = ({
   };
 
   // 查看材料详情
-  const handleViewMaterial = (material: GeotechnicalMaterial) => {
+  const handleViewMaterial = useCallback((material: GeotechnicalMaterial) => {
     setSelectedMaterial(material);
-    setDetailModalVisible(true);
-  };
+    setDetailDrawerVisible(true);
+  }, []);
 
   // 验证材料
   const handleValidateMaterial = async (materialId: string) => {
@@ -235,35 +278,104 @@ const GeotechnicalMaterialLibrary: React.FC<Props> = ({
         await geotechnicalMaterialService.updateMaterial(materialId, { validated: true });
         loadMaterials();
       } else {
-        Modal.warning({
-          title: '材料验证失败',
-          width: 600,
+        // 显示详细的验证结果
+        Modal.info({
+          title: (
+            <Space>
+              <ExclamationCircleOutlined style={{ color: validation.overallScore > 70 ? '#faad14' : '#ff4d4f' }} />
+              材料验证结果
+            </Space>
+          ),
+          width: 800,
           content: (
             <div>
-              <div style={{ marginBottom: 16 }}>
-                <Text strong>总体评分: </Text>
-                <Progress percent={validation.overallScore} size="small" />
-              </div>
-              {validation.errors.length > 0 && (
+              {/* 总体评分 */}
+              <Card size="small" style={{ marginBottom: 16 }}>
                 <div style={{ marginBottom: 8 }}>
-                  <Text type="danger" strong>错误:</Text>
-                  <ul>
-                    {validation.errors.map((error, index) => (
-                      <li key={index}>{error}</li>
-                    ))}
-                  </ul>
+                  <Text strong>总体评分: {validation.overallScore.toFixed(1)}/100</Text>
                 </div>
-              )}
-              {validation.warnings.length > 0 && (
-                <div>
-                  <Text type="warning" strong>警告:</Text>
-                  <ul>
-                    {validation.warnings.map((warning, index) => (
-                      <li key={index}>{warning}</li>
+                <Progress 
+                  percent={validation.overallScore} 
+                  strokeColor={{
+                    '0%': validation.overallScore < 60 ? '#ff4d4f' : validation.overallScore < 80 ? '#faad14' : '#52c41a',
+                    '100%': validation.overallScore < 60 ? '#ff4d4f' : validation.overallScore < 80 ? '#faad14' : '#52c41a',
+                  }}
+                />
+              </Card>
+
+              {/* 验证详情 */}
+              <Collapse size="small" defaultActiveKey={['errors', 'warnings']}>
+                {validation.errors.length > 0 && (
+                  <Panel 
+                    header={<Text type="danger" strong><CloseCircleOutlined /> 错误 ({validation.errors.length})</Text>} 
+                    key="errors"
+                  >
+                    <ul style={{ margin: 0, paddingLeft: 20 }}>
+                      {validation.errors.map((error, index) => (
+                        <li key={index} style={{ color: '#ff4d4f', marginBottom: 4 }}>{error}</li>
+                      ))}
+                    </ul>
+                  </Panel>
+                )}
+                
+                {validation.warnings.length > 0 && (
+                  <Panel 
+                    header={<Text type="warning" strong><ExclamationCircleOutlined /> 警告 ({validation.warnings.length})</Text>} 
+                    key="warnings"
+                  >
+                    <ul style={{ margin: 0, paddingLeft: 20 }}>
+                      {validation.warnings.map((warning, index) => (
+                        <li key={index} style={{ color: '#faad14', marginBottom: 4 }}>{warning}</li>
+                      ))}
+                    </ul>
+                  </Panel>
+                )}
+                
+                {validation.recommendations.length > 0 && (
+                  <Panel 
+                    header={<Text type="success" strong><InfoCircleOutlined /> 建议 ({validation.recommendations.length})</Text>} 
+                    key="recommendations"
+                  >
+                    <ul style={{ margin: 0, paddingLeft: 20 }}>
+                      {validation.recommendations.map((recommendation, index) => (
+                        <li key={index} style={{ color: '#1890ff', marginBottom: 4 }}>{recommendation}</li>
+                      ))}
+                    </ul>
+                  </Panel>
+                )}
+
+                {/* 详细验证结果 */}
+                <Panel header="详细验证结果" key="details">
+                  <div>
+                    {Object.entries(validation.results).map(([category, result]) => (
+                      <div key={category} style={{ marginBottom: 12 }}>
+                        <div style={{ marginBottom: 8 }}>
+                          <Space>
+                            <Text strong>{getCategoryName(category)}</Text>
+                            <Tag color={result.passed ? 'green' : 'red'}>
+                              {result.passed ? '通过' : '未通过'}
+                            </Tag>
+                            <Text type="secondary">得分: {result.score.toFixed(1)}/100</Text>
+                          </Space>
+                        </div>
+                        {Object.entries(result.details).map(([param, detail]: [string, any]) => (
+                          <div key={param} style={{ marginLeft: 16, marginBottom: 4 }}>
+                            <Space>
+                              <Tag 
+                                color={detail.status === 'pass' ? 'green' : detail.status === 'warning' ? 'orange' : 'red'}
+                                size="small"
+                              >
+                                {getParameterName(param)}
+                              </Tag>
+                              <Text style={{ fontSize: '12px' }}>{detail.message}</Text>
+                            </Space>
+                          </div>
+                        ))}
+                      </div>
                     ))}
-                  </ul>
-                </div>
-              )}
+                  </div>
+                </Panel>
+              </Collapse>
             </div>
           )
         });
@@ -274,13 +386,224 @@ const GeotechnicalMaterialLibrary: React.FC<Props> = ({
     }
   };
 
+  // 解析 MIDAS FPN 文件
+  const parseMIDASFPN = (fileContent: string) => {
+    const materials: any[] = [];
+    const lines = fileContent.split('\n');
+    
+    let currentMaterial: any = null;
+    let isInMaterialSection = false;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // 检测材料定义开始
+      if (line.startsWith('MNLMC') || line.startsWith('MATGEN')) {
+        if (currentMaterial) {
+          materials.push(currentMaterial);
+        }
+        currentMaterial = { id: materials.length + 1 };
+        isInMaterialSection = true;
+        
+        // 解析MNLMC参数 (摩尔-库伦)
+        if (line.startsWith('MNLMC')) {
+          const params = line.split(/\s+/);
+          if (params.length >= 4) {
+            currentMaterial.cohesion = parseFloat(params[2]) || 0;
+            currentMaterial.friction_angle = parseFloat(params[3]) || 25;
+          }
+        }
+        
+        // 解析MATGEN参数 (弹性)
+        if (line.startsWith('MATGEN')) {
+          const params = line.split(/\s+/);
+          if (params.length >= 5) {
+            currentMaterial.young_modulus = parseFloat(params[2]) || 20;
+            currentMaterial.poisson_ratio = parseFloat(params[3]) || 0.3;
+            currentMaterial.density = parseFloat(params[4]) || 2000;
+          }
+        }
+      }
+      
+      // 解析材料名称
+      if (line.startsWith('NAME') && currentMaterial) {
+        const nameMatch = line.match(/NAME\s+"([^"]+)"/);
+        if (nameMatch) {
+          currentMaterial.name = nameMatch[1];
+        }
+      }
+      
+      // 解析其他参数
+      if (line.startsWith('MATPORO') && currentMaterial) {
+        const params = line.split(/\s+/);
+        if (params.length >= 3) {
+          currentMaterial.permeability = parseFloat(params[2]) || 1e-8;
+        }
+      }
+    }
+    
+    // 添加最后一个材料
+    if (currentMaterial) {
+      materials.push(currentMaterial);
+    }
+    
+    return { materials };
+  };
+
+  // 处理 MIDAS 导入
+  const handleMIDASImport = async (file: File) => {
+    try {
+      setLoading(true);
+      
+      // 读取文件内容
+      const fileText = await file.text();
+      const fileName = file.name.toLowerCase();
+      
+      let fpnData: any;
+      
+      if (fileName.endsWith('.fpn')) {
+        // 解析 FPN 文件
+        fpnData = parseMIDASFPN(fileText);
+      } else if (fileName.endsWith('.json')) {
+        // JSON 格式文件
+        fpnData = JSON.parse(fileText);
+      } else {
+        throw new Error('不支持的文件格式，仅支持 .fpn 和 .json 文件');
+      }
+      
+      if (!fpnData.materials || fpnData.materials.length === 0) {
+        throw new Error('文件中未找到有效的材料数据');
+      }
+
+      const importedMaterials = await geotechnicalMaterialService.importMIDASMaterials(fpnData);
+      
+      message.success(`成功导入 ${importedMaterials.length} 个 MIDAS 材料`);
+      loadMaterials();
+      
+    } catch (error) {
+      message.error(`导入失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      console.error('MIDAS import error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 生成 MIDAS FPN 格式内容
+  const generateMIDASFPN = (materialsData: any[]) => {
+    let fpnContent = `! MIDAS GTS NX Material Export\n`;
+    fpnContent += `! Generated by DeepCAD Material Library\n`;
+    fpnContent += `! Export Date: ${new Date().toISOString()}\n\n`;
+    
+    materialsData.forEach((material, index) => {
+      const materialId = index + 1;
+      fpnContent += `! Material ${materialId}: ${material.name || `材料_${materialId}`}\n`;
+      
+      // MATGEN - 弹性参数
+      if (material.properties?.elasticModulus && material.properties?.poissonRatio) {
+        const youngModulus = (material.properties.elasticModulus / 1e6).toFixed(2); // kPa to GPa
+        const poissonRatio = material.properties.poissonRatio.toFixed(3);
+        const density = material.properties.density || 2000;
+        
+        fpnContent += `MATGEN, ${materialId}, ${youngModulus}, ${poissonRatio}, ${density}\n`;
+      }
+      
+      // MNLMC - 摩尔库伦参数
+      if (material.properties?.cohesion !== undefined || material.properties?.frictionAngle !== undefined) {
+        const cohesion = material.properties.cohesion || 0;
+        const frictionAngle = material.properties.frictionAngle || 25;
+        
+        fpnContent += `MNLMC, ${materialId}, ${cohesion}, ${frictionAngle}\n`;
+      }
+      
+      // MATPORO - 渗透参数
+      if (material.properties?.permeability) {
+        fpnContent += `MATPORO, ${materialId}, ${material.properties.permeability}\n`;
+      }
+      
+      // 材料名称
+      fpnContent += `NAME, ${materialId}, "${material.name || `材料_${materialId}`}"\n`;
+      
+      fpnContent += '\n';
+    });
+    
+    return fpnContent;
+  };
+
+  // 处理 MIDAS 导出
+  const handleMIDASExport = (format: 'json' | 'fpn' = 'json') => {
+    try {
+      if (materials.length === 0) {
+        message.warning('没有可导出的材料');
+        return;
+      }
+      
+      const materialIds = materials.map(m => m.id);
+      const midasData = geotechnicalMaterialService.exportToMIDASFormat(materialIds);
+      
+      let content: string;
+      let fileName: string;
+      let mimeType: string;
+      
+      if (format === 'fpn') {
+        // 导出为 FPN 格式
+        content = generateMIDASFPN(midasData.materials);
+        fileName = `materials_midas_export_${new Date().toISOString().split('T')[0]}.fpn`;
+        mimeType = 'text/plain';
+      } else {
+        // 导出为 JSON 格式
+        content = JSON.stringify(midasData, null, 2);
+        fileName = `materials_midas_export_${new Date().toISOString().split('T')[0]}.json`;
+        mimeType = 'application/json';
+      }
+      
+      // 创建下载链接
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      message.success(`成功导出 ${materials.length} 个材料为 ${format.toUpperCase()} 格式`);
+    } catch (error) {
+      message.error('导出失败');
+      console.error('MIDAS export error:', error);
+    }
+  };
+
+  // 处理分页变化
+  const handleTableChange = useCallback((paginationInfo: any, filters: any, sorter: any) => {
+    setPagination(prev => ({
+      ...prev,
+      current: paginationInfo.current,
+      pageSize: paginationInfo.pageSize
+    }));
+    
+    // 处理排序
+    if (sorter.field) {
+      const newCriteria = {
+        ...searchCriteria,
+        sortBy: sorter.field,
+        sortOrder: sorter.order === 'ascend' ? 'asc' : 'desc',
+        page: paginationInfo.current,
+        pageSize: paginationInfo.pageSize
+      };
+      setSearchCriteria(newCriteria);
+      loadMaterials(newCriteria);
+    }
+  }, [searchCriteria, loadMaterials]);
+
   // 表格列定义
-  const columns = [
+  const columns = useMemo(() => [
     {
       title: '材料名称',
       dataIndex: 'name',
       key: 'name',
       width: 200,
+      sorter: true,
       render: (text: string, record: GeotechnicalMaterial) => (
         <Space direction="vertical" size={0}>
           <Button
@@ -432,7 +755,7 @@ const GeotechnicalMaterialLibrary: React.FC<Props> = ({
         </Space>
       )
     }
-  ];
+  ], [handleViewMaterial, handleEditMaterial, handleCopyMaterial, handleDeleteMaterial, handleValidateMaterial]);
 
   // 渲染搜索面板
   const renderSearchPanel = () => (
@@ -460,8 +783,21 @@ const GeotechnicalMaterialLibrary: React.FC<Props> = ({
           </Button>
         </Form.Item>
         <Form.Item>
-          <Button onClick={handleResetSearch}>
+          <Button 
+            onClick={handleResetSearch}
+            loading={searchLoading}
+          >
             重置
+          </Button>
+        </Form.Item>
+        <Form.Item>
+          <Button 
+            type="primary" 
+            icon={<SearchOutlined />}
+            onClick={() => searchForm.submit()}
+            loading={searchLoading}
+          >
+            搜索
           </Button>
         </Form.Item>
       </Form>
@@ -608,15 +944,19 @@ const GeotechnicalMaterialLibrary: React.FC<Props> = ({
               columns={columns}
               dataSource={materials}
               rowKey="id"
-              loading={loading}
+              loading={tableLoading}
               size="small"
               scroll={{ x: 1200 }}
               pagination={{
-                pageSize: 20,
+                current: pagination.current,
+                pageSize: pagination.pageSize,
+                total: pagination.total,
                 showSizeChanger: true,
                 showQuickJumper: true,
-                showTotal: (total) => `共 ${total} 个材料`
+                showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 个材料`,
+                pageSizeOptions: ['10', '20', '50', '100']
               }}
+              onChange={handleTableChange}
               rowSelection={mode === 'select' ? {
                 selectedRowKeys: selectedMaterialIds,
                 onSelect: (record, selected) => {
@@ -630,46 +970,233 @@ const GeotechnicalMaterialLibrary: React.FC<Props> = ({
         </TabPane>
 
         <TabPane tab="统计分析" key="statistics">
-          <Card title="材料分布统计">
-            <Row gutter={16}>
-              <Col span={12}>
-                <Card size="small" title="按材料类型分布">
-                  {Object.entries(statistics.materialsByType).map(([type, count]) => {
-                    const typeInfo = materialTypeOptions.find(t => t.value === type);
-                    return (
-                      <div key={type} style={{ marginBottom: 8 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span>{typeInfo?.label}: {count}</span>
-                          <Progress
-                            percent={((count as number) / statistics.totalMaterials) * 100}
-                            size="small"
-                            style={{ width: 100 }}
-                            showInfo={false}
-                          />
+          <Tabs defaultActiveKey="charts" size="small">
+            <TabPane tab="图表分析" key="charts">
+              <MaterialVisualization 
+                materials={materials} 
+                selectedMaterial={selectedMaterial}
+              />
+            </TabPane>
+            
+            <TabPane tab="数据统计" key="data">
+              <Card title="材料分布统计">
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Card size="small" title="按材料类型分布">
+                      {Object.entries(statistics.materialsByType).map(([type, count]) => {
+                        const typeInfo = materialTypeOptions.find(t => t.value === type);
+                        return (
+                          <div key={type} style={{ marginBottom: 8 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span>{typeInfo?.label}: {count}</span>
+                              <Progress
+                                percent={((count as number) / statistics.totalMaterials) * 100}
+                                size="small"
+                                style={{ width: 100 }}
+                                showInfo={false}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </Card>
+                  </Col>
+                  <Col span={12}>
+                    <Card size="small" title="按可靠性分布">
+                      {Object.entries(statistics.materialsByReliability).map(([reliability, count]) => (
+                        <div key={reliability} style={{ marginBottom: 8 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>{reliability}: {count}</span>
+                            <Progress
+                              percent={((count as number) / statistics.totalMaterials) * 100}
+                              size="small"
+                              style={{ width: 100 }}
+                              showInfo={false}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      ))}
+                    </Card>
+                  </Col>
+                </Row>
+
+                {/* 详细数据表格 */}
+                <Card title="材料参数统计" style={{ marginTop: 16 }} size="small">
+                  <Table
+                    size="small"
+                    dataSource={materials}
+                    columns={[
+                      { title: '材料名称', dataIndex: 'name', key: 'name', width: 150 },
+                      { title: '材料类型', dataIndex: 'type', key: 'type', width: 100 },
+                      { 
+                        title: '密度 (kg/m³)', 
+                        dataIndex: ['properties', 'density'], 
+                        key: 'density',
+                        sorter: (a, b) => (a.properties.density || 0) - (b.properties.density || 0),
+                        render: (val) => val?.toLocaleString() || '-'
+                      },
+                      { 
+                        title: '弹性模量 (kPa)', 
+                        dataIndex: ['properties', 'elasticModulus'], 
+                        key: 'elasticModulus',
+                        sorter: (a, b) => (a.properties.elasticModulus || 0) - (b.properties.elasticModulus || 0),
+                        render: (val) => val ? formatNumber(val) : '-'
+                      },
+                      { 
+                        title: '泊松比', 
+                        dataIndex: ['properties', 'poissonRatio'], 
+                        key: 'poissonRatio',
+                        sorter: (a, b) => (a.properties.poissonRatio || 0) - (b.properties.poissonRatio || 0),
+                        render: (val) => val?.toFixed(3) || '-'
+                      },
+                      { 
+                        title: '粘聚力 (kPa)', 
+                        dataIndex: ['properties', 'cohesion'], 
+                        key: 'cohesion',
+                        sorter: (a, b) => (a.properties.cohesion || 0) - (b.properties.cohesion || 0),
+                        render: (val) => val !== undefined ? val.toString() : '-'
+                      },
+                      { 
+                        title: '内摩擦角 (°)', 
+                        dataIndex: ['properties', 'frictionAngle'], 
+                        key: 'frictionAngle',
+                        sorter: (a, b) => (a.properties.frictionAngle || 0) - (b.properties.frictionAngle || 0),
+                        render: (val) => val !== undefined ? val.toString() : '-'
+                      }
+                    ]}
+                    scroll={{ x: 800 }}
+                    pagination={{ pageSize: 10 }}
+                    onRow={(record) => ({
+                      onClick: () => {
+                        setSelectedMaterial(record);
+                        setActiveTab('statistics');
+                      },
+                      style: { cursor: 'pointer' }
+                    })}
+                  />
+                </Card>
+              </Card>
+            </TabPane>
+          </Tabs>
+        </TabPane>
+
+        <TabPane tab="MIDAS 集成" key="midas">
+          <Card title="MIDAS GTS 材料库集成">
+            <Row gutter={16} style={{ marginBottom: 16 }}>
+              <Col span={12}>
+                <Card size="small" title="导入 MIDAS 材料">
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    <Upload
+                      accept=".fpn,.json,.mct"
+                      beforeUpload={(file) => {
+                        handleMIDASImport(file);
+                        return false;
+                      }}
+                      showUploadList={false}
+                      disabled={loading}
+                    >
+                      <Button 
+                        icon={<ImportOutlined />} 
+                        type="primary"
+                        loading={loading}
+                        size="large"
+                      >
+                        选择文件导入
+                      </Button>
+                    </Upload>
+                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                      支持格式：MIDAS FPN (.fpn)、JSON (.json)、MCT (.mct)
+                    </Text>
+                    <Alert
+                      message="导入说明"
+                      description={
+                        <div>
+                          <div>• FPN 格式：自动解析 MNLMC、MATGEN、MATPORO 等参数</div>
+                          <div>• JSON 格式：标准材料参数格式</div>
+                          <div>• 导入后可在材料列表中查看和编辑</div>
+                        </div>
+                      }
+                      type="info"
+                      showIcon
+                      size="small"
+                    />
+                  </Space>
                 </Card>
               </Col>
               <Col span={12}>
-                <Card size="small" title="按可靠性分布">
-                  {Object.entries(statistics.materialsByReliability).map(([reliability, count]) => (
-                    <div key={reliability} style={{ marginBottom: 8 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>{reliability}: {count}</span>
-                        <Progress
-                          percent={((count as number) / statistics.totalMaterials) * 100}
-                          size="small"
-                          style={{ width: 100 }}
-                          showInfo={false}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                <Card size="small" title="导出到 MIDAS">
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    <Space>
+                      <Button 
+                        icon={<ExportOutlined />}
+                        onClick={() => handleMIDASExport('fpn')}
+                        disabled={materials.length === 0}
+                      >
+                        导出 FPN 格式
+                      </Button>
+                      <Button 
+                        icon={<ExportOutlined />}
+                        onClick={() => handleMIDASExport('json')}
+                        disabled={materials.length === 0}
+                      >
+                        导出 JSON 格式
+                      </Button>
+                    </Space>
+                    <Text type="secondary">
+                      导出为 MIDAS GTS NX 兼容的 FPN 或 JSON 格式
+                    </Text>
+                    <Alert
+                      message="参数对照表"
+                      description={
+                        <div>
+                          <div>• 粘聚力 c (kPa) → MNLMC 参数</div>
+                          <div>• 内摩擦角 φ (°) → MNLMC 参数</div>
+                          <div>• 弹性模量 E (GPa) → MATGEN 参数</div>
+                          <div>• 泊松比 ν → MATGEN 参数</div>
+                        </div>
+                      }
+                      type="success"
+                      showIcon
+                    />
+                  </Space>
                 </Card>
               </Col>
             </Row>
+            
+            <Card size="small" title="MIDAS 材料参数范围参考">
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Card size="small" title="粘性土典型值">
+                    <Descriptions size="small" column={1}>
+                      <Descriptions.Item label="密度">1600-2100 kg/m³</Descriptions.Item>
+                      <Descriptions.Item label="粘聚力">5-100 kPa</Descriptions.Item>
+                      <Descriptions.Item label="内摩擦角">8-25°</Descriptions.Item>
+                      <Descriptions.Item label="弹性模量">2-50 MPa</Descriptions.Item>
+                    </Descriptions>
+                  </Card>
+                </Col>
+                <Col span={8}>
+                  <Card size="small" title="砂土典型值">
+                    <Descriptions size="small" column={1}>
+                      <Descriptions.Item label="密度">1400-2200 kg/m³</Descriptions.Item>
+                      <Descriptions.Item label="粘聚力">0-5 kPa</Descriptions.Item>
+                      <Descriptions.Item label="内摩擦角">25-45°</Descriptions.Item>
+                      <Descriptions.Item label="弹性模量">10-200 MPa</Descriptions.Item>
+                    </Descriptions>
+                  </Card>
+                </Col>
+                <Col span={8}>
+                  <Card size="small" title="岩石典型值">
+                    <Descriptions size="small" column={1}>
+                      <Descriptions.Item label="密度">2000-3000 kg/m³</Descriptions.Item>
+                      <Descriptions.Item label="单轴抗压强度">25-250 MPa</Descriptions.Item>
+                      <Descriptions.Item label="弹性模量">5-100 GPa</Descriptions.Item>
+                      <Descriptions.Item label="泊松比">0.15-0.35</Descriptions.Item>
+                    </Descriptions>
+                  </Card>
+                </Col>
+              </Row>
+            </Card>
           </Card>
         </TabPane>
       </Tabs>
@@ -693,18 +1220,35 @@ const GeotechnicalMaterialLibrary: React.FC<Props> = ({
         />
       </Modal>
 
-      {/* 材料详情模态框 */}
-      <Modal
-        title="材料详情"
-        open={detailModalVisible}
-        onCancel={() => setDetailModalVisible(false)}
-        footer={null}
-        width={800}
+      {/* 材料详情抽屉 */}
+      <Drawer
+        title={
+          <Space>
+            <InfoCircleOutlined />
+            材料详情
+            {selectedMaterial && (
+              <Tag color={getStatusColor(selectedMaterial.status)}>
+                {getStatusText(selectedMaterial.status)}
+              </Tag>
+            )}
+          </Space>
+        }
+        placement="right"
+        open={detailDrawerVisible}
+        onClose={() => setDetailDrawerVisible(false)}
+        width={600}
+        maskClosable={false}
+        destroyOnClose
       >
-        {selectedMaterial && (
+        {selectedMaterial ? (
           <MaterialDetailView material={selectedMaterial} />
+        ) : (
+          <Empty description="未选择材料" />
         )}
-      </Modal>
+      </Drawer>
+
+      {/* 回到顶部 */}
+      <BackTop />
     </div>
   );
 };
@@ -717,7 +1261,7 @@ const MaterialEditForm: React.FC<{
   initialValues?: GeotechnicalMaterial | null;
   materialTypeOptions: any[];
   constitutiveModelOptions: any[];
-}> = ({ form, onFinish, onCancel, initialValues, materialTypeOptions, constitutiveModelOptions }) => {
+}> = memo(({ form, onFinish, onCancel, initialValues, materialTypeOptions, constitutiveModelOptions }) => {
   const [selectedType, setSelectedType] = useState<GeotechnicalMaterialType | undefined>(
     initialValues?.type
   );
@@ -955,12 +1499,12 @@ const MaterialEditForm: React.FC<{
       </div>
     </Form>
   );
-};
+});
 
 // 材料详情查看组件
 const MaterialDetailView: React.FC<{
   material: GeotechnicalMaterial;
-}> = ({ material }) => {
+}> = memo(({ material }) => {
   const materialTypeInfo = materialTypeOptions.find(t => t.value === material.type);
   const modelInfo = constitutiveModelOptions.find(m => m.value === material.constitutiveModel);
 
@@ -1031,7 +1575,7 @@ const MaterialDetailView: React.FC<{
       )}
     </div>
   );
-};
+});
 
 // 工具函数
 const getStatusColor = (status: string): string => {
@@ -1061,6 +1605,32 @@ const formatNumber = (num: number): string => {
     return `${(num / 1000).toFixed(1)}K`;
   }
   return num.toString();
+};
+
+const getCategoryName = (category: string): string => {
+  const categoryMap = {
+    'basicProperties': '基本属性',
+    'strengthParameters': '强度参数',
+    'constitutiveModel': '本构模型',
+    'applicabilityCheck': '适用性检查'
+  };
+  return categoryMap[category as keyof typeof categoryMap] || category;
+};
+
+const getParameterName = (param: string): string => {
+  const paramMap = {
+    'density': '密度',
+    'elasticModulus': '弹性模量',
+    'poissonRatio': '泊松比',
+    'cohesion': '粘聚力',
+    'frictionAngle': '内摩擦角',
+    'dilatancyAngle': '剪胀角',
+    'uniaxialCompressiveStrength': '单轴抗压强度',
+    'unitWeightConsistency': '重度一致性',
+    'strengthCombination': '强度组合',
+    'compatibility': '兼容性'
+  };
+  return paramMap[param as keyof typeof paramMap] || param;
 };
 
 export default GeotechnicalMaterialLibrary;

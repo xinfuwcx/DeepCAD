@@ -5,7 +5,7 @@
 import axios from 'axios';
 
 // API基础URL配置
-const API_BASE_URL = 'http://localhost:8083/api';
+const API_BASE_URL = 'http://localhost:8000/api';
 
 /**
  * 创建axios实例

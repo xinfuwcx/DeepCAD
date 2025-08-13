@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 import uvicorn
+from gateway.database import init_database
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -90,31 +91,41 @@ try:
     from gateway.modules.geometry import router as geometry_router
     app.include_router(geometry_router, prefix="/api/geometry", tags=["几何建模"])
 except ImportError:
-    print("⚠️ 几何建模模块未找到")
+    print("WARNING: 几何建模模块未找到")
 
 try:
     from gateway.modules.meshing import router as meshing_router  
     app.include_router(meshing_router, prefix="/api/meshing", tags=["网格生成"])
 except ImportError:
-    print("⚠️ 网格生成模块未找到")
+    print("WARNING: 网格生成模块未找到")
 
 try:
     from gateway.modules.computation import router as computation_router
     app.include_router(computation_router, prefix="/api/computation", tags=["数值计算"])
 except ImportError:
-    print("⚠️ 数值计算模块未找到")
+    print("WARNING: 数值计算模块未找到")
 
 try:
     from gateway.modules.visualization import router as visualization_router
     app.include_router(visualization_router, prefix="/api/visualization", tags=["可视化"])
 except ImportError:
-    print("⚠️ 可视化模块未找到")
+    print("WARNING: 可视化模块未找到")
+
+try:
+    from gateway.modules.materials.routes import router as materials_router
+    app.include_router(materials_router, prefix="/api", tags=["材料库"])
+    print("SUCCESS: 材料库模块加载成功")
+except ImportError as e:
+    print(f"WARNING: 材料库模块未找到: {e}")
 
 if __name__ == "__main__":
-    print("🚀 启动DeepCAD深基坑CAE平台")
-    print(f"📁 项目根目录: {ROOT_DIR}")
-    print(f"🌐 前端文件: {frontend_dist}")
+    print("Starting DeepCAD深基坑CAE平台")
+    print(f"项目根目录: {ROOT_DIR}")
+    print(f"前端文件: {frontend_dist}")
     print("=" * 50)
+    
+    # 初始化数据库
+    init_database()
     
     uvicorn.run(
         "main:app",

@@ -1320,7 +1320,7 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
            * @param segments 线段集合
            * @param options 可选: { targetSize?: number; scaleMultiplier?: number }
            */
-          renderDXFSegments: (segments: Array<{ start:{x:number;y:number}; end:{x:number;y:number} }>, options?: { targetSize?: number; scaleMultiplier?: number }) => {
+          renderDXFSegments: (segments: Array<{ start:{x:number;y:number}; end:{x:number;y:number} }>, options?: { targetSize?: number; scaleMultiplier?: number; autoFit?: boolean }) => {
             const eng = engineRef.current;
             if (!eng) return;
             const scene = eng.scene;
@@ -1356,11 +1356,14 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
               const line=new THREE.Line(geom, mat); line.renderOrder=999; group.add(line);
             });
             scene.add(group); dxfOverlayRef.current=group;
-            // 调整相机
-            try {
-              const cam = eng.camera; const maxDim=Math.max(width,height)*scale; cam.position.set(maxDim*1.2, maxDim*0.9, maxDim*1.2); cam.lookAt(0,0,0); eng.orbitControls.target.set(0,0,0); eng.orbitControls.update();
-            } catch {}
+            // 调整相机（仅在 autoFit 不为 false 时）
+            if (options?.autoFit !== false) {
+              try {
+                const cam = eng.camera; const maxDim=Math.max(width,height)*scale; cam.position.set(maxDim*1.2, maxDim*0.9, maxDim*1.2); cam.lookAt(0,0,0); eng.orbitControls.target.set(0,0,0); eng.orbitControls.update();
+              } catch {}
+            }
           },
+          
           /**
            * 清空场景中的所有对象（不销毁渲染器/相机/控制器），默认删除画布中的所有内容。
            */
@@ -1446,6 +1449,30 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
                 } catch {}
               });
             }
+          },
+          /** 获取当前相机方位角(绕Y轴) 0-360 度 */
+          getCameraAzimuthDeg: () => {
+            const eng = engineRef.current; if (!eng) return 0;
+            try {
+              // @ts-ignore three typings
+              const rad = eng.orbitControls?.getAzimuthalAngle ? eng.orbitControls.getAzimuthalAngle() : 0;
+              const deg = (rad * 180 / Math.PI) % 360;
+              return (deg + 360) % 360;
+            } catch { return 0; }
+          },
+          /** 订阅相机方位角变化，返回取消订阅函数 */
+          subscribeCameraAzimuth: (cb: (deg:number)=>void) => {
+            const eng = engineRef.current; if (!eng) return () => {};
+            const handler = () => {
+              try {
+                // @ts-ignore
+                const rad = eng.orbitControls?.getAzimuthalAngle ? eng.orbitControls.getAzimuthalAngle() : 0;
+                const deg = (rad * 180 / Math.PI) % 360;
+                cb((deg + 360) % 360);
+              } catch {}
+            };
+            try { eng.orbitControls?.addEventListener?.('change', handler); } catch {}
+            return () => { try { eng.orbitControls?.removeEventListener?.('change', handler); } catch {} };
           }
         };
       } catch {}

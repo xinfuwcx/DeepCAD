@@ -16,6 +16,8 @@ import {
   SoilMaterialProperties,
   RockMaterialProperties,
   ArtificialMaterialProperties,
+  MIDASMaterialFormat,
+  StagedMaterialProperties,
   STANDARD_MATERIALS
 } from '../types/GeotechnicalMaterials';
 
@@ -661,28 +663,43 @@ export class GeotechnicalMaterialService {
 
     const props = material.properties;
 
-    // 密度验证
-    if (props.density < 1000 || props.density > 5000) {
+    // 密度验证 - 更严格的范围检查
+    const densityRanges = {
+      [GeotechnicalMaterialType.CLAY]: [1400, 2200],
+      [GeotechnicalMaterialType.SAND]: [1500, 2300],
+      [GeotechnicalMaterialType.ROCK_HARD]: [2000, 3200],
+      [GeotechnicalMaterialType.CONCRETE]: [2200, 2600],
+      [GeotechnicalMaterialType.STEEL]: [7700, 8000]
+    };
+
+    const densityRange = densityRanges[material.type] || [1000, 5000];
+    if (props.density < densityRange[0] || props.density > densityRange[1]) {
       details.density = {
         value: props.density,
-        expectedRange: [1000, 5000],
-        status: 'warning',
-        message: '密度值似乎不合理'
+        expectedRange: densityRange,
+        status: props.density < 800 || props.density > 8000 ? 'error' : 'warning',
+        message: `${material.type}的密度建议范围: ${densityRange[0]}-${densityRange[1]} kg/m³`
       };
-      score -= 10;
+      score -= props.density < 800 || props.density > 8000 ? 25 : 10;
+      if (props.density < 800 || props.density > 8000) passed = false;
     } else {
       details.density = {
         value: props.density,
-        status: 'pass'
+        status: 'pass',
+        message: '密度值合理'
       };
     }
 
-    // 弹性模量验证
+    // 弹性模量验证 - 扩展材料类型
     const modulusRanges = {
       [GeotechnicalMaterialType.CLAY]: [1000, 100000],
+      [GeotechnicalMaterialType.SILT]: [2000, 150000],
       [GeotechnicalMaterialType.SAND]: [5000, 200000],
+      [GeotechnicalMaterialType.GRAVEL]: [50000, 500000],
       [GeotechnicalMaterialType.ROCK_HARD]: [10000000, 100000000],
-      [GeotechnicalMaterialType.CONCRETE]: [20000000, 40000000]
+      [GeotechnicalMaterialType.ROCK_SOFT]: [1000000, 50000000],
+      [GeotechnicalMaterialType.CONCRETE]: [20000000, 40000000],
+      [GeotechnicalMaterialType.STEEL]: [180000000, 220000000]
     };
 
     const expectedRange = modulusRanges[material.type];
@@ -692,14 +709,29 @@ export class GeotechnicalMaterialService {
         details.elasticModulus = {
           value: props.elasticModulus,
           expectedRange: [min, max],
-          status: 'warning',
-          message: `${material.type}的弹性模量建议范围: ${min}-${max} kPa`
+          status: props.elasticModulus < min * 0.1 || props.elasticModulus > max * 10 ? 'error' : 'warning',
+          message: `${material.type}的弹性模量建议范围: ${this.formatNumber(min)}-${this.formatNumber(max)} kPa`
         };
-        score -= 15;
+        score -= props.elasticModulus < min * 0.1 || props.elasticModulus > max * 10 ? 25 : 15;
+        if (props.elasticModulus < min * 0.1 || props.elasticModulus > max * 10) passed = false;
+      } else {
+        details.elasticModulus = {
+          value: props.elasticModulus,
+          status: 'pass',
+          message: '弹性模量值合理'
+        };
       }
     }
 
-    // 泊松比验证
+    // 泊松比验证 - 材料类型相关
+    const poissonRanges = {
+      [GeotechnicalMaterialType.CLAY]: [0.25, 0.45],
+      [GeotechnicalMaterialType.SAND]: [0.20, 0.35],
+      [GeotechnicalMaterialType.ROCK_HARD]: [0.15, 0.30],
+      [GeotechnicalMaterialType.CONCRETE]: [0.15, 0.25],
+      [GeotechnicalMaterialType.STEEL]: [0.25, 0.35]
+    };
+
     if (props.poissonRatio < 0 || props.poissonRatio >= 0.5) {
       details.poissonRatio = {
         value: props.poissonRatio,
@@ -709,9 +741,56 @@ export class GeotechnicalMaterialService {
       };
       passed = false;
       score -= 30;
+    } else {
+      const poissonRange = poissonRanges[material.type];
+      if (poissonRange) {
+        const [min, max] = poissonRange;
+        if (props.poissonRatio < min || props.poissonRatio > max) {
+          details.poissonRatio = {
+            value: props.poissonRatio,
+            expectedRange: poissonRange,
+            status: 'warning',
+            message: `${material.type}的泊松比建议范围: ${min}-${max}`
+          };
+          score -= 10;
+        } else {
+          details.poissonRatio = {
+            value: props.poissonRatio,
+            status: 'pass',
+            message: '泊松比值合理'
+          };
+        }
+      }
+    }
+
+    // 重度与密度一致性检查
+    if (props.unitWeight) {
+      const expectedUnitWeight = props.density * 9.81 / 1000;
+      const deviation = Math.abs(props.unitWeight - expectedUnitWeight);
+      if (deviation > 2.0) {
+        details.unitWeightConsistency = {
+          value: props.unitWeight,
+          expectedRange: [expectedUnitWeight - 1, expectedUnitWeight + 1],
+          status: 'warning',
+          message: `重度与密度不一致，建议重度为 ${expectedUnitWeight.toFixed(1)} kN/m³`
+        };
+        score -= 5;
+      }
     }
 
     return { passed, score: Math.max(0, score), details };
+  }
+
+  /**
+   * 格式化数字显示
+   */
+  private formatNumber(num: number): string {
+    if (num >= 1000000) {
+      return `${(num / 1000000).toFixed(1)}M`;
+    } else if (num >= 1000) {
+      return `${(num / 1000).toFixed(1)}K`;
+    }
+    return num.toString();
   }
 
   /**
@@ -725,28 +804,161 @@ export class GeotechnicalMaterialService {
     const props = material.properties;
 
     // 土体强度参数验证
-    if ('cohesion' in props && 'frictionAngle' in props) {
+    if ('cohesion' in props || 'frictionAngle' in props) {
       const soilProps = props as SoilMaterialProperties;
       
-      if (soilProps.cohesion !== undefined && soilProps.cohesion < 0) {
-        details.cohesion = {
-          value: soilProps.cohesion,
+      // 粘聚力验证
+      if (soilProps.cohesion !== undefined) {
+        if (soilProps.cohesion < 0) {
+          details.cohesion = {
+            value: soilProps.cohesion,
+            status: 'error',
+            message: '粘聚力不能为负值'
+          };
+          passed = false;
+          score -= 25;
+        } else {
+          // 根据材料类型检查粘聚力范围
+          const cohesionRanges = {
+            [GeotechnicalMaterialType.CLAY]: [5, 200],
+            [GeotechnicalMaterialType.SILT]: [0, 50],
+            [GeotechnicalMaterialType.SAND]: [0, 10],
+            [GeotechnicalMaterialType.ORGANIC_SOIL]: [2, 30]
+          };
+          
+          const cohesionRange = cohesionRanges[material.type];
+          if (cohesionRange) {
+            const [min, max] = cohesionRange;
+            if (soilProps.cohesion > max) {
+              details.cohesion = {
+                value: soilProps.cohesion,
+                expectedRange: cohesionRange,
+                status: 'warning',
+                message: `${material.type}的粘聚力建议范围: ${min}-${max} kPa`
+              };
+              score -= 10;
+            }
+          }
+        }
+      }
+
+      // 内摩擦角验证
+      if (soilProps.frictionAngle !== undefined) {
+        if (soilProps.frictionAngle < 0 || soilProps.frictionAngle > 60) {
+          details.frictionAngle = {
+            value: soilProps.frictionAngle,
+            expectedRange: [0, 60],
+            status: soilProps.frictionAngle < 0 ? 'error' : 'warning',
+            message: soilProps.frictionAngle < 0 ? '内摩擦角不能为负值' : '内摩擦角过大，请检查'
+          };
+          if (soilProps.frictionAngle < 0) {
+            passed = false;
+            score -= 25;
+          } else {
+            score -= 15;
+          }
+        } else {
+          // 根据材料类型检查内摩擦角范围
+          const frictionRanges = {
+            [GeotechnicalMaterialType.CLAY]: [5, 25],
+            [GeotechnicalMaterialType.SILT]: [15, 35],
+            [GeotechnicalMaterialType.SAND]: [25, 45],
+            [GeotechnicalMaterialType.GRAVEL]: [35, 50]
+          };
+          
+          const frictionRange = frictionRanges[material.type];
+          if (frictionRange) {
+            const [min, max] = frictionRange;
+            if (soilProps.frictionAngle < min || soilProps.frictionAngle > max) {
+              details.frictionAngle = {
+                value: soilProps.frictionAngle,
+                expectedRange: frictionRange,
+                status: 'warning',
+                message: `${material.type}的内摩擦角建议范围: ${min}-${max}°`
+              };
+              score -= 10;
+            }
+          }
+        }
+      }
+
+      // 剪胀角验证
+      if (soilProps.dilatancyAngle !== undefined) {
+        if (soilProps.dilatancyAngle < 0) {
+          details.dilatancyAngle = {
+            value: soilProps.dilatancyAngle,
+            status: 'error',
+            message: '剪胀角不能为负值'
+          };
+          passed = false;
+          score -= 20;
+        } else if (soilProps.frictionAngle && soilProps.dilatancyAngle > soilProps.frictionAngle) {
+          details.dilatancyAngle = {
+            value: soilProps.dilatancyAngle,
+            status: 'warning',
+            message: '剪胀角通常小于内摩擦角'
+          };
+          score -= 10;
+        }
+      }
+
+      // 强度参数组合合理性检查
+      if (soilProps.cohesion !== undefined && soilProps.frictionAngle !== undefined) {
+        // 对于砂土，粘聚力应该很小
+        if (material.type === GeotechnicalMaterialType.SAND && soilProps.cohesion > 5) {
+          details.strengthCombination = {
+            value: `c=${soilProps.cohesion}, φ=${soilProps.frictionAngle}`,
+            status: 'warning',
+            message: '砂土的粘聚力通常很小（<5 kPa）'
+          };
+          score -= 5;
+        }
+        
+        // 对于粘土，内摩擦角不应该太大
+        if (material.type === GeotechnicalMaterialType.CLAY && soilProps.frictionAngle > 30) {
+          details.strengthCombination = {
+            value: `c=${soilProps.cohesion}, φ=${soilProps.frictionAngle}`,
+            status: 'warning',
+            message: '粘土的内摩擦角通常较小（<30°）'
+          };
+          score -= 5;
+        }
+      }
+    }
+
+    // 岩石强度参数验证
+    if ('uniaxialCompressiveStrength' in props) {
+      const rockProps = props as RockMaterialProperties;
+      
+      if (rockProps.uniaxialCompressiveStrength <= 0) {
+        details.uniaxialCompressiveStrength = {
+          value: rockProps.uniaxialCompressiveStrength,
           status: 'error',
-          message: '粘聚力不能为负值'
+          message: '单轴抗压强度必须大于0'
         };
         passed = false;
         score -= 25;
-      }
-
-      if (soilProps.frictionAngle !== undefined && 
-          (soilProps.frictionAngle < 0 || soilProps.frictionAngle > 50)) {
-        details.frictionAngle = {
-          value: soilProps.frictionAngle,
-          expectedRange: [0, 50],
-          status: 'warning',
-          message: '内摩擦角建议范围: 0-50°'
+      } else {
+        // 岩石强度分级检查
+        const strengthRanges = {
+          [GeotechnicalMaterialType.ROCK_HARD]: [50, 300],
+          [GeotechnicalMaterialType.ROCK_SOFT]: [5, 50],
+          [GeotechnicalMaterialType.ROCK_WEATHERED]: [1, 25]
         };
-        score -= 15;
+        
+        const strengthRange = strengthRanges[material.type];
+        if (strengthRange) {
+          const [min, max] = strengthRange;
+          if (rockProps.uniaxialCompressiveStrength < min || rockProps.uniaxialCompressiveStrength > max) {
+            details.uniaxialCompressiveStrength = {
+              value: rockProps.uniaxialCompressiveStrength,
+              expectedRange: strengthRange,
+              status: 'warning',
+              message: `${material.type}的单轴抗压强度建议范围: ${min}-${max} MPa`
+            };
+            score -= 10;
+          }
+        }
       }
     }
 
@@ -889,6 +1101,198 @@ export class GeotechnicalMaterialService {
         }
       });
     }
+  }
+
+  /**
+   * 导入 MIDAS FPN 材料数据
+   */
+  public async importMIDASMaterials(fpnData: any): Promise<GeotechnicalMaterial[]> {
+    const importedMaterials: GeotechnicalMaterial[] = [];
+    
+    try {
+      // 解析 MIDAS 材料数据
+      if (fpnData.materials) {
+        for (const midasMaterial of fpnData.materials) {
+          const material = this.convertMIDASToGeotechnical(midasMaterial);
+          if (material) {
+            importedMaterials.push(material);
+            await this.addMaterial(material);
+          }
+        }
+      }
+      
+      this.emitEvent('midasMaterialsImported', { materials: importedMaterials });
+      return importedMaterials;
+    } catch (error) {
+      console.error('导入 MIDAS 材料失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 转换 MIDAS 材料格式为标准格式
+   */
+  private convertMIDASToGeotechnical(midasMaterial: any): GeotechnicalMaterial | null {
+    try {
+      const materialId = `midas_${midasMaterial.id || Date.now()}`;
+      
+      // 基础属性
+      const properties: SoilMaterialProperties = {
+        density: midasMaterial.density || 2000,
+        unitWeight: (midasMaterial.density || 2000) * 9.81 / 1000,
+        elasticModulus: (midasMaterial.young_modulus || 20) * 1e6, // GPa -> Pa
+        poissonRatio: midasMaterial.poisson_ratio || 0.3,
+        cohesion: midasMaterial.cohesion || 0,
+        frictionAngle: midasMaterial.friction_angle || 25,
+        permeability: midasMaterial.permeability || 1e-8
+      };
+
+      // MIDAS 格式保存
+      const midasFormat: MIDASMaterialFormat = {
+        mnlmc: midasMaterial.cohesion !== undefined || midasMaterial.friction_angle !== undefined ? {
+          materialId: midasMaterial.id,
+          cohesion: midasMaterial.cohesion || 0,
+          friction_angle: midasMaterial.friction_angle || 25
+        } : undefined,
+        matgen: {
+          materialId: midasMaterial.id,
+          young_modulus: midasMaterial.young_modulus || 20,
+          poisson_ratio: midasMaterial.poisson_ratio || 0.3,
+          density: midasMaterial.density || 2000
+        }
+      };
+
+      return {
+        id: materialId,
+        name: midasMaterial.name || `MIDAS材料_${midasMaterial.id}`,
+        type: this.inferMaterialType(midasMaterial),
+        constitutiveModel: midasMaterial.cohesion !== undefined ? 
+          ConstitutiveModel.MOHR_COULOMB : ConstitutiveModel.LINEAR_ELASTIC,
+        properties,
+        midasFormat,
+        description: `从 MIDAS FPN 导入：${midasMaterial.note || ''}`,
+        source: 'MIDAS GTS NX',
+        reliability: 'literature',
+        status: 'review',
+        validated: false,
+        version: '1.0.0',
+        created: new Date(),
+        modified: new Date(),
+        tags: ['MIDAS', '导入', midasMaterial.type || '土体']
+      };
+    } catch (error) {
+      console.error('转换 MIDAS 材料格式失败:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 推断材料类型
+   */
+  private inferMaterialType(midasMaterial: any): GeotechnicalMaterialType {
+    const frictionAngle = midasMaterial.friction_angle || 0;
+    const cohesion = midasMaterial.cohesion || 0;
+    
+    if (frictionAngle > 30) {
+      return GeotechnicalMaterialType.SAND;
+    } else if (cohesion > 10) {
+      return GeotechnicalMaterialType.CLAY;
+    } else if (frictionAngle > 20) {
+      return GeotechnicalMaterialType.SILT;
+    } else {
+      return GeotechnicalMaterialType.CLAY;
+    }
+  }
+
+  /**
+   * 导出为 MIDAS 格式
+   */
+  public exportToMIDASFormat(materialIds: string[]): any {
+    const midasData = {
+      materials: [],
+      metadata: {
+        exportTime: new Date().toISOString(),
+        software: 'DeepCAD Material Library',
+        version: '1.0.0'
+      }
+    };
+
+    for (const materialId of materialIds) {
+      const material = this.getMaterial(materialId);
+      if (material && material.midasFormat) {
+        midasData.materials.push({
+          id: material.id,
+          name: material.name,
+          type: material.type,
+          mnlmc: material.midasFormat.mnlmc,
+          matgen: material.midasFormat.matgen,
+          matporo: material.midasFormat.matporo,
+          note: material.description
+        });
+      }
+    }
+
+    return midasData;
+  }
+
+  /**
+   * 添加施工阶段属性
+   */
+  public async addStagedProperties(
+    materialId: string, 
+    stagedProperties: StagedMaterialProperties
+  ): Promise<boolean> {
+    try {
+      const material = this.getMaterial(materialId);
+      if (!material) {
+        throw new Error(`材料不存在: ${materialId}`);
+      }
+
+      if (!material.stagedProperties) {
+        material.stagedProperties = [];
+      }
+
+      material.stagedProperties.push(stagedProperties);
+      
+      await this.updateMaterial(materialId, { 
+        stagedProperties: material.stagedProperties,
+        modified: new Date()
+      });
+
+      this.emitEvent('stagedPropertiesAdded', { materialId, stagedProperties });
+      return true;
+    } catch (error) {
+      console.error('添加施工阶段属性失败:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 获取标准岩土材料参数范围
+   */
+  public getStandardParameterRanges(): { [materialType: string]: any } {
+    return {
+      [GeotechnicalMaterialType.CLAY]: {
+        density: { min: 1600, max: 2100, typical: 1800, unit: 'kg/m³' },
+        cohesion: { min: 5, max: 100, typical: 20, unit: 'kPa' },
+        frictionAngle: { min: 8, max: 25, typical: 15, unit: '°' },
+        elasticModulus: { min: 2000, max: 50000, typical: 10000, unit: 'kPa' },
+        permeability: { min: 1e-10, max: 1e-7, typical: 1e-8, unit: 'm/s' }
+      },
+      [GeotechnicalMaterialType.SAND]: {
+        density: { min: 1400, max: 2200, typical: 1800, unit: 'kg/m³' },
+        cohesion: { min: 0, max: 5, typical: 0, unit: 'kPa' },
+        frictionAngle: { min: 25, max: 45, typical: 35, unit: '°' },
+        elasticModulus: { min: 10000, max: 200000, typical: 50000, unit: 'kPa' },
+        permeability: { min: 1e-6, max: 1e-3, typical: 1e-4, unit: 'm/s' }
+      },
+      [GeotechnicalMaterialType.ROCK_HARD]: {
+        density: { min: 2000, max: 3000, typical: 2500, unit: 'kg/m³' },
+        uniaxialCompressiveStrength: { min: 25, max: 250, typical: 100, unit: 'MPa' },
+        elasticModulus: { min: 5e6, max: 100e6, typical: 30e6, unit: 'kPa' },
+        poissonRatio: { min: 0.15, max: 0.35, typical: 0.25, unit: '-' }
+      }
+    };
   }
 
   /**

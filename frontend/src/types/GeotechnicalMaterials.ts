@@ -225,6 +225,10 @@ export interface GeotechnicalMaterial {
   // 材料属性（联合类型）
   properties: SoilMaterialProperties | RockMaterialProperties | ArtificialMaterialProperties;
   
+  // MIDAS 兼容性支持
+  midasFormat?: MIDASMaterialFormat;   // MIDAS 格式参数
+  stagedProperties?: StagedMaterialProperties[]; // 施工阶段属性
+  
   // 元数据
   description?: string;                // 材料描述
   source?: string;                     // 数据来源
@@ -386,9 +390,43 @@ export interface ValidationItem {
   };
 }
 
+// MIDAS 材料参数格式
+export interface MIDASMaterialFormat {
+  mnlmc?: {
+    materialId: number;
+    cohesion: number;       // kPa
+    friction_angle: number; // 度
+  };
+  matgen?: {
+    materialId: number;
+    young_modulus: number;  // GPa
+    poisson_ratio: number;  // 无量纲
+    density?: number;       // kg/m³
+  };
+  matporo?: {
+    materialId: number;
+    permeability: number;   // m/s
+    porosity: number;       // 无量纲
+  };
+}
+
+// 施工阶段材料属性
+export interface StagedMaterialProperties {
+  stageId: number;
+  stageName: string;
+  activationTime?: number;
+  materialModifications?: {
+    [propertyName: string]: {
+      value: number;
+      unit: string;
+      reason?: string;
+    };
+  };
+}
+
 // 导入导出选项
 export interface MaterialImportExportOptions {
-  format: 'json' | 'excel' | 'csv' | 'xml' | 'plaxis' | 'ansys' | 'abaqus' | 'midas'; // 格式
+  format: 'json' | 'excel' | 'csv' | 'xml' | 'plaxis' | 'ansys' | 'abaqus' | 'midas_fpn' | 'midas_mct'; // 格式
   includeMetadata?: boolean;           // 是否包含元数据
   includeTestData?: boolean;           // 是否包含试验数据
   includeValidation?: boolean;         // 是否包含验证结果
