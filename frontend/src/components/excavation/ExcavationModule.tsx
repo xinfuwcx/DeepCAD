@@ -212,11 +212,21 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
   }, []);
 
   const handleFileSelect = useCallback(async (file: File) => {
-    handleContourChange('fileName', file.name);
-    handleContourChange('fileData', file);
-    
+    // 新文件：重置开挖参数与UI状态，并清理旧场景元素
+    setExcavationParams({
+      contourImport: { fileName: file.name, fileData: file, rotationAngle: 0 },
+      excavationParams: { depth: 10.0, layerDepth: 2.0, layerCount: 5, stressReleaseCoefficient: 0.7 }
+    });
+    setDxfData(null);
+    setRawDxfSegments([]);
+    setRotationDraft(0);
+    setDisplayScale(1);
+    initialFitDoneRef.current = false;
+    try { (window as any).__CAE_ENGINE__?.removeExcavationSolids?.(); } catch {}
+    try { (window as any).__CAE_ENGINE__?.renderDXFSegments?.([], { autoFit: false }); } catch {}
+    try { (window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments?.([]); } catch {}
+
     setIsParsingDXF(true);
-    
     try {
       const text = await file.text();
       console.log('开始解析DXF文件:', file.name);
@@ -351,7 +361,7 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
         initialFitDoneRef.current = true;
       } catch (e) { /* 视口可能尚未准备好 */ }
       
-      message.success(`DXF文件解析成功！检测到 ${entities.length} 个实体，${result.originalPoints.length} 个点`);
+  message.success(`DXF文件解析成功！检测到 ${entities.length} 个实体，${result.originalPoints.length} 个点`);
       
       console.log('DXF解析结果:', {
         实体数量: entities.length,
@@ -666,18 +676,6 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
                   onPressEnter={() => { editingAngleRef.current = false; commitRotationDraft(); }}
                 />
               </Form.Item>
-              <Form.Item label="显示缩放系数" tooltip="仅影响DXF/开挖轮廓的显示大小，不改变真实尺寸">
-                <InputNumber
-                  value={displayScale}
-                  onChange={(v)=> setDisplayScale((v && v > 0) ? v : 1)}
-                  min={0.1}
-                  max={10}
-                  step={0.1}
-                  precision={2}
-                  size="large"
-                  style={{ width: '100%' }}
-                />
-              </Form.Item>
               {/* 已移除跟随视角开关 */}
             </Form>
           </Card>
@@ -744,11 +742,38 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
                   icon={<ReloadOutlined />}
                   disabled={status === 'processing'}
                   onClick={() => {
+                    // 仅重置开挖参数，保留DXF与当前旋转
                     setExcavationParams(prev => ({
-                      // 保持当前导入与旋转角度不变，仅重置开挖参数
                       contourImport: { ...prev.contourImport },
                       excavationParams: { depth: 10, layerDepth: 2, layerCount: 5, stressReleaseCoefficient: 0.7 }
                     }));
+                    // 撤回开挖体
+                    try { (window as any).__CAE_ENGINE__?.removeExcavationSolids?.(); } catch {}
+                    // 重新渲染DXF覆盖，保持当前旋转与缩放
+                    try {
+                      const angleDeg = excavationParams.contourImport.rotationAngle;
+                      const angleRad = (angleDeg * Math.PI) / 180;
+                      if (!dxfData?.bounds || angleDeg === 0) {
+                        (window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments?.(rawDxfSegments);
+                        (window as any).__CAE_ENGINE__?.renderDXFSegments?.(rawDxfSegments, { scaleMultiplier: displayScale, autoFit: false });
+                      } else {
+                        const { minX, maxX, minY, maxY } = dxfData.bounds;
+                        const cx = (minX + maxX) / 2; const cy = (minY + maxY) / 2;
+                        const cosA = Math.cos(angleRad); const sinA = Math.sin(angleRad);
+                        const rotated = rawDxfSegments.map(seg => {
+                          const sx = seg.start.x - cx; const sy = seg.start.y - cy;
+                          const ex = seg.end.x - cx; const ey = seg.end.y - cy;
+                          return {
+                            start: { x: cx + sx * cosA - sy * sinA, y: cy + sx * sinA + sy * cosA },
+                            end:   { x: cx + ex * cosA - ey * sinA, y: cy + ex * sinA + ey * cosA }
+                          };
+                        });
+                        (window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments?.(rotated);
+                        (window as any).__CAE_ENGINE__?.renderDXFSegments?.(rotated, { scaleMultiplier: displayScale, autoFit: false });
+                      }
+                    } catch {}
+
+                    message.success('已重置开挖参数并保留DXF轮廓');
                   }}
                 >重置</Button>
               </div>

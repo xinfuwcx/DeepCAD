@@ -1363,6 +1363,21 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
               } catch {}
             }
           },
+          /** 撤回开挖：移除 EXCAVATION_GROUP，并释放其资源 */
+          removeExcavationSolids: () => {
+            const eng = engineRef.current; if (!eng) return;
+            const scene = eng.scene;
+            const group = scene.getObjectByName('EXCAVATION_GROUP');
+            if (group) {
+              scene.remove(group);
+              group.traverse((child: any) => {
+                try { child.geometry?.dispose?.(); } catch {}
+                try {
+                  const m = child.material; if (Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.();
+                } catch {}
+              });
+            }
+          },
           /**
            * 基于闭合多边形轮廓生成分层开挖实体并添加到场景
            * @param polylines 闭合多边形数组，每个为 {x,y} 顶点序列（DXF 平面坐标）
@@ -1501,17 +1516,21 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
 
             scene.add(group);
 
-            // 视角自适应（可选）
+            // 视角自适应（可选，保留当前视角方向，仅调整距离）
             if (options?.autoFit !== false) {
               try {
                 const box = new THREE.Box3().setFromObject(group);
-                const size = new THREE.Vector3(); box.getSize(size);
-                const maxDim = Math.max(size.x, size.y, size.z);
+                const sphere = new THREE.Sphere();
+                box.getBoundingSphere(sphere);
                 const cam = eng.camera;
-                cam.position.set(maxDim * 1.6, maxDim * 1.2, maxDim * 1.6);
+                const controls = eng.orbitControls;
+                const currDir = cam.position.clone().sub(controls.target).normalize();
+                const fov = cam.fov * Math.PI / 180;
+                const fitDist = (sphere.radius / Math.tan(fov / 2)) * 1.2; // 20% margin
+                controls.target.set(0, 0, 0);
+                cam.position.copy(currDir.multiplyScalar(fitDist));
                 cam.lookAt(0, 0, 0);
-                eng.orbitControls.target.set(0, 0, 0);
-                eng.orbitControls.update();
+                controls.update();
               } catch {}
             }
           },
