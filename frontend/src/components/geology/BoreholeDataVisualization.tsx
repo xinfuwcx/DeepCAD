@@ -47,111 +47,47 @@ interface Sample {
   unit: string;
 }
 
+
+// 可视化设置类型
 interface VisualizationSettings {
   showLabels: boolean;
-  showGrid: boolean;
   showLayers: boolean;
-  showSamples: boolean;
   showWaterLevel: boolean;
-  showInterpolation: boolean;
-  interpolationMethod: 'linear' | 'kriging' | 'idw';
+  showGrid: boolean;
   verticalExaggeration: number;
   opacity: number;
 }
 
+// 默认设置
+const defaultSettings: VisualizationSettings = {
+  showLabels: true,
+  showLayers: true,
+  showWaterLevel: true,
+  showGrid: true,
+  verticalExaggeration: 10,
+  opacity: 0.8,
+};
+
+// 主组件
 const BoreholeDataVisualization: React.FC = () => {
   const [boreholes, setBoreholes] = useState<BoreholeData[]>([]);
   const [selectedBorehole, setSelectedBorehole] = useState<BoreholeData | null>(null);
-  const [settings, setSettings] = useState<VisualizationSettings>({
-    showLabels: true,
-    showGrid: true,
-    showLayers: true,
-    showSamples: false,
-    showWaterLevel: true,
-    showInterpolation: false,
-    interpolationMethod: 'kriging',
-    verticalExaggeration: 10,
-    opacity: 0.8
-  });
-  // 移除未使用的状态
-  // const [isProcessing, setIsProcessing] = useState(false);
-  // const [progress, setProgress] = useState(0);
+  const [settings, setSettings] = useState<VisualizationSettings>(defaultSettings);
 
-  // 示例数据
-  useEffect(() => {
-    const sampleData: BoreholeData[] = [
-      {
-        id: 'BH001',
-        name: '钻孔1',
-        x: 0,
-        y: 0,
-        z: 100,
-        depth: 50,
-        waterLevel: 85,
-        date: '2024-01-15',
-        layers: [
-          { name: '表土层', topDepth: 0, bottomDepth: 5, lithology: 'soil', color: '#8B4513', properties: { density: 1.8 } },
-          { name: '粉土层', topDepth: 5, bottomDepth: 15, lithology: 'silt', color: '#DEB887', properties: { density: 1.9 } },
-          { name: '粘土层', topDepth: 15, bottomDepth: 25, lithology: 'clay', color: '#CD853F', properties: { density: 2.0 } },
-          { name: '砂层', topDepth: 25, bottomDepth: 40, lithology: 'sand', color: '#F4A460', properties: { density: 2.1 } },
-          { name: '基岩', topDepth: 40, bottomDepth: 50, lithology: 'bedrock', color: '#696969', properties: { density: 2.6 } }
-        ],
-        samples: [
-          { depth: 10, type: 'SPT', value: 15, unit: 'N' },
-          { depth: 20, type: 'SPT', value: 25, unit: 'N' },
-          { depth: 30, type: 'SPT', value: 35, unit: 'N' }
-        ]
-      },
-      {
-        id: 'BH002',
-        name: '钻孔2',
-        x: 50,
-        y: 0,
-        z: 98,
-        depth: 45,
-        waterLevel: 83,
-        date: '2024-01-16',
-        layers: [
-          { name: '表土层', topDepth: 0, bottomDepth: 4, lithology: 'soil', color: '#8B4513' },
-          { name: '粉土层', topDepth: 4, bottomDepth: 12, lithology: 'silt', color: '#DEB887' },
-          { name: '粘土层', topDepth: 12, bottomDepth: 22, lithology: 'clay', color: '#CD853F' },
-          { name: '砂层', topDepth: 22, bottomDepth: 38, lithology: 'sand', color: '#F4A460' },
-          { name: '基岩', topDepth: 38, bottomDepth: 45, lithology: 'bedrock', color: '#696969' }
-        ]
-      },
-      {
-        id: 'BH003',
-        name: '钻孔3',
-        x: 25,
-        y: 40,
-        z: 102,
-        depth: 55,
-        waterLevel: 87,
-        date: '2024-01-17',
-        layers: [
-          { name: '表土层', topDepth: 0, bottomDepth: 6, lithology: 'soil', color: '#8B4513' },
-          { name: '粉土层', topDepth: 6, bottomDepth: 18, lithology: 'silt', color: '#DEB887' },
-          { name: '粘土层', topDepth: 18, bottomDepth: 28, lithology: 'clay', color: '#CD853F' },
-          { name: '砂层', topDepth: 28, bottomDepth: 45, lithology: 'sand', color: '#F4A460' },
-          { name: '基岩', topDepth: 45, bottomDepth: 55, lithology: 'bedrock', color: '#696969' }
-        ]
+  // 文件上传处理
+  const handleFileUpload = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const data = JSON.parse(text);
+        setBoreholes(data.boreholes || data);
+        message.success(`成功加载 ${data.boreholes?.length || data.length} 个钻孔数据`);
+      } catch (error) {
+        message.error('加载钻孔数据失败');
       }
-    ];
-    setBoreholes(sampleData);
-  }, []);
-
-  // 加载钻孔数据文件
-  const handleFileUpload = useCallback(async (file: File) => {
-    try {
-      const text = await file.text();
-      const data = JSON.parse(text);
-      
-      setBoreholes(data.boreholes || data);
-      
-      message.success(`成功加载 ${data.boreholes?.length || data.length} 个钻孔数据`);
-    } catch (error) {
-      message.error('加载钻孔数据失败');
-    }
+    };
+    reader.readAsText(file);
   }, []);
 
   // 导出数据
@@ -161,7 +97,6 @@ const BoreholeDataVisualization: React.FC = () => {
       settings,
       exportDate: new Date().toISOString()
     };
-    
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -169,7 +104,6 @@ const BoreholeDataVisualization: React.FC = () => {
     a.download = 'borehole_data.json';
     a.click();
     URL.revokeObjectURL(url);
-    
     message.success('数据已导出');
   }, [boreholes, settings]);
 
@@ -199,7 +133,6 @@ const BoreholeDataVisualization: React.FC = () => {
                     导入钻孔数据
                   </Button>
                 </Upload>
-                
                 <Button 
                   icon={<DownloadOutlined />} 
                   onClick={handleExport}
@@ -207,7 +140,6 @@ const BoreholeDataVisualization: React.FC = () => {
                 >
                   导出数据
                 </Button>
-                
                 <div style={{ marginTop: 15, maxHeight: 300, overflowY: 'auto' }}>
                   <h4 style={{ margin: '0 0 10px 0', color: '#333', fontSize: 14, fontWeight: 600 }}>钻孔列表</h4>
                   {boreholes.map(bh => (
@@ -234,7 +166,6 @@ const BoreholeDataVisualization: React.FC = () => {
                 </div>
               </Space>
             </TabPane>
-            
             <TabPane tab="显示" key="display">
               <Space direction="vertical" style={{ width: '100%' }}>
                 <label style={{ display: 'block', marginBottom: 4, fontSize: 13, color: '#555', fontWeight: 500 }}>
@@ -244,7 +175,6 @@ const BoreholeDataVisualization: React.FC = () => {
                   />
                   {' '}显示标签
                 </label>
-                
                 <label style={{ display: 'block', marginBottom: 4, fontSize: 13, color: '#555', fontWeight: 500 }}>
                   <Switch
                     checked={settings.showLayers}
@@ -252,7 +182,6 @@ const BoreholeDataVisualization: React.FC = () => {
                   />
                   {' '}显示地层
                 </label>
-                
                 <label style={{ display: 'block', marginBottom: 4, fontSize: 13, color: '#555', fontWeight: 500 }}>
                   <Switch
                     checked={settings.showWaterLevel}
@@ -260,7 +189,6 @@ const BoreholeDataVisualization: React.FC = () => {
                   />
                   {' '}显示水位
                 </label>
-                
                 <label style={{ display: 'block', marginBottom: 4, fontSize: 13, color: '#555', fontWeight: 500 }}>垂直夸大系数</label>
                 <Slider
                   min={1}
@@ -268,7 +196,6 @@ const BoreholeDataVisualization: React.FC = () => {
                   value={settings.verticalExaggeration}
                   onChange={(value) => setSettings(prev => ({ ...prev, verticalExaggeration: value }))}
                 />
-                
                 <label style={{ display: 'block', marginBottom: 4, fontSize: 13, color: '#555', fontWeight: 500 }}>透明度</label>
                 <Slider
                   min={0.1}
@@ -280,7 +207,6 @@ const BoreholeDataVisualization: React.FC = () => {
               </Space>
             </TabPane>
           </Tabs>
-          
           {selectedBorehole && (
             <div style={{ 
               marginTop: 20, 
@@ -317,20 +243,16 @@ const BoreholeDataVisualization: React.FC = () => {
           )}
         </Card>
       </div>
-      
       <div style={{ flex: 1, position: 'relative' }}>
         <Canvas>
           <PerspectiveCamera makeDefault position={[100, 100, 100]} />
           <OrbitControls enablePan enableZoom enableRotate />
-          
           <ambientLight intensity={0.5} />
           <directionalLight position={[100, 100, 50]} intensity={1} />
-          
           {/* 网格地面 */}
           {settings.showGrid && (
             <gridHelper args={[200, 20, '#444444', '#222222']} />
           )}
-          
           {/* 钻孔可视化 */}
           {boreholes.map(borehole => (
             <Borehole3D
