@@ -1312,6 +1312,27 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
       console.log('✅ CAE Three.js引擎组件初始化完成');
       ComponentDevHelper.logDevTip('CAE Three.js引擎组件初始化完成');
 
+      // 默认进入“空画布”模式：不展示网格/地面等辅助元素
+      try {
+        const eng = engineRef.current!;
+        eng.blankMode = true;
+        const scene = eng.scene;
+        const rm = (name:string) => {
+          const obj = scene.getObjectByName(name);
+          if (obj) {
+            scene.remove(obj);
+            obj.traverse((child: any) => {
+              try { child.geometry?.dispose?.(); } catch {}
+              try {
+                const m = child.material; if (Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.();
+              } catch {}
+            });
+          }
+        };
+        rm('abaqus-grid');
+        rm('abaqus-ground');
+      } catch {}
+
       // 暴露全局接口（供基坑设计等模块调用）
       try {
         (window as any).__CAE_ENGINE__ = {

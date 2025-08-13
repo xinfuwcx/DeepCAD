@@ -67,7 +67,11 @@ const GeometryView: React.FC = () => {
       },
       restoreDefaults: () => {
         try { viewportRef.current?.restoreDefaults?.(); } catch {}
-      }
+  },
+  hideGrid: () => { try { viewportRef.current?.hideGrid?.(); } catch {} },
+  showGrid: () => { try { viewportRef.current?.showGrid?.(); } catch {} },
+  disableHelpers: () => { try { viewportRef.current?.disableHelpers?.(); } catch {} },
+  enableHelpers: () => { try { viewportRef.current?.enableHelpers?.(); } catch {} }
     };
     return () => { try { delete (window as any).__GEOMETRY_VIEWPORT__; } catch {} };
   }, []);

@@ -77,6 +77,10 @@ export interface GeometryViewportRef {
   renderDXFSegments: (segments: Array<{ start: { x: number; y: number }; end: { x: number; y: number } }>) => void;
   clearAll: () => void;
   restoreDefaults: () => void;
+  hideGrid: () => void;
+  showGrid: () => void;
+  disableHelpers: () => void;
+  enableHelpers: () => void;
 }
 
 const GeometryViewport3D = forwardRef<GeometryViewportRef, GeometryViewport3DProps>(({
@@ -135,6 +139,8 @@ const GeometryViewport3D = forwardRef<GeometryViewportRef, GeometryViewport3DPro
   const geologicalModelRef = useRef<THREE.Group | null>(null);
   const boreholesGroupRef = useRef<THREE.Group | null>(null);
   const clippingPlanesRef = useRef<THREE.Plane[]>([]);
+  const gridHelperRef = useRef<THREE.GridHelper | null>(null);
+  const helpersEnabledRef = useRef<boolean>(false);
 
   // 暴露控制方法给父组件
   const dxfOverlayRef = useRef<THREE.Group | null>(null);
@@ -223,18 +229,41 @@ const GeometryViewport3D = forwardRef<GeometryViewportRef, GeometryViewport3DPro
         });
       });
       dxfOverlayRef.current = null;
+      gridHelperRef.current = null;
     },
     restoreDefaults: () => {
       const scene = sceneRef.current;
       if (!scene) return;
-      // 保持背景与灯光，(re)添加网格
-      const exists = scene.children.some(o => (o as any).isGridHelper || o.name?.includes('grid'));
-      if (!exists) {
+      // 保持背景与灯光，根据 helpersEnabled 决定是否补回网格
+      if (helpersEnabledRef.current && !gridHelperRef.current) {
         const gridHelper = new THREE.GridHelper(1000, 50, 0x444444, 0x222222);
         gridHelper.position.y = -15;
         scene.add(gridHelper);
+        gridHelperRef.current = gridHelper;
       }
-    }
+    },
+    hideGrid: () => {
+      const scene = sceneRef.current; if (!scene) return;
+      const grid = gridHelperRef.current || scene.children.find(o => (o as any).isGridHelper) as THREE.Object3D | undefined;
+      if (grid) {
+        scene.remove(grid);
+        try { (grid as any).geometry?.dispose?.(); } catch {}
+        try {
+          const m = (grid as any).material; if (Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.();
+        } catch {}
+        gridHelperRef.current = null;
+      }
+    },
+    showGrid: () => {
+      const scene = sceneRef.current; if (!scene) return;
+      if (gridHelperRef.current) return;
+      const gridHelper = new THREE.GridHelper(1000, 50, 0x444444, 0x222222);
+      gridHelper.position.y = -15;
+      scene.add(gridHelper);
+      gridHelperRef.current = gridHelper;
+    },
+  disableHelpers: () => { helpersEnabledRef.current = false; },
+  enableHelpers: () => { helpersEnabledRef.current = true; }
   }));
 
   // 初始化Three.js场景
@@ -291,10 +320,13 @@ const GeometryViewport3D = forwardRef<GeometryViewportRef, GeometryViewport3DPro
       const axisHelper = new ModernAxisHelper({ size: 100 });
       scene.add(axisHelper);
 
-      // 添加网格
-      const gridHelper = new THREE.GridHelper(1000, 50, 0x444444, 0x222222);
-      gridHelper.position.y = -15;
-      scene.add(gridHelper);
+  // 添加网格（默认不启用）
+  if (helpersEnabledRef.current) {
+        const gridHelper = new THREE.GridHelper(1000, 50, 0x444444, 0x222222);
+        gridHelper.position.y = -15;
+        scene.add(gridHelper);
+        gridHelperRef.current = gridHelper;
+      }
 
       // 初始化模型组
       geologicalModelRef.current = new THREE.Group();
