@@ -1484,6 +1484,28 @@ class MainWindow(QMainWindow):
         for group_id, group_info in boundary_groups.items():
             self.boundary_group_combo.addItem(f"边界组 {group_id} ({group_info.get('boundary_count', 0)} 边界)")
 
+        # 启用/禁用：板元与锚杆控件
+        try:
+            pe = fpn_data.get('plate_elements') or {}
+            has_plates = bool(pe)
+            if hasattr(self, 'show_plates_cb'):
+                self.show_plates_cb.setEnabled(has_plates)
+                self.show_plates_cb.setToolTip("" if has_plates else "当前模型未检测到板单元")
+            if has_plates and hasattr(self.preprocessor, '_plates_cached'):
+                self.preprocessor._plates_cached = None  # 强制重建
+        except Exception:
+            pass
+        try:
+            le = fpn_data.get('line_elements') or {}
+            has_lines = bool(le)
+            if hasattr(self, 'show_anchors_cb'):
+                self.show_anchors_cb.setEnabled(has_lines)
+                self.show_anchors_cb.setToolTip("" if has_lines else "当前模型未检测到预应力线元")
+            if hasattr(self, 'filter_anchors_by_stage_cb'):
+                self.filter_anchors_by_stage_cb.setEnabled(has_lines)
+        except Exception:
+            pass
+
         # 更新分析步
         self.analysis_stage_combo.clear()
         self.analysis_stage_combo.addItem("初始状态")
@@ -1715,7 +1737,24 @@ class MainWindow(QMainWindow):
     def update_display(self):
         """更新显示"""
         if hasattr(self.preprocessor, 'display_mesh'):
-            # 如果勾选“仅显示激活材料”，根据当前分析步过滤
+            # 将复选框状态同步到预处理器标志位
+            try:
+                if hasattr(self, 'show_soil_cb'):
+                    self.preprocessor.show_soil = self.show_soil_cb.isChecked()
+                if hasattr(self, 'show_concrete_cb'):
+                    self.preprocessor.show_concrete = self.show_concrete_cb.isChecked()
+                if hasattr(self, 'show_steel_cb'):
+                    self.preprocessor.show_steel = self.show_steel_cb.isChecked()
+                if hasattr(self, 'show_mesh_cb'):
+                    self.preprocessor.show_mesh_edges = self.show_mesh_cb.isChecked()
+                if hasattr(self, 'show_supports_cb'):
+                    self.preprocessor.show_supports = self.show_supports_cb.isChecked()
+                if hasattr(self, 'show_loads_cb'):
+                    self.preprocessor.show_loads = self.show_loads_cb.isChecked()
+            except Exception as e:
+                print(f"同步显示开关到预处理器失败: {e}")
+
+            # 如果勾选“仅显示激活材料”，根据当前分析步过滤；否则清空过滤
             try:
                 if hasattr(self, 'only_active_materials_cb') and self.only_active_materials_cb.isChecked():
                     if hasattr(self.preprocessor, 'get_current_analysis_stage'):
@@ -1725,6 +1764,9 @@ class MainWindow(QMainWindow):
                             mats = groups.get('materials', [])
                             if mats:
                                 self.preprocessor.filter_materials_by_stage(mats)
+                else:
+                    if hasattr(self.preprocessor, 'current_active_materials'):
+                        self.preprocessor.current_active_materials = set()
             except Exception as e:
                 print(f"仅显示激活材料过滤失败: {e}")
 
