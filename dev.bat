@@ -50,7 +50,7 @@ timeout /t 5 /nobreak > nul
 :: 打开开发工具
 echo.
 echo 🛠️ 打开开发工具...
-start http://localhost:5173
+start http://localhost:5310
 start http://localhost:8000/docs
 
 echo.

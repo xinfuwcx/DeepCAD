@@ -47,9 +47,9 @@ timeout /t 3 /nobreak > nul
 :: 启动前端服务
 echo.
 echo [3/3] 启动前端服务...
-echo 前端服务将在 http://localhost:5173 运行
+echo 前端服务将在 http://localhost:5310 运行
 cd frontend
-start "DeepCAD Frontend" cmd /k "title DeepCAD 前端服务 && echo 启动Vite开发服务器... && npm run dev"
+start "DeepCAD Frontend" cmd /k "title DeepCAD 前端服务 && echo 启动Vite开发服务器(端口5310)... && npm run dev"
 cd ..
 
 :: 等待前端启动
@@ -60,7 +60,7 @@ timeout /t 3 /nobreak > nul
 echo.
 echo 🚀 正在打开DeepCAD应用...
 timeout /t 2 /nobreak > nul
-start http://localhost:5173
+start http://localhost:5310
 
 echo.
 echo ======================================
@@ -68,7 +68,7 @@ echo     🎉 DeepCAD 启动完成！
 echo ======================================
 echo.
 echo 📋 服务地址：
-echo   前端界面: http://localhost:5173
+echo   前端界面: http://localhost:5310
 echo   后端API:  http://localhost:8000
 echo   API文档:  http://localhost:8000/docs
 echo.
