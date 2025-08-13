@@ -376,20 +376,14 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
     const trySubscribe = () => {
       const bridge = (window as any).__CAE_ENGINE__;
       if (bridge?.subscribeCameraAzimuth && bridge?.getCameraAzimuthDeg) {
-        // 初始化同步
+        // 初始化仅刷新输入显示，不修改参数
         try {
           const deg = Math.round(bridge.getCameraAzimuthDeg());
           angleUpdateByRef.current = 'camera';
-          setExcavationParams(prev => ({ ...prev, contourImport: { ...prev.contourImport, rotationAngle: deg } }));
           if (!editingAngleRef.current) setRotationDraft(deg);
         } catch {}
         unsub = bridge.subscribeCameraAzimuth((deg:number)=>{
           angleUpdateByRef.current = 'camera';
-          setExcavationParams(prev => (
-            prev.contourImport.rotationAngle === Math.round(deg)
-              ? prev
-              : { ...prev, contourImport: { ...prev.contourImport, rotationAngle: Math.round(deg) } }
-          ));
           if (!editingAngleRef.current) setRotationDraft(Math.round(deg));
         });
         return true;
@@ -474,13 +468,98 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
         const ex = seg.end.x - cx; const ey = seg.end.y - cy;
         return {
           start: { x: cx + sx * cosA - sy * sinA, y: cy + sx * sinA + sy * cosA },
-          end: { x: cx + ex * cosA - ey * sinA, y: cy + ex * sinA + ey * sinA }
+          end: { x: cx + ex * cosA - ey * sinA, y: cy + ex * sinA + ey * cosA }
         };
       });
       (window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments?.(rotated);
       (window as any).__CAE_ENGINE__?.renderDXFSegments?.(rotated, { scaleMultiplier: displayScale, autoFit: false });
     } catch {}
   }, [displayScale]);
+
+  // 计算闭合多边形（优先使用 LWPOLYLINE 顶点序列）
+  const computeClosedPolylines = useCallback((): Array<Array<{x:number;y:number}>> => {
+    if (!dxfData?.entities) return [];
+    const result: Array<Array<{x:number;y:number}>> = [];
+    try {
+      dxfData.entities.forEach((ent: any) => {
+        if (ent.type === 'LWPOLYLINE' && Array.isArray(ent.vertices) && ent.vertices.length >= 3) {
+          const pts = ent.vertices.map((v: any) => ({ x: v.x, y: v.y }));
+          // 若未闭合，首尾闭合
+          const p0 = pts[0], pn = pts[pts.length - 1];
+          const dx = pn.x - p0.x, dy = pn.y - p0.y;
+          if (Math.hypot(dx, dy) > 1e-6) pts.push({ ...p0 });
+          result.push(pts);
+        }
+      });
+    } catch {}
+    return result;
+  }, [dxfData]);
+
+  const polyArea = (poly: Array<{x:number;y:number}>): number => {
+    if (!poly || poly.length < 3) return 0;
+    let area = 0;
+    for (let i = 0; i < poly.length - 1; i++) {
+      const a = poly[i], b = poly[i+1];
+      area += (a.x * b.y - b.x * a.y);
+    }
+    return Math.abs(area) * 0.5;
+  };
+
+  const selectPrimaryPolyline = (polys: Array<Array<{x:number;y:number}>>): Array<{x:number;y:number}> | null => {
+    if (!polys.length) return null;
+    let best = polys[0];
+    let bestArea = polyArea(best);
+    for (let i = 1; i < polys.length; i++) {
+      const a = polyArea(polys[i]);
+      if (a > bestArea) { bestArea = a; best = polys[i]; }
+    }
+    return best;
+  };
+
+  // 点击“开始开挖”生成实体
+  const handleStartExcavation = useCallback(() => {
+    if (!dxfData) { message.warning('请先导入 DXF 轮廓'); return; }
+    const polylines = computeClosedPolylines();
+    if (polylines.length === 0) { message.warning('未找到可闭合的轮廓'); return; }
+    const primary = selectPrimaryPolyline(polylines);
+    if (!primary) { message.warning('未找到可用的主要轮廓'); return; }
+
+    const { depth, layerDepth, layerCount, stressReleaseCoefficient } = excavationParams.excavationParams;
+    const rotationAngle = excavationParams.contourImport.rotationAngle;
+    try {
+      // 先强制同步一次 DXF 线段渲染与当前角度（避免因“相机更新跳过旋转”导致的视觉不一致）
+      {
+        // 只用主要轮廓来显示导线，确保与开挖实体一致
+        const angleDeg = rotationAngle;
+        const angleRad = (angleDeg * Math.PI) / 180;
+        // 用主要轮廓自身的包围盒做旋转中心，和引擎中的逻辑保持一致
+        let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+        primary.forEach(p=>{ minX=Math.min(minX,p.x); minY=Math.min(minY,p.y); maxX=Math.max(maxX,p.x); maxY=Math.max(maxY,p.y); });
+        const cx=(minX+maxX)/2, cy=(minY+maxY)/2;
+        const cosA = Math.cos(angleRad), sinA = Math.sin(angleRad);
+        const rotate = (x:number,y:number)=>({ x: cx + (x-cx)*cosA - (y-cy)*sinA, y: cy + (x-cx)*sinA + (y-cy)*cosA });
+        const segs: Array<{start:{x:number;y:number}, end:{x:number;y:number}}> = [];
+        for (let i=0;i<primary.length-1;i++){
+          const a = rotate(primary[i].x, primary[i].y);
+          const b = rotate(primary[i+1].x, primary[i+1].y);
+          segs.push({ start:a, end:b });
+        }
+        (window as any).__GEOMETRY_VIEWPORT__?.renderDXFSegments?.(segs);
+        (window as any).__CAE_ENGINE__?.renderDXFSegments?.(segs, { scaleMultiplier: displayScale, autoFit: false });
+      }
+
+      (window as any).__CAE_ENGINE__?.addExcavationSolids?.(
+        [primary],
+        { depth, layerDepth, layerCount, stressReleaseCoefficient, rotationAngleDeg: rotationAngle },
+        { scaleMultiplier: displayScale, autoFit: true }
+      );
+      onGenerate?.(excavationParams);
+      message.success('已根据主要轮廓生成分层开挖实体');
+    } catch (e) {
+      console.error(e);
+      message.error('生成开挖实体失败');
+    }
+  }, [computeClosedPolylines, dxfData, excavationParams, displayScale]);
 
   // 衍生指标
   const derived = useMemo(() => {
@@ -587,18 +666,19 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
                   onPressEnter={() => { editingAngleRef.current = false; commitRotationDraft(); }}
                 />
               </Form.Item>
-              {/* 已移除跟随视角开关 */}
-              <Form.Item label="显示缩放系数" tooltip="仅影响当前视口显示大小，不改变原始坐标" style={{ marginTop: 8 }}>
+              <Form.Item label="显示缩放系数" tooltip="仅影响DXF/开挖轮廓的显示大小，不改变真实尺寸">
                 <InputNumber
                   value={displayScale}
-                  onChange={(v)=> setDisplayScale(v && v>0 ? v : 1)}
-                  min={0.01}
+                  onChange={(v)=> setDisplayScale((v && v > 0) ? v : 1)}
+                  min={0.1}
                   max={10}
                   step={0.1}
+                  precision={2}
                   size="large"
                   style={{ width: '100%' }}
                 />
               </Form.Item>
+              {/* 已移除跟随视角开关 */}
             </Form>
           </Card>
           <Card title="开挖参数" size="small" style={{ borderRadius: 8 }}>
@@ -656,7 +736,7 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
                   icon={<PlayCircleOutlined />}
                   block
                   disabled={disabled || status === 'processing'}
-                  onClick={() => onGenerate?.(excavationParams)}
+                  onClick={handleStartExcavation}
                 >
                   开始开挖
                 </Button>
@@ -665,7 +745,8 @@ const ExcavationModule: React.FC<ExcavationModuleProps> = ({
                   disabled={status === 'processing'}
                   onClick={() => {
                     setExcavationParams(prev => ({
-                      contourImport: { ...prev.contourImport, rotationAngle: 0 },
+                      // 保持当前导入与旋转角度不变，仅重置开挖参数
+                      contourImport: { ...prev.contourImport },
                       excavationParams: { depth: 10, layerDepth: 2, layerCount: 5, stressReleaseCoefficient: 0.7 }
                     }));
                   }}

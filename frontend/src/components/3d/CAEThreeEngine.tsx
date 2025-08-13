@@ -1363,6 +1363,158 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
               } catch {}
             }
           },
+          /**
+           * 基于闭合多边形轮廓生成分层开挖实体并添加到场景
+           * @param polylines 闭合多边形数组，每个为 {x,y} 顶点序列（DXF 平面坐标）
+           * @param params { depth, layerDepth, layerCount, stressReleaseCoefficient?, rotationAngleDeg?, targetSize?, scaleMultiplier?, autoFit? }
+           */
+          addExcavationSolids: (
+            polylines: Array<Array<{x:number;y:number}>>,
+            params: { depth: number; layerDepth: number; layerCount: number; stressReleaseCoefficient?: number; rotationAngleDeg?: number },
+            options?: { targetSize?: number; scaleMultiplier?: number; autoFit?: boolean }
+          ) => {
+            const eng = engineRef.current; if (!eng) return;
+            if (!polylines || polylines.length === 0) return;
+
+            const scene = eng.scene;
+            // 清理已有的开挖组
+            const old = scene.getObjectByName('EXCAVATION_GROUP');
+            if (old) {
+              scene.remove(old);
+              old.traverse((child: any) => {
+                try { child.geometry?.dispose?.(); } catch {}
+                try {
+                  const m = child.material; if (Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.();
+                } catch {}
+              });
+            }
+            // 若存在独立的 DXF 覆盖层，也一并移除，避免与开挖实体不一致
+            if (dxfOverlayRef.current) {
+              try {
+                const ov = dxfOverlayRef.current;
+                scene.remove(ov);
+                ov.traverse((child: any) => {
+                  try { child.geometry?.dispose?.(); } catch {}
+                  try {
+                    const m = child.material; if (Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.();
+                  } catch {}
+                });
+              } catch {}
+              dxfOverlayRef.current = null;
+            }
+
+            // 先用原始多边形求初始中心，以其为旋转中心；随后基于“旋转后的包围盒”计算缩放与居中
+            let srcMinX=Infinity, srcMinY=Infinity, srcMaxX=-Infinity, srcMaxY=-Infinity;
+            polylines.forEach(line => line.forEach(p => { srcMinX=Math.min(srcMinX,p.x); srcMaxX=Math.max(srcMaxX,p.x); srcMinY=Math.min(srcMinY,p.y); srcMaxY=Math.max(srcMaxY,p.y); }));
+            if (!isFinite(srcMinX) || !isFinite(srcMaxX) || !isFinite(srcMinY) || !isFinite(srcMaxY)) return;
+            const c0x = (srcMinX+srcMaxX)/2, c0y = (srcMinY+srcMaxY)/2;
+
+            const angleDeg = (params?.rotationAngleDeg ?? 0) % 360; 
+            const angleRad = angleDeg * Math.PI / 180;
+            const cosA = Math.cos(angleRad), sinA = Math.sin(angleRad);
+            const rotateAboutC0 = (x:number, y:number) => {
+              const dx = x - c0x, dy = y - c0y;
+              return { x: c0x + dx * cosA - dy * sinA, y: c0y + dx * sinA + dy * cosA };
+            };
+
+            // 生成“已旋转多边形”集合，用其计算包围盒与中心，保证与 DXF overlay 一致
+            const rotatedPolys: Array<Array<{x:number;y:number}>> = polylines.map(poly => poly.map(p => rotateAboutC0(p.x, p.y)));
+            let rotMinX=Infinity, rotMinY=Infinity, rotMaxX=-Infinity, rotMaxY=-Infinity;
+            rotatedPolys.forEach(line => line.forEach(p => { rotMinX=Math.min(rotMinX,p.x); rotMaxX=Math.max(rotMaxX,p.x); rotMinY=Math.min(rotMinY,p.y); rotMaxY=Math.max(rotMaxY,p.y); }));
+            const width = Math.max(1e-6, rotMaxX-rotMinX), height = Math.max(1e-6, rotMaxY-rotMinY);
+            const cx = (rotMinX+rotMaxX)/2, cy = (rotMinY+rotMaxY)/2; // 旋转后包围盒中心
+            const target = options?.targetSize ?? 200;
+            const baseScale = Math.min(target/width, target/height);
+            const scale = baseScale * (options?.scaleMultiplier ?? 1);
+
+            // 创建总组
+            const group = new THREE.Group();
+            group.name = 'EXCAVATION_GROUP';
+
+            // 材质调色板（分层渐变）
+            const colors = [0x1890ff, 0x13c2c2, 0x52c41a, 0xfadb14, 0xfa8c16, 0xf5222d, 0x722ed1];
+
+            const layerDepthWorld = Math.max(0.001, params.layerDepth) * scale; // 可视化单位
+            const layers = Math.max(1, Math.min(200, Math.floor(params.layerCount)));
+
+            // 逐层生成（沿 -Y 方向堆叠）
+            for (let layer = 0; layer < layers; layer++) {
+              // 构造 2D 形状（XY 平面），随后整体旋转到 XZ 平面，并将挤出方向映射到 +Y
+              const shapes: THREE.Shape[] = [];
+              for (const poly of rotatedPolys) {
+                if (!poly || poly.length < 3) continue;
+                const shape = new THREE.Shape();
+                const p0 = poly[0];
+                shape.moveTo((p0.x - cx) * scale, (p0.y - cy) * scale);
+                for (let i = 1; i < poly.length; i++) {
+                  const p = poly[i];
+                  shape.lineTo((p.x - cx) * scale, (p.y - cy) * scale);
+                }
+                shape.closePath();
+                shapes.push(shape);
+              }
+              if (shapes.length === 0) continue;
+
+              // 合并多形状（不考虑孔洞，后续可扩展为 paths 与 holes）
+              const geom = new THREE.ExtrudeGeometry(shapes, {
+                depth: layerDepthWorld,
+                bevelEnabled: false,
+              });
+              // 将挤出方向从 +Z 旋转到 -Y（使得厚度向下，且形状平面满足 y -> Z 的可视化映射）
+              geom.rotateX(Math.PI / 2);
+
+              const mat = new THREE.MeshPhongMaterial({
+                color: colors[layer % colors.length],
+                transparent: true,
+                opacity: 0.35,
+                depthWrite: false,
+                side: THREE.DoubleSide,
+              });
+              const mesh = new THREE.Mesh(geom, mat);
+              mesh.name = `excavation-layer-${layer+1}`;
+
+              // 向 -Y 方向堆叠：旋转后几何本身范围为 [ -h, 0 ]，故第0层无需位移
+              const offset = layer * layerDepthWorld; // 第1层为 -h, 第2层为 -2h ...
+              mesh.position.y = -offset;
+
+              group.add(mesh);
+            }
+
+            // 添加顶面轮廓线（与形状一致，确保显示对齐）
+            try {
+              const lineMat = new THREE.LineBasicMaterial({ color: 0x0, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false });
+              for (const poly of rotatedPolys) {
+                if (!poly || poly.length < 2) continue;
+                const pts: THREE.Vector3[] = [];
+                for (let i = 0; i < poly.length - 1; i++) {
+                  const pA = poly[i];
+                  const pB = poly[i+1];
+                  pts.push(new THREE.Vector3((pA.x - cx) * scale, 0, (pA.y - cy) * scale));
+                  pts.push(new THREE.Vector3((pB.x - cx) * scale, 0, (pB.y - cy) * scale));
+                }
+                const g = new THREE.BufferGeometry().setFromPoints(pts);
+                const lineSeg = new THREE.LineSegments(g, lineMat);
+                lineSeg.renderOrder = 999;
+                group.add(lineSeg);
+              }
+            } catch {}
+
+            scene.add(group);
+
+            // 视角自适应（可选）
+            if (options?.autoFit !== false) {
+              try {
+                const box = new THREE.Box3().setFromObject(group);
+                const size = new THREE.Vector3(); box.getSize(size);
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const cam = eng.camera;
+                cam.position.set(maxDim * 1.6, maxDim * 1.2, maxDim * 1.6);
+                cam.lookAt(0, 0, 0);
+                eng.orbitControls.target.set(0, 0, 0);
+                eng.orbitControls.update();
+              } catch {}
+            }
+          },
           
           /**
            * 清空场景中的所有对象（不销毁渲染器/相机/控制器），默认删除画布中的所有内容。
