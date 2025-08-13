@@ -21,6 +21,7 @@ import PhysicsAIView from '../../views/PhysicsAIView';
 import MaterialLibraryView from '../../views/MaterialLibraryView';
 import SettingsView from '../../views/SettingsView';
 import AIAssistantFloating from '../AIAssistantFloating';
+import BoreholeDataVisualization from '../geology/BoreholeDataVisualization';
 // Removed unused imports (ComputationExpertView, MapStyle, legacy controllers)
 
 const { Sider, Content } = Layout;
@@ -64,6 +65,10 @@ const MainLayout: React.FC = () => {
             {
               key: 'geology-reconstruction',
               label: '地质重建',
+            },
+            {
+              key: 'borehole-visualization',
+              label: '钻孔数据可视化',
             },
             {
               key: 'tunnel-modeling',
@@ -204,6 +209,7 @@ const MainLayout: React.FC = () => {
             <Route path="results" element={<EnhancedMainWorkspaceView activeModule="results" />} />
             <Route path="physics-ai" element={<PhysicsAIView />} />
             <Route path="materials" element={<MaterialLibraryView />} />
+            <Route path="borehole-visualization" element={<BoreholeDataVisualization />} />
             {/* 旧项目管理路径兼容：统一指向控制中心 */}
             <Route path="projects" element={<DeepCADControlCenter onExit={() => navigate('/workspace')} />} />
             <Route path="project-management-3d" element={<DeepCADControlCenter onExit={() => navigate('/workspace')} />} />

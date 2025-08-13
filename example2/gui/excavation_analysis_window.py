@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-»ù¿Ó¹¤³ÌÁ½½×¶Î·ÖÎöÏµÍ³ - ×¨ÒµÖ÷´°¿Ú
-µØÁ¬Ç½+¿ªÍÚÊ©¹¤½×¶Î·ÖÎö×¨ÓÃ½çÃæ
+åŸºå‘å·¥ç¨‹åˆ†é˜¶æ®µåˆ†æç³»ç»Ÿ - ä¸“ä¸šç•Œé¢
+å›´æŠ¤å¢™ + å¼€æŒ–æ–½å·¥ åˆ†é˜¶æ®µåˆ†æä¸“ç”¨ç•Œé¢
 
-»ùÓÚ¶Ô»ù¿ÓÁ½½×¶Î1fpn.fpnÎÄ¼şµÄÉîÈë·ÖÎöÉè¼Æ
-×¨ÃÅÕë¶Ô£º
-1. ½×¶ÎÒ»£º³õÊ¼µØÓ¦Á¦Æ½ºâ
-2. ½×¶Î¶ş£ºµØÁ¬Ç½+¿ªÍÚ
+ç”¨é€”ï¼šç”¨äºæ¼”ç¤º/è°ƒè¯•åˆ†é˜¶æ®µ FPN æ¨¡å‹ï¼ˆå¦‚ 1fpn.fpnï¼‰
+åŠŸèƒ½è¦ç‚¹ï¼š
+1. é˜¶æ®µä¸€ï¼šåˆå§‹åº”åŠ›å¹³è¡¡
+2. é˜¶æ®µäºŒï¼šå›´æŠ¤å¢™ + å¼€æŒ–
 """
 
 import sys
@@ -27,22 +27,22 @@ from PyQt6.QtGui import QIcon, QFont, QPixmap, QPalette, QColor, QAction
 
 
 class ExcavationAnalysisWindow(QMainWindow):
-    """»ù¿Ó¹¤³ÌÁ½½×¶Î·ÖÎöÏµÍ³Ö÷´°¿Ú"""
+    """åŸºå‘å·¥ç¨‹åˆ†é˜¶æ®µåˆ†æç³»ç»Ÿä¸»çª—å£"""
 
     def __init__(self):
         super().__init__()
         
-        # ÏîÄ¿Êı¾İ
+    # é¡¹ç›®æ•°æ®
         self.current_fpn_file = None
         self.model_data = None
-        self.stage1_results = None  # ³õÊ¼µØÓ¦Á¦½á¹û
-        self.stage2_results = None  # µØÁ¬Ç½+¿ªÍÚ½á¹û
+    self.stage1_results = None  # åˆå§‹åº”åŠ›ç»“æœ
+    self.stage2_results = None  # å›´æŠ¤+å¼€æŒ–ç»“æœ
         
-        # ·ÖÎö×´Ì¬
+    # è®¡ç®—çŠ¶æ€
         self.analysis_running = False
         self.current_stage = 0
         
-        # Ä£ĞÍÍ³¼ÆĞÅÏ¢
+    # æ¨¡å‹ç»Ÿè®¡ä¿¡æ¯
         self.node_count = 0
         self.element_count = 0
         self.material_count = 0
@@ -51,477 +51,476 @@ class ExcavationAnalysisWindow(QMainWindow):
         self.setup_connections()
 
     def init_ui(self):
-        """³õÊ¼»¯×¨Òµ»¯½çÃæ"""
-        self.setWindowTitle("»ù¿Ó¹¤³ÌÁ½½×¶Î·ÖÎöÏµÍ³ - µØÁ¬Ç½+¿ªÍÚÊ©¹¤Ä£Äâ v2.0")
+        """åˆå§‹åŒ–ä¸“ä¸šç•Œé¢"""
+        self.setWindowTitle("åŸºå‘å·¥ç¨‹åˆ†é˜¶æ®µåˆ†æç³»ç»Ÿ - å›´æŠ¤+å¼€æŒ–æ–½å·¥æ¨¡å— v2.0")
         self.setGeometry(100, 100, 1900, 1200)
         
-        # ÉèÖÃ×¨Òµ¹¤³ÌÖ÷Ìâ
+        # åº”ç”¨ä¸“ä¸šä¸»é¢˜
         self.set_engineering_theme()
         
-        # ´´½¨²Ëµ¥ºÍ¹¤¾ßÀ¸
+        # åˆ›å»ºèœå•ä¸å·¥å…·æ 
         self.create_menu_bar()
         self.create_tool_bar()
         self.create_status_bar()
         
-        # ´´½¨Ö÷²¼¾Ö
+        # åˆ›å»ºä¸»å¸ƒå±€
         self.create_main_layout()
 
     def set_engineering_theme(self):
-        """ÉèÖÃ×¨Òµ¹¤³ÌÈí¼şÖ÷Ìâ"""
+        """è®¾ç½®ä¸“ä¸šä¸»é¢˜æ ·å¼"""
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #f5f5f5;
                 color: #333333;
             }
             
-            /* ¹¤¾ßÀ¸ÑùÊ½ */
-            QToolBar {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+            /* å·¥å…·æ æ ·å¼ */
+                    # æ–‡ä»¶èœå•
+                    file_menu = menubar.addMenu('æ–‡ä»¶(&F)')
                     stop:0 #e8e8e8, stop:1 #d0d0d0);
-                border: 1px solid #a0a0a0;
-                spacing: 3px;
+                    # å¯¼å…¥FPNæ–‡ä»¶
+                    import_action = QAction('å¯¼å…¥FPNæ–‡ä»¶...', self)
                 padding: 2px;
-            }
+                    import_action.setStatusTip('å¯¼å…¥ MIDAS GTS FPN æ ¼å¼çš„æ¨¡å‹æ–‡ä»¶')
             
-            /* ×¨Òµ°´Å¥ÑùÊ½ */
+            /* ä¸“ä¸šæŒ‰é’®æ ·å¼ */
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #ffffff, stop:1 #e0e0e0);
-                border: 1px solid #a0a0a0;
-                border-radius: 4px;
+                    # ä¿å­˜é¡¹ç›®
+                    save_action = QAction('ä¿å­˜é¡¹ç›®...', self)
                 padding: 6px 12px;
                 font-weight: bold;
                 min-width: 80px;
             }
-            
-            QPushButton:hover {
+                    # å¯¼å‡ºç»“æœ
+                    export_action = QAction('å¯¼å‡ºç»“æœ...', self)
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #e6f3ff, stop:1 #cce7ff);
                 border-color: #0078d4;
             }
             
-            QPushButton:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    # é€€å‡º
+                    exit_action = QAction('é€€å‡º', self)
                     stop:0 #cce7ff, stop:1 #99d6ff);
             }
             
             QPushButton:disabled {
-                background-color: #f0f0f0;
-                color: #a0a0a0;
+                    # åˆ†æèœå•
+                    analysis_menu = menubar.addMenu('åˆ†æ(&A)')
                 border-color: #d0d0d0;
-            }
-            
-            /* ·Ö×é¿òÑùÊ½ */
+                    # é˜¶æ®µä¸€ï¼šåˆå§‹åº”åŠ›å¹³è¡¡
+                    stage1_action = QAction('é˜¶æ®µä¸€ï¼šåˆå§‹åº”åŠ›å¹³è¡¡', self)
+            /* åˆ†ç»„æ¡†æ ·å¼ */
             QGroupBox {
                 font-weight: bold;
                 border: 2px solid #a0a0a0;
-                border-radius: 5px;
-                margin-top: 10px;
+                    # é˜¶æ®µäºŒï¼šå›´æŠ¤å¢™+å¼€æŒ–
+                    stage2_action = QAction('é˜¶æ®µäºŒï¼šå›´æŠ¤å¢™+å¼€æŒ–', self)
                 padding-top: 10px;
             }
             
             QGroupBox::title {
                 subcontrol-origin: margin;
                 left: 10px;
-                padding: 0 5px 0 5px;
-                color: #0078d4;
+                    # å…¨é˜¶æ®µåˆ†æ
+                    full_analysis_action = QAction('å…¨é˜¶æ®µåˆ†æ', self)
             }
             
-            /* ±í¸ñÑùÊ½ */
+            /* è¡¨æ ¼æ ·å¼ */
             QTableWidget {
                 gridline-color: #d0d0d0;
                 background-color: white;
-                alternate-background-color: #f8f8f8;
-            }
+                    # åœæ­¢åˆ†æ
+                    stop_action = QAction('åœæ­¢åˆ†æ', self)
             
             QHeaderView::section {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #e8e8e8, stop:1 #d0d0d0);
-                border: 1px solid #a0a0a0;
-                padding: 4px;
+                    # ç»“æœèœå•
+                    results_menu = menubar.addMenu('ç»“æœ(&R)')
                 font-weight: bold;
-            }
-            
-            /* ½ø¶ÈÌõÑùÊ½ */
+                    # ä½ç§»äº‘å›¾
+                    deformation_action = QAction('ä½ç§»äº‘å›¾', self)
+            /* è¿›åº¦æ¡æ ·å¼ */
             QProgressBar {
                 border: 1px solid #a0a0a0;
-                border-radius: 3px;
-                text-align: center;
+                    # åº”åŠ›äº‘å›¾
+                    stress_action = QAction('åº”åŠ›äº‘å›¾', self)
                 font-weight: bold;
             }
             
-            QProgressBar::chunk {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    # å›´æŠ¤å¢™å†…åŠ›
+                    wall_force_action = QAction('å›´æŠ¤å¢™å†…åŠ›', self)
                     stop:0 #4CAF50, stop:1 #45a049);
                 border-radius: 2px;
             }
             
-            /* ±êÇ©Ò³ÑùÊ½ */
-            QTabWidget::pane {
-                border: 1px solid #a0a0a0;
+            /* æ ‡ç­¾é¡µæ ·å¼ */
+                    # é˜¶æ®µå¯¹æ¯”
+                    comparison_action = QAction('é˜¶æ®µå¯¹æ¯”åˆ†æ', self)
                 background-color: white;
             }
             
-            QTabBar::tab {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    # å·¥å…·èœå•
+                    tools_menu = menubar.addMenu('å·¥å…·(&T)')
                     stop:0 #e8e8e8, stop:1 #d0d0d0);
-                border: 1px solid #a0a0a0;
-                padding: 6px 12px;
+                    # æ¨¡å‹æ£€æŸ¥
+                    check_action = QAction('æ¨¡å‹å®Œæ•´æ€§æ£€æŸ¥', self)
                 margin-right: 2px;
             }
             
-            QTabBar::tab:selected {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    # ææ–™å‚æ•°æŸ¥çœ‹
+                    material_action = QAction('ææ–™å‚æ•°æŸ¥çœ‹', self)
                     stop:0 #ffffff, stop:1 #f0f0f0);
                 border-bottom-color: white;
             }
-        """)
-
+                    # å¸®åŠ©èœå•
+                    help_menu = menubar.addMenu('å¸®åŠ©(&H)')
     def create_menu_bar(self):
-        """´´½¨×¨Òµ²Ëµ¥À¸"""
-        menubar = self.menuBar()
+                    # ç”¨æˆ·æ‰‹å†Œ
+                    manual_action = QAction('ç”¨æˆ·æ‰‹å†Œ', self)
         
-        # ÎÄ¼ş²Ëµ¥
-        file_menu = menubar.addMenu('ÎÄ¼ş(&F)')
+        # ï¿½Ä¼ï¿½ï¿½Ëµï¿½
+        file_menu = menubar.addMenu('ï¿½Ä¼ï¿½(&F)')
         
-        # µ¼ÈëFPNÎÄ¼ş
-        import_action = QAction('µ¼ÈëFPNÎÄ¼ş...', self)
+                    # å…³äº
+                    about_action = QAction('å…³äº', self)
         import_action.setShortcut('Ctrl+O')
-        import_action.setStatusTip('µ¼ÈëMIDAS GTS FPN¸ñÊ½»ù¿ÓÄ£ĞÍÎÄ¼ş')
+        import_action.setStatusTip('ï¿½ï¿½ï¿½ï¿½MIDAS GTS FPNï¿½ï¿½Ê½ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½ï¿½Ä¼ï¿½')
         import_action.triggered.connect(self.import_fpn_file)
         file_menu.addAction(import_action)
+                    """åˆ›å»ºä¸“ä¸šå·¥å…·æ """
+                    toolbar = self.addToolBar('åˆ†æå·¥å…·')
         
-        file_menu.addSeparator()
-        
-        # ±£´æÏîÄ¿
-        save_action = QAction('±£´æÏîÄ¿...', self)
-        save_action.setShortcut('Ctrl+S')
-        save_action.triggered.connect(self.save_project)
+        # ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+                    # å¯¼å…¥æ¨¡å‹
+                    import_btn = QPushButton('å¯¼å…¥FPN')
+                    import_btn.setToolTip('å¯¼å…¥ MIDAS GTS FPN æ¨¡å‹æ–‡ä»¶')
         file_menu.addAction(save_action)
         
-        # µ¼³ö½á¹û
-        export_action = QAction('µ¼³ö½á¹û...', self)
+        # ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+        export_action = QAction('ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½...', self)
         export_action.triggered.connect(self.export_results)
-        file_menu.addAction(export_action)
+                    # é˜¶æ®µåˆ†ææŒ‰é’®
+                    stage1_btn = QPushButton('é˜¶æ®µä¸€\nåˆå§‹åº”åŠ›å¹³è¡¡')
+                    stage1_btn.setToolTip('æ‰§è¡Œåˆå§‹åº”åŠ›å¹³è¡¡åˆ†æ')
         
-        file_menu.addSeparator()
-        
-        # ÍË³ö
-        exit_action = QAction('ÍË³ö', self)
-        exit_action.setShortcut('Ctrl+Q')
-        exit_action.triggered.connect(self.close)
+        # ï¿½Ë³ï¿½
+        exit_action = QAction('ï¿½Ë³ï¿½', self)
+                    stage2_btn = QPushButton('é˜¶æ®µäºŒ\nå›´æŠ¤å¢™+å¼€æŒ–')
+                    stage2_btn.setToolTip('æ‰§è¡Œå›´æŠ¤æ–½å·¥ä¸å¼€æŒ–é˜¶æ®µåˆ†æ')
         file_menu.addAction(exit_action)
         
-        # ·ÖÎö²Ëµ¥
-        analysis_menu = menubar.addMenu('·ÖÎö(&A)')
+        # ï¿½ï¿½ï¿½ï¿½ï¿½Ëµï¿½
+        analysis_menu = menubar.addMenu('ï¿½ï¿½ï¿½ï¿½(&A)')
         
-        # ½×¶ÎÒ»£º³õÊ¼µØÓ¦Á¦
-        stage1_action = QAction('½×¶ÎÒ»£º³õÊ¼µØÓ¦Á¦Æ½ºâ', self)
-        stage1_action.setShortcut('F5')
+                    # å…¨æµç¨‹
+                    full_analysis_btn = QPushButton('å…¨é˜¶æ®µåˆ†æ')
+                    full_analysis_btn.setToolTip('ä¾æ¬¡æ‰§è¡Œå…¨éƒ¨é˜¶æ®µåˆ†æ')
         stage1_action.triggered.connect(self.run_stage1_analysis)
         analysis_menu.addAction(stage1_action)
         
-        # ½×¶Î¶ş£ºµØÁ¬Ç½+¿ªÍÚ
-        stage2_action = QAction('½×¶Î¶ş£ºµØÁ¬Ç½+¿ªÍÚ', self)
-        stage2_action.setShortcut('F6')
+                    # åœæ­¢
+                    stop_btn = QPushButton('åœæ­¢åˆ†æ')
+                    stop_btn.setToolTip('åœæ­¢å½“å‰æ­£åœ¨è¿›è¡Œçš„åˆ†æ')
         stage2_action.triggered.connect(self.run_stage2_analysis)
         analysis_menu.addAction(stage2_action)
         
         analysis_menu.addSeparator()
         
-        # ÍêÕûÁ½½×¶Î·ÖÎö
-        full_analysis_action = QAction('ÍêÕûÁ½½×¶Î·ÖÎö', self)
-        full_analysis_action.setShortcut('F7')
-        full_analysis_action.triggered.connect(self.run_full_analysis)
-        analysis_menu.addAction(full_analysis_action)
+        # ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¶Î·ï¿½ï¿½ï¿½
+        full_analysis_action = QAction('ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¶Î·ï¿½ï¿½ï¿½', self)
+                    # ç»“æœæŸ¥çœ‹
+                    results_btn = QPushButton('æŸ¥çœ‹ç»“æœ')
+                    results_btn.setToolTip('æŸ¥çœ‹åˆ†æç»“æœä¸å¯è§†åŒ–')
         
         analysis_menu.addSeparator()
         
-        # Í£Ö¹·ÖÎö
-        stop_action = QAction('Í£Ö¹·ÖÎö', self)
+        # Í£Ö¹ï¿½ï¿½ï¿½ï¿½
+                    """åˆ›å»ºçŠ¶æ€æ """
         stop_action.setShortcut('Esc')
         stop_action.triggered.connect(self.stop_analysis)
-        analysis_menu.addAction(stop_action)
-        
-        # ½á¹û²Ëµ¥
-        results_menu = menubar.addMenu('½á¹û(&R)')
-        
-        # ±äĞÎÔÆÍ¼
-        deformation_action = QAction('±äĞÎÔÆÍ¼', self)
+                    # çŠ¶æ€æ ‡ç­¾
+                    self.status_label = QLabel('å°±ç»ª - è¯·é€‰æ‹©å¹¶åŠ è½½ FPN æ–‡ä»¶')
+        # ï¿½ï¿½ï¿½ï¿½Ëµï¿½
+        results_menu = menubar.addMenu('ï¿½ï¿½ï¿½(&R)')
+                    # è¿›åº¦æ¡
+        # ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼
+        deformation_action = QAction('ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼', self)
         deformation_action.triggered.connect(self.show_deformation_results)
         results_menu.addAction(deformation_action)
         
-        # Ó¦Á¦ÔÆÍ¼
-        stress_action = QAction('Ó¦Á¦ÔÆÍ¼', self)
+                    # å½“å‰é˜¶æ®µ
+                    self.stage_label = QLabel('å½“å‰é˜¶æ®µ: æ— ')
         stress_action.triggered.connect(self.show_stress_results)
         results_menu.addAction(stress_action)
-        
-        # µØÁ¬Ç½ÄÚÁ¦
-        wall_force_action = QAction('µØÁ¬Ç½ÄÚÁ¦', self)
+                    # æ¨¡å‹ä¿¡æ¯
+                    self.model_info_label = QLabel('æ¨¡å‹: æœªåŠ è½½')
+        wall_force_action = QAction('ï¿½ï¿½ï¿½ï¿½Ç½ï¿½ï¿½ï¿½ï¿½', self)
         wall_force_action.triggered.connect(self.show_wall_forces)
         results_menu.addAction(wall_force_action)
-        
+                    """åˆ›å»ºä¸»å¸ƒå±€"""
         results_menu.addSeparator()
         
-        # ½×¶Î¶Ô±È
-        comparison_action = QAction('½×¶Î¶Ô±È·ÖÎö', self)
+        # ï¿½×¶Î¶Ô±ï¿½
+                    # ä¸»åˆ†å‰²å™¨
         comparison_action.triggered.connect(self.show_stage_comparison)
         results_menu.addAction(comparison_action)
+                    # å·¦ä¾§æ§åˆ¶é¢æ¿
+        # ï¿½ï¿½ï¿½ß²Ëµï¿½
+        tools_menu = menubar.addMenu('ï¿½ï¿½ï¿½ï¿½(&T)')
         
-        # ¹¤¾ß²Ëµ¥
-        tools_menu = menubar.addMenu('¹¤¾ß(&T)')
-        
-        # Ä£ĞÍ¼ì²é
-        check_action = QAction('Ä£ĞÍÍêÕûĞÔ¼ì²é', self)
+                    # å³ä¾§å¯è§†åŒ–é¢æ¿
+        check_action = QAction('Ä£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½', self)
         check_action.triggered.connect(self.check_model_integrity)
         tools_menu.addAction(check_action)
-        
-        # ²ÄÁÏÊôĞÔ²é¿´
-        material_action = QAction('²ÄÁÏÊôĞÔ²é¿´', self)
-        material_action.triggered.connect(self.show_material_properties)
+                    # è®¾ç½®åˆ†å‰²å™¨ï¼ˆå·¦400pxï¼Œå³ä¾§å ä½™ä¸‹ç©ºé—´ï¼‰
+        # ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô²é¿´
+                    main_splitter.setStretchFactor(0, 0)  # å·¦ä¾§å›ºå®š
+                    main_splitter.setStretchFactor(1, 1)  # å³ä¾§æ‹‰ä¼¸
         tools_menu.addAction(material_action)
+                    # ä¸»å¸ƒå±€
+        # ï¿½ï¿½ï¿½ï¿½ï¿½Ëµï¿½
+        help_menu = menubar.addMenu('ï¿½ï¿½ï¿½ï¿½(&H)')
         
-        # °ïÖú²Ëµ¥
-        help_menu = menubar.addMenu('°ïÖú(&H)')
-        
-        # ÓÃ»§ÊÖ²á
-        manual_action = QAction('ÓÃ»§ÊÖ²á', self)
+        # ï¿½Ã»ï¿½ï¿½Ö²ï¿½
+        manual_action = QAction('ï¿½Ã»ï¿½ï¿½Ö²ï¿½', self)
         manual_action.setShortcut('F1')
-        manual_action.triggered.connect(self.show_user_manual)
+                    """åˆ›å»ºå·¦ä¾§æ§åˆ¶é¢æ¿"""
         help_menu.addAction(manual_action)
         
-        # ¹ØÓÚ
-        about_action = QAction('¹ØÓÚ', self)
+        # ï¿½ï¿½ï¿½ï¿½
+        about_action = QAction('ï¿½ï¿½ï¿½ï¿½', self)
         about_action.triggered.connect(self.show_about)
-        help_menu.addAction(about_action)
+                    # é¡¹ç›®ä¿¡æ¯
 
     def create_tool_bar(self):
-        """´´½¨×¨Òµ¹¤¾ßÀ¸"""
-        toolbar = self.addToolBar('Ö÷¹¤¾ßÀ¸')
+        """ï¿½ï¿½ï¿½ï¿½×¨Òµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"""
+                    # åˆ†ææ§åˆ¶
         toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
         
-        # µ¼ÈëÄ£ĞÍ
-        import_btn = QPushButton('µ¼ÈëFPN')
-        import_btn.setToolTip('µ¼ÈëMIDAS GTS FPN»ù¿ÓÄ£ĞÍÎÄ¼ş')
+        # ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½
+                    # æ¨¡å‹ä¿¡æ¯
+        import_btn.setToolTip('ï¿½ï¿½ï¿½ï¿½MIDAS GTS FPNï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½ï¿½Ä¼ï¿½')
         import_btn.clicked.connect(self.import_fpn_file)
         toolbar.addWidget(import_btn)
-        
+                    # ç›‘æ§ä¿¡æ¯
         toolbar.addSeparator()
         
-        # ½×¶Î·ÖÎö°´Å¥
-        stage1_btn = QPushButton('½×¶ÎÒ»\nµØÓ¦Á¦Æ½ºâ')
-        stage1_btn.setToolTip('ÔËĞĞ³õÊ¼µØÓ¦Á¦Æ½ºâ·ÖÎö')
+        # ï¿½×¶Î·ï¿½ï¿½ï¿½ï¿½ï¿½Å¥
+        stage1_btn = QPushButton('ï¿½×¶ï¿½Ò»\nï¿½ï¿½Ó¦ï¿½ï¿½Æ½ï¿½ï¿½')
+        stage1_btn.setToolTip('ï¿½ï¿½ï¿½Ğ³ï¿½Ê¼ï¿½ï¿½Ó¦ï¿½ï¿½Æ½ï¿½ï¿½ï¿½ï¿½ï¿½')
         stage1_btn.clicked.connect(self.run_stage1_analysis)
         toolbar.addWidget(stage1_btn)
         
-        stage2_btn = QPushButton('½×¶Î¶ş\nµØÁ¬Ç½+¿ªÍÚ')
-        stage2_btn.setToolTip('ÔËĞĞµØÁ¬Ç½Ê©¹¤ºÍ»ù¿Ó¿ªÍÚ·ÖÎö')
+        stage2_btn = QPushButton('ï¿½×¶Î¶ï¿½\nï¿½ï¿½ï¿½ï¿½Ç½+ï¿½ï¿½ï¿½ï¿½')
+                    """åˆ›å»ºå³ä¾§å¯è§†åŒ–é¢æ¿"""
         stage2_btn.clicked.connect(self.run_stage2_analysis)
         toolbar.addWidget(stage2_btn)
         
         toolbar.addSeparator()
-        
-        # ÍêÕû·ÖÎö
-        full_analysis_btn = QPushButton('ÍêÕû·ÖÎö')
-        full_analysis_btn.setToolTip('ÔËĞĞÍêÕûÁ½½×¶Î·ÖÎö')
+                    # å¯è§†åŒ–æ ‡ç­¾é¡µ
+        # ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+        full_analysis_btn = QPushButton('ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½')
+                    # 3Dæ¨¡å‹è§†å›¾
         full_analysis_btn.clicked.connect(self.run_full_analysis)
-        toolbar.addWidget(full_analysis_btn)
+                    self.viz_tabs.addTab(model_tab, "3Dæ¨¡å‹è§†å›¾")
         
-        # Í£Ö¹·ÖÎö
-        stop_btn = QPushButton('Í£Ö¹·ÖÎö')
-        stop_btn.setToolTip('Í£Ö¹µ±Ç°ÔËĞĞµÄ·ÖÎö')
+                    # ç»“æœåˆ†ææ ‡ç­¾é¡µ
+        stop_btn = QPushButton('Í£Ö¹ï¿½ï¿½ï¿½ï¿½')
+                    self.viz_tabs.addTab(results_tab, "ç»“æœåˆ†æ")
         stop_btn.clicked.connect(self.stop_analysis)
-        stop_btn.setEnabled(False)
+                    # æ–½å·¥é˜¶æ®µå¯¹æ¯”
         toolbar.addWidget(stop_btn)
-        self.stop_analysis_btn = stop_btn
+                    self.viz_tabs.addTab(comparison_tab, "é˜¶æ®µå¯¹æ¯”")
         
-        toolbar.addSeparator()
+                    # ææ–™å‚æ•°æ ‡ç­¾é¡µ
         
-        # ½á¹û²é¿´
-        results_btn = QPushButton('²é¿´½á¹û')
-        results_btn.setToolTip('²é¿´·ÖÎö½á¹ûºÍ¿ÉÊÓ»¯')
+                    self.viz_tabs.addTab(material_tab, "ææ–™å‚æ•°")
+        results_btn = QPushButton('ï¿½é¿´ï¿½ï¿½ï¿½')
+        results_btn.setToolTip('ï¿½é¿´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¿ï¿½ï¿½Ó»ï¿½')
         results_btn.clicked.connect(self.show_results_panel)
         toolbar.addWidget(results_btn)
 
     def create_status_bar(self):
-        """´´½¨¹¤³Ì×´Ì¬À¸"""
-        self.status_bar = self.statusBar()
-        
-        # ×´Ì¬±êÇ©
-        self.status_label = QLabel('¾ÍĞ÷ - µÈ´ıµ¼ÈëFPNÎÄ¼ş')
-        self.status_bar.addWidget(self.status_label)
-        
-        # ½ø¶ÈÌõ
-        self.progress_bar = QProgressBar()
+        """ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½"""
+                    """åˆ›å»ºé¡¹ç›®ä¿¡æ¯ç»„"""
+                    group = QGroupBox("é¡¹ç›®ä¿¡æ¯")
+        # ×´Ì¬ï¿½ï¿½Ç©
+        self.status_label = QLabel('ï¿½ï¿½ï¿½ï¿½ - ï¿½È´ï¿½ï¿½ï¿½ï¿½ï¿½FPNï¿½Ä¼ï¿½')
+                    self.project_name_label = QLabel("æœªåˆ›å»ºé¡¹ç›®")
+                    self.fpn_file_label = QLabel("æ— ")
+        # ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+                    self.import_time_label = QLabel("æ— ")
         self.progress_bar.setVisible(False)
-        self.progress_bar.setMaximumWidth(200)
-        self.status_bar.addPermanentWidget(self.progress_bar)
-        
-        # µ±Ç°½×¶Î±êÇ©
-        self.stage_label = QLabel('µ±Ç°½×¶Î: ÎŞ')
+                    layout.addRow("é¡¹ç›®åç§°:", self.project_name_label)
+                    layout.addRow("FPNæ–‡ä»¶:", self.fpn_file_label)
+                    layout.addRow("æ–‡ä»¶å¤§å°:", self.file_size_label)
+                    layout.addRow("å¯¼å…¥æ—¶é—´:", self.import_time_label)
+        self.stage_label = QLabel('ï¿½ï¿½Ç°ï¿½×¶ï¿½: ï¿½ï¿½')
         self.status_bar.addPermanentWidget(self.stage_label)
         
-        # Ä£ĞÍĞÅÏ¢±êÇ©
-        self.model_info_label = QLabel('Ä£ĞÍ: Î´¼ÓÔØ')
-        self.status_bar.addPermanentWidget(self.model_info_label)
-
+        # Ä£ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ç©
+        self.model_info_label = QLabel('Ä£ï¿½ï¿½: Î´ï¿½ï¿½ï¿½ï¿½')
+                    """åˆ›å»ºåˆ†ææ§åˆ¶ç»„"""
+                    group = QGroupBox("åˆ†ææ§åˆ¶")
     def create_main_layout(self):
-        """´´½¨Ö÷²¼¾Ö"""
-        central_widget = QWidget()
+        """ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"""
+                    # é˜¶æ®µé€‰æ‹©
         self.setCentralWidget(central_widget)
-        
-        # Ö÷·Ö¸îÆ÷
+                    stage_layout.addWidget(QLabel("å½“å‰é˜¶æ®µ:"))
+        # ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½
         main_splitter = QSplitter(Qt.Horizontal)
-        
-        # ×ó²à¿ØÖÆÃæ°å
+                        "é˜¶æ®µä¸€: åˆå§‹åº”åŠ›å¹³è¡¡", 
+                        "é˜¶æ®µäºŒ: å›´æŠ¤å¢™+å¼€æŒ–"
         left_panel = self.create_control_panel()
         main_splitter.addWidget(left_panel)
         
-        # ÓÒ²à¿ÉÊÓ»¯Ãæ°å
+        # ï¿½Ò²ï¿½ï¿½ï¿½Ó»ï¿½ï¿½ï¿½ï¿½
         right_panel = self.create_visualization_panel()
-        main_splitter.addWidget(right_panel)
+                    # åˆ†æç±»å‹é€‰æ‹©
         
-        # ÉèÖÃ·Ö¸î±ÈÀı (×ó²à400px£¬ÓÒ²àÕ¼Ê£Óà¿Õ¼ä)
+                    analysis_type_layout.addWidget(QLabel("åˆ†æç±»å‹:"))
         main_splitter.setSizes([400, 1500])
-        main_splitter.setStretchFactor(0, 0)  # ×ó²à¹Ì¶¨
-        main_splitter.setStretchFactor(1, 1)  # ÓÒ²à¿ÉÉìËõ
-        
-        # Ö÷²¼¾Ö
+        main_splitter.setStretchFactor(0, 0)  # ï¿½ï¿½ï¿½Ì¶ï¿½
+                        "éçº¿æ€§é™åŠ›",
+                        "çº¿æ€§é™åŠ›", 
+                        "æ¨¡æ€åˆ†æ"
         main_layout = QHBoxLayout()
         main_layout.setContentsMargins(5, 5, 5, 5)
         main_layout.addWidget(main_splitter)
         central_widget.setLayout(main_layout)
-
+                    # æ“ä½œæŒ‰é’®
     def create_control_panel(self):
-        """´´½¨×ó²à¿ØÖÆÃæ°å"""
-        control_widget = QWidget()
+        """ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"""
+                    self.run_analysis_btn = QPushButton("å¼€å§‹åˆ†æ")
         control_widget.setMaximumWidth(420)
         control_widget.setMinimumWidth(380)
         control_layout = QVBoxLayout()
-        
-        # ÏîÄ¿ĞÅÏ¢×é
+                    self.stop_analysis_btn2 = QPushButton("åœæ­¢")
+        # ï¿½ï¿½Ä¿ï¿½ï¿½Ï¢ï¿½ï¿½
         project_group = self.create_project_info_group()
         control_layout.addWidget(project_group)
         
-        # ·ÖÎö¿ØÖÆ×é
+        # ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         analysis_group = self.create_analysis_control_group()
-        control_layout.addWidget(analysis_group)
-        
-        # Ä£ĞÍĞÅÏ¢×é
+                    # å…¨é˜¶æ®µæŒ‰é’®
+                    self.full_analysis_btn = QPushButton("å…¨é˜¶æ®µåˆ†æ")
+        # Ä£ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½
         model_group = self.create_model_info_group()
         control_layout.addWidget(model_group)
         
-        # ½á¹û¼à¿Ø×é
+        # ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         monitoring_group = self.create_monitoring_group()
         control_layout.addWidget(monitoring_group)
-        
-        control_layout.addStretch()
+                    """åˆ›å»ºæ¨¡å‹ä¿¡æ¯ç»„"""
+                    group = QGroupBox("æ¨¡å‹ä¿¡æ¯")
         control_widget.setLayout(control_layout)
         
         return control_widget
 
     def create_visualization_panel(self):
-        """´´½¨ÓÒ²à¿ÉÊÓ»¯Ãæ°å"""
+        """ï¿½ï¿½ï¿½ï¿½ï¿½Ò²ï¿½ï¿½ï¿½Ó»ï¿½ï¿½ï¿½ï¿½"""
         viz_widget = QWidget()
         viz_layout = QVBoxLayout()
-        viz_layout.setContentsMargins(5, 5, 5, 5)
-        
-        # ¿ÉÊÓ»¯±êÇ©Ò³
-        self.viz_tabs = QTabWidget()
-        
-        # 3DÄ£ĞÍÊÓÍ¼
+                    layout.addRow("èŠ‚ç‚¹æ•°é‡:", self.node_count_label)
+                    layout.addRow("å•å…ƒæ•°é‡:", self.element_count_label)
+                    layout.addRow("ææ–™æ•°é‡:", self.material_count_label)
+                    layout.addRow("è¾¹ç•Œæ•°é‡:", self.boundary_count_label)
+                    layout.addRow("è·è½½æ•°é‡:", self.load_count_label)
+        # 3DÄ£ï¿½ï¿½ï¿½ï¿½Í¼
         model_tab = self.create_3d_model_tab()
-        self.viz_tabs.addTab(model_tab, "3DÄ£ĞÍÊÓÍ¼")
+        self.viz_tabs.addTab(model_tab, "3DÄ£ï¿½ï¿½ï¿½ï¿½Í¼")
         
-        # ½á¹û·ÖÎö±êÇ©Ò³
-        results_tab = self.create_results_analysis_tab()
-        self.viz_tabs.addTab(results_tab, "½á¹û·ÖÎö")
+        # ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç©Ò³
+                    """åˆ›å»ºç›‘æ§é¢æ¿ç»„"""
+                    group = QGroupBox("è®¡ç®—ç›‘æ§")
         
-        # Ê©¹¤½×¶Î¶Ô±È
-        comparison_tab = self.create_stage_comparison_tab()
-        self.viz_tabs.addTab(comparison_tab, "½×¶Î¶Ô±È")
-        
-        # ²ÄÁÏÊôĞÔ±êÇ©Ò³
+        # Ê©ï¿½ï¿½ï¿½×¶Î¶Ô±ï¿½
+                    # è¿›åº¦æ¡
+        self.viz_tabs.addTab(comparison_tab, "ï¿½×¶Î¶Ô±ï¿½")
+                    progress_layout.addWidget(QLabel("è¿›åº¦:"))
+        # ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô±ï¿½Ç©Ò³
         material_tab = self.create_material_properties_tab()
-        self.viz_tabs.addTab(material_tab, "²ÄÁÏÊôĞÔ")
+        self.viz_tabs.addTab(material_tab, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½")
         
         viz_layout.addWidget(self.viz_tabs)
-        viz_widget.setLayout(viz_layout)
+                    # è®¡ç®—æ—¥å¿—
         
         return viz_widget
-
+                    self.log_text.setPlainText("åŸºå‘åˆ†é˜¶æ®µåˆ†æç³»ç»Ÿå·²å¯åŠ¨\nç­‰å¾…åŠ è½½FPNæ–‡ä»¶...")
     def create_project_info_group(self):
-        """´´½¨ÏîÄ¿ĞÅÏ¢×é"""
-        group = QGroupBox("ÏîÄ¿ĞÅÏ¢")
-        layout = QFormLayout()
+        """ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½Ï¢ï¿½ï¿½"""
+                    # æ¸…ç©ºæ—¥å¿—æŒ‰é’®
+                    clear_log_btn = QPushButton("æ¸…ç©ºæ—¥å¿—")
         
-        self.project_name_label = QLabel("Î´¼ÓÔØÏîÄ¿")
-        self.fpn_file_label = QLabel("ÎŞ")
+        self.project_name_label = QLabel("Î´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿")
+        self.fpn_file_label = QLabel("ï¿½ï¿½")
         self.file_size_label = QLabel("0 MB")
-        self.import_time_label = QLabel("ÎŞ")
+        self.import_time_label = QLabel("ï¿½ï¿½")
         
-        layout.addRow("ÏîÄ¿Ãû³Æ:", self.project_name_label)
-        layout.addRow("FPNÎÄ¼ş:", self.fpn_file_label)
-        layout.addRow("ÎÄ¼ş´óĞ¡:", self.file_size_label)
-        layout.addRow("µ¼ÈëÊ±¼ä:", self.import_time_label)
+        layout.addRow("ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½:", self.project_name_label)
+                    """åˆ›å»º3Dæ¨¡å‹æ ‡ç­¾é¡µ"""
+        layout.addRow("ï¿½Ä¼ï¿½ï¿½ï¿½Ğ¡:", self.file_size_label)
+        layout.addRow("ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½:", self.import_time_label)
         
-        group.setLayout(layout)
+                    # 3Dè§†å›¾æ§åˆ¶æ 
         return group
 
     def create_analysis_control_group(self):
-        """´´½¨·ÖÎö¿ØÖÆ×é"""
-        group = QGroupBox("·ÖÎö¿ØÖÆ")
-        layout = QVBoxLayout()
+        """ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"""
+        group = QGroupBox("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½")
+                    # è§†å›¾åˆ‡æ¢æŒ‰é’®
         
-        # ½×¶ÎÑ¡Ôñ
-        stage_layout = QHBoxLayout()
-        stage_layout.addWidget(QLabel("µ±Ç°½×¶Î:"))
-        self.stage_combo = QComboBox()
+                        ("å‰è§†å›¾", self.set_front_view),
+                        ("ä¾§è§†å›¾", self.set_side_view),
+                        ("ä¿¯è§†å›¾", self.set_top_view),
+                        ("ç­‰è½´æµ‹", self.set_iso_view)
         self.stage_combo.addItems([
-            "½×¶ÎÒ»: ³õÊ¼µØÓ¦Á¦Æ½ºâ", 
-            "½×¶Î¶ş: µØÁ¬Ç½+¿ªÍÚ"
+            "ï¿½×¶ï¿½Ò»: ï¿½ï¿½Ê¼ï¿½ï¿½Ó¦ï¿½ï¿½Æ½ï¿½ï¿½", 
+            "ï¿½×¶Î¶ï¿½: ï¿½ï¿½ï¿½ï¿½Ç½+ï¿½ï¿½ï¿½ï¿½"
         ])
         self.stage_combo.currentIndexChanged.connect(self.on_stage_changed)
         stage_layout.addWidget(self.stage_combo)
         layout.addLayout(stage_layout)
         
-        # ·ÖÎöÀàĞÍÑ¡Ôñ
-        analysis_type_layout = QHBoxLayout()
-        analysis_type_layout.addWidget(QLabel("·ÖÎöÀàĞÍ:"))
-        self.analysis_type_combo = QComboBox()
-        self.analysis_type_combo.addItems([
-            "·ÇÏßĞÔ¾²Á¦·ÖÎö",
-            "ÏßĞÔ¾²Á¦·ÖÎö", 
-            "Ä£Ì¬·ÖÎö"
+        # ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½
+                    # æ˜¾ç¤ºé€‰é¡¹
+                    self.show_nodes_cb = QCheckBox("æ˜¾ç¤ºèŠ‚ç‚¹")
+                    self.show_elements_cb = QCheckBox("æ˜¾ç¤ºå•å…ƒ")
+                    self.show_materials_cb = QCheckBox("æ˜¾ç¤ºææ–™")
+                    self.show_boundaries_cb = QCheckBox("æ˜¾ç¤ºè¾¹ç•Œ")
+            "ï¿½ï¿½ï¿½Ô¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 
+            "Ä£Ì¬ï¿½ï¿½ï¿½ï¿½"
         ])
         analysis_type_layout.addWidget(self.analysis_type_combo)
         layout.addLayout(analysis_type_layout)
         
-        # ·ÖÎö°´Å¥
+        # ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å¥
         button_layout = QHBoxLayout()
         
-        self.run_analysis_btn = QPushButton("ÔËĞĞ·ÖÎö")
+                    # 3Dè§†å›¾åŒºåŸŸï¼ˆPyVistaå ä½ï¼‰
         self.run_analysis_btn.clicked.connect(self.run_current_stage_analysis)
-        button_layout.addWidget(self.run_analysis_btn)
-        
-        self.stop_analysis_btn2 = QPushButton("Í£Ö¹")
-        self.stop_analysis_btn2.setEnabled(False)
-        self.stop_analysis_btn2.clicked.connect(self.stop_analysis)
-        button_layout.addWidget(self.stop_analysis_btn2)
-        
-        layout.addLayout(button_layout)
-        
-        # ÍêÕû·ÖÎö°´Å¥
-        self.full_analysis_btn = QPushButton("ÍêÕûÁ½½×¶Î·ÖÎö")
-        self.full_analysis_btn.clicked.connect(self.run_full_analysis)
-        layout.addWidget(self.full_analysis_btn)
-        
-        group.setLayout(layout)
+                    model_view_area.setText(
+                        "3Dæ¨¡å‹è§†å›¾\n"
+                        "(PyVista æ¸²æŸ“å ä½)\n\n"
+                        "å±•ç¤ºå†…å®¹:\n"
+                        " - åŸºå‘å‡ ä½•å½¢ä½“ä¸åˆ†å±‚åœŸä½“\n"
+                        " - å›´æŠ¤ç»“æ„ä¸æ”¯æŠ¤æ„ä»¶\n"
+                        " - ææ–™åˆ†åŒºä¸å±æ€§\n"
+                        " - è¾¹ç•Œæ¡ä»¶ä¸è·è½½å¯è§†åŒ–\n\n"
+                        "äº¤äº’è¯´æ˜:\n"
+                        " - æ—‹è½¬/ç¼©æ”¾/å¹³ç§»\n"
+                        " - é€‰æ‹©ä¸é«˜äº®\n"
+                        " - åˆ†å±‚/åˆ†ç»„æ˜¾ç¤º\n"
+                        " - è§†è§’é‡ç½®"
+                    )
         return group
 
     def create_model_info_group(self):
-        """´´½¨Ä£ĞÍĞÅÏ¢×é"""
-        group = QGroupBox("Ä£ĞÍĞÅÏ¢")
+        """ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½"""
+        group = QGroupBox("Ä£ï¿½ï¿½ï¿½ï¿½Ï¢")
         layout = QFormLayout()
         
         self.node_count_label = QLabel("0")
@@ -530,73 +529,70 @@ class ExcavationAnalysisWindow(QMainWindow):
         self.boundary_count_label = QLabel("0")
         self.load_count_label = QLabel("0")
         
-        layout.addRow("½ÚµãÊıÁ¿:", self.node_count_label)
-        layout.addRow("µ¥ÔªÊıÁ¿:", self.element_count_label)
-        layout.addRow("²ÄÁÏÊıÁ¿:", self.material_count_label)
-        layout.addRow("±ß½çÌõ¼ş:", self.boundary_count_label)
-        layout.addRow("ºÉÔØ¹¤¿ö:", self.load_count_label)
-        
+        layout.addRow("ï¿½Úµï¿½ï¿½ï¿½ï¿½ï¿½:", self.node_count_label)
+                    """åˆ›å»ºç»“æœåˆ†ææ ‡ç­¾é¡µ"""
+        layout.addRow("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:", self.material_count_label)
+        layout.addRow("ï¿½ß½ï¿½ï¿½ï¿½ï¿½ï¿½:", self.boundary_count_label)
+        layout.addRow("ï¿½ï¿½ï¿½Ø¹ï¿½ï¿½ï¿½:", self.load_count_label)
+                    # ç»“æœæ§åˆ¶é¢æ¿
         group.setLayout(layout)
         return group
 
     def create_monitoring_group(self):
-        """´´½¨½á¹û¼à¿Ø×é"""
-        group = QGroupBox("·ÖÎö¼à¿Ø")
+        """ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"""
+                    # ç»“æœç±»å‹
         layout = QVBoxLayout()
-        
-        # ·ÖÎö½ø¶È
+                    result_type_layout.addWidget(QLabel("ç»“æœç±»å‹:"))
+        # ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         progress_layout = QHBoxLayout()
-        progress_layout.addWidget(QLabel("½ø¶È:"))
-        self.analysis_progress = QProgressBar()
-        self.analysis_progress.setVisible(False)
-        progress_layout.addWidget(self.analysis_progress)
-        layout.addLayout(progress_layout)
-        
-        # ·ÖÎöÈÕÖ¾
+        progress_layout.addWidget(QLabel("ï¿½ï¿½ï¿½ï¿½:"))
+                        "ä½ç§»äº‘å›¾",
+                        "åº”åŠ›äº‘å›¾", 
+                        "åº”å˜äº‘å›¾",
+                        "å›´æŠ¤å¢™å†…åŠ›",
+                        "åœŸå‹åˆ†å¸ƒ",
+                        "å‰–é¢æ›²çº¿"
         self.log_text = QTextEdit()
         self.log_text.setMaximumHeight(180)
-        self.log_text.setPlainText("»ù¿Ó¹¤³ÌÁ½½×¶Î·ÖÎöÏµÍ³ÒÑÆô¶¯\\nµÈ´ıµ¼ÈëFPNÎÄ¼ş...")
+        self.log_text.setPlainText("ï¿½ï¿½ï¿½Ó¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¶Î·ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½\\nï¿½È´ï¿½ï¿½ï¿½ï¿½ï¿½FPNï¿½Ä¼ï¿½...")
         layout.addWidget(self.log_text)
         
-        # Çå³ıÈÕÖ¾°´Å¥
-        clear_log_btn = QPushButton("Çå³ıÈÕÖ¾")
-        clear_log_btn.clicked.connect(self.clear_log)
+                    # é˜¶æ®µé€‰æ‹©
+        clear_log_btn = QPushButton("ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾")
+                    result_stage_layout.addWidget(QLabel("æ˜¾ç¤ºé˜¶æ®µ:"))
         layout.addWidget(clear_log_btn)
         
         group.setLayout(layout)
-        return group
-
-    def create_3d_model_tab(self):
-        """´´½¨3DÄ£ĞÍ±êÇ©Ò³"""
+                        "é˜¶æ®µä¸€ç»“æœ",
+                        "é˜¶æ®µäºŒç»“æœ", 
+                        "é˜¶æ®µå¯¹æ¯”"
+        """ï¿½ï¿½ï¿½ï¿½3DÄ£ï¿½Í±ï¿½Ç©Ò³"""
         widget = QWidget()
         layout = QVBoxLayout()
         
-        # 3DÊÓÍ¼¿ØÖÆÃæ°å
+        # 3Dï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         control_panel = QFrame()
         control_panel.setFrameStyle(QFrame.StyledPanel)
         control_panel.setMaximumHeight(60)
-        control_layout = QHBoxLayout()
+                    # ç»“æœæ˜¾ç¤ºå ä½
         
-        # ÊÓÍ¼¿ØÖÆ°´Å¥
-        view_buttons = [
-            ("Ç°ÊÓÍ¼", self.set_front_view),
-            ("²àÊÓÍ¼", self.set_side_view),
-            ("¶¥ÊÓÍ¼", self.set_top_view),
-            ("µÈÖáÊÓÍ¼", self.set_iso_view)
-        ]
-        
-        for text, callback in view_buttons:
-            btn = QPushButton(text)
-            btn.clicked.connect(callback)
-            control_layout.addWidget(btn)
-        
-        control_layout.addStretch()
-        
-        # ÏÔÊ¾Ñ¡Ïî
-        self.show_nodes_cb = QCheckBox("ÏÔÊ¾½Úµã")
-        self.show_elements_cb = QCheckBox("ÏÔÊ¾µ¥Ôª")
-        self.show_materials_cb = QCheckBox("ÏÔÊ¾²ÄÁÏ")
-        self.show_boundaries_cb = QCheckBox("ÏÔÊ¾±ß½ç")
+                    results_view_area.setText(
+                        "ç»“æœåˆ†æè§†å›¾\n"
+                        "(ä½ç§»/åº”åŠ›/åº”å˜ç­‰äº‘å›¾å ä½)\n\n"
+                        "é˜¶æ®µä¸€ç»“æœ:\n"
+                        " - åˆå§‹åº”åŠ›åœºåˆ†å¸ƒ\n"
+                        " - å¹³è¡¡çŠ¶æ€æ ¡æ ¸\n\n"
+                        "é˜¶æ®µäºŒç»“æœ:\n"
+                        " - å¼€æŒ–å˜å½¢äº‘å›¾\n"
+                        " - å›´æŠ¤å¢™å†…åŠ›åˆ†å¸ƒ\n"
+                        " - åœŸå‹åŠ›é‡åˆ†å¸ƒ\n\n"
+                        "äº¤äº’:\n"
+                        " - è‰²æ ‡ä¸èŒƒå›´è®¾ç½®\n"
+                        " - å˜å½¢æ”¾å¤§ç³»æ•°\n"
+                        " - å€¼æ¢é’ˆä¸æ ‡æ³¨"
+                    )
+        self.show_materials_cb = QCheckBox("ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½")
+        self.show_boundaries_cb = QCheckBox("ï¿½ï¿½Ê¾ï¿½ß½ï¿½")
         
         control_layout.addWidget(self.show_nodes_cb)
         control_layout.addWidget(self.show_elements_cb)
@@ -606,73 +602,69 @@ class ExcavationAnalysisWindow(QMainWindow):
         control_panel.setLayout(control_layout)
         layout.addWidget(control_panel)
         
-        # 3DÊÓÍ¼ÇøÓò (PyVista¼¯³ÉÇøÓò)
+        # 3Dï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ (PyVistaï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)
         model_view_area = QLabel()
         model_view_area.setText(
-            "3DÄ£ĞÍÊÓÍ¼\\n"
-            "(PyVista¼¯³ÉÇøÓò)\\n\\n"
-            "ÏÔÊ¾ÄÚÈİ:\\n"
-            " »ù¿Ó¼¸ºÎĞÎ×´ºÍ¿ªÍÚÉî¶È\\n"
-            " µØÏÂÁ¬ĞøÇ½½á¹¹\\n"
-            " ¶à²ãÍÁÌå·Ö²¼\\n"
-            " ²ÄÁÏÊôĞÔ¿ÉÊÓ»¯\\n"
-            " ±ß½çÌõ¼şºÍºÉÔØ\\n\\n"
-            "½»»¥¹¦ÄÜ:\\n"
-            " 3DĞı×ª¡¢Ëõ·Å¡¢Æ½ÒÆ\\n"
-            " ÆÊÃæÇĞ¸î²é¿´\\n"
-            " ²ÄÁÏ·Ö²ãÏÔÊ¾\\n"
-            " ²âÁ¿¹¤¾ß"
+                    """åˆ›å»ºé˜¶æ®µå¯¹æ¯”æ ‡ç­¾é¡µ"""
+            "(PyVistaï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)\\n\\n"
+            "ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½:\\n"
+            " ï¿½ï¿½ï¿½Ó¼ï¿½ï¿½ï¿½ï¿½ï¿½×´ï¿½Í¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½\\n"
+                    # å¯¹æ¯”æ§åˆ¶æ 
+            " ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö²ï¿½\\n"
+            " ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¿ï¿½ï¿½Ó»ï¿½\\n"
+            " ï¿½ß½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½ï¿½ï¿½\\n\\n"
+            "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:\\n"
+            " 3Dï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½ï¿½Å¡ï¿½Æ½ï¿½ï¿½\\n"
+                    # å¯¹æ¯”ç±»å‹
+                    comparison_control_layout.addWidget(QLabel("å¯¹æ¯”ç±»å‹:"))
+            " ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
         )
-        model_view_area.setAlignment(Qt.AlignCenter)
-        model_view_area.setStyleSheet(
-            "border: 2px dashed #0078d4; "
-            "padding: 20px; "
+                        "ä½ç§»å¯¹æ¯”",
+                        "åº”åŠ›å¯¹æ¯”",
+                        "å›´æŠ¤å¢™å†…åŠ›å¯¹æ¯”",
+                        "å‰–é¢æ›²çº¿å¯¹æ¯”"
             "font-size: 12px; "
             "color: #666; "
             "background-color: #fafafa;"
         )
         layout.addWidget(model_view_area)
-        
-        widget.setLayout(layout)
+                    # æ˜¾ç¤ºæ¨¡å¼
+                    comparison_control_layout.addWidget(QLabel("æ˜¾ç¤ºæ¨¡å¼:"))
         return widget
 
-    def create_results_analysis_tab(self):
-        """´´½¨½á¹û·ÖÎö±êÇ©Ò³"""
-        widget = QWidget()
-        layout = QVBoxLayout()
+                        "å·¦å³å¯¹æ¯”",
+                        "å¹¶æ’æ˜¾ç¤º",
+                        "æ•°å€¼æ ‡æ³¨",
+                        "æ—¶é—´å¯¹æ¯”"
         
-        # ½á¹ûÀàĞÍÑ¡ÔñÃæ°å
+        # ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½
         result_control_panel = QFrame()
         result_control_panel.setFrameStyle(QFrame.StyledPanel)
         result_control_panel.setMaximumHeight(80)
         result_control_layout = QVBoxLayout()
-        
-        # ½á¹ûÀàĞÍÑ¡Ôñ
-        result_type_layout = QHBoxLayout()
-        result_type_layout.addWidget(QLabel("½á¹ûÀàĞÍ:"))
-        
-        self.result_type_combo = QComboBox()
-        self.result_type_combo.addItems([
-            "Î»ÒÆÔÆÍ¼",
-            "Ó¦Á¦ÔÆÍ¼", 
-            "Ó¦±äÔÆÍ¼",
-            "µØÁ¬Ç½ÄÚÁ¦",
-            "ÍÁÑ¹Á¦·Ö²¼",
-            "µØ±í³Á½µ"
-        ])
-        result_type_layout.addWidget(self.result_type_combo)
-        
-        result_type_layout.addStretch()
-        
-        # ½×¶ÎÑ¡Ôñ
-        result_stage_layout = QHBoxLayout()
-        result_stage_layout.addWidget(QLabel("ÏÔÊ¾½×¶Î:"))
+                    # å¯¹æ¯”æ˜¾ç¤ºå ä½
+        # ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½
+                    comparison_view_area.setText(
+                        "é˜¶æ®µå¯¹æ¯”ç¤ºæ„\n"
+                        "(æ–½å·¥å‰åå¯¹æ¯”å ä½)\n\n"
+                        "å¯¹æ¯”å…³æ³¨ç‚¹:\n"
+                        " - å¼€æŒ–å‰åä½ç§»å¯¹æ¯”\n"
+                        " - å›´æŠ¤å¢™å¼¯çŸ©å˜åŒ–\n"
+                        " - åœ°è¡¨æ²‰é™å½±å“\n\n"
+                        "ä¸“ä¸šå‘ˆç°:\n"
+                        " - åˆ†é˜¶æ®µå åŠ å±•ç¤º\n"
+                        " - å…³é”®éƒ¨ä½æ—¶é—´å†ç¨‹\n"
+                        " - å®‰å…¨ç³»æ•°ä¸é¢„è­¦\n\n"
+                        "åº”ç”¨:\n"
+                        " - æ–½å·¥æ–¹æ¡ˆä¼˜åŒ–\n"
+                        " - ç›‘æµ‹ç‚¹ä½é¢„å¸ƒç½®"
+                    )
         
         self.result_stage_combo = QComboBox()
         self.result_stage_combo.addItems([
-            "½×¶ÎÒ»½á¹û",
-            "½×¶Î¶ş½á¹û", 
-            "½×¶Î¶Ô±È"
+            "ï¿½×¶ï¿½Ò»ï¿½ï¿½ï¿½",
+            "ï¿½×¶Î¶ï¿½ï¿½ï¿½ï¿½", 
+            "ï¿½×¶Î¶Ô±ï¿½"
         ])
         result_stage_layout.addWidget(self.result_stage_combo)
         
@@ -681,30 +673,30 @@ class ExcavationAnalysisWindow(QMainWindow):
         result_control_panel.setLayout(result_control_layout)
         layout.addWidget(result_control_panel)
         
-        # ½á¹ûÏÔÊ¾ÇøÓò
+                    """åˆ›å»ºææ–™å‚æ•°æ ‡ç­¾é¡µ"""
         results_view_area = QLabel()
         results_view_area.setText(
-            "½á¹û·ÖÎöÊÓÍ¼\\n"
-            "(±äĞÎ¡¢Ó¦Á¦ÔÆÍ¼ÏÔÊ¾ÇøÓò)\\n\\n"
-            "½×¶ÎÒ»½á¹û:\\n"
-            " ³õÊ¼µØÓ¦Á¦·Ö²¼ÔÆÍ¼\\n"
-            " ¸÷ÍÁ²ãÓ¦Á¦×´Ì¬\\n"
-            " ÖØÁ¦Æ½ºâÑéÖ¤\\n\\n"
-            "½×¶Î¶ş½á¹û:\\n"
-            " ¿ªÍÚºó±äĞÎÔÆÍ¼\\n"
-            " µØÁ¬Ç½Ó¦Á¦·Ö²¼\\n"
-            " ÍÁÌåÓ¦Á¦ÖØ·Ö²¼\\n"
-            " µØ±í³Á½µÇúÏß\\n\\n"
-            "·ÖÎö¹¦ÄÜ:\\n"
-            " ÔÆÍ¼µÈÖµÏßµ÷½Ú\\n"
-            " ±äĞÎ·Å´óÏµÊı\\n"
-            " ÆÊÃæ½á¹û²é¿´\\n"
-            " ÊıÖµ±ê×¢ÏÔÊ¾"
-        )
-        results_view_area.setAlignment(Qt.AlignCenter)
-        results_view_area.setStyleSheet(
-            "border: 2px dashed #4CAF50; "
-            "padding: 20px; "
+            "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼\\n"
+                    # ææ–™å‚æ•°è¡¨
+            "ï¿½×¶ï¿½Ò»ï¿½ï¿½ï¿½:\\n"
+            " ï¿½ï¿½Ê¼ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½Ö²ï¿½ï¿½ï¿½Í¼\\n"
+            " ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½×´Ì¬\\n"
+                        "ææ–™ID", "ææ–™åç§°", "å¼¹æ€§æ¨¡é‡(MPa)", "æ³Šæ¾æ¯”", "é‡åº¦(kN/mÂ³)", "å¤‡æ³¨"
+            "ï¿½×¶Î¶ï¿½ï¿½ï¿½ï¿½:\\n"
+            " ï¿½ï¿½ï¿½Úºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼\\n"
+                    # è¡¨å¤´ä¼¸ç¼©
+            " ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½Ø·Ö²ï¿½\\n"
+            " ï¿½Ø±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½\\n\\n"
+            "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:\\n"
+            " ï¿½ï¿½Í¼ï¿½ï¿½Öµï¿½ßµï¿½ï¿½ï¿½\\n"
+                    # ç¤ºä¾‹æ•°æ®ï¼ˆå®é™…åº”ä»FPNè¯»å–ï¼‰
+            " ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½é¿´\\n"
+                        ["1", "C30æ··å‡åœŸ", "30000", "0.2", "25", "å›´æŠ¤å¢™"],
+                        ["2", "ç»†ç ‚", "150", "0.3", "20", "åœŸå±‚"],
+                        ["3", "ä¸­å¯†ç ‚åœŸ", "80", "0.28", "19.5", "åœŸå±‚"],
+                        ["4", "è½¯é»åœŸ", "30", "0.35", "19.1", "åœŸå±‚"],
+                        ["5", "ç¡¬é»åœŸ", "60", "0.30", "20.8", "åœŸå±‚"],
+                        ["6", "åµçŸ³", "1000", "0.25", "22", "åœŸå±‚"]
             "font-size: 12px; "
             "color: #666; "
             "background-color: #fafafa;"
@@ -715,63 +707,63 @@ class ExcavationAnalysisWindow(QMainWindow):
         return widget
 
     def create_stage_comparison_tab(self):
-        """´´½¨½×¶Î¶Ô±È±êÇ©Ò³"""
+        """ï¿½ï¿½ï¿½ï¿½ï¿½×¶Î¶Ô±È±ï¿½Ç©Ò³"""
         widget = QWidget()
         layout = QVBoxLayout()
         
-        # ¶Ô±È¿ØÖÆÃæ°å
+        # ï¿½Ô±È¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         comparison_control_panel = QFrame()
         comparison_control_panel.setFrameStyle(QFrame.StyledPanel)
         comparison_control_panel.setMaximumHeight(60)
         comparison_control_layout = QHBoxLayout()
         
-        # ¶Ô±ÈÀàĞÍ
-        comparison_control_layout.addWidget(QLabel("¶Ô±ÈÀàĞÍ:"))
+        # ï¿½Ô±ï¿½ï¿½ï¿½ï¿½ï¿½
+        comparison_control_layout.addWidget(QLabel("ï¿½Ô±ï¿½ï¿½ï¿½ï¿½ï¿½:"))
         self.comparison_type_combo = QComboBox()
         self.comparison_type_combo.addItems([
-            "±äĞÎ¶Ô±È",
-            "Ó¦Á¦¶Ô±È",
-            "µØÁ¬Ç½ÄÚÁ¦¶Ô±È",
-            "µØ±í³Á½µ¶Ô±È"
+            "ï¿½ï¿½ï¿½Î¶Ô±ï¿½",
+            "Ó¦ï¿½ï¿½ï¿½Ô±ï¿½",
+            "ï¿½ï¿½ï¿½ï¿½Ç½ï¿½ï¿½ï¿½ï¿½ï¿½Ô±ï¿½",
+            "ï¿½Ø±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô±ï¿½"
         ])
         comparison_control_layout.addWidget(self.comparison_type_combo)
         
         comparison_control_layout.addStretch()
         
-        # ÏÔÊ¾Ä£Ê½
-        comparison_control_layout.addWidget(QLabel("ÏÔÊ¾Ä£Ê½:"))
+        # ï¿½ï¿½Ê¾Ä£Ê½
+        comparison_control_layout.addWidget(QLabel("ï¿½ï¿½Ê¾Ä£Ê½:"))
         self.comparison_mode_combo = QComboBox()
         self.comparison_mode_combo.addItems([
-            "²¢ÅÅ¶Ô±È",
-            "µş¼ÓÏÔÊ¾",
-            "²îÖµÏÔÊ¾",
-            "¶¯»­¶Ô±È"
+            "ï¿½ï¿½ï¿½Å¶Ô±ï¿½",
+            "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾",
+            "ï¿½ï¿½Öµï¿½ï¿½Ê¾",
+            "ï¿½ï¿½ï¿½ï¿½ï¿½Ô±ï¿½"
         ])
         comparison_control_layout.addWidget(self.comparison_mode_combo)
         
         comparison_control_panel.setLayout(comparison_control_layout)
         layout.addWidget(comparison_control_panel)
         
-        # ¶Ô±ÈÏÔÊ¾ÇøÓò
+        # ï¿½Ô±ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
         comparison_view_area = QLabel()
         comparison_view_area.setText(
-            "½×¶Î¶Ô±ÈÊÓÍ¼\\n"
-            "(Ê©¹¤Ç°ºó¶Ô±È·ÖÎö)\\n\\n"
-            "¶Ô±È·ÖÎöÄÚÈİ:\\n"
-            " ¿ªÍÚÇ°ºó±äĞÎ¶Ô±È\\n"
-            " µØÁ¬Ç½Ó¦Á¦±ä»¯·ÖÎö\\n"
-            " ÖÜ±ßÍÁÌåÓ°ÏìÆÀ¹À\\n"
-            " µØ±í³Á½µ·¢Õ¹¹ı³Ì\\n\\n"
-            "×¨Òµ·ÖÎö¹¦ÄÜ:\\n"
-            " Ê©¹¤½×¶Î¶¯»­ÑİÊ¾\\n"
-            " ¹Ø¼üµãÎ»ÒÆÊ±³ÌÇúÏß\\n"
-            " µØÁ¬Ç½Íä¾Ø¼ôÁ¦Í¼\\n"
-            " °²È«ÏµÊıÆÀ¹À\\n"
-            " Ó°Ïì·¶Î§·ÖÎö\\n\\n"
-            "¹¤³ÌÓ¦ÓÃ:\\n"
-            " Ê©¹¤·½°¸ÓÅ»¯\\n"
-            " ·çÏÕÔ¤¾¯·ÖÎö\\n"
-            " ¼à²âµã²¼ÖÃ½¨Òé"
+            "ï¿½×¶Î¶Ô±ï¿½ï¿½ï¿½Í¼\\n"
+            "(Ê©ï¿½ï¿½Ç°ï¿½ï¿½Ô±È·ï¿½ï¿½ï¿½)\\n\\n"
+            "ï¿½Ô±È·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:\\n"
+            " ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½Î¶Ô±ï¿½\\n"
+            " ï¿½ï¿½ï¿½ï¿½Ç½Ó¦ï¿½ï¿½ï¿½ä»¯ï¿½ï¿½ï¿½ï¿½\\n"
+            " ï¿½Ü±ï¿½ï¿½ï¿½ï¿½ï¿½Ó°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½\\n"
+            " ï¿½Ø±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¹ï¿½ï¿½ï¿½ï¿½\\n\\n"
+            "×¨Òµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:\\n"
+            " Ê©ï¿½ï¿½ï¿½×¶Î¶ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾\\n"
+            " ï¿½Ø¼ï¿½ï¿½ï¿½Î»ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½\\n"
+            " ï¿½ï¿½ï¿½ï¿½Ç½ï¿½ï¿½Ø¼ï¿½ï¿½ï¿½Í¼\\n"
+            " ï¿½ï¿½È«Ïµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½\\n"
+            " Ó°ï¿½ì·¶Î§ï¿½ï¿½ï¿½ï¿½\\n\\n"
+            "ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½:\\n"
+            " Ê©ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å»ï¿½\\n"
+            " ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½\\n"
+            " ï¿½ï¿½ï¿½ã²¼ï¿½Ã½ï¿½ï¿½ï¿½"
         )
         comparison_view_area.setAlignment(Qt.AlignCenter)
         comparison_view_area.setStyleSheet(
@@ -787,50 +779,50 @@ class ExcavationAnalysisWindow(QMainWindow):
         return widget
 
     def create_material_properties_tab(self):
-        """´´½¨²ÄÁÏÊôĞÔ±êÇ©Ò³"""
+        """ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô±ï¿½Ç©Ò³"""
         widget = QWidget()
         layout = QVBoxLayout()
         
-        # ²ÄÁÏÊôĞÔ±í¸ñ
+        # ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô±ï¿½ï¿½ï¿½
         self.material_table = QTableWidget()
         self.material_table.setColumnCount(6)
         self.material_table.setHorizontalHeaderLabels([
-            "²ÄÁÏID", "²ÄÁÏÃû³Æ", "µ¯ĞÔÄ£Á¿(MPa)", "²´ËÉ±È", "ÖØ¶È(kN/m)", "ÀàĞÍ"
+            "ï¿½ï¿½ï¿½ï¿½ID", "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", "ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½(MPa)", "ï¿½ï¿½ï¿½É±ï¿½", "ï¿½Ø¶ï¿½(kN/m)", "ï¿½ï¿½ï¿½ï¿½"
         ])
         
-        # ÉèÖÃ±í¸ñÊôĞÔ
+        # ï¿½ï¿½ï¿½Ã±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         header = self.material_table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.Stretch)
         self.material_table.setAlternatingRowColors(True)
         
-        # Ìí¼ÓÊ¾ÀıÊı¾İ (»ùÓÚFPNÎÄ¼ş·ÖÎö)
+        # ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½FPNï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½)
         materials_data = [
-            ["1", "C30»ìÄıÍÁ", "30000", "0.2", "25", "µØÁ¬Ç½"],
-            ["2", "Ï¸É°", "15", "0.3", "20", "ÍÁÌå"],
-            ["3", "·ÛÖÊÕ³ÍÁ", "5", "0.3", "19.5", "ÍÁÌå"],
-            ["4", "·ÛÖÊÕ³ÍÁ", "5", "0.3", "19.1", "ÍÁÌå"],
-            ["5", "·ÛÖÊÕ³ÍÁ", "5", "0.3", "20.8", "ÍÁÌå"],
-            ["6", "ÂÑÊ¯", "100", "0.25", "22", "ÍÁÌå"]
+            ["1", "C30ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", "30000", "0.2", "25", "ï¿½ï¿½ï¿½ï¿½Ç½"],
+            ["2", "Ï¸É°", "15", "0.3", "20", "ï¿½ï¿½ï¿½ï¿½"],
+            ["3", "ï¿½ï¿½ï¿½ï¿½Õ³ï¿½ï¿½", "5", "0.3", "19.5", "ï¿½ï¿½ï¿½ï¿½"],
+            ["4", "ï¿½ï¿½ï¿½ï¿½Õ³ï¿½ï¿½", "5", "0.3", "19.1", "ï¿½ï¿½ï¿½ï¿½"],
+            ["5", "ï¿½ï¿½ï¿½ï¿½Õ³ï¿½ï¿½", "5", "0.3", "20.8", "ï¿½ï¿½ï¿½ï¿½"],
+            ["6", "ï¿½ï¿½Ê¯", "100", "0.25", "22", "ï¿½ï¿½ï¿½ï¿½"]
         ]
         
         self.material_table.setRowCount(len(materials_data))
         for i, row_data in enumerate(materials_data):
             for j, cell_data in enumerate(row_data):
                 item = QTableWidgetItem(cell_data)
-                if j == 0:  # ²ÄÁÏIDÁĞÉèÎªÖ»¶Á
+                if j == 0:  # ææ–™IDåˆ—è®¾ä¸ºåªè¯»
                     item.setFlags(item.flags() & ~Qt.ItemIsEditable)
                 self.material_table.setItem(i, j, item)
         
         layout.addWidget(self.material_table)
         
-        # ²ÄÁÏÊôĞÔËµÃ÷
+        # ææ–™è¯´æ˜
         material_info = QLabel()
         material_info.setText(
-            "²ÄÁÏÊôĞÔËµÃ÷:\\n"
-            " C30»ìÄıÍÁ: µØÏÂÁ¬ĞøÇ½½á¹¹²ÄÁÏ£¬¸ßÇ¿¶È\\n"
-            " Ï¸É°: ÉøÍ¸ĞÔ½ÏºÃµÄÉ°ÍÁ²ã\\n"
-            " ·ÛÖÊÕ³ÍÁ: µÍÉøÍ¸ĞÔÕ³ĞÔÍÁ£¬·Ö¶à²ã\\n"
-            " ÂÑÊ¯: ³ĞÔØÁ¦½Ï¸ßµÄËéÊ¯ÍÁ²ã"
+            "ææ–™è¯´æ˜:\n"
+            " C30æ··å‡åœŸ: é€‚ç”¨äºåŸºç¡€/å¢™ä½“ç­‰ç»“æ„ï¼Œå¼ºåº¦é«˜\n"
+            " ç»†ç ‚: é€æ°´æ€§è¾ƒå¥½çš„ç ‚åœŸ\n"
+            " é»æ€§åœŸ: é€æ°´æ€§å·®ï¼Œé»èšåŠ›è¾ƒå¤§\n"
+            " ç ¾çŸ³: å¼ºåº¦è¾ƒé«˜çš„ç¢çŸ³åœŸ"
         )
         material_info.setStyleSheet("padding: 10px; background-color: #f0f8ff; border: 1px solid #ccc;")
         layout.addWidget(material_info)
@@ -839,109 +831,109 @@ class ExcavationAnalysisWindow(QMainWindow):
         return widget
 
     def setup_connections(self):
-        """ÉèÖÃĞÅºÅÁ¬½Ó"""
-        # ¸´Ñ¡¿òÁ¬½Ó
+        """è¿æ¥ä¿¡å·ä¸æ§½"""
+        # é€‰æ‹©æ˜¾ç¤ºé¡¹
         self.show_nodes_cb.toggled.connect(self.update_3d_display)
         self.show_elements_cb.toggled.connect(self.update_3d_display)
         self.show_materials_cb.toggled.connect(self.update_3d_display)
         self.show_boundaries_cb.toggled.connect(self.update_3d_display)
         
-        # ½á¹ûÀàĞÍ±ä»¯
+        # ç»“æœé€‰é¡¹å˜åŒ–
         self.result_type_combo.currentTextChanged.connect(self.update_results_display)
         self.result_stage_combo.currentTextChanged.connect(self.update_results_display)
         
-        # ¶Ô±ÈÀàĞÍ±ä»¯
+        # å¯¹æ¯”é€‰é¡¹å˜åŒ–
         self.comparison_type_combo.currentTextChanged.connect(self.update_comparison_display)
         self.comparison_mode_combo.currentTextChanged.connect(self.update_comparison_display)
 
-    # ==================== ÊÂ¼ş´¦Àí·½·¨ ====================
+    # ==================== äº‹ä»¶å¤„ç† ====================
     
     def import_fpn_file(self):
-        """µ¼ÈëFPNÎÄ¼ş"""
+        """å¯¼å…¥FPNæ–‡ä»¶"""
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "µ¼ÈëFPNÎÄ¼ş", "", "FPNÎÄ¼ş (*.fpn);;ËùÓĞÎÄ¼ş (*)")
+            self, "å¯¼å…¥FPNæ–‡ä»¶", "", "FPNæ–‡ä»¶ (*.fpn);;æ‰€æœ‰æ–‡ä»¶ (*)")
         
         if file_path:
             self.current_fpn_file = file_path
             file_name = Path(file_path).name
             file_size = Path(file_path).stat().st_size / (1024 * 1024)  # MB
             
-            # ¸üĞÂ½çÃæĞÅÏ¢
+            # æ›´æ–°æ–‡ä»¶ä¿¡æ¯
             self.fpn_file_label.setText(file_name)
             self.file_size_label.setText(f"{file_size:.1f} MB")
-            self.import_time_label.setText("¸Õ¸Õ")
-            self.project_name_label.setText("»ù¿ÓÁ½½×¶Î·ÖÎö")
+            self.import_time_label.setText("åˆšåˆš")
+            self.project_name_label.setText("åˆ†é˜¶æ®µåˆ†æç¤ºä¾‹")
             
-            # Ä£Äâ½âÎöÎÄ¼şĞÅÏ¢ (»ùÓÚÊµ¼ÊFPNÎÄ¼ş)
+            # æ¨¡æ‹Ÿæ–‡ä»¶ä¿¡æ¯ï¼ˆæœªè§£æFPNï¼‰
             self.node_count_label.setText("27,000+")
             self.element_count_label.setText("150,000+")
             self.material_count_label.setText("6")
             self.boundary_count_label.setText("1,000+")
-            self.load_count_label.setText("1 (ÖØÁ¦)")
+            self.load_count_label.setText("1 (é‡åŠ›)")
             
-            # ¸üĞÂ×´Ì¬
-            self.status_label.setText(f"FPNÎÄ¼şÒÑ¼ÓÔØ: {file_name}")
-            self.model_info_label.setText(f"Ä£ĞÍ: {file_name}")
+            # æ›´æ–°çŠ¶æ€
+            self.status_label.setText(f"FPNæ–‡ä»¶å·²åŠ è½½: {file_name}")
+            self.model_info_label.setText(f"æ¨¡å‹: {file_name}")
             
-            # Ìí¼ÓÈÕÖ¾
+            # è¿½åŠ æ—¥å¿—
             self.log_text.append("=" * 50)
-            self.log_text.append(f"ÒÑµ¼ÈëFPNÎÄ¼ş: {file_name}")
-            self.log_text.append(f"ÎÄ¼ş´óĞ¡: {file_size:.1f} MB")
-            self.log_text.append("¼ì²âµ½»ù¿ÓÁ½½×¶Î·ÖÎöÄ£ĞÍ:")
-            self.log_text.append(" ½×¶ÎÒ»: ³õÊ¼µØÓ¦Á¦Æ½ºâ")
-            self.log_text.append(" ½×¶Î¶ş: µØÁ¬Ç½+¿ªÍÚ")
-            self.log_text.append("Ä£ĞÍÑéÖ¤Íê³É£¬¿ÉÒÔ¿ªÊ¼·ÖÎö")
+            self.log_text.append(f"å·²åŠ è½½FPNæ–‡ä»¶: {file_name}")
+            self.log_text.append(f"æ–‡ä»¶å¤§å°: {file_size:.1f} MB")
+            self.log_text.append("æ£€æµ‹åˆ°åˆ†é˜¶æ®µåˆ†ææ¨¡å‹:")
+            self.log_text.append(" é˜¶æ®µä¸€: åˆå§‹åº”åŠ›å¹³è¡¡")
+            self.log_text.append(" é˜¶æ®µäºŒ: å›´æŠ¤å¢™+å¼€æŒ–")
+            self.log_text.append("æ¨¡å‹æ ¡éªŒå®Œæˆï¼Œå¯å¼€å§‹è®¡ç®—")
 
     def run_stage1_analysis(self):
-        """ÔËĞĞ½×¶ÎÒ»·ÖÎö"""
+        """è¿è¡Œé˜¶æ®µä¸€è®¡ç®—"""
         if not self.current_fpn_file:
-            QMessageBox.warning(self, "¾¯¸æ", "ÇëÏÈµ¼ÈëFPNÎÄ¼ş")
+            QMessageBox.warning(self, "æç¤º", "è¯·å…ˆåŠ è½½FPNæ–‡ä»¶")
             return
             
         self.analysis_running = True
         self.current_stage = 1
         
-        # ¸üĞÂ½çÃæ×´Ì¬
+        # æ›´æ–°ç•Œé¢çŠ¶æ€
         self.stage_combo.setCurrentIndex(0)
         self.run_analysis_btn.setEnabled(False)
         self.stop_analysis_btn.setEnabled(True)
         self.stop_analysis_btn2.setEnabled(True)
         
-        # ÏÔÊ¾½ø¶ÈÌõ
+        # æ˜¾ç¤ºè¿›åº¦
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
         self.analysis_progress.setVisible(True)
         self.analysis_progress.setValue(0)
         
-        # ¸üĞÂ×´Ì¬
-        self.status_label.setText("ÕıÔÚÔËĞĞ½×¶ÎÒ»·ÖÎö")
-        self.stage_label.setText("µ±Ç°½×¶Î: ³õÊ¼µØÓ¦Á¦Æ½ºâ")
+        # æ›´æ–°çŠ¶æ€
+        self.status_label.setText("æ­£åœ¨è¿›è¡Œé˜¶æ®µä¸€è®¡ç®—")
+        self.stage_label.setText("å½“å‰é˜¶æ®µ: åˆå§‹åº”åŠ›å¹³è¡¡")
         
-        # Ìí¼ÓÏêÏ¸ÈÕÖ¾
+        # è¯¦ç»†æ—¥å¿—
         self.log_text.append("\\n" + "=" * 50)
-        self.log_text.append("¿ªÊ¼½×¶ÎÒ»·ÖÎö: ³õÊ¼µØÓ¦Á¦Æ½ºâ")
-        self.log_text.append("·ÖÎö²ÎÊı:")
-        self.log_text.append(" ·ÖÎöÀàĞÍ: ·ÇÏßĞÔ¾²Á¦·ÖÎö")
-        self.log_text.append(" ºÉÔØ¹¤¿ö: ÖØÁ¦ºÉÔØ (9806.65 mm/s)")
-        self.log_text.append(" ²ÄÁÏÄ£ĞÍ: Mohr-Coulomb")
-        self.log_text.append(" ±ß½çÌõ¼ş: µ×²¿ºÍ²àÃæ¹Ì¶¨")
-        self.log_text.append("\\nÕıÔÚ½øĞĞ¼ÆËã...")
-        self.log_text.append(" ½¨Á¢³õÊ¼µØÓ¦Á¦³¡")
-        self.log_text.append(" ÖØÁ¦ºÉÔØ×÷ÓÃÏÂµÄµØÓ¦Á¦Æ½ºâ")
-        self.log_text.append(" ¸÷ÍÁ²ãµÄ³õÊ¼Ó¦Á¦×´Ì¬¼ÆËã")
+        self.log_text.append("å¼€å§‹é˜¶æ®µä¸€è®¡ç®—: åˆå§‹åº”åŠ›å¹³è¡¡")
+        self.log_text.append("è®¡ç®—å‚æ•°:")
+        self.log_text.append(" è‡ªé‡å·¥å†µ: å¼€å¯")
+        self.log_text.append(" é‡åŠ›åŠ é€Ÿåº¦: 9.80665 m/sÂ²")
+        self.log_text.append(" æœ¬æ„æ¨¡å‹: Mohr-Coulomb")
+        self.log_text.append(" è¾¹ç•Œæ¡ä»¶: åº•éƒ¨å›ºå®šã€ä¾§å‘çº¦æŸ")
+        self.log_text.append("\næ­£åœ¨è¿›è¡Œè®¡ç®—...")
+        self.log_text.append(" åˆå§‹åŒ–åº”åŠ›åœº")
+        self.log_text.append(" è¿­ä»£æ”¶æ•›ï¼Œå¾—åˆ°ç¨³å®šçš„åº”åŠ›å¹³è¡¡")
+        self.log_text.append(" åˆå§‹åº”åŠ›çŠ¶æ€å»ºç«‹å®Œæˆ")
         
-        # Ä£Äâ·ÖÎö½ø¶È (Êµ¼ÊÓ¦ÓÃÖĞÕâÀï»áµ÷ÓÃÕæÊµµÄ·ÖÎöÒıÇæ)
+    # æ¨¡æ‹Ÿè®¡ç®—è¿›åº¦ï¼ˆå®é™…åº”ç”±çœŸå®æ±‚è§£å™¨å›è°ƒé©±åŠ¨ï¼‰
         self.simulate_analysis_progress(1)
 
     def run_stage2_analysis(self):
-        """ÔËĞĞ½×¶Î¶ş·ÖÎö"""
+        """è¿è¡Œé˜¶æ®µäºŒè®¡ç®—"""
         if not self.current_fpn_file:
-            QMessageBox.warning(self, "¾¯¸æ", "ÇëÏÈµ¼ÈëFPNÎÄ¼ş")
+            QMessageBox.warning(self, "æç¤º", "è¯·å…ˆåŠ è½½FPNæ–‡ä»¶")
             return
             
         if not self.stage1_results:
-            reply = QMessageBox.question(self, "È·ÈÏ", 
-                "½×¶ÎÒ»·ÖÎöÉĞÎ´Íê³É£¬ÊÇ·ñÏÈÔËĞĞ½×¶ÎÒ»·ÖÎö£¿",
+            reply = QMessageBox.question(self, "ç¡®è®¤", 
+                "é˜¶æ®µä¸€ç»“æœæœªå®Œæˆï¼Œæ˜¯å¦å…ˆè¿è¡Œé˜¶æ®µä¸€è®¡ç®—ï¼Ÿ",
                 QMessageBox.Yes | QMessageBox.No)
             if reply == QMessageBox.Yes:
                 self.run_stage1_analysis()
@@ -950,77 +942,77 @@ class ExcavationAnalysisWindow(QMainWindow):
         self.analysis_running = True
         self.current_stage = 2
         
-        # ¸üĞÂ½çÃæ×´Ì¬
+        # æ›´æ–°ç•Œé¢çŠ¶æ€
         self.stage_combo.setCurrentIndex(1)
         self.run_analysis_btn.setEnabled(False)
         self.stop_analysis_btn.setEnabled(True)
         self.stop_analysis_btn2.setEnabled(True)
         
-        # ÏÔÊ¾½ø¶ÈÌõ
+        # æ˜¾ç¤ºè¿›åº¦
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
         self.analysis_progress.setVisible(True)
         self.analysis_progress.setValue(0)
         
-        # ¸üĞÂ×´Ì¬
-        self.status_label.setText("ÕıÔÚÔËĞĞ½×¶Î¶ş·ÖÎö")
-        self.stage_label.setText("µ±Ç°½×¶Î: µØÁ¬Ç½+¿ªÍÚ")
+        # æ›´æ–°çŠ¶æ€
+        self.status_label.setText("æ­£åœ¨è¿›è¡Œé˜¶æ®µäºŒè®¡ç®—")
+        self.stage_label.setText("å½“å‰é˜¶æ®µ: å›´æŠ¤å¢™+å¼€æŒ–")
         
-        # Ìí¼ÓÏêÏ¸ÈÕÖ¾
+        # è¯¦ç»†æ—¥å¿—
         self.log_text.append("\\n" + "=" * 50)
-        self.log_text.append("¿ªÊ¼½×¶Î¶ş·ÖÎö: µØÁ¬Ç½+¿ªÍÚ")
-        self.log_text.append("·ÖÎö²ÎÊı:")
-        self.log_text.append(" »ùÓÚ½×¶ÎÒ»½á¹û")
-        self.log_text.append(" µØÁ¬Ç½½á¹¹¼¤»î (MADD²Ù×÷)")
-        self.log_text.append(" »ù¿ÓÍÁÌåÒÆ³ı (MDEL²Ù×÷)")
-        self.log_text.append(" Ö§»¤½á¹¹ÓëÍÁÌåÏà»¥×÷ÓÃ")
-        self.log_text.append("\\nÕıÔÚ½øĞĞ¼ÆËã...")
-        self.log_text.append(" µØÁ¬Ç½½á¹¹¼¤»î")
-        self.log_text.append(" »ù¿ÓÍÁÌåÒÆ³ı")
-        self.log_text.append(" ±äĞÎºÍÓ¦Á¦ÖØ·Ö²¼¼ÆËã")
+        self.log_text.append("å¼€å§‹é˜¶æ®µäºŒè®¡ç®—: å›´æŠ¤å¢™+å¼€æŒ–")
+        self.log_text.append("è®¡ç®—æ­¥éª¤:")
+        self.log_text.append(" ç»§æ‰¿é˜¶æ®µä¸€ç»“æœ")
+        self.log_text.append(" æ·»åŠ å›´æŠ¤ç»“æ„ (MADD)")
+        self.log_text.append(" å¼€æŒ–åœŸä½“ (MDEL)")
+        self.log_text.append(" æ”¯æŠ¤ä¸åœŸä½“å…±åŒå·¥ä½œï¼Œæ›´æ–°å¹³è¡¡")
+        self.log_text.append("\næ­£åœ¨è¿›è¡Œè®¡ç®—...")
+        self.log_text.append(" å›´æŠ¤ç»“æ„åŠ è½½")
+        self.log_text.append(" å¼€æŒ–å¸è½½ä¸å˜å½¢å“åº”")
+        self.log_text.append(" è¾“å‡ºå…³é”®åº”åŠ›åº”å˜ä¸ä½ç§»")
         
-        # Ä£Äâ·ÖÎö½ø¶È
+    # æ¨¡æ‹Ÿè®¡ç®—è¿›åº¦
         self.simulate_analysis_progress(2)
 
     def run_full_analysis(self):
-        """ÔËĞĞÍêÕû·ÖÎö"""
+        """è¿è¡Œå…¨æµç¨‹è®¡ç®—"""
         if not self.current_fpn_file:
-            QMessageBox.warning(self, "¾¯¸æ", "ÇëÏÈµ¼ÈëFPNÎÄ¼ş")
+            QMessageBox.warning(self, "æç¤º", "è¯·å…ˆåŠ è½½FPNæ–‡ä»¶")
             return
             
-        reply = QMessageBox.question(self, "È·ÈÏ", 
-            "½«ÔËĞĞÍêÕûµÄÁ½½×¶Î·ÖÎö£¬Õâ¿ÉÄÜĞèÒª½Ï³¤Ê±¼ä¡£ÊÇ·ñ¼ÌĞø£¿",
+        reply = QMessageBox.question(self, "ç¡®è®¤", 
+            "å°†ä¾æ¬¡è¿è¡Œå…¨éƒ¨é˜¶æ®µï¼Œå¯èƒ½è€—æ—¶è¾ƒé•¿ã€‚æ˜¯å¦ç»§ç»­ï¼Ÿ",
             QMessageBox.Yes | QMessageBox.No)
         
         if reply == QMessageBox.Yes:
             self.log_text.append("\\n" + "=" * 50)
-            self.log_text.append("¿ªÊ¼ÍêÕûÁ½½×¶Î·ÖÎö")
+            self.log_text.append("å¼€å§‹å…¨é˜¶æ®µè®¡ç®—")
             self.run_stage1_analysis()
 
     def stop_analysis(self):
-        """Í£Ö¹·ÖÎö"""
+        """åœæ­¢è®¡ç®—"""
         if self.analysis_running:
-            reply = QMessageBox.question(self, "È·ÈÏ", 
-                "È·¶¨ÒªÍ£Ö¹µ±Ç°·ÖÎöÂğ£¿",
+            reply = QMessageBox.question(self, "ç¡®è®¤", 
+                "ç¡®è®¤è¦åœæ­¢å½“å‰è®¡ç®—å—",
                 QMessageBox.Yes | QMessageBox.No)
             
             if reply == QMessageBox.Yes:
                 self.analysis_running = False
                 self.reset_analysis_state()
-                self.log_text.append("\\nÓÃ»§ÖĞÖ¹·ÖÎö")
-                self.status_label.setText("·ÖÎöÒÑÍ£Ö¹")
+                self.log_text.append("\nç”¨æˆ·ç»ˆæ­¢è®¡ç®—")
+                self.status_label.setText("è®¡ç®—å·²åœæ­¢")
 
     def reset_analysis_state(self):
-        """ÖØÖÃ·ÖÎö×´Ì¬"""
+        """é‡ç½®è®¡ç®—çŠ¶æ€"""
         self.run_analysis_btn.setEnabled(True)
         self.stop_analysis_btn.setEnabled(False)
         self.stop_analysis_btn2.setEnabled(False)
         self.progress_bar.setVisible(False)
         self.analysis_progress.setVisible(False)
-        self.stage_label.setText("µ±Ç°½×¶Î: ÎŞ")
+        self.stage_label.setText("å½“å‰é˜¶æ®µ: æ— ")
 
     def simulate_analysis_progress(self, stage):
-        """Ä£Äâ·ÖÎö½ø¶È (Êµ¼ÊÓ¦ÓÃÖĞ»á±»ÕæÊµµÄ·ÖÎöÒıÇæÌæ´ú)"""
+    """æ¨¡æ‹Ÿè®¡ç®—è¿›åº¦ï¼ˆå®é™…åº”è¢«çœŸå®æ±‚è§£å™¨è¿›åº¦æ›¿ä»£ï¼‰"""
         import time
         from PyQt6.QtCore import QTimer
         
@@ -1037,44 +1029,44 @@ class ExcavationAnalysisWindow(QMainWindow):
                 self.analysis_completed(stage)
         
         self.progress_timer.timeout.connect(update_progress)
-        self.progress_timer.start(100)  # Ã¿100ms¸üĞÂÒ»´Î
+        self.progress_timer.start(100)  # æ¯100mså¢åŠ ä¸€æ¬¡
 
     def analysis_completed(self, stage):
-        """·ÖÎöÍê³É´¦Àí"""
+        """è®¡ç®—å®Œæˆå›è°ƒ"""
         if stage == 1:
             self.stage1_results = {"completed": True}
-            self.log_text.append("\\n½×¶ÎÒ»·ÖÎöÍê³É!")
-            self.log_text.append(" ³õÊ¼µØÓ¦Á¦³¡½¨Á¢³É¹¦")
-            self.log_text.append(" ¸÷ÍÁ²ãÓ¦Á¦×´Ì¬ÎÈ¶¨")
-            self.status_label.setText("½×¶ÎÒ»·ÖÎöÍê³É")
+            self.log_text.append("\né˜¶æ®µä¸€è®¡ç®—å®Œæˆï¼")
+            self.log_text.append(" åˆå§‹åº”åŠ›åœºå»ºç«‹æˆåŠŸ")
+            self.log_text.append(" å¹³è¡¡çŠ¶æ€ç¨³å®š")
+            self.status_label.setText("é˜¶æ®µä¸€å·²å®Œæˆ")
             
-            # Èç¹ûÊÇÍêÕû·ÖÎö£¬¼ÌĞøÔËĞĞ½×¶Î¶ş
+            # è‹¥æ­£åœ¨å…¨é˜¶æ®µæ¨¡å¼ï¼Œç»§ç»­è¿è¡Œé˜¶æ®µäºŒ
             if hasattr(self, 'running_full_analysis'):
                 self.run_stage2_analysis()
                 return
                 
         elif stage == 2:
             self.stage2_results = {"completed": True}
-            self.log_text.append("\\n½×¶Î¶ş·ÖÎöÍê³É!")
-            self.log_text.append(" µØÁ¬Ç½+¿ªÍÚ·ÖÎö³É¹¦")
-            self.log_text.append(" ±äĞÎºÍÓ¦Á¦ÖØ·Ö²¼¼ÆËãÍê³É")
-            self.status_label.setText("½×¶Î¶ş·ÖÎöÍê³É")
+            self.log_text.append("\né˜¶æ®µäºŒè®¡ç®—å®Œæˆï¼")
+            self.log_text.append(" å›´æŠ¤å¢™+å¼€æŒ–åˆ†ææˆåŠŸ")
+            self.log_text.append(" è¾“å‡ºå…³é”®ä½ç§»ä¸åº”åŠ›åˆ†å¸ƒ")
+            self.status_label.setText("é˜¶æ®µäºŒå·²å®Œæˆ")
         
         self.reset_analysis_state()
-        self.viz_tabs.setCurrentIndex(1)  # ÇĞ»»µ½½á¹û±êÇ©Ò³
+        self.viz_tabs.setCurrentIndex(1)  # åˆ‡æ¢åˆ°ç»“æœæ ‡ç­¾é¡µ
 
-    # ==================== ÆäËûÊÂ¼ş´¦Àí·½·¨ ====================
+    # ==================== ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ====================
     
     def on_stage_changed(self):
-        """½×¶ÎÑ¡Ôñ±ä»¯"""
+        """é˜¶æ®µé€‰æ‹©å˜åŒ–"""
         current_stage = self.stage_combo.currentIndex()
         if current_stage == 0:
-            self.log_text.append("ÇĞ»»µ½½×¶ÎÒ»: ³õÊ¼µØÓ¦Á¦Æ½ºâ")
+            self.log_text.append("åˆ‡æ¢åˆ°é˜¶æ®µä¸€: åˆå§‹åº”åŠ›å¹³è¡¡")
         else:
-            self.log_text.append("ÇĞ»»µ½½×¶Î¶ş: µØÁ¬Ç½+¿ªÍÚ")
+            self.log_text.append("åˆ‡æ¢åˆ°é˜¶æ®µäºŒ: å›´æŠ¤å¢™+å¼€æŒ–")
 
     def run_current_stage_analysis(self):
-        """ÔËĞĞµ±Ç°Ñ¡ÔñµÄ½×¶Î·ÖÎö"""
+        """è¿è¡Œå½“å‰é€‰æ‹©çš„é˜¶æ®µåˆ†æ"""
         current_stage = self.stage_combo.currentIndex()
         if current_stage == 0:
             self.run_stage1_analysis()
@@ -1082,149 +1074,149 @@ class ExcavationAnalysisWindow(QMainWindow):
             self.run_stage2_analysis()
 
     def clear_log(self):
-        """Çå³ıÈÕÖ¾"""
+        """æ¸…ç©ºæ—¥å¿—"""
         self.log_text.clear()
-        self.log_text.append("ÈÕÖ¾ÒÑÇå³ı")
+        self.log_text.append("æ—¥å¿—å·²æ¸…ç©º")
 
-    # ==================== 3DÊÓÍ¼¿ØÖÆ·½·¨ ====================
+    # ==================== 3Dï¿½ï¿½Í¼ï¿½ï¿½ï¿½Æ·ï¿½ï¿½ï¿½ ====================
     
     def set_front_view(self):
-        self.log_text.append("ÇĞ»»µ½Ç°ÊÓÍ¼")
+        self.log_text.append("åˆ‡æ¢åˆ°å‰è§†å›¾")
         
     def set_side_view(self):
-        self.log_text.append("ÇĞ»»µ½²àÊÓÍ¼")
+        self.log_text.append("åˆ‡æ¢åˆ°ä¾§è§†å›¾")
         
     def set_top_view(self):
-        self.log_text.append("ÇĞ»»µ½¶¥ÊÓÍ¼")
+        self.log_text.append("åˆ‡æ¢åˆ°ä¿¯è§†å›¾")
         
     def set_iso_view(self):
-        self.log_text.append("ÇĞ»»µ½µÈÖáÊÓÍ¼")
+        self.log_text.append("åˆ‡æ¢åˆ°ç­‰è½´æµ‹è§†å›¾")
 
     def update_3d_display(self):
-        """¸üĞÂ3DÏÔÊ¾"""
+        """æ›´æ–°3Dæ˜¾ç¤º"""
         display_options = []
         if self.show_nodes_cb.isChecked():
-            display_options.append("½Úµã")
+            display_options.append("èŠ‚ç‚¹")
         if self.show_elements_cb.isChecked():
-            display_options.append("µ¥Ôª")
+            display_options.append("å•å…ƒ")
         if self.show_materials_cb.isChecked():
-            display_options.append("²ÄÁÏ")
+            display_options.append("ææ–™")
         if self.show_boundaries_cb.isChecked():
-            display_options.append("±ß½ç")
+            display_options.append("è¾¹ç•Œ")
         
         if display_options:
-            self.log_text.append(f"¸üĞÂ3DÏÔÊ¾: {', '.join(display_options)}")
+            self.log_text.append(f"æ›´æ–°3Dæ˜¾ç¤º: {', '.join(display_options)}")
 
-    # ==================== ½á¹ûÏÔÊ¾·½·¨ ====================
+    # ==================== ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ ====================
     
     def update_results_display(self):
-        """¸üĞÂ½á¹ûÏÔÊ¾"""
+        """æ›´æ–°ç»“æœæ˜¾ç¤º"""
         result_type = self.result_type_combo.currentText()
         result_stage = self.result_stage_combo.currentText()
-        self.log_text.append(f"ÏÔÊ¾½á¹û: {result_stage} - {result_type}")
+        self.log_text.append(f"æ˜¾ç¤ºç»“æœ: {result_stage} - {result_type}")
 
     def update_comparison_display(self):
-        """¸üĞÂ¶Ô±ÈÏÔÊ¾"""
+        """æ›´æ–°å¯¹æ¯”æ˜¾ç¤º"""
         comparison_type = self.comparison_type_combo.currentText()
         comparison_mode = self.comparison_mode_combo.currentText()
-        self.log_text.append(f"¶Ô±ÈÏÔÊ¾: {comparison_type} - {comparison_mode}")
+        self.log_text.append(f"å¯¹æ¯”æ˜¾ç¤º: {comparison_type} - {comparison_mode}")
 
     def show_deformation_results(self):
-        """ÏÔÊ¾±äĞÎ½á¹û"""
+        """æ˜¾ç¤ºä½ç§»ç»“æœ"""
         self.viz_tabs.setCurrentIndex(1)
-        self.result_type_combo.setCurrentText("Î»ÒÆÔÆÍ¼")
-        self.log_text.append("ÏÔÊ¾±äĞÎÔÆÍ¼")
+        self.result_type_combo.setCurrentText("ä½ç§»äº‘å›¾")
+        self.log_text.append("æ˜¾ç¤ºä½ç§»äº‘å›¾")
 
     def show_stress_results(self):
-        """ÏÔÊ¾Ó¦Á¦½á¹û"""
+        """æ˜¾ç¤ºåº”åŠ›ç»“æœ"""
         self.viz_tabs.setCurrentIndex(1)
-        self.result_type_combo.setCurrentText("Ó¦Á¦ÔÆÍ¼")
-        self.log_text.append("ÏÔÊ¾Ó¦Á¦ÔÆÍ¼")
+        self.result_type_combo.setCurrentText("åº”åŠ›äº‘å›¾")
+        self.log_text.append("æ˜¾ç¤ºåº”åŠ›äº‘å›¾")
 
     def show_wall_forces(self):
-        """ÏÔÊ¾µØÁ¬Ç½ÄÚÁ¦"""
+        """æ˜¾ç¤ºå›´æŠ¤å¢™å†…åŠ›"""
         self.viz_tabs.setCurrentIndex(1)
-        self.result_type_combo.setCurrentText("µØÁ¬Ç½ÄÚÁ¦")
-        self.log_text.append("ÏÔÊ¾µØÁ¬Ç½ÄÚÁ¦")
+        self.result_type_combo.setCurrentText("å›´æŠ¤å¢™å†…åŠ›")
+        self.log_text.append("æ˜¾ç¤ºå›´æŠ¤å¢™å†…åŠ›")
 
     def show_stage_comparison(self):
-        """ÏÔÊ¾½×¶Î¶Ô±È"""
+        """æ˜¾ç¤ºé˜¶æ®µå¯¹æ¯”"""
         self.viz_tabs.setCurrentIndex(2)
-        self.log_text.append("ÏÔÊ¾½×¶Î¶Ô±È·ÖÎö")
+        self.log_text.append("æ˜¾ç¤ºé˜¶æ®µå¯¹æ¯”åˆ†æ")
 
     def show_results_panel(self):
-        """ÏÔÊ¾½á¹ûÃæ°å"""
+        """æ˜¾ç¤ºç»“æœé¡µ"""
         self.viz_tabs.setCurrentIndex(1)
 
-    # ==================== ¹¤¾ß·½·¨ ====================
+    # ==================== ï¿½ï¿½ï¿½ß·ï¿½ï¿½ï¿½ ====================
     
     def save_project(self):
-        """±£´æÏîÄ¿"""
+        """ä¿å­˜é¡¹ç›®"""
         if not self.current_fpn_file:
-            QMessageBox.warning(self, "¾¯¸æ", "Ã»ÓĞ¿É±£´æµÄÏîÄ¿")
+            QMessageBox.warning(self, "æç¤º", "æ²¡æœ‰å¯ä¿å­˜çš„é¡¹ç›®")
             return
             
         file_path, _ = QFileDialog.getSaveFileName(
-            self, "±£´æÏîÄ¿", "", "ÏîÄ¿ÎÄ¼ş (*.exc);;ËùÓĞÎÄ¼ş (*)")
+            self, "ä¿å­˜é¡¹ç›®", "", "é¡¹ç›®æ–‡ä»¶ (*.exc);;æ‰€æœ‰æ–‡ä»¶ (*)")
         
         if file_path:
-            self.log_text.append(f"ÏîÄ¿ÒÑ±£´æ: {Path(file_path).name}")
+            self.log_text.append(f"é¡¹ç›®å·²ä¿å­˜: {Path(file_path).name}")
 
     def export_results(self):
-        """µ¼³ö½á¹û"""
+        """å¯¼å‡ºç»“æœ"""
         if not (self.stage1_results or self.stage2_results):
-            QMessageBox.warning(self, "¾¯¸æ", "Ã»ÓĞ¿Éµ¼³öµÄ½á¹û")
+            QMessageBox.warning(self, "æç¤º", "æš‚æ— å¯å¯¼å‡ºçš„ç»“æœ")
             return
             
-        self.log_text.append("µ¼³ö·ÖÎö½á¹û...")
+        self.log_text.append("æ­£åœ¨å¯¼å‡ºç»“æœ...")
 
     def check_model_integrity(self):
-        """Ä£ĞÍÍêÕûĞÔ¼ì²é"""
+        """æ¨¡å‹å®Œæ•´æ€§æ£€æŸ¥"""
         if not self.current_fpn_file:
-            QMessageBox.warning(self, "¾¯¸æ", "ÇëÏÈµ¼ÈëFPNÎÄ¼ş")
+            QMessageBox.warning(self, "æç¤º", "è¯·å…ˆåŠ è½½FPNæ–‡ä»¶")
             return
             
-        self.log_text.append("\\nÄ£ĞÍÍêÕûĞÔ¼ì²é:")
-        self.log_text.append(" ½ÚµãÁ¬½ÓĞÔ: Õı³£")
-        self.log_text.append(" ²ÄÁÏÊôĞÔ: ÍêÕû")
-        self.log_text.append(" ±ß½çÌõ¼ş: ÓĞĞ§")
-        self.log_text.append(" ºÉÔØ¹¤¿ö: ÕıÈ·")
-        self.log_text.append("Ä£ĞÍ¼ì²éÍê³É£¬¿ÉÒÔ½øĞĞ·ÖÎö")
+        self.log_text.append("\næ¨¡å‹å®Œæ•´æ€§æ£€æŸ¥:")
+        self.log_text.append(" èŠ‚ç‚¹ç¼–å·è¿ç»­: é€šè¿‡")
+        self.log_text.append(" å•å…ƒæ‹“æ‰‘: æ­£ç¡®")
+        self.log_text.append(" è¾¹ç•Œæ¡ä»¶: æœ‰æ•ˆ")
+        self.log_text.append(" è·è½½å®šä¹‰: æ­£ç¡®")
+        self.log_text.append("æ¨¡å‹æ£€æŸ¥é€šè¿‡ï¼Œå¯è¿›è¡Œåˆ†æ")
 
     def show_material_properties(self):
-        """ÏÔÊ¾²ÄÁÏÊôĞÔ"""
+        """æ˜¾ç¤ºææ–™å‚æ•°"""
         self.viz_tabs.setCurrentIndex(3)
-        self.log_text.append("ÏÔÊ¾²ÄÁÏÊôĞÔ±í")
+        self.log_text.append("æ˜¾ç¤ºææ–™å‚æ•°è¡¨")
 
     def show_user_manual(self):
-        """ÏÔÊ¾ÓÃ»§ÊÖ²á"""
-        QMessageBox.information(self, "ÓÃ»§ÊÖ²á", 
-            "»ù¿Ó¹¤³ÌÁ½½×¶Î·ÖÎöÏµÍ³\\n\\n"
-            "Ê¹ÓÃÁ÷³Ì:\\n"
-            "1. µ¼ÈëFPNÎÄ¼ş\\n"
-            "2. ¼ì²éÄ£ĞÍĞÅÏ¢\\n"
-            "3. ÔËĞĞ½×¶ÎÒ»·ÖÎö\\n"
-            "4. ÔËĞĞ½×¶Î¶ş·ÖÎö\\n"
-            "5. ²é¿´½á¹ûºÍ¶Ô±È\\n\\n"
-            "¿ì½İ¼ü:\\n"
-            "Ctrl+O: µ¼ÈëÎÄ¼ş\\n"
-            "F5: ½×¶ÎÒ»·ÖÎö\\n"
-            "F6: ½×¶Î¶ş·ÖÎö\\n"
-            "F7: ÍêÕû·ÖÎö")
+        """æ˜¾ç¤ºç”¨æˆ·æ‰‹å†Œ"""
+        QMessageBox.information(self, "ç”¨æˆ·æ‰‹å†Œ", 
+            "åŸºå‘åˆ†é˜¶æ®µåˆ†æç³»ç»Ÿ\n\n"
+            "ä½¿ç”¨æ­¥éª¤:\n"
+            "1. å¯¼å…¥FPNæ–‡ä»¶\n"
+            "2. æŸ¥çœ‹æ¨¡å‹ä¿¡æ¯\n"
+            "3. è¿è¡Œé˜¶æ®µä¸€åˆ†æ\n"
+            "4. è¿è¡Œé˜¶æ®µäºŒåˆ†æ\n"
+            "5. æŸ¥çœ‹ç»“æœä¸å¯¹æ¯”\n\n"
+            "å¿«æ·é”®:\n"
+            "Ctrl+O: æ‰“å¼€æ–‡ä»¶\n"
+            "F5: é˜¶æ®µä¸€åˆ†æ\n"
+            "F6: é˜¶æ®µäºŒåˆ†æ\n"
+            "F7: å…¨é˜¶æ®µåˆ†æ")
 
     def show_about(self):
-        """ÏÔÊ¾¹ØÓÚĞÅÏ¢"""
-        QMessageBox.about(self, "¹ØÓÚ", 
-            "»ù¿Ó¹¤³ÌÁ½½×¶Î·ÖÎöÏµÍ³ v2.0\\n\\n"
-            "×¨ÒµµÄµØÁ¬Ç½+¿ªÍÚÊ©¹¤½×¶Î·ÖÎö³ÌĞò\\n"
-            "»ùÓÚDeepCADÆ½Ì¨¿ª·¢\\n\\n"
-            "Ö§³ÖMIDAS GTS FPN¸ñÊ½\\n"
-            "¼¯³ÉKratos Multiphysics¼ÆËãÒıÇæ\\n"
-            "PyVista 3D¿ÉÊÓ»¯\\n\\n"
-            "Copyright  2024 DeepCAD Team")
+        """æ˜¾ç¤ºå…³äºä¿¡æ¯"""
+        QMessageBox.about(self, "å…³äº", 
+            "åŸºå‘åˆ†é˜¶æ®µåˆ†æç³»ç»Ÿ v2.0\n\n"
+            "å›´æŠ¤å¢™+å¼€æŒ–æ–½å·¥åˆ†é˜¶æ®µåˆ†æç•Œé¢\n"
+            "åŸºäº DeepCAD å¹³å°\n\n"
+            "æ”¯æŒ MIDAS GTS FPN æ ¼å¼\n"
+            "å¯æ¥å…¥ Kratos Multiphysics æ±‚è§£\n"
+            "PyVista 3D å¯è§†åŒ–\n\n"
+            "Copyright Â© 2024 DeepCAD Team")
 
 
-# Ö÷´°¿ÚÀà±ğÃû£¬±£³Ö¼æÈİĞÔ
+# å…¼å®¹æ—§å…¥å£å‘½å
 MainWindow = ExcavationAnalysisWindow
 
 
@@ -1233,7 +1225,7 @@ if __name__ == "__main__":
     import sys
     
     app = QApplication(sys.argv)
-    app.setApplicationName("»ù¿Ó¹¤³ÌÁ½½×¶Î·ÖÎöÏµÍ³")
+    app.setApplicationName("åŸºå‘åˆ†é˜¶æ®µåˆ†æç³»ç»Ÿ")
     app.setApplicationVersion("2.0")
     
     window = ExcavationAnalysisWindow()

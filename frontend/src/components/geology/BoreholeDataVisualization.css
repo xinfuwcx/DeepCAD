@@ -1,0 +1,172 @@
+/* 钻孔数据可视化样式 */
+.borehole-visualization {
+  display: flex;
+  height: 100vh;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+}
+
+.control-panel {
+  width: 380px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  overflow-y: auto;
+  box-shadow: 2px 0 15px rgba(0, 0, 0, 0.2);
+}
+
+.viewport-3d {
+  flex: 1;
+  position: relative;
+}
+
+/* 钻孔列表 */
+.borehole-list {
+  margin-top: 15px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.borehole-list h4 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.borehole-item {
+  padding: 10px;
+  margin-bottom: 8px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.borehole-item:hover {
+  background: #e8e8e8;
+  transform: translateX(5px);
+}
+
+.borehole-item.selected {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.borehole-item .depth {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* 钻孔详情 */
+.borehole-details {
+  margin-top: 20px;
+  padding: 15px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+}
+
+.borehole-details h4 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.borehole-details p {
+  margin: 5px 0;
+  font-size: 13px;
+  color: #666;
+}
+
+/* 地层列表 */
+.layer-list {
+  margin-top: 10px;
+}
+
+.layer-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 12px;
+}
+
+.layer-color {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  flex-shrink: 0;
+}
+
+.layer-item .depth-range {
+  margin-left: auto;
+  color: #999;
+  font-size: 11px;
+}
+
+/* Ant Design 覆盖 */
+.control-panel .ant-card-head {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  color: white;
+  border-radius: 8px 8px 0 0;
+}
+
+.control-panel .ant-card-head-title {
+  color: white;
+}
+
+.control-panel .ant-tabs-tab {
+  font-size: 13px;
+}
+
+.control-panel label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: #555;
+  font-weight: 500;
+}
+
+/* 滚动条样式 */
+.borehole-list::-webkit-scrollbar,
+.control-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.borehole-list::-webkit-scrollbar-track,
+.control-panel::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.borehole-list::-webkit-scrollbar-thumb,
+.control-panel::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+.borehole-list::-webkit-scrollbar-thumb:hover,
+.control-panel::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .borehole-visualization {
+    flex-direction: column;
+  }
+  
+  .control-panel {
+    width: 100%;
+    max-height: 40vh;
+  }
+  
+  .viewport-3d {
+    height: 60vh;
+  }
+}
