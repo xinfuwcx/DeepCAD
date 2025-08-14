@@ -116,8 +116,8 @@ export enum KratosElementType {
   Line2D2N = 3,                   // 2节点线单元
   Line2D3N = 21,                  // 3节点线单元
   Triangle3D3N = 30,              // 3节点三角形面单元
-  Triangle3D6N = 22,              // 6节点三角形面单元
-  Quadrilateral3D4N = 9,          // 4节点四边形面单元
+  Triangle3D6N = 31,              // 6节点三角形面单元
+  Quadrilateral3D4N = 32,         // 4节点四边形面单元
 }
 
 // 网格质量指标接口
