@@ -386,9 +386,23 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     if (!mapContainerRef.current || mapRef.current) return;
 
     try {
+      // 如果配置禁用AMap，则直接进入离线模式（Deck.gl 独立控制 + OSM 瓦片）
+      const disableAmap = String((import.meta as any).env?.VITE_DISABLE_AMAP ?? '').toLowerCase() === 'true';
+      if (disableAmap) {
+        console.log('🛑 VITE_DISABLE_AMAP=true，跳过 AMap 加载，进入离线模式');
+        setMapError('已启用离线模式（AMap已禁用）');
+        setDeckStandaloneMode(true);
+        await initializeDeck({ controllerEnabled: true });
+        await loadProjectsWeatherData();
+        if (filteredProjects.length > 0 && filteredProjects[0]) {
+          setSelectedProjectId(filteredProjects[0].id);
+        }
+        setIsInitialized(true);
+        return;
+      }
       console.log('🗺️ 初始化高德地图大屏版...');
 
-      // 若提供了安全密钥，则启用 AMap v2 安全配置
+      // 若提供了安全密钥，则启用 AMap v2 安全配置（必须在 AMapLoader.load 之前设置）
       const secCode = (import.meta as any).env?.VITE_AMAP_SECURITY_JS_CODE as string | undefined;
       if (secCode) {
         (window as any)._AMapSecurityConfig = { securityJsCode: secCode };
@@ -670,7 +684,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
 
       // 条件追加：Hex 聚合与 3D 柱体
       const baseLayers = deck.props.layers ? [...deck.props.layers] : [];
-      // 离线 Deck 独立模式下，插入 OSM 瓦片底图
+  // 如果当前为 Deck 独立模式，插入 OSM 瓦片底图
       if (deckStandaloneMode) {
         try {
           baseLayers.unshift(new (TileLayer as any)({
@@ -678,21 +692,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
             data: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             minZoom: 0,
             maxZoom: 19,
-            tileSize: 256
-          }));
-        } catch (e) {
-          console.warn('TileLayer unavailable:', e);
-        }
-      }
-      // 如果当前为 Deck 独立模式，插入 OSM 瓦片底图
-      if (deckStandaloneMode) {
-        try {
-          baseLayers.unshift(new (TileLayer as any)({
-            id: 'osm-tiles',
-            data: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            minZoom: 0,
-            maxZoom: 19,
-            tileSize: 256,
+    tileSize: 256
           }));
         } catch (e) {
           console.warn('TileLayer unavailable:', e);
