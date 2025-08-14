@@ -524,8 +524,8 @@ class OptimizedFPNParser:
                         except Exception:
                             pass
 
-                    elif line.startswith(('MISO', 'MATGEN', 'MATPORO')):
-                        # 材料定义区：提取材料ID和名称（优先MISO行带的名称）
+                    elif line.startswith(('MISO', 'MATGEN', 'MATPORO', 'MNLMC')):
+                        # 材料定义区：提取材料ID/名称和关键参数（弹性模量、泊松比、密度、φ、c 等）
                         try:
                             parts = [p.strip() for p in line.split(',')]
                             if line.startswith('MISO') and len(parts) >= 3:
@@ -537,22 +537,60 @@ class OptimizedFPNParser:
                                         'name': mname,
                                         'properties': {'type': 'soil'}
                                     })
-                            elif line.startswith('MATGEN') and len(parts) >= 2:
+                            elif line.startswith('MATGEN') and len(parts) >= 6:
+                                # 经验映射：MATGEN, mid, E(MPa), ?, ?, nu, gamma(kN/m3), ...
                                 mid = int(parts[1]) if parts[1] else None
                                 if mid is not None:
-                                    result['materials'].setdefault(mid, {
+                                    mat = result['materials'].setdefault(mid, {
                                         'id': mid,
                                         'name': f"Material_{mid}",
                                         'properties': {'type': 'soil'}
                                     })
-                            elif line.startswith('MATPORO') and len(parts) >= 2:
+                                    try:
+                                        E_MPa = float(parts[2]) if parts[2] else None
+                                        nu = float(parts[5]) if len(parts) > 5 and parts[5] else None
+                                        gamma = float(parts[6]) if len(parts) > 6 and parts[6] else None
+                                        if E_MPa is not None:
+                                            mat['properties']['E'] = E_MPa * 1e6  # MPa->Pa
+                                        if nu is not None:
+                                            mat['properties']['NU'] = nu
+                                        if gamma is not None:
+                                            mat['properties']['DENSITY'] = gamma * 1000.0 / 9.80665  # kN/m3 -> kg/m3
+                                    except Exception:
+                                        pass
+                            elif line.startswith('MATPORO') and len(parts) >= 3:
                                 mid = int(parts[1]) if parts[1] else None
                                 if mid is not None:
-                                    result['materials'].setdefault(mid, {
+                                    mat = result['materials'].setdefault(mid, {
                                         'id': mid,
                                         'name': f"Material_{mid}",
                                         'properties': {'type': 'soil'}
                                     })
+                                    try:
+                                        # MATPORO, mid, t(K), n, ... -> 这里我们只拿孔隙率n
+                                        n = float(parts[3]) if len(parts) > 3 and parts[3] else None
+                                        if n is not None:
+                                            mat['properties']['POROSITY'] = n
+                                    except Exception:
+                                        pass
+                            elif line.startswith('MNLMC') and len(parts) >= 6:
+                                # Mohr-Coulomb 参数：MNLMC, mid, phi, ?, ?, c(kPa), ...
+                                mid = int(parts[1]) if parts[1] else None
+                                if mid is not None:
+                                    mat = result['materials'].setdefault(mid, {
+                                        'id': mid,
+                                        'name': f"Material_{mid}",
+                                        'properties': {'type': 'soil'}
+                                    })
+                                    try:
+                                        phi = float(parts[2]) if parts[2] else None
+                                        c_kPa = float(parts[5]) if len(parts) > 5 and parts[5] else None
+                                        if phi is not None:
+                                            mat['properties']['FRICTION_ANGLE'] = phi
+                                        if c_kPa is not None:
+                                            mat['properties']['COHESION'] = c_kPa * 1e3  # kPa->Pa
+                                    except Exception:
+                                        pass
                         except Exception:
                             pass
 

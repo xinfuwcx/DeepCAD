@@ -23,7 +23,7 @@ from PyQt6.QtGui import QIcon, QFont, QPixmap, QPalette, QColor, QAction
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from example2.modules.preprocessor_backup import PreProcessor
+from example2.modules.preprocessor import PreProcessor
 from example2.modules.analyzer import Analyzer
 from example2.modules.postprocessor import PostProcessor
 from example2.utils.error_handler import ErrorHandler, ErrorLevel
@@ -274,6 +274,14 @@ class MainWindow(QMainWindow):
         self.soil_layer_combo.addItem("全部土体", None)
         soil_layer_layout.addWidget(self.soil_layer_combo)
         display_layout.addLayout(soil_layer_layout)
+        # 配色主题选择
+        theme_layout = QHBoxLayout()
+        theme_layout.addWidget(QLabel("配色主题:"))
+        self.color_theme_combo = QComboBox()
+        self.color_theme_combo.addItems(["earth", "pro", "dark"])
+        theme_layout.addWidget(self.color_theme_combo)
+        display_layout.addLayout(theme_layout)
+
 
         # 按阶段过滤预应力路径
         self.filter_anchors_by_stage_cb = QCheckBox("按分析步过滤预应力路径")
@@ -1056,6 +1064,15 @@ class MainWindow(QMainWindow):
                 )
         except Exception as e:
             print(f"板元/锚杆 显示复选框联动失败: {e}")
+        # 配色主题联动
+        try:
+            if hasattr(self.preprocessor, 'set_color_theme'):
+                self.color_theme_combo.currentTextChanged.connect(
+                    lambda t: self.preprocessor.set_color_theme(t)
+                )
+        except Exception as e:
+            print(f"配色主题联动失败: {e}")
+
 
         # 土体分层选择联动
         try:
