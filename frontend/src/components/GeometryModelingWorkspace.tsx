@@ -4,11 +4,12 @@
  * 集成已有的DXF导入和布尔运算算法
  */
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
 import { FunctionalIcons } from './icons/FunctionalIconsQuickFix';
 import ProfessionalViewport3D from './ProfessionalViewport3D';
+import CADToolbar from '@/components/geometry/CADToolbar';
 import { eventBus } from '../core/eventBus';
 import DXFBooleanInterface from './geology/DXFBooleanInterface';
 import PileTypeSelector from './PileTypeSelector';
@@ -83,7 +84,7 @@ const GeometryModelingWorkspace: React.FC<GeometryModelingWorkspaceProps> = ({
     currentModule: 'geology'
   });
 
-  const [isProcessing, setIsProcessing] = useState(false);
+  // 处理流程状态（如需）
   const [showPileSelector, setShowPileSelector] = useState(false);
   // 拉伸参数弹窗
   const [showExtrudeDialog, setShowExtrudeDialog] = useState(false);
@@ -115,9 +116,7 @@ const GeometryModelingWorkspace: React.FC<GeometryModelingWorkspaceProps> = ({
     eventBus.emit('geometry:tool', { tool, ...extra });
     eventBus.emit(`geometry:tool:${tool}`, extra);
   };
-  const emitWorkflowEvent = (evt:string, data:any={}) => {
-    eventBus.emit('geometry:workflow', { stage: evt, ...data });
-  };
+  // 预留：工作流事件（当前未使用，可按需启用）
 
   // 处理DXF导入完成 - 集成2号专家算法
   const handleDXFImported = async (result: any) => {
@@ -680,7 +679,7 @@ const GeometryModelingWorkspace: React.FC<GeometryModelingWorkspaceProps> = ({
       </div>
 
       {/* 右侧 3D 视口填充剩余空间 (采用统一高级视口组件) */}
-      <div style={{flex:1, position:'relative', display:'flex', flexDirection:'column'}}>
+  <div style={{flex:1, position:'relative', display:'flex', flexDirection:'column'}}>
         {/* 顶部几何工具扁平栏 */}
         <div style={{display:'flex', gap:8, padding:'6px 10px', background:'rgba(24,30,36,0.85)', borderBottom:'1px solid #232b33'}}>
           {/* 工具栏按钮 */}
@@ -707,8 +706,14 @@ const GeometryModelingWorkspace: React.FC<GeometryModelingWorkspaceProps> = ({
           {/* 撤销按钮 */}
           <button onClick={()=>eventBus.emit('geometry:undo',{})} style={{background:'#63727f',color:'#fff',borderRadius:6,padding:'6px 10px',border:'none',marginLeft:8}}>撤销</button>
         </div>
-        <div style={{flex:1, position:'relative'}}>
+  <div style={{flex:1, position:'relative', paddingRight:80}}>
+          {/* 主3D视口（右侧预留给工具面板） */}
           <ProfessionalViewport3D mode="geometry" title="几何视口" description="统一高级渲染" suppressLegacyToolbar />
+
+          {/* 右侧停靠几何工具面板（类似网格模块的右侧面板） */}
+          <div style={{position:'absolute', top:40, right:0, bottom:0, width:80, borderLeft:'1px solid #232b33', background:'rgba(24,30,36,0.92)'}}>
+            <CADToolbar onToolSelect={(t:any)=>eventBus.emit('geometry:tool',{tool:t})} positionMode="absolute" docked forceVisible />
+          </div>
           {/* 拉伸参数弹窗 */}
           {showExtrudeDialog && (
             <div style={{position:'absolute',top:60,left:'50%',transform:'translateX(-50%)',background:'#222',border:'1px solid #3388ff',borderRadius:8,padding:18,zIndex:100,minWidth:260,color:'#fff'}}>

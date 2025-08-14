@@ -62,6 +62,10 @@ class AnalysisWorker(QThread):
         self.analysis_steps = analysis_steps
         self.is_running = True
         self.is_paused = False
+        # 同步Analyzer的关键属性用于工作线程内部使用
+        self.use_active_materials_only = getattr(analyzer, 'use_active_materials_only', False)
+        self.fpn_data = getattr(analyzer, 'fpn_data', None)
+        self.active_materials = getattr(analyzer, 'active_materials', set())
 
     def run(self):
         """运行分析"""
@@ -115,11 +119,15 @@ class AnalysisWorker(QThread):
             self.analysis_finished.emit(False, f"分析异常: {str(e)}")
 
     def execute_analysis_step(self, step: AnalysisStep) -> tuple:
-        """执行单个分析步骤"""
+        """执行单个分析步骤（委托给Analyzer，避免工作线程属性缺失）"""
         try:
+            analyzer = self.analyzer
             # 在执行具体步骤前，按需要过滤模型数据
-            if self.use_active_materials_only and self.fpn_data:
-                self._prepare_filtered_model_for_step(step)
+            try:
+                if getattr(analyzer, 'use_active_materials_only', False) and getattr(analyzer, 'fpn_data', None):
+                    analyzer._prepare_filtered_model_for_step(step)
+            except Exception:
+                pass
 
             if KRATOS_AVAILABLE:
                 return self.execute_kratos_step(step)

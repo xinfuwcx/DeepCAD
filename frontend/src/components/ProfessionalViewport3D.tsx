@@ -8,8 +8,9 @@ import { eventBus } from '../core/eventBus';
 import { geometryAlgorithmIntegration } from '../services';
 import { localGeometryRegistry } from '../services/LocalGeometryRegistry';
 import { isFeatureEnabled } from '../config/featureFlags';
-import ViewportAxes from './3d/ViewportAxes';
+// import ViewportAxes from './3d/ViewportAxes';
 import ViewportToolbar from './viewport/ViewportToolbar';
+import { useAbaqusAxis } from '../hooks/useAbaqusAxis';
 // @ts-ignore - optional local CSG lib (may be absent during initial dev)
 // dynamic import used later
 // import { CSG } from 'three-csg-ts';
@@ -289,6 +290,20 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
   const controlsRef = useRef<OrbitControls | null>(null);
   const frameRef = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Abaqus轴挂载容器
+  const axisMountRef = useRef<HTMLDivElement | null>(null);
+
+  // 注入 ABAQUS 风格坐标轴（与主相机联动）
+  useAbaqusAxis({
+    enabled: true,
+    container: axisMountRef.current,
+    camera: camera,
+    size: 90,
+    position: 'bottom-left',
+    backgroundColor: 'rgba(45, 52, 64, 0.9)',
+    opacity: 0.95,
+    colors: { x: '#E74C3C', y: '#27AE60', z: '#3498DB' }
+  });
 
   // 初始化3D场景内容
   useEffect(() => {
@@ -360,13 +375,63 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
       console.log('🧹 开始清空场景...');
       scene.clear(); // 完全清空场景
       
+      // 设置 ABAQUS 风格渐变背景与雾效
+      const createAbaqusGradientBackground = (): THREE.Texture => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024; canvas.height = 1024;
+        const ctx = canvas.getContext('2d')!;
+        // Deepened vertical gradient
+        const g = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        g.addColorStop(0.0, '#17232c');
+        g.addColorStop(0.25, '#223240');
+        g.addColorStop(0.6, '#2a3d4b');
+        g.addColorStop(1.0, '#121a21');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Stronger vignette overlay
+        const cx = canvas.width/2, cy = canvas.height/2;
+        const vignette = ctx.createRadialGradient(cx, cy, canvas.width*0.18, cx, cy, canvas.width*0.75);
+        vignette.addColorStop(0, 'rgba(0,0,0,0)');
+        vignette.addColorStop(1, 'rgba(0,0,0,0.33)');
+        ctx.fillStyle = vignette; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Subtle grid
+        ctx.strokeStyle = 'rgba(80, 100, 120, 0.08)';
+        ctx.lineWidth = 1;
+        const step = 28;
+        for (let i = 0; i < canvas.width; i += step) {
+          ctx.beginPath(); ctx.moveTo(i + 0.5, 0); ctx.lineTo(i + 0.5, canvas.height); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0, i + 0.5); ctx.lineTo(canvas.width, i + 0.5); ctx.stroke();
+        }
+        // Light grain + contrast
+        const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = img.data; const total = data.length/4; const density = 0.06;
+        for(let n=0;n<total*density;n++){
+          const idx = (Math.random()*total)|0; const b=idx*4; const d=(Math.random()*38)-19;
+          data[b]=Math.max(0,Math.min(255,data[b]+d));
+          data[b+1]=Math.max(0,Math.min(255,data[b+1]+d));
+          data[b+2]=Math.max(0,Math.min(255,data[b+2]+d));
+        }
+        for(let i=0;i<data.length;i+=4){
+          const curve=(v:number)=>{ const x=v/255; const y=0.5+(x-0.5)*1.12; return Math.max(0,Math.min(255,Math.round(y*255))); };
+          data[i]=curve(data[i]); data[i+1]=curve(data[i+1]); data[i+2]=curve(data[i+2]);
+        }
+        ctx.putImageData(img,0,0);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.needsUpdate = true; tex.generateMipmaps = false;
+        tex.minFilter = THREE.LinearFilter; tex.magFilter = THREE.LinearFilter;
+        return tex;
+      };
+      try {
+        scene.background = createAbaqusGradientBackground();
+        scene.fog = new THREE.Fog(0x2c3e50, 50, 200);
+      } catch {}
+      
       // 重新添加基础元素
       console.log('🔧 重新添加基础元素...');
       
       const modernGrid = createModernGrid();
       addToScene(modernGrid);
 
-      // 注意：现代化坐标轴将通过 useModernAxis hook 添加
+  // 注意：坐标轴通过 ABAQUS 风格轴（useAbaqusAxis）以DOM叠加方式提供
 
       // 持续监控并阻止任何不需要的对象被添加
       let clearIntervalId = setInterval(() => {
@@ -411,7 +476,7 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
         }
       }, 10000);
 
-      // 移除示例几何体
+  // 移除示例几何体
       // if (mode === 'geometry') {
       //   const addSample = (x:number,color:number) => {
       //     const g = new THREE.BoxGeometry(2,2,2);
@@ -490,7 +555,7 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
         console.log(`- ${child.type}: ${child.name || '(无名称)'} - ${child.constructor.name}`);
       });
 
-      // 清理函数
+  // 清理函数
       return () => {
         console.log('SimpleViewport3D: 清理资源');
         
@@ -977,24 +1042,7 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
 
   const toggleBooleanMode = () => setBooleanMode(m=> m==='local'?'backend':'local');
 
-  // 临时禁用现代化坐标轴，使用基础THREE.js坐标轴
-  useEffect(() => {
-    if (isInitialized && scene) {
-      const axesHelper = new THREE.AxesHelper(5);
-      axesHelper.setColors(
-        new THREE.Color(0xff3333), // X轴 - 红色
-        new THREE.Color(0x33ff33), // Y轴 - 绿色
-        new THREE.Color(0x3333ff)  // Z轴 - 蓝色
-      );
-      axesHelper.name = 'simple-axes';
-      scene.add(axesHelper);
-      
-      return () => {
-        const axes = scene.getObjectByName('simple-axes');
-        if (axes) scene.remove(axes);
-      };
-    }
-  }, [isInitialized, scene]);
+  // 移除基础 AxesHelper，用 ABAQUS 风格坐标轴替代（见上方 useAbaqusAxis）
 
   const resetCamera = () => {
     setCameraPosition(8, 6, 8);
@@ -1110,6 +1158,20 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
           bottom: 0,
           width: '100%',
           height: 'calc(100% - 40px)'
+        }}
+      />
+
+      {/* ABAQUS 风格坐标轴挂载层（DOM叠加） */}
+      <div
+        ref={axisMountRef}
+        style={{
+          position: 'absolute',
+          pointerEvents: 'none',
+          left: 0,
+          right: 0,
+          top: '40px',
+          bottom: 0,
+          zIndex: 140
         }}
       />
 
@@ -1247,13 +1309,7 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
         </div>
       )}
       
-      {/* 坐标轴组件 */}
-      {camera && (
-        <ViewportAxes 
-          camera={camera} 
-          size={120} 
-        />
-      )}
+  {/* 已使用 ABAQUS 风格坐标轴替代 ViewportAxes */}
     </div>
   );
 };

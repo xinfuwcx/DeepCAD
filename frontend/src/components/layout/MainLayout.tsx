@@ -1,7 +1,7 @@
 /* eslint-disable react/jsx-no-inline-styles */
 import React, { useState } from 'react';
 import { Layout, Menu } from 'antd';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import {
   DashboardOutlined,
   AppstoreOutlined,
@@ -21,7 +21,6 @@ import PhysicsAIView from '../../views/PhysicsAIView';
 import MaterialLibraryView from '../../views/MaterialLibraryView';
 import SettingsView from '../../views/SettingsView';
 import AIAssistantFloating from '../AIAssistantFloating';
-import BoreholeDataVisualization from '../geology/BoreholeDataVisualization';
 // Removed unused imports (ComputationExpertView, MapStyle, legacy controllers)
 
 const { Sider, Content } = Layout;
@@ -65,10 +64,6 @@ const MainLayout: React.FC = () => {
             {
               key: 'geology-reconstruction',
               label: '地质重建',
-            },
-            {
-              key: 'borehole-visualization',
-              label: '钻孔数据可视化',
             },
             {
               key: 'tunnel-modeling',
@@ -209,7 +204,8 @@ const MainLayout: React.FC = () => {
             <Route path="results" element={<EnhancedMainWorkspaceView activeModule="results" />} />
             <Route path="physics-ai" element={<PhysicsAIView />} />
             <Route path="materials" element={<MaterialLibraryView />} />
-            <Route path="borehole-visualization" element={<BoreholeDataVisualization />} />
+            {/* 兼容旧链接：将钻孔可视化重定向至 地质重建 */}
+            <Route path="borehole-visualization" element={<Navigate to="geology-reconstruction" replace />} />
             {/* 旧项目管理路径兼容：统一指向控制中心 */}
             <Route path="projects" element={<DeepCADControlCenter onExit={() => navigate('/workspace')} />} />
             <Route path="project-management-3d" element={<DeepCADControlCenter onExit={() => navigate('/workspace')} />} />

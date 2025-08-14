@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { eventBus } from '../../core/eventBus';
-import { Button, Tooltip, Divider, message, Modal, InputNumber, Select, Space } from 'antd';
+import { Button, Tooltip, Divider, message, Modal, InputNumber, Space } from 'antd';
 import { cadGeometryEngine, CADObject, GeometryCreationParams } from '../../services/CADGeometryEngine';
 import {
   // 基础几何图标
@@ -62,6 +62,14 @@ export interface CADToolbarProps {
    * - "absolute": pinned to its nearest positioned parent (use for anchoring to 3D viewport)
    */
   positionMode?: 'fixed' | 'absolute';
+  /**
+   * Docked mode styling: when true, the toolbar adapts to a right-side panel layout (like meshing panel)
+   */
+  docked?: boolean;
+  /**
+   * Force show toolbar even if legacy hide flag is set (used for embedded/docked panels)
+   */
+  forceVisible?: boolean;
 }
 
 const CADToolbar: React.FC<CADToolbarProps> = ({
@@ -69,22 +77,28 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
   activeTool,
   disabled = false,
   className = '',
-  positionMode = 'fixed'
+  positionMode = 'fixed',
+  docked = false,
+  forceVisible = false
 }) => {
   // 初始隐藏状态也读取全局同步标志，避免先闪现再隐藏
-  const [hidden,setHidden] = useState<boolean>(() => (typeof window !== 'undefined' && (window as any).__HIDE_LEGACY_CAD_TOOLBAR__ === true));
+  const [hidden,setHidden] = useState<boolean>(() => !forceVisible && (typeof window !== 'undefined' && (window as any).__HIDE_LEGACY_CAD_TOOLBAR__ === true));
   // 监听全局隐藏/显示事件以便被高级视口接管
   useEffect(()=>{
     const offHide = eventBus.on('ui:hideCADToolbar', ()=> {
-      (window as any).__HIDE_LEGACY_CAD_TOOLBAR__ = true;
-      setHidden(true);
+      if(!forceVisible){
+        (window as any).__HIDE_LEGACY_CAD_TOOLBAR__ = true;
+        setHidden(true);
+      }
     });
     const offShow = eventBus.on('ui:showCADToolbar', ()=> {
-      (window as any).__HIDE_LEGACY_CAD_TOOLBAR__ = false;
-      setHidden(false);
+      if(!forceVisible){
+        (window as any).__HIDE_LEGACY_CAD_TOOLBAR__ = false;
+        setHidden(false);
+      }
     });
     return ()=>{ offHide(); offShow(); };
-  },[]);
+  },[forceVisible]);
 
   if(hidden) return null;
   const [selectedObjects, setSelectedObjects] = useState<CADObject[]>([]);
@@ -630,42 +644,55 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
         className={`cad-toolbar ${className}`}
         style={{
           position: (positionMode ?? 'fixed'),
-          top: '50%',
-          right: '20px',
-          transform: 'translateY(-50%)',
-          width: '48px',
+          top: docked ? '40px' : '50%',
+          right: docked ? '0' : '20px',
+          transform: docked ? 'none' : 'translateY(-50%)',
+          // In docked mode, fill the parent panel; parent controls exact width (e.g., 80px)
+          width: docked ? '100%' : '48px',
+          height: docked ? 'calc(100% - 40px)' : undefined,
           background: 'rgba(26, 26, 46, 0.9)',
           border: '1px solid rgba(0, 217, 255, 0.4)',
-          borderRadius: '8px',
-          padding: '8px 6px',
+          borderRadius: docked ? '0' : '8px',
+          padding: docked ? '10px' : '8px 6px',
           backdropFilter: 'blur(10px)',
-          boxShadow: '0 4px 20px rgba(0, 217, 255, 0.1)',
+          boxShadow: docked ? 'none' : '0 4px 20px rgba(0, 217, 255, 0.1)',
           zIndex: 8500,
-          maxHeight: 'calc(100vh - 40px)',
+          maxHeight: docked ? 'none' : 'calc(100vh - 40px)',
           overflowY: 'auto',
-          overflowX: 'hidden'
+          overflowX: 'hidden',
+          display: 'flex',
+          flexDirection: docked ? 'column' : 'initial'
         }}
       >
       {/* 工具栏标题 */}
       <div style={{
-        fontSize: '12px',
+        fontSize: docked ? '14px' : '12px',
         color: '#00d9ff',
-        textAlign: 'center',
-        marginBottom: '12px',
+        textAlign: docked ? 'left' : 'center',
+        marginBottom: docked ? '8px' : '12px',
         fontWeight: 'bold',
         letterSpacing: '1px'
       }}>
-工具
+        几何工具
       </div>
 
-      {/* 视口工具 */}
-      {renderToolGroup(utilityTools, '视口')}
+  {/* 常用/视口工具 */}
+  {renderToolGroup(utilityTools, docked ? '常用' : '视口')}
 
-      {/* 系统工具 */}
-      {renderToolGroup(systemTools, '系统')}
+  {/* 基础几何 */}
+  {renderToolGroup(geometryTools, '几何')}
 
-      {/* 选中对象计数 */}
-      {selectedObjects.length > 0 && (
+  {/* 布尔运算 */}
+  {renderToolGroup(booleanTools, '布尔')}
+
+  {/* 变换操作 */}
+  {renderToolGroup(transformTools, '变换')}
+
+  {/* 系统工具 */}
+  {renderToolGroup(systemTools, '系统')}
+
+    {/* 选中/总对象计数（浮动模式显示） */}
+  {!docked && (selectedObjects.length > 0 || allObjects.length > 0) && (
         <div style={{
           position: 'absolute',
           bottom: '8px',
@@ -678,7 +705,7 @@ const CADToolbar: React.FC<CADToolbarProps> = ({
           borderRadius: '10px',
           fontWeight: 'bold'
         }}>
-          {selectedObjects.length}
+      {selectedObjects.length}/{allObjects.length}
         </div>
       )}
       </div>

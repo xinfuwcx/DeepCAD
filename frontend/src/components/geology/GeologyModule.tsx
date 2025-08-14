@@ -7,40 +7,40 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   Card, Row, Col, Button, Space, Typography, Alert, Progress,
-  Tabs, Form, Select, InputNumber, Switch, Slider, Upload,
-  Table, Tag, Timeline, List, Modal, message, Spin,
-  Steps, Collapse, Radio, Checkbox, Tooltip, Input,
+  Tabs, Form, Select, InputNumber, Switch, Slider,
+  Table, Tag, Modal, message,
+  Steps, Checkbox, Tooltip, Input,
   Drawer
 } from 'antd';
 import {
   ThunderboltOutlined, DatabaseOutlined, SettingOutlined,
   PlayCircleOutlined, StopOutlined, EyeOutlined, DownloadOutlined,
-  UploadOutlined, ExperimentOutlined, CheckCircleOutlined,
-  CloudUploadOutlined, FileSearchOutlined, ReloadOutlined,
-  BulbOutlined, DashboardOutlined, LineChartOutlined, BorderOutlined,
-  PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined
+  UploadOutlined, CheckCircleOutlined,
+  DashboardOutlined, BorderOutlined,
+  PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined,
+  ReloadOutlined
 } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // 导入GemPy服务
 import { GeologyModelingService } from '../../services/GeologyModelingService';
-import GempyDirectService from '@/services/GempyDirectService';
+// import GempyDirectService from '@/services/GempyDirectService';
 import { geologyApiConfig, updateGeologyApiConfig } from '@/config/networkConfig';
 import { GEO_REQ_CLASS_COLORS } from '@/config/geologyLogging';
 import GeologyReconstructionViewport3D from '@/components/geology/GeologyReconstructionViewport3D';
-import VerticalToolbar, { VerticalToolType } from '@/components/geometry/VerticalToolbar';
+import BoreholeDataTab from '@/components/geology/BoreholeDataTab';
+import { VerticalToolType } from '@/components/geometry/VerticalToolbar';
 import CADToolbar from '@/components/geometry/CADToolbar';
 import * as THREE from 'three';
 // import { traditionalPreset } from '@/config/geologyPresets'; // removed unused / path missing
 import { RBFConfig } from '../../services/GeometryArchitectureService';
 import { useSeepageParameters } from './hooks/useSeepageParameters';
 
-const { Title, Text, Paragraph } = Typography;
-const { Panel } = Collapse;
+const { Title, Text } = Typography;
 const { TabPane } = Tabs;
 const { Option } = Select;
-const { Step } = Steps;
-const { Dragger } = Upload;
+// const { Step } = Steps;
+// const { Dragger } = Upload;
 
 // ==================== 接口定义 ====================
 
@@ -92,19 +92,7 @@ interface ProcessingStats {
   qualityScore: number;
 }
 
-interface QualityMetrics {
-  overall: {
-    score: number;
-    grade: 'A' | 'B' | 'C' | 'D' | 'F';
-    meshReadiness: boolean;
-    recommendation: string[];
-  };
-  meshGuidance: {
-    recommendedMeshSize: number;
-    estimatedElements: number;
-    qualityThreshold: number;
-  };
-}
+// Removed QualityMetrics interface (not used by UI)
 
 // ==================== 主组件 ====================
 
@@ -145,14 +133,14 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
     memoryUsage: 0,
     qualityScore: 0,
   });
-  const [qualityMetrics, setQualityMetrics] = useState<QualityMetrics | null>(null);
+  // Removed: qualityMetrics state (not used in UI)
   const [threeData, setThreeData] = useState<Record<string, any> | null>(null);
   const [showViewport, setShowViewport] = useState(false);
   const [viewportTool, setViewportTool] = useState<VerticalToolType | undefined>(undefined);
-  const [extraSectionPos, setExtraSectionPos] = useState<number | undefined>(undefined);
-  const [extraSectionAxis, setExtraSectionAxis] = useState<'x' | 'y' | 'z'>('x');
-  const [explodeOffset, setExplodeOffset] = useState<number>(0);
-  const [screenshotNonce, setScreenshotNonce] = useState<number>(0);
+  const [extraSectionPos] = useState<number | undefined>(undefined);
+  const [extraSectionAxis] = useState<'x' | 'y' | 'z'>('x');
+  const [explodeOffset] = useState<number>(0);
+  const [screenshotNonce] = useState<number>(0);
   // 手动计算域开关与边界（缺省采用手动指定）
   const [useManualDomain, setUseManualDomain] = useState<boolean>(true);
   const [domainBounds, setDomainBounds] = useState<{ xMin: number; xMax: number; yMin: number; yMax: number; zMin: number; zMax: number }>(
@@ -185,6 +173,13 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
   useEffect(() => {
     gemPyServiceRef.current = new GeologyModelingService();
   }, []);
+
+  // 同步外部传入的插值方法到配置
+  useEffect(() => {
+    if (interpolationMethod && ['rbf_multiquadric','ordinary_kriging','adaptive_idw'].includes(interpolationMethod)) {
+      setGemPyConfig(prev => prev.interpolationMethod === interpolationMethod ? prev : { ...prev, interpolationMethod: interpolationMethod as any });
+    }
+  }, [interpolationMethod]);
 
   // ==================== 事件处理函数 ====================
 
@@ -257,7 +252,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
   };
 
   // 获取算法提示信息
-  const getAlgorithmTip = (method: string) => {
+  const getAlgorithmTip = (method: 'rbf_multiquadric' | 'ordinary_kriging' | 'adaptive_idw') => {
     const tips = {
       'rbf_multiquadric': '已选择RBF多二次插值 - 将自动处理密集和稀疏区域的数据不均匀分布',
       'ordinary_kriging': '已选择普通克里金 - 将提供插值结果的不确定性评估，有助于风险控制',
@@ -433,7 +428,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
             <div>😞 GemPy完整显示链路建模失败 ({classification||'unknown'})</div>
             <div style={{ fontSize: 12, marginTop:4 }}>{detail}</div>
             {firstAttemptErr && <div style={{ fontSize:11, marginTop:4, color:'#faad14' }}>首尝试: {firstAttemptErr}</div>}
-            {latest?.attempts>1 && <div style={{ fontSize:11, marginTop:4 }}>共尝试 {latest.attempts} 次, 最终耗时 {Math.round(latest.durationMs)} ms</div>}
+            {((latest?.attempts ?? 0) > 1) && <div style={{ fontSize:11, marginTop:4 }}>共尝试 {latest?.attempts ?? 0} 次, 最终耗时 {Math.round(latest?.durationMs ?? 0)} ms</div>}
             {latest?.hash && <div style={{ fontSize:11, marginTop:4 }}>Hash: {latest.hash}</div>}
           </div>
         ),
@@ -467,25 +462,12 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
 
       setProcessingProgress(40);
 
-      // 使用直连服务（带上计算域范围与分辨率）
-      const holes = boreholeData?.holes || [];
-      const autoInferBounds = () => {
-        const xs = holes.map((h: any) => h.x ?? h.location?.x ?? 0);
-        const ys = holes.map((h: any) => h.y ?? h.location?.y ?? 0);
-        const zs = holes.map((h: any) => h.z ?? h.location?.z ?? -(h.elevation ?? 0));
-        const min = (arr: number[]) => (arr.length ? Math.min(...arr) : -50);
-        const max = (arr: number[]) => (arr.length ? Math.max(...arr) : 50);
-        const b = { x_min: min(xs), x_max: max(xs), y_min: min(ys), y_max: max(ys), z_min: min(zs), z_max: max(zs) };
-        const expand = 0.2; const expandRange = (lo: number, hi: number) => { const r = hi - lo; return { lo: lo - r * expand, hi: hi + r * expand }; };
-        const xr = expandRange(b.x_min, b.x_max); const yr = expandRange(b.y_min, b.y_max); const zr = expandRange(b.z_min, b.z_max);
-        return { x_min: xr.lo, x_max: xr.hi, y_min: yr.lo, y_max: yr.hi, z_min: zr.lo, z_max: zr.hi };
-      };
-      const manual = { x_min: domainBounds.xMin, x_max: domainBounds.xMax, y_min: domainBounds.yMin, y_max: domainBounds.yMax, z_min: domainBounds.zMin, z_max: domainBounds.zMax };
-      const domain = {
-        bounds: useManualDomain ? manual : autoInferBounds(),
-        resolution: [gemPyConfig.resolutionX, gemPyConfig.resolutionY, gemPyConfig.resolutionZ]
-      };
-      const payload = { boreholes: holes, domain } as any;
+  // 使用直连服务
+  // const domain = {
+  //   bounds: useManualDomain ? manual : autoInferBounds(),
+  //   resolution: [gemPyConfig.resolutionX, gemPyConfig.resolutionY, gemPyConfig.resolutionZ]
+  // };
+  // const payload = { boreholes: holes, domain } as any;
       const directResult = await gemPyService.createGemPyDirectModel(
         boreholeData,
         {
@@ -556,7 +538,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
             <div>💥 GemPy直接显示链路建模失败 ({classification||'unknown'})</div>
             <div style={{ fontSize: 12, marginTop:4 }}>{detail}</div>
             {firstAttemptErr && <div style={{ fontSize:11, marginTop:4, color:'#faad14' }}>首尝试: {firstAttemptErr}</div>}
-            {latest?.attempts>1 && <div style={{ fontSize:11, marginTop:4 }}>共尝试 {latest.attempts} 次, 最终耗时 {Math.round(latest.durationMs)} ms</div>}
+            {((latest?.attempts ?? 0) > 1) && <div style={{ fontSize:11, marginTop:4 }}>共尝试 {latest?.attempts ?? 0} 次, 最终耗时 {Math.round(latest?.durationMs ?? 0)} ms</div>}
             {latest?.hash && <div style={{ fontSize:11, marginTop:4 }}>Hash: {latest.hash}</div>}
           </div>
         ),
@@ -614,19 +596,7 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
         qualityScore: reconstructionResult.quality.meshReadiness * 100,
       });
 
-      setQualityMetrics({
-        overall: {
-          score: reconstructionResult.quality.meshReadiness * 100,
-          grade: reconstructionResult.quality.meshReadiness > 0.8 ? 'A' : 'B', // Simplified
-          meshReadiness: reconstructionResult.quality.meshReadiness > 0.5,
-          recommendation: [] // Empty
-        },
-        meshGuidance: {
-          recommendedMeshSize: reconstructionResult.quality.triangleCount / 1000, // Placeholder
-          estimatedElements: reconstructionResult.quality.triangleCount,
-          qualityThreshold: 0.65,
-        },
-      });
+  // 质量指标可在后续版本展示
 
       // Notify parent
       if (onGeologyGenerated) {
@@ -775,10 +745,11 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
               {gemPyServiceRef.current?.requestLog?.length ? (()=>{
                 const lastFail = gemPyServiceRef.current.requestLog.find(r=> r.classification && r.classification!=='success');
                 if (!lastFail) return null;
-                const color = GEO_REQ_CLASS_COLORS[lastFail.classification] || '#999';
+                const cls = (lastFail as any).classification as string | undefined;
+                const color = (cls && GEO_REQ_CLASS_COLORS[cls]) ? GEO_REQ_CLASS_COLORS[cls] : '#999';
                 return <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, color }}>
                   <span style={{ width:8, height:8, borderRadius:'50%', background: color, display:'inline-block' }} />
-                  <span>{lastFail.classification}</span>
+                  <span>{cls || 'unknown'}</span>
                 </div>;
               })(): null}
               <Tooltip title={`超时 ${geologyApiConfig.timeoutMs/1000}s / 重试 ${geologyApiConfig.retries} 次 / 基延迟 ${geologyApiConfig.retryDelayMs}ms`}> 
@@ -1186,65 +1157,12 @@ const GeologyModule: React.FC<EnhancedGeologyModuleProps> = ({
         </TabPane>
         {/* 数据管理 */}
         <TabPane tab="钻孔数据" key="data" style={{ flex: 1, overflow: 'hidden' }}>
-          <div style={{ height: '100%', overflow: 'auto', paddingBottom: '140px' }}>
-            <Row gutter={16}>
-            <Col span={24}>
-              <Card title="数据上传" size="small">
-                <Dragger {...uploadProps} style={{ marginBottom: '16px' }}>
-                  <p style={{ margin: 0, fontSize: '24px', color: '#1890ff' }}>
-                    <CloudUploadOutlined />
-                  </p>
-                  <p style={{ fontSize: '14px', margin: '6px 0' }}>
-                    点击或拖拽上传钻孔数据文件
-                  </p>
-                  <p style={{ color: '#666', fontSize: '12px', margin: 0 }}>
-                    支持 JSON、CSV、Excel 格式
-                  </p>
-                </Dragger>
-
-                {boreholeData && (
-                  <Alert
-                    message={`成功加载 ${boreholeData.holes?.length || 2} 个钻孔数据`}
-                    description={`包含 ${boreholeData.holes?.reduce((sum: number, hole: any) => sum + (hole.layers?.length || 0), 0) || 6} 个土层`}
-                    type="success"
-                    showIcon
-                  />
-                )}
-              </Card>
-            </Col>
-
-            <Col span={24}>
-              <Card title="数据统计" size="small" style={{ marginTop: '16px' }}>
-                {boreholeData ? (
-                  <List
-                    size="small"
-                    dataSource={[
-                      { label: '钻孔数量', value: `${boreholeData.holes?.length || 2} 个` },
-                      {
-                        label: '土层总数',
-                        value: `${boreholeData.holes?.reduce((sum: number, hole: any) => sum + (hole.layers?.length || 0), 0) || 6} 个`,
-                      },
-                      { label: '空间范围', value: '待计算' },
-                      { label: '数据质量', value: '良好' },
-                    ]}
-                    renderItem={item => (
-                      <List.Item>
-                        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                          <Text>{item.label}:</Text>
-                          <Text strong>{item.value}</Text>
-                        </Space>
-                      </List.Item>
-                    )}
-                  />
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '40px' }}>
-                    <DatabaseOutlined style={{ fontSize: '48px', color: '#d9d9d9', marginBottom: '16px' }} />
-                    <Text style={{ color: '#999' }}>暂无钻孔数据</Text>
-                  </div>
-                )}
-              </Card>
-            </Col>
-          </Row>
+          <div style={{ height: '100%', paddingBottom: '16px' }}>
+            <BoreholeDataTab 
+              boreholeData={boreholeData}
+              uploadProps={uploadProps as any}
+              onChange={(data)=> setBoreholeData(data)}
+            />
           </div>
         </TabPane>
 

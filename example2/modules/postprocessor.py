@@ -124,15 +124,32 @@ class PostProcessor:
         layout.setContentsMargins(0, 0, 0, 0)
         
         if PYVISTA_AVAILABLE:
-            # 创建PyVista交互器
-            self.plotter = QtInteractor(self.viewer_widget)
-            self.plotter.setMinimumSize(600, 400)
-            
-            # 设置默认场景
-            self.setup_default_scene()
-            
-            layout.addWidget(self.plotter.interactor)
-            
+            try:
+                # 创建PyVista交互器（可能因OpenGL上下文失败）
+                self.plotter = QtInteractor(self.viewer_widget)
+                self.plotter.setMinimumSize(600, 400)
+                # 设置默认场景
+                self.setup_default_scene()
+                layout.addWidget(self.plotter.interactor)
+            except Exception as e:
+                print(f"PyVista初始化失败，使用后处理占位视图: {e}")
+                self.plotter = None
+                placeholder = QFrame()
+                placeholder.setFrameStyle(QFrame.StyledPanel)
+                placeholder.setMinimumSize(600, 400)
+                placeholder.setStyleSheet("""
+                    QFrame {
+                        background-color: #f8f9fa;
+                        border: 2px dashed #9C27B0;
+                        border-radius: 8px;
+                    }
+                """)
+                label = QLabel("3D后处理视图不可用（OpenGL失败）\n已切换为占位视图")
+                label.setAlignment(Qt.AlignCenter)
+                label.setStyleSheet("color: #9C27B0; font-size: 16px; font-weight: bold;")
+                placeholder_layout = QVBoxLayout(placeholder)
+                placeholder_layout.addWidget(label)
+                layout.addWidget(placeholder)
         else:
             # 创建占位符
             placeholder = QFrame()
@@ -145,14 +162,14 @@ class PostProcessor:
                     border-radius: 8px;
                 }
             """)
-            
+
             label = QLabel("PyVista不可用\n后处理可视化占位符")
             label.setAlignment(Qt.AlignCenter)
             label.setStyleSheet("color: #9C27B0; font-size: 16px; font-weight: bold;")
-            
+
             placeholder_layout = QVBoxLayout(placeholder)
             placeholder_layout.addWidget(label)
-            
+
             layout.addWidget(placeholder)
             
     def setup_default_scene(self):
@@ -225,45 +242,7 @@ class PostProcessor:
         except Exception as e:
             print(f"设置分析结果失败: {e}")
         
-    def set_analysis_results(self, model_data: Dict[str, Any], results: Dict[str, Any]):
-        """直接设置分析结果数据"""
-        try:
-            print("设置分析结果...")
-            
-            # 从模型数据创建网格
-            nodes = model_data.get('nodes', [])
-            elements = model_data.get('elements', [])
-            
-            if not nodes or not elements:
-                print("警告: 模型数据不完整")
-                return
-                
-            if PYVISTA_AVAILABLE:
-                # 创建网格
-                self.mesh = self.create_mesh_from_model(nodes, elements)
-                
-                # 设置结果数据
-                if 'displacement_field' in results:
-                    displacement = np.array(results['displacement_field'])
-                    if displacement.shape[0] == self.mesh.n_points:
-                        self.time_steps = [0]  # 静力分析只有一个时间步
-                        self.current_time_step = 0
-                        self.results_data = {
-                            0: {
-                                'displacement': displacement,
-                                'stress': np.array(results.get('stress_field', [])) if 'stress_field' in results else None
-                            }
-                        }
-                        
-                        print(f"成功设置结果: {len(displacement)}个节点位移")
-                        
-                        # 显示结果
-                        self.display_results()
-                    else:
-                        print(f"位移数据维度不匹配: {displacement.shape[0]} vs {self.mesh.n_points}")
-                        
-        except Exception as e:
-            print(f"设置分析结果失败: {e}")
+
     
     def create_mesh_from_model(self, nodes: List[Dict], elements: List[Dict]):
         """从模型数据创建PyVista网格"""
@@ -429,7 +408,14 @@ class PostProcessor:
             
     def create_time_varying_results(self):
         """创建时变结果数据"""
-        if not self.mesh or not self.time_steps:
+        # 安全检查：避免数组比较问题
+        if self.mesh is None:
+            return
+        if not hasattr(self, 'time_steps') or self.time_steps is None:
+            return
+        if isinstance(self.time_steps, (list, tuple)) and len(self.time_steps) == 0:
+            return
+        if hasattr(self.time_steps, '__len__') and len(self.time_steps) == 0:
             return
             
         n_points = self.mesh.n_points
@@ -456,16 +442,26 @@ class PostProcessor:
         self.animation_controller.total_frames = n_steps
         
     def display_results(self):
-        """显示结果"""
+        """显示结果（在无OpenGL时安全降级）"""
+        # 确保numpy可用
+        import numpy as np
+
         if not PYVISTA_AVAILABLE or not self.mesh:
             return
-            
-        # 清除现有内容
-        self.plotter.clear()
-        
-        # 重新设置场景
-        self.setup_default_scene()
-        
+        if self.plotter is None:
+            # 没有3D渲染器，直接打印提示
+            print("后处理：无可用3D渲染器，已加载结果但不显示图形。")
+            return
+
+        try:
+            # 清除现有内容
+            self.plotter.clear()
+            # 重新设置场景
+            self.setup_default_scene()
+        except Exception as e:
+            print(f"刷新渲染器失败，跳过图形显示: {e}")
+            return
+
         # 获取当前时间步的数据
         current_data = self.get_current_time_step_data()
         
@@ -563,7 +559,7 @@ class PostProcessor:
                 'position_y': 0.125,
                 'color': 'black',
                 'background_color': 'white',
-                'background_opacity': 0.8
+                # 'background_opacity': 0.8  # 某些PyVista版本不支持此参数
             }
             
             # 显示云图with专业彩虹标尺

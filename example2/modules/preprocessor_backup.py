@@ -47,15 +47,32 @@ class PreProcessor:
         layout.setContentsMargins(0, 0, 0, 0)
         
         if PYVISTA_AVAILABLE:
-            # 创建PyVista交互器
-            self.plotter = QtInteractor(self.viewer_widget)
-            self.plotter.setMinimumSize(600, 400)
-            
-            # 设置默认场景
-            self.setup_default_scene()
-            
-            layout.addWidget(self.plotter.interactor)
-            
+            try:
+                # 创建PyVista交互器（可能因OpenGL上下文失败）
+                self.plotter = QtInteractor(self.viewer_widget)
+                self.plotter.setMinimumSize(600, 400)
+                # 设置默认场景
+                self.setup_default_scene()
+                layout.addWidget(self.plotter.interactor)
+            except Exception as e:
+                print(f"PyVista初始化失败，使用占位视图: {e}")
+                self.plotter = None
+                placeholder = QFrame()
+                placeholder.setFrameStyle(QFrame.StyledPanel)
+                placeholder.setMinimumSize(600, 400)
+                placeholder.setStyleSheet("""
+                    QFrame {
+                        background-color: #f8f9fa;
+                        border: 2px dashed #FF6B35;
+                        border-radius: 8px;
+                    }
+                """)
+                label = QLabel("3D视图不可用（OpenGL失败）\n已切换为占位视图")
+                label.setAlignment(Qt.AlignCenter)
+                label.setStyleSheet("color: #FF6B35; font-size: 16px; font-weight: bold;")
+                placeholder_layout = QVBoxLayout(placeholder)
+                placeholder_layout.addWidget(label)
+                layout.addWidget(placeholder)
         else:
             # 创建占位符
             placeholder = QFrame()
@@ -68,14 +85,14 @@ class PreProcessor:
                     border-radius: 8px;
                 }
             """)
-            
+
             label = QLabel("PyVista不可用\n前处理可视化占位符")
             label.setAlignment(Qt.AlignCenter)
             label.setStyleSheet("color: #FF6B35; font-size: 16px; font-weight: bold;")
-            
+
             placeholder_layout = QVBoxLayout(placeholder)
             placeholder_layout.addWidget(label)
-            
+
             layout.addWidget(placeholder)
             
     def setup_default_scene(self):

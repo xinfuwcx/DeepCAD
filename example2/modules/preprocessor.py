@@ -296,96 +296,96 @@ try:
 
         # ---------- 叠加层：锚杆 ----------
         def _build_anchor_geometry(self):
-        """构建预应力锚杆几何，支持阶段过滤和调试输出"""
-        if not (PYVISTA_AVAILABLE and self.fpn_data):
-            print("锚杆几何构建跳过：PyVista不可用或无FPN数据")
-            return None
-        try:
-            line_elems = self.fpn_data.get('line_elements') or {}
-            if not line_elems:
-                print("锚杆几何构建跳过：未找到线元素数据")
+            """构建预应力锚杆几何，支持阶段过滤和调试输出"""
+            if not (PYVISTA_AVAILABLE and self.fpn_data):
+                print("锚杆几何构建跳过：PyVista不可用或无FPN数据")
                 return None
+            try:
+                line_elems = self.fpn_data.get('line_elements') or {}
+                if not line_elems:
+                    print("锚杆几何构建跳过：未找到线元素数据")
+                    return None
 
-            print(f"开始构建锚杆几何：发现 {len(line_elems)} 个线元素")
-            
-            # 构建节点坐标映射
-            nodes = self.fpn_data.get('nodes') or []
-            nid2xyz = {}
-            if isinstance(nodes, list):
-                for n in nodes:
-                    if isinstance(n, dict) and 'id' in n:
-                        try:
-                            nid2xyz[int(n['id'])] = (
-                                float(n.get('x', 0.0)), 
-                                float(n.get('y', 0.0)), 
-                                float(n.get('z', 0.0))
-                            )
-                        except (ValueError, TypeError):
-                            continue
-            elif isinstance(nodes, dict):
-                for k, v in nodes.items():
-                    if isinstance(v, dict):
-                        try:
-                            nid2xyz[int(k)] = (
-                                float(v.get('x', 0.0)), 
-                                float(v.get('y', 0.0)), 
-                                float(v.get('z', 0.0))
-                            )
-                        except (ValueError, TypeError):
-                            continue
+                print(f"开始构建锚杆几何：发现 {len(line_elems)} 个线元素")
 
-            if not nid2xyz:
-                print("锚杆几何构建失败：节点坐标映射为空")
+                # 构建节点坐标映射
+                nodes = self.fpn_data.get('nodes') or []
+                nid2xyz = {}
+                if isinstance(nodes, list):
+                    for n in nodes:
+                        if isinstance(n, dict) and 'id' in n:
+                            try:
+                                nid2xyz[int(n['id'])] = (
+                                    float(n.get('x', 0.0)),
+                                    float(n.get('y', 0.0)),
+                                    float(n.get('z', 0.0))
+                                )
+                            except (ValueError, TypeError):
+                                continue
+                elif isinstance(nodes, dict):
+                    for k, v in nodes.items():
+                        if isinstance(v, dict):
+                            try:
+                                nid2xyz[int(k)] = (
+                                    float(v.get('x', 0.0)),
+                                    float(v.get('y', 0.0)),
+                                    float(v.get('z', 0.0))
+                                )
+                            except (ValueError, TypeError):
+                                continue
+
+                if not nid2xyz:
+                    print("锚杆几何构建失败：节点坐标映射为空")
+                    return None
+
+                print(f"节点坐标映射完成：{len(nid2xyz)} 个节点")
+
+                # 构建线元几何
+                points: List[tuple] = []
+                lines: List[int] = []
+                valid_count = 0
+
+                for eid, le in line_elems.items():
+                    if not self._should_show_anchor_element(eid, le):
+                        continue
+
+                    try:
+                        n1 = int(le.get('n1', 0))
+                        n2 = int(le.get('n2', 0))
+
+                        p1 = nid2xyz.get(n1)
+                        p2 = nid2xyz.get(n2)
+
+                        if p1 and p2:
+                            base = len(points)
+                            points.append(p1)
+                            points.append(p2)
+                            lines.extend([2, base, base + 1])
+                            valid_count += 1
+                        else:
+                            missing = []
+                            if not p1: missing.append(f"n1={n1}")
+                            if not p2: missing.append(f"n2={n2}")
+                            print(f"线元素 {eid} 跳过：缺少节点坐标 {', '.join(missing)}")
+                    except Exception as e:
+                        print(f"处理线元素 {eid} 失败: {e}")
+                        continue
+
+                if valid_count == 0:
+                    print(f"锚杆几何构建完成：没有有效的线元素（总数：{len(line_elems)}）")
+                    return None
+
+                print(f"锚杆几何构建成功：{valid_count} 个有效线元素")
+                pts_np = np.asarray(points, dtype=np.float32)
+                lines_np = np.asarray(lines, dtype=np.int32)
+                pdata = pv.PolyData(pts_np)
+                pdata.lines = lines_np
+                return pdata
+            except Exception as e:
+                print(f"构建锚杆几何失败: {e}")
+                import traceback
+                traceback.print_exc()
                 return None
-
-            print(f"节点坐标映射完成：{len(nid2xyz)} 个节点")
-
-            # 构建线元几何
-            points: List[tuple] = []
-            lines: List[int] = []
-            valid_count = 0
-            
-            for eid, le in line_elems.items():
-                if not self._should_show_anchor_element(eid, le):
-                    continue
-                    
-                try:
-                    n1 = int(le.get('n1', 0))
-                    n2 = int(le.get('n2', 0))
-                    
-                    p1 = nid2xyz.get(n1)
-                    p2 = nid2xyz.get(n2)
-                    
-                    if p1 and p2:
-                        base = len(points)
-                        points.append(p1)
-                        points.append(p2)
-                        lines.extend([2, base, base + 1])
-                        valid_count += 1
-                    else:
-                        missing = []
-                        if not p1: missing.append(f"n1={n1}")
-                        if not p2: missing.append(f"n2={n2}")
-                        print(f"线元素 {eid} 跳过：缺少节点坐标 {', '.join(missing)}")
-                except Exception as e:
-                    print(f"处理线元素 {eid} 失败: {e}")
-                    continue
-
-            if valid_count == 0:
-                print(f"锚杆几何构建完成：没有有效的线元素（总数：{len(line_elems)}）")
-                return None
-
-            print(f"锚杆几何构建成功：{valid_count} 个有效线元素")
-            pts_np = np.asarray(points, dtype=np.float32)
-            lines_np = np.asarray(lines, dtype=np.int32)
-            pdata = pv.PolyData(pts_np)
-            pdata.lines = lines_np
-            return pdata
-        except Exception as e:
-            print(f"构建锚杆几何失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return None
     
     def _should_show_anchor_element(self, eid: int, elem_data: Dict) -> bool:
         """判断是否应该显示该锚杆元素（考虑阶段过滤）"""
@@ -405,34 +405,34 @@ try:
         return True
 
     def _display_anchors_overlay(self) -> None:
-            if not (PYVISTA_AVAILABLE and self.plotter):
-                return
-            try:
-                if self._anchors_cached is None:
-                    self._anchors_cached = self._build_anchor_geometry()
-                pdata = self._anchors_cached
-                if pdata is not None and pdata.n_cells > 0:
-                    # 根据整体尺寸估计显示半径
-                    if self.mesh is not None:
-                        b = self.mesh.bounds
-                        diag = float(np.linalg.norm([b[1]-b[0], b[3]-b[2], b[5]-b[4]]))
-                    else:
-                        b = pdata.bounds
-                        diag = float(np.linalg.norm([b[1]-b[0], b[3]-b[2], b[5]-b[4]]))
-                    radius = max(diag * 0.003, 0.05)
-                    # 优先渲染为管道，失败则退化为线条
-                    try:
-                        tube = pdata.tube(radius=radius, n_sides=12)
-                        if tube is not None and tube.n_points > 0:
-                            self.plotter.add_mesh(
-                                tube, color='orange', smooth_shading=True, name='anchor_lines'
-                            )
-                            return
-                    except Exception:
-                        pass
-                    self.plotter.add_mesh(pdata, color='red', line_width=3.0, name='anchor_lines')
-            except Exception as e:
-                print(f"显示锚杆失败: {e}")
+        if not (PYVISTA_AVAILABLE and self.plotter):
+            return
+        try:
+            if self._anchors_cached is None:
+                self._anchors_cached = self._build_anchor_geometry()
+            pdata = self._anchors_cached
+            if pdata is not None and pdata.n_cells > 0:
+                # 根据整体尺寸估计显示半径
+                if self.mesh is not None:
+                    b = self.mesh.bounds
+                    diag = float(np.linalg.norm([b[1]-b[0], b[3]-b[2], b[5]-b[4]]))
+                else:
+                    b = pdata.bounds
+                    diag = float(np.linalg.norm([b[1]-b[0], b[3]-b[2], b[5]-b[4]]))
+                radius = max(diag * 0.003, 0.05)
+                # 优先渲染为管道，失败则退化为线条
+                try:
+                    tube = pdata.tube(radius=radius, n_sides=12)
+                    if tube is not None and tube.n_points > 0:
+                        self.plotter.add_mesh(
+                            tube, color='orange', smooth_shading=True, name='anchor_lines'
+                        )
+                        return
+                except Exception:
+                    pass
+                self.plotter.add_mesh(pdata, color='red', line_width=3.0, name='anchor_lines')
+        except Exception as e:
+            print(f"显示锚杆失败: {e}")
 
         # ---------- 复选框联动API（供UI调用） ----------
         def toggle_show_plates(self, enabled: Optional[bool] = None) -> bool:

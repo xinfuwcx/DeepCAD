@@ -59,7 +59,7 @@ echo     🛠️ DeepCAD 开发模式已启动
 echo ======================================
 echo.
 echo 📋 开发服务：
-echo   前端开发: http://localhost:5173 (热重载)
+echo   前端开发: http://localhost:5310 (热重载)
 echo   后端开发: http://localhost:8000 (热重载)  
 echo   API调试:  http://localhost:8000/docs
 echo.

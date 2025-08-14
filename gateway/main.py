@@ -86,30 +86,30 @@ async def system_info():
     except ImportError as e:
         raise HTTPException(status_code=500, detail=f"依赖包缺失: {e}")
 
-# 导入各模块路由
+# 导入各模块路由（显示导入 routes 以避免命名空间包导致的误判）
 try:
     from gateway.modules.geometry import router as geometry_router
     app.include_router(geometry_router, prefix="/api/geometry", tags=["几何建模"])
-except ImportError:
-    print("WARNING: 几何建模模块未找到")
+except ImportError as e:
+    print(f"WARNING: 几何建模模块未找到: {e}")
 
 try:
-    from gateway.modules.meshing import router as meshing_router  
+    from gateway.modules.meshing.routes import router as meshing_router
     app.include_router(meshing_router, prefix="/api/meshing", tags=["网格生成"])
-except ImportError:
-    print("WARNING: 网格生成模块未找到")
+except ImportError as e:
+    print(f"WARNING: 网格生成模块未找到: {e}")
 
 try:
-    from gateway.modules.computation import router as computation_router
+    from gateway.modules.computation.routes import router as computation_router
     app.include_router(computation_router, prefix="/api/computation", tags=["数值计算"])
-except ImportError:
-    print("WARNING: 数值计算模块未找到")
+except ImportError as e:
+    print(f"WARNING: 数值计算模块未找到: {e}")
 
 try:
     from gateway.modules.visualization import router as visualization_router
     app.include_router(visualization_router, prefix="/api/visualization", tags=["可视化"])
-except ImportError:
-    print("WARNING: 可视化模块未找到")
+except ImportError as e:
+    print(f"WARNING: 可视化模块未找到: {e}")
 
 try:
     from gateway.modules.materials.routes import router as materials_router
