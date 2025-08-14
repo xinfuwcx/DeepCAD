@@ -11,6 +11,9 @@ export interface CacheEntry {
   memMB?: number;
   sec?: number;
   fallbackPolicy?: 'allow' | 'deny';
+  // 新增: 算法选择记录
+  algorithm?: 'rbf' | 'kriging' | 'idw';
+  algorithmParams?: any;
   // 新增: 配置快照 (用于回放 / Diff 进一步分析)
   domainSnapshot?: any;
   waterHeadSnapshot?: any;

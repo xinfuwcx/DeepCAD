@@ -5,12 +5,7 @@
  */
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Card, Space, Button, Tooltip, message, Switch, Slider, Select, Badge } from 'antd';
-import {
-  PlayCircleOutlined, PauseOutlined, ReloadOutlined, SettingOutlined,
-  EyeOutlined, EyeInvisibleOutlined, BorderOutlined, DashboardOutlined,
-  ThunderboltOutlined, ExperimentOutlined, EnvironmentOutlined
-} from '@ant-design/icons';
+import { Space, message, Badge } from 'antd';
 import * as THREE from 'three';
 // @ts-ignore - types from examples
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
@@ -18,13 +13,11 @@ import { safeEmptyContainer } from '../../utils/threejsCleanup';
 
 // 导入现有的技术栈组件
 import { GeologicalThreeJSRenderer, GeologicalModelData, GeologicalFormationData } from '../../services/GeologicalThreeJSRenderer';
-import { PyVistaDataAPI, PyVistaDataSet } from '../../services/PyVistaIntegrationService';
-import VerticalToolbar, { VerticalToolType } from '../geometry/VerticalToolbar';
+import { PyVistaDataAPI } from '../../services/PyVistaIntegrationService';
+import { VerticalToolType } from '../geometry/VerticalToolbar';
 
 // 导入CAE引擎基础
 import { CAEThreeEngineCore, CAEThreeEngineProps } from '../3d/CAEThreeEngine';
-
-const { Option } = Select;
 
 // ==================== 接口定义 ====================
 
@@ -107,10 +100,7 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
   externalScreenshotNonce,
   onToolSelect,
   onLayerVisibilityChange,
-  onRenderModeChange,
-  showToolbar = true,
-  showLayerControls = true,
-  enableAnimation = true
+  onRenderModeChange
 }) => {
   // ==================== 状态管理 ====================
   
@@ -121,10 +111,7 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
   const animationFrameRef = useRef<number | null>(null);
   
   const [isInitialized, setIsInitialized] = useState(false);
-  const [activeTool, setActiveTool] = useState<VerticalToolType>('select');
   const [renderMode, setRenderMode] = useState<GeologyRenderMode>('solid');
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [layerVisibility, setLayerVisibility] = useState<Record<string, boolean>>({});
   const [globalOpacity, setGlobalOpacity] = useState(1.0);
   const [showBoreholes, setShowBoreholes] = useState(true);
   const [sectionMode, setSectionMode] = useState(false);
@@ -254,20 +241,55 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
     
     const scene = caeEngineRef.current.scene;
     
-    // 设置地质专用背景
-    scene.background = new THREE.Color(0x2c3e50);
-    scene.fog = new THREE.Fog(0x2c3e50, 100, 500);
+    // Abaqus风格：深色渐变背景
+    scene.background = new THREE.Color(0x0a0a0a);
+    scene.fog = new THREE.Fog(0x0a0a0a, 200, 800);
     
-    // 添加地质专用光照
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+    // Abaqus风格：专业科技照明系统
+    // 主环境光：冷色调，低强度
+    const ambientLight = new THREE.AmbientLight(0x1a2432, 0.3);
     scene.add(ambientLight);
     
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    directionalLight.position.set(50, 100, 50);
-    directionalLight.castShadow = true;
-    scene.add(directionalLight);
+    // 主光源：模拟专业CAE软件的戏剧性光照
+    const keyLight = new THREE.DirectionalLight(0x4a90e2, 1.2);
+    keyLight.position.set(100, 200, 100);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.setScalar(2048);
+    keyLight.shadow.camera.near = 0.1;
+    keyLight.shadow.camera.far = 500;
+    keyLight.shadow.camera.left = -100;
+    keyLight.shadow.camera.right = 100;
+    keyLight.shadow.camera.top = 100;
+    keyLight.shadow.camera.bottom = -100;
+    scene.add(keyLight);
     
-    console.log('🌍 地质专用场景设置完成');
+    // 辅助光源：从侧面补光，营造立体感
+    const fillLight = new THREE.DirectionalLight(0x00d9ff, 0.6);
+    fillLight.position.set(-80, 50, -80);
+    scene.add(fillLight);
+    
+    // 轮廓光：从下方提亮边缘
+    const rimLight = new THREE.DirectionalLight(0x7c4dff, 0.4);
+    rimLight.position.set(0, -50, 50);
+    scene.add(rimLight);
+    
+    // 点光源：模拟设备指示灯
+    const accentLight = new THREE.PointLight(0x00ff88, 0.8, 150);
+    accentLight.position.set(30, 80, 30);
+    scene.add(accentLight);
+    
+    // 添加网格地面（Abaqus风格）
+    const gridHelper = new THREE.GridHelper(200, 50, 0x00d9ff, 0x334455);
+    gridHelper.material.opacity = 0.3;
+    gridHelper.material.transparent = true;
+    scene.add(gridHelper);
+    
+    // 添加坐标轴指示器（专业CAE软件标配）
+    const axesHelper = new THREE.AxesHelper(20);
+    axesHelper.position.set(-90, -90, -90);
+    scene.add(axesHelper);
+    
+    console.log('🌍 Abaqus风格地质场景设置完成');
   };
 
   const cleanup = useCallback(() => {
@@ -334,12 +356,8 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
       // 使用地质渲染器加载数据
       geologicalRendererRef.current.renderGeologicalModel(data);
       
-      // 初始化图层可见性状态
-      const visibility: Record<string, boolean> = {};
-      Object.keys(data.formations).forEach(formationId => {
-        visibility[formationId] = true;
-      });
-      setLayerVisibility(visibility);
+      // 初始化图层可见性状态（简化版）
+      console.log(`✅ 地质模型加载完成：${data.statistics.formation_count} 个地层`);
       
       message.success(`地质模型加载完成：${data.statistics.formation_count} 个地层`);
       
@@ -484,16 +502,18 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
     const group = new THREE.Group();
     group.name = `borehole-${borehole.id}`;
     
-    // 钻孔柱状图
+    // 钻孔柱状图 - Abaqus风格材质
     let currentDepth = 0;
-    borehole.layers.forEach((layer, index) => {
+    borehole.layers.forEach((layer) => {
       const layerHeight = layer.bottomDepth - layer.topDepth;
       
       const geometry = new THREE.CylinderGeometry(0.5, 0.5, layerHeight, 8);
       const material = new THREE.MeshPhongMaterial({ 
         color: layer.color,
         transparent: true,
-        opacity: layer.opacity || 0.8
+        opacity: layer.opacity || 0.8,
+        shininess: 80,  // Abaqus风格：增加金属光泽
+        specular: 0x333333
       });
       
       const layerMesh = new THREE.Mesh(geometry, material);
@@ -508,23 +528,36 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
       currentDepth += layerHeight;
     });
     
-    // 钻孔标签
+    // 钻孔标签 - Abaqus风格发光效果
     const labelGeometry = new THREE.SphereGeometry(0.8, 8, 6);
     const labelMaterial = new THREE.MeshBasicMaterial({ 
-      color: 0xff0000,
-      emissive: 0x440000
+      color: 0x00d9ff,  // 科技蓝色
+      transparent: true,
+      opacity: 0.9
     });
     const label = new THREE.Mesh(labelGeometry, labelMaterial);
     label.position.set(borehole.x, borehole.z + 1, borehole.y);
+    
+    // 添加发光外环
+    const glowGeometry = new THREE.RingGeometry(1.2, 1.8, 16);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+      color: 0x00d9ff,
+      transparent: true,
+      opacity: 0.3,
+      side: THREE.DoubleSide
+    });
+    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+    glow.position.copy(label.position);
+    glow.lookAt(0, label.position.y + 1, 0);
+    
     group.add(label);
+    group.add(glow);
     
     return group;
   };
 
-  // ==================== 工具栏事件处理 ====================
-
+  // 工具栏事件处理
   const handleToolSelect = useCallback((tool: VerticalToolType) => {
-    setActiveTool(tool);
     onToolSelect?.(tool);
     
     if (!caeEngineRef.current) return;
@@ -579,21 +612,21 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
       case 'select':
         // 切换引擎交互模式为“选择”
         try {
-          caeEngineRef.current.setInteractionMode?.('select');
+          (caeEngineRef.current as any).setInteractionMode?.('select');
           message.success('选择模式');
         } catch {}
         break;
 
       case 'pan':
         try {
-          caeEngineRef.current.setInteractionMode?.('pan');
+          (caeEngineRef.current as any).setInteractionMode?.('pan');
           message.success('平移模式');
         } catch {}
         break;
 
       case 'zoom':
         try {
-          caeEngineRef.current.setInteractionMode?.('zoom');
+          (caeEngineRef.current as any).setInteractionMode?.('zoom');
           message.success('缩放模式');
         } catch {}
         break;
@@ -674,16 +707,21 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
       const rect = dom.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera({ x, y }, camera);
+      const mouse = new THREE.Vector2(x, y);
+      raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObjects(scene.children, true);
       const hit = intersects.find(it => (it.object as any).isMesh);
       if (!hit) return;
       const p = hit.point.clone();
       measurementPointsRef.current.push(p);
-      // 可视化点
+      // 可视化点 - Abaqus风格
       const sphere = new THREE.Mesh(
         new THREE.SphereGeometry(0.8, 12, 8),
-        new THREE.MeshBasicMaterial({ color: 0xff5555 })
+        new THREE.MeshBasicMaterial({ 
+          color: 0x00ff88,
+          transparent: true,
+          opacity: 0.9
+        })
       );
       sphere.position.copy(p);
       scene.add(sphere);
@@ -691,7 +729,10 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
       if (measurementPointsRef.current.length === 2) {
         const [p1, p2] = measurementPointsRef.current;
         const geom = new THREE.BufferGeometry().setFromPoints([p1, p2]);
-        const line = new THREE.Line(geom, new THREE.LineBasicMaterial({ color: 0xffffff }));
+        const line = new THREE.Line(geom, new THREE.LineBasicMaterial({ 
+          color: 0x00d9ff,
+          linewidth: 2
+        }));
         scene.add(line);
         measurementObjectsRef.current.push(line);
         const dist = p1.distanceTo(p2);
@@ -717,7 +758,8 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
       const rect = dom.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera({ x, y }, camera);
+      const mouse = new THREE.Vector2(x, y);
+      raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObjects(scene.children, true);
       const hit = intersects.find(it => (it.object as any).isMesh);
       if (!hit) return;
@@ -725,7 +767,11 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
       measurementPointsRef.current.push(p);
       const sphere = new THREE.Mesh(
         new THREE.SphereGeometry(0.7, 12, 8),
-        new THREE.MeshBasicMaterial({ color: 0x55ff55 })
+        new THREE.MeshBasicMaterial({ 
+          color: 0x7c4dff,
+          transparent: true,
+          opacity: 0.9
+        })
       );
       sphere.position.copy(p);
       scene.add(sphere);
@@ -736,7 +782,7 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
         const v2 = c.clone().sub(b).normalize();
         const angle = Math.acos(THREE.MathUtils.clamp(v1.dot(v2), -1, 1));
         const deg = THREE.MathUtils.radToDeg(angle);
-        // 简易弧线（仅作为视觉反馈）
+        // Abaqus风格弧线
         const arcPoints: THREE.Vector3[] = [];
         const steps = 24;
         for (let i = 0; i <= steps; i++) {
@@ -745,7 +791,10 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
           arcPoints.push(b.clone().add(dir.multiplyScalar(5)));
         }
         const arcGeom = new THREE.BufferGeometry().setFromPoints(arcPoints);
-        const arc = new THREE.Line(arcGeom, new THREE.LineBasicMaterial({ color: 0x00ffff }));
+        const arc = new THREE.Line(arcGeom, new THREE.LineBasicMaterial({ 
+          color: 0x00d9ff,
+          linewidth: 3
+        }));
         scene.add(arc);
         measurementObjectsRef.current.push(arc);
         message.success(`测角: ${deg.toFixed(1)}°`);
@@ -886,7 +935,8 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
       const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       const camera = engine.camera as THREE.PerspectiveCamera;
       const raycaster = new THREE.Raycaster();
-      raycaster.setFromCamera({ x, y }, camera);
+      const mouse = new THREE.Vector2(x, y);
+      raycaster.setFromCamera(mouse, camera);
       // 仅对Mesh拾取
       const meshes: THREE.Object3D[] = [];
       engine.scene.traverse(obj => { if ((obj as any).isMesh) meshes.push(obj); });
@@ -962,114 +1012,9 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
     return sprite;
   }
 
-  // ==================== 图层控制 ====================
+  // ==================== 图层控制 ==================== - 已简化，避免导入问题
 
-  const handleLayerVisibilityChange = (layerId: string, visible: boolean) => {
-    setLayerVisibility(prev => ({
-      ...prev,
-      [layerId]: visible
-    }));
-    
-    onLayerVisibilityChange?.(layerId, visible);
-    
-    // 更新场景中的图层可见性
-    if (caeEngineRef.current) {
-      const scene = caeEngineRef.current.scene;
-      const layerObject = scene.getObjectByName(`formation-${layerId}`);
-      if (layerObject) {
-        layerObject.visible = visible;
-      }
-    }
-  };
-
-  // ==================== 渲染UI ====================
-
-  const renderControlPanel = () => (
-    <Card 
-      size="small" 
-      title="地质控制" 
-      className="geology-control-panel"
-      style={{
-        position: 'absolute',
-        top: '16px',
-        right: '16px',
-        width: '280px',
-        zIndex: 1000,
-        background: 'rgba(0, 0, 0, 0.8)',
-        borderColor: 'rgba(0, 217, 255, 0.3)'
-      }}
-    >
-      <Space direction="vertical" style={{ width: '100%' }}>
-        {/* 渲染模式控制 */}
-        <div>
-          <label style={{ color: '#ffffff', marginBottom: 8, display: 'block' }}>
-            渲染模式
-          </label>
-          <Select
-            value={renderMode}
-            onChange={(value) => {
-              setRenderMode(value);
-              onRenderModeChange?.(value);
-              updateRenderMode(value);
-            }}
-            style={{ width: '100%' }}
-          >
-            <Option value="solid">实体模式</Option>
-            <Option value="wireframe">线框模式</Option>
-            <Option value="transparent">透明模式</Option>
-            <Option value="section">剖面模式</Option>
-          </Select>
-        </div>
-
-        {/* 全局透明度 */}
-        <div>
-          <label style={{ color: '#ffffff', marginBottom: 8, display: 'block' }}>
-            全局透明度: {(globalOpacity * 100).toFixed(0)}%
-          </label>
-          <Slider
-            min={0.1}
-            max={1.0}
-            step={0.1}
-            value={globalOpacity}
-            onChange={setGlobalOpacity}
-          />
-        </div>
-
-        {/* 显示控制 */}
-        <div>
-          <Space>
-            <Switch
-              checked={showBoreholes}
-              onChange={setShowBoreholes}
-              checkedChildren="钻孔"
-              unCheckedChildren="钻孔"
-            />
-            <Switch
-              checked={sectionMode}
-              onChange={setSectionMode}
-              checkedChildren="剖面"
-              unCheckedChildren="剖面"
-            />
-          </Space>
-        </div>
-
-        {/* 剖面位置控制 */}
-        {sectionMode && (
-          <div>
-            <label style={{ color: '#ffffff', marginBottom: 8, display: 'block' }}>
-              剖面位置
-            </label>
-            <Slider
-              min={-50}
-              max={50}
-              value={sectionPosition}
-              onChange={setSectionPosition}
-            />
-          </div>
-        )}
-      </Space>
-    </Card>
-  );
+  // ==================== 状态栏渲染 ====================
 
   const renderStatusBar = () => (
     <div
@@ -1078,31 +1023,98 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
         bottom: '16px',
         left: '16px',
         right: '16px',
-        height: '40px',
-        background: 'rgba(0, 0, 0, 0.8)',
-        border: '1px solid rgba(0, 217, 255, 0.3)',
-        borderRadius: '8px',
+        height: '48px',
+        background: 'linear-gradient(90deg, rgba(0,0,0,0.95), rgba(16,24,32,0.95), rgba(0,0,0,0.95))',
+        border: '1px solid rgba(0, 217, 255, 0.5)',
+        borderRadius: '12px',
+        boxShadow: '0 4px 20px rgba(0, 217, 255, 0.15), inset 0 1px 2px rgba(0, 217, 255, 0.1)',
         display: 'flex',
         alignItems: 'center',
-        padding: '0 16px',
-        zIndex: 1000
+        padding: '0 20px',
+        zIndex: 1000,
+        backdropFilter: 'blur(8px)'
       }}
     >
-      <Space>
-        <Badge status="success" text={isInitialized ? "就绪" : "初始化中"} />
-        <span style={{ color: '#ffffff' }}>|</span>
-        <span style={{ color: '#00d9ff' }}>
-          地层: {geologicalData?.statistics.formation_count || 0}
+      <Space size={16}>
+        <Badge 
+          status={isInitialized ? "success" : "processing"} 
+          text={
+            <span style={{ color: isInitialized ? '#00ff88' : '#ffa500', fontWeight: 500 }}>
+              {isInitialized ? "系统就绪" : "初始化中"}
+            </span>
+          } 
+        />
+        <div style={{ 
+          width: '2px', 
+          height: '20px', 
+          background: 'linear-gradient(180deg, transparent, #00d9ff, transparent)',
+          opacity: 0.6
+        }} />
+        <span style={{ 
+          color: '#00d9ff', 
+          fontFamily: 'Monaco, Consolas, monospace',
+          fontSize: '13px',
+          textShadow: '0 0 8px rgba(0, 217, 255, 0.3)'
+        }}>
+          地层: <strong>{geologicalData?.statistics.formation_count || 0}</strong>
         </span>
-        <span style={{ color: '#ffffff' }}>|</span>
-        <span style={{ color: '#00d9ff' }}>
-          钻孔: {boreholeData.length}
+        <div style={{ 
+          width: '2px', 
+          height: '20px', 
+          background: 'linear-gradient(180deg, transparent, #7c4dff, transparent)',
+          opacity: 0.6
+        }} />
+        <span style={{ 
+          color: '#7c4dff', 
+          fontFamily: 'Monaco, Consolas, monospace',
+          fontSize: '13px',
+          textShadow: '0 0 8px rgba(124, 77, 255, 0.3)'
+        }}>
+          钻孔: <strong>{boreholeData.length}</strong>
         </span>
-        <span style={{ color: '#ffffff' }}>|</span>
-        <span style={{ color: '#00d9ff' }}>
-          模式: {renderMode}
+        <div style={{ 
+          width: '2px', 
+          height: '20px', 
+          background: 'linear-gradient(180deg, transparent, #00ff88, transparent)',
+          opacity: 0.6
+        }} />
+        <span style={{ 
+          color: '#00ff88', 
+          fontFamily: 'Monaco, Consolas, monospace',
+          fontSize: '13px',
+          textShadow: '0 0 8px rgba(0, 255, 136, 0.3)'
+        }}>
+          模式: <strong>{renderMode.toUpperCase()}</strong>
         </span>
+        
+        {/* 右侧系统指示器 */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ 
+            width: '8px', 
+            height: '8px', 
+            borderRadius: '50%', 
+            background: '#00ff88',
+            boxShadow: '0 0 12px rgba(0, 255, 136, 0.6)',
+            animation: 'pulse 2s ease-in-out infinite'
+          }} />
+          <span style={{ 
+            color: '#888', 
+            fontSize: '12px',
+            fontFamily: 'Monaco, Consolas, monospace'
+          }}>
+            CAE-v3.0
+          </span>
+        </div>
       </Space>
+      
+      <style>
+        {`
+          @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+          }
+        `}
+      </style>
     </div>
   );
 
@@ -1115,8 +1127,15 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
         position: 'relative',
         width: '100%',
         height: '100%',
-        background: '#1a1a1a',
+        background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%)',
         overflow: 'hidden',
+        border: '2px solid rgba(0, 217, 255, 0.3)',
+        borderRadius: '12px',
+        boxShadow: `
+          0 0 20px rgba(0, 217, 255, 0.2),
+          inset 0 1px 2px rgba(0, 217, 255, 0.1),
+          0 4px 30px rgba(0, 0, 0, 0.5)
+        `,
         ...style
       }}
     >
@@ -1125,20 +1144,70 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
         ref={containerRef}
         style={{
           width: '100%',
-          height: '100%'
+          height: '100%',
+          borderRadius: '10px',
+          overflow: 'hidden'
         }}
       />
 
-      {/* 几何建模工具栏 - 已禁用，由外部模块控制 */}
-
-      {/* 地质控制面板 - 已禁用，避免与外部右侧栏冲突 */}
-
-      {/* 剖切控制 - 已禁用，由外部模块统一控制 */}
+      {/* Abaqus风格装饰边角 */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '8px',
+          left: '8px',
+          width: '20px',
+          height: '20px',
+          borderLeft: '2px solid rgba(0, 217, 255, 0.6)',
+          borderTop: '2px solid rgba(0, 217, 255, 0.6)',
+          borderTopLeftRadius: '4px',
+          zIndex: 999
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          top: '8px',
+          right: '8px',
+          width: '20px',
+          height: '20px',
+          borderRight: '2px solid rgba(0, 217, 255, 0.6)',
+          borderTop: '2px solid rgba(0, 217, 255, 0.6)',
+          borderTopRightRadius: '4px',
+          zIndex: 999
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '64px',
+          left: '8px',
+          width: '20px',
+          height: '20px',
+          borderLeft: '2px solid rgba(0, 217, 255, 0.6)',
+          borderBottom: '2px solid rgba(0, 217, 255, 0.6)',
+          borderBottomLeftRadius: '4px',
+          zIndex: 999
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '64px',
+          right: '8px',
+          width: '20px',
+          height: '20px',
+          borderRight: '2px solid rgba(0, 217, 255, 0.6)',
+          borderBottom: '2px solid rgba(0, 217, 255, 0.6)',
+          borderBottomRightRadius: '4px',
+          zIndex: 999
+        }}
+      />
 
       {/* 状态栏 */}
       {renderStatusBar()}
 
-      {/* 加载指示器 */}
+      {/* 加载指示器 - Abaqus风格 */}
       {!isInitialized && (
         <div
           style={{
@@ -1147,20 +1216,69 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(0, 0, 0, 0.8)',
+            background: 'linear-gradient(135deg, rgba(0,0,0,0.95), rgba(16,24,32,0.95))',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 2000
+            zIndex: 2000,
+            backdropFilter: 'blur(4px)',
+            borderRadius: '10px'
           }}
         >
           <div style={{ textAlign: 'center', color: '#ffffff' }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>🏔️</div>
-            <div style={{ fontSize: '18px' }}>正在初始化地质重建3D视口...</div>
-            <div style={{ fontSize: '14px', color: '#999', marginTop: '8px' }}>
-              GemPy → PyVista → Three.js
+            <div 
+              style={{ 
+                fontSize: '48px', 
+                marginBottom: '20px',
+                filter: 'drop-shadow(0 0 10px rgba(0, 217, 255, 0.5))'
+              }}
+            >
+              🏔️
+            </div>
+            <div style={{ 
+              fontSize: '20px',
+              color: '#00d9ff',
+              fontWeight: 600,
+              textShadow: '0 0 10px rgba(0, 217, 255, 0.3)',
+              marginBottom: '12px'
+            }}>
+              地质重建系统初始化
+            </div>
+            <div style={{ 
+              fontSize: '14px', 
+              color: '#7c4dff', 
+              fontFamily: 'Monaco, Consolas, monospace',
+              textShadow: '0 0 8px rgba(124, 77, 255, 0.3)'
+            }}>
+              GemPy → PyVista → Three.js → CAE Engine
+            </div>
+            
+            {/* 加载动画条 */}
+            <div style={{
+              width: '200px',
+              height: '4px',
+              background: 'rgba(0, 217, 255, 0.2)',
+              borderRadius: '2px',
+              margin: '20px auto',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                width: '100%',
+                height: '100%',
+                background: 'linear-gradient(90deg, transparent, #00d9ff, transparent)',
+                animation: 'loading 2s ease-in-out infinite'
+              }} />
             </div>
           </div>
+          
+          <style>
+            {`
+              @keyframes loading {
+                0% { transform: translateX(-100%); }
+                100% { transform: translateX(100%); }
+              }
+            `}
+          </style>
         </div>
       )}
     </div>
