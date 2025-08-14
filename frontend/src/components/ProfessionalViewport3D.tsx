@@ -435,7 +435,6 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
 
       // 持续监控并阻止任何不需要的对象被添加
       let clearIntervalId = setInterval(() => {
-        if (!scene) return;
         const toRemove: THREE.Object3D[] = [];
         scene.traverse((child) => {
           if (child instanceof THREE.Mesh) {
@@ -552,11 +551,9 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
       // 调试: 列出场景中的所有对象
       console.log('🎉 SimpleViewport3D: 真实级渲染场景初始化成功');
       console.log('📋 场景中的对象列表:');
-      if (scene) {
-        scene.traverse((child) => {
-          console.log(`- ${child.type}: ${child.name || '(无名称)'} - ${child.constructor.name}`);
-        });
-      }
+      scene.traverse((child) => {
+        console.log(`- ${child.type}: ${child.name || '(无名称)'} - ${child.constructor.name}`);
+      });
 
   // 清理函数
       return () => {
@@ -597,7 +594,7 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
   const pointerNDC = useRef(new THREE.Vector2());
 
   const getIntersections = useCallback((clientX:number, clientY:number)=>{
-    if(!engine || !camera || !mountRef.current || !scene) return [] as THREE.Intersection[];
+    if(!engine || !camera || !mountRef.current) return [] as THREE.Intersection[];
     const rect = engine.getRenderer().domElement.getBoundingClientRect();
     pointerNDC.current.x = ((clientX - rect.left)/rect.width)*2 -1;
     pointerNDC.current.y = -(((clientY - rect.top)/rect.height)*2 -1);
@@ -614,7 +611,6 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
   },[selection]);
 
   const clearSelectionHighlight = () => {
-    if (!scene) return;
     scene.traverse(o=>{ if((o as THREE.Mesh).isMesh){ const mat:any = (o as THREE.Mesh).material; if(mat?.emissive) { mat.emissive = new THREE.Color(0x000000); mat.emissiveIntensity=0; } } });
   };
 
@@ -1019,20 +1015,7 @@ const ProfessionalViewport3D: React.FC<ProfessionalViewport3DProps> = ({
 
   const resetMeasurement = () => { setMeasurePoints([]); if(measureLineRef.current){ measureLineRef.current.geometry.dispose(); measureLineRef.current.parent?.remove(measureLineRef.current); measureLineRef.current=null; } if(measureAngleArcRef.current){ measureAngleArcRef.current.geometry.dispose(); measureAngleArcRef.current.parent?.remove(measureAngleArcRef.current); measureAngleArcRef.current=null; } };
 
-  const resetSketch = () => {
-    setSketchPoints([]);
-    setIsSketchClosed(false);
-    if (sketchLineRef.current) {
-      if (scene) scene.remove(sketchLineRef.current);
-      sketchLineRef.current.geometry.dispose();
-      sketchLineRef.current = null;
-    }
-    if (sketchPreviewMeshRef.current) {
-      if (scene) scene.remove(sketchPreviewMeshRef.current);
-      sketchPreviewMeshRef.current.geometry.dispose();
-      sketchPreviewMeshRef.current = null;
-    }
-  };
+  const resetSketch = () => { setSketchPoints([]); setIsSketchClosed(false); if(sketchLineRef.current){ scene.remove(sketchLineRef.current); sketchLineRef.current.geometry.dispose(); sketchLineRef.current=null;} if(sketchPreviewMeshRef.current){ scene.remove(sketchPreviewMeshRef.current); sketchPreviewMeshRef.current.geometry.dispose(); sketchPreviewMeshRef.current=null;} };
   // 通用线段清理（草图/测量/选面等临时几何）
   const clearEphemeralLines = useCallback(()=>{
     if(!scene) return;
