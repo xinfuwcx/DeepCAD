@@ -26,24 +26,24 @@ try:
     main_core_dir = str(project_root)
     if main_core_dir not in sys.path:
         sys.path.insert(0, main_core_dir)
-    
+
     # 临时移除example2的core模块，避免冲突
     import importlib
     if 'core' in sys.modules:
         del sys.modules['core']
-    
+
     # 导入主项目的core
     import core as main_core
     KratosIntegration = main_core.KratosIntegration
     KRATOS_AVAILABLE = main_core.KRATOS_AVAILABLE
     print(f"OK Kratos Multiphysics 可用: {KRATOS_AVAILABLE}")
-    
+
     # 恢复example2的core模块路径
     example2_core_dir = str(Path(__file__).parent.parent)
     if example2_core_dir in sys.path:
         sys.path.remove(example2_core_dir)
     sys.path.insert(0, example2_core_dir)
-    
+
 except Exception as e:
     print(f"WARN Kratos Multiphysics 不可用: {e}")
     KratosIntegration = None
@@ -78,7 +78,7 @@ class MaterialProperties:
     poisson_ratio: float = 0.3
     cohesion: float = 50000.0  # Pa
     friction_angle: float = 30.0  # degrees
-    
+
     def to_kratos_dict(self) -> Dict[str, Any]:
         """转换为 Kratos 格式"""
         return {
@@ -101,7 +101,7 @@ class AnalysisSettings:
     convergence_tolerance: float = 1e-6
     time_step: float = 0.1
     end_time: float = 1.0
-    
+
     def to_kratos_dict(self) -> Dict[str, Any]:
         """转换为 Kratos 格式"""
         return {
@@ -116,14 +116,14 @@ class AnalysisSettings:
 
 class KratosInterface:
     """Kratos 接口类"""
-    
+
     def __init__(self):
         self.kratos_integration = None
         self.model_data = None
         self.analysis_settings = AnalysisSettings()
         self.materials = {}
         self.results = {}
-        
+
         if KRATOS_AVAILABLE:
             try:
                 self.kratos_integration = KratosIntegration()
@@ -131,7 +131,7 @@ class KratosInterface:
             except Exception as e:
                 print(f"⚠️  Kratos 集成初始化失败: {e}")
                 self.kratos_integration = None
-    
+
     def setup_model(self, fpn_data: Dict[str, Any]) -> bool:
         """设置模型数据"""
         try:
@@ -142,7 +142,7 @@ class KratosInterface:
         except Exception as e:
             print(f"❌ 模型设置失败: {e}")
             return False
-    
+
     def _convert_fpn_to_kratos(self, fpn_data: Dict[str, Any]) -> Dict[str, Any]:
         """将 FPN 数据转换为 Kratos 格式"""
         kratos_data = {
@@ -152,7 +152,7 @@ class KratosInterface:
             "boundary_conditions": [],
             "loads": []
         }
-        
+
         # 转换节点
         nodes = fpn_data.get('nodes', [])
         for node in nodes:
@@ -165,7 +165,7 @@ class KratosInterface:
                 ]
             }
             kratos_data["nodes"].append(kratos_node)
-        
+
         # 转换体单元
         elements = fpn_data.get('elements', [])
         for element in elements:
@@ -204,12 +204,12 @@ class KratosInterface:
 
         # 设置默认材料
         self._setup_default_materials(kratos_data)
-        
+
         # 设置默认边界条件
         self._setup_default_boundary_conditions(kratos_data, nodes)
-        
+
         return kratos_data
-    
+
     def _map_element_type(self, fpn_type: str) -> str:
         """映射单元类型到 Kratos 格式"""
         mapping = {
@@ -220,7 +220,7 @@ class KratosInterface:
             'quad': 'Quadrilateral2D4N'
         }
         return mapping.get(fpn_type.lower(), 'Tetrahedra3D4N')
-    
+
     def _setup_default_materials(self, kratos_data: Dict[str, Any]):
         """设置默认材料属性"""
         # 创建默认土体材料
@@ -232,26 +232,26 @@ class KratosInterface:
             MaterialProperties(5, "砂土", 2100, 40e6, 0.25, 0, 35),
             MaterialProperties(6, "基岩", 2500, 50e9, 0.2, 1e6, 45)
         ]
-        
+
         for material in default_materials:
             self.materials[material.id] = material
             kratos_data["materials"].append(material.to_kratos_dict())
-    
+
     def _setup_default_boundary_conditions(self, kratos_data: Dict[str, Any], nodes: List[Dict]):
         """设置默认边界条件"""
         if not nodes:
             return
-        
+
         # 找到底部节点（Z坐标最小）
         z_coords = [node.get('z', 0.0) for node in nodes]
         z_min = min(z_coords)
         z_tolerance = abs(z_min) * 0.01 if z_min != 0 else 100  # 1% 容差或 100mm
-        
+
         bottom_nodes = []
         for node in nodes:
             if abs(node.get('z', 0.0) - z_min) <= z_tolerance:
                 bottom_nodes.append(node.get('id', 0))
-        
+
         # 添加底部固定约束
         if bottom_nodes:
             boundary_condition = {
@@ -262,95 +262,98 @@ class KratosInterface:
             }
             kratos_data["boundary_conditions"].append(boundary_condition)
             print(f"✅ 添加底部固定约束: {len(boundary_condition['nodes'])} 个节点")
-    
+
     def set_analysis_settings(self, settings: AnalysisSettings):
         """设置分析参数"""
         self.analysis_settings = settings
         print(f"✅ 分析设置更新: {settings.analysis_type.value}")
-    
+
     def run_analysis(self) -> Tuple[bool, Dict[str, Any]]:
         """运行分析"""
         if not self.model_data:
             return False, {"error": "模型数据未设置"}
-        
+
         try:
             if KRATOS_AVAILABLE and self.kratos_integration:
                 return self._run_kratos_analysis()
             else:
                 return self._run_advanced_simulation()
-                
+
         except Exception as e:
             return False, {"error": f"分析执行失败: {e}"}
-    
+
     def _run_kratos_analysis(self) -> Tuple[bool, Dict[str, Any]]:
         """运行真实的 Kratos 分析"""
         try:
             print("🚀 启动 Kratos 分析...")
-            
+
             # 准备 Kratos 输入数据
             kratos_input = {
                 "model_data": self.model_data,
                 "analysis_settings": self.analysis_settings.to_kratos_dict(),
                 "materials": [mat.to_kratos_dict() for mat in self.materials.values()]
             }
-            
+
             # 调用 Kratos 集成
             success, results = self.kratos_integration.run_analysis(kratos_input)
-            
+
             if success:
                 self.results = self._process_kratos_results(results)
                 print("✅ Kratos 分析完成")
                 return True, self.results
             else:
                 return False, {"error": "Kratos 分析失败", "details": results}
-                
+
         except Exception as e:
             print(f"❌ Kratos 分析异常: {e}")
             return False, {"error": f"Kratos 分析异常: {e}"}
-    
+
     def _run_advanced_simulation(self) -> Tuple[bool, Dict[str, Any]]:
         """运行高级模拟分析（当 Kratos 不可用时）"""
         print("🔄 运行高级模拟分析...")
-        
+
         try:
             nodes = self.model_data.get('nodes', [])
             elements = self.model_data.get('elements', [])
-            
+
             if not nodes or not elements:
                 return False, {"error": "模型数据不完整"}
-            
+
             # 基于有限元理论的高级模拟
             results = self._simulate_fem_analysis(nodes, elements)
-            
+
             self.results = results
             print("✅ 高级模拟分析完成")
             return True, results
-            
+
         except Exception as e:
             return False, {"error": f"模拟分析失败: {e}"}
-    
+
+            # 写 ProjectParameters 和 materials 的辅助版本（AMGCL & 低输出）
+
+
     def _simulate_fem_analysis(self, nodes: List[Dict], elements: List[Dict]) -> Dict[str, Any]:
         """基于有限元理论的高级模拟"""
         n_nodes = len(nodes)
         n_elements = len(elements)
-        
+
         # 模拟位移结果（基于简化的有限元计算）
         displacement = np.zeros((n_nodes, 3))
-        
+
         # 根据节点位置和边界条件计算位移
         for i, node in enumerate(nodes):
             x, y, z = node['coordinates']
-            
+
             # 简化的位移计算（考虑重力和土体特性）
             # 垂直位移主要受重力影响
             depth_factor = abs(z) / 1000.0  # 深度因子
             displacement[i, 2] = -depth_factor * 0.01  # Z方向沉降
-            
+
             # 水平位移受侧向土压力影响
             lateral_factor = np.sqrt(x**2 + y**2) / 10000.0
             displacement[i, 0] = lateral_factor * 0.005 * np.sign(x)
             displacement[i, 1] = lateral_factor * 0.005 * np.sign(y)
-        
+
         # 模拟应力结果
         stress = np.zeros(n_nodes)
         for i, node in enumerate(nodes):
@@ -358,10 +361,50 @@ class KratosInterface:
             # 基于深度的应力分布
             depth = abs(z)
             stress[i] = depth * 20.0  # kPa, 简化的土压力计算
-        
+
+    def _write_materials(self, workdir: Path) -> Path:
+        """写出 Kratos materials.json，给实体与Truss分别指定本构与参数"""
+        materials = [
+            {
+                "model_part_name": "Structure",
+                "properties_id": 1,
+                "Material": {
+                    "name": "SoilLinearElastic",
+                    "constitutive_law": {"name": "LinearElastic3D"},
+                    "Variables": {
+                        "DENSITY": 2000.0,
+                        "YOUNG_MODULUS": 3.0e7,
+                        "POISSON_RATIO": 0.28
+                    },
+                    "Tables": {}
+                }
+            },
+            {
+                "model_part_name": "Structure",
+                "properties_id": 2,
+                "Material": {
+                    "name": "SteelTruss",
+                    "constitutive_law": {"name": "TrussConstitutiveLaw"},
+                    "Variables": {
+                        "DENSITY": 7800.0,
+                        "YOUNG_MODULUS": 2.0e11,
+                        "POISSON_RATIO": 0.30,
+                        "CROSS_AREA": 1.0e-3
+                    },
+                    "Tables": {}
+                }
+            }
+        ]
+        path = workdir / "materials.json"
+        import json
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(materials, f, ensure_ascii=False, indent=2)
+        return path
+
+
         # 模拟应变结果
         strain = stress / 30000.0  # 假设弹性模量 30 MPa
-        
+
         return {
             "displacement": displacement.tolist(),
             "stress": stress.tolist(),
@@ -373,7 +416,7 @@ class KratosInterface:
                 "simulation_mode": "advanced_fem"
             }
         }
-    
+
     def _process_kratos_results(self, raw_results: Dict[str, Any]) -> Dict[str, Any]:
         """处理 Kratos 原始结果"""
         processed = {
@@ -390,11 +433,11 @@ class KratosInterface:
             }
         }
         return processed
-    
+
     def get_results(self) -> Dict[str, Any]:
         """获取分析结果"""
         return self.results
-    
+
     def export_results(self, filepath: str, format: str = "json") -> bool:
         """导出结果"""
         try:
@@ -403,10 +446,10 @@ class KratosInterface:
                     json.dump(self.results, f, indent=2, ensure_ascii=False)
             else:
                 return False
-            
+
             print(f"✅ 结果已导出: {filepath}")
             return True
-            
+
         except Exception as e:
             print(f"❌ 结果导出失败: {e}")
             return False
@@ -440,7 +483,7 @@ def create_modal_analysis() -> KratosInterface:
 # 测试函数
 if __name__ == "__main__":
     print("🧪 测试 Kratos 接口")
-    
+
     # 创建测试数据
     test_fpn_data = {
         "nodes": [
@@ -453,18 +496,18 @@ if __name__ == "__main__":
             {"id": 1, "type": "tetra", "nodes": [1, 2, 3, 4], "material_id": 1}
         ]
     }
-    
+
     # 测试静力分析
     interface = create_static_analysis()
-    
+
     if interface.setup_model(test_fpn_data):
         success, results = interface.run_analysis()
-        
+
         if success:
             print("✅ 分析成功完成")
             print(f"位移结果: {len(results.get('displacement', []))} 个节点")
             print(f"应力结果: {len(results.get('stress', []))} 个节点")
-            
+
             # 导出结果
             interface.export_results("test_results.json")
         else:

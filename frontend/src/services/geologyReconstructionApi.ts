@@ -2,11 +2,15 @@
 // Mockable API layer for geology reconstruction preview & commit.
 // Later replace mock with real fetch endpoints.
 
+export type GeologyAlgorithm = 'rbf' | 'kriging' | 'idw';
+
 export interface GeologyPreviewRequest {
   hash: string;
   domain: any; // DomainState snapshot
   boreholes: any[];
   waterHead: any;
+  algorithm?: GeologyAlgorithm; // default mocked as 'rbf'
+  algorithmParams?: any;        // algorithm-specific params
   options?: { roiEnabled?: boolean; fallbackPolicy?: 'allow' | 'deny' };
 }
 export interface GeologyPreviewResponse {
@@ -28,7 +32,19 @@ function mockPreview(req: GeologyPreviewRequest): GeologyPreviewResponse {
   // simple deterministic pseudo-random via hash chars
   const seed = parseInt(req.hash.slice(0,8),16) || 1;
   const scale = Math.cbrt((req.domain?.nx||60)*(req.domain?.ny||60)*(req.domain?.nz||60));
-  const base = 0.015 + ((seed % 100) / 10000); // 0.015 ~ 0.025
+  const algo: GeologyAlgorithm = (req.algorithm || 'rbf');
+  // make algorithms differ slightly in baseline and sensitivity
+  // rbf: smoother, generally lower rmse; kriging: moderate; idw: higher when sparse
+  let base = 0.015 + ((seed % 100) / 10000); // 0.015 ~ 0.025
+  if (algo === 'kriging') base += 0.006; // slightly higher baseline
+  if (algo === 'idw') base += 0.012;     // highest baseline
+  // incorporate a tiny effect from params (deterministic)
+  if (req.algorithmParams) {
+    const pStr = JSON.stringify(req.algorithmParams);
+    let ph = 0; for (let i=0;i<pStr.length;i++){ ph = (ph*131 + pStr.charCodeAt(i))>>>0; }
+    const tweak = ((ph % 7) - 3) * 0.0005; // [-0.0015, 0.002]
+    base = Math.max(0.005, base + tweak);
+  }
   const rmseZ = Number((base + 0.5/scale).toFixed(4));
   const rmseH = Number((base + 0.4/scale).toFixed(4));
   const worst = Math.max(rmseZ, rmseH);
@@ -59,6 +75,8 @@ function mockPreview(req: GeologyPreviewRequest): GeologyPreviewResponse {
 export async function previewGeology(req: GeologyPreviewRequest, signal?: AbortSignal): Promise<GeologyPreviewResponse> {
   // Placeholder: simulate network latency
   await new Promise(r=>setTimeout(r, 420));
+  // keep param referenced to satisfy linters when unused in mock
+  if (signal && (signal as any).__noop) {/* noop */}
   return mockPreview(req);
 }
 
