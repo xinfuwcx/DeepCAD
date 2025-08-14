@@ -230,6 +230,11 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
   const [particles, setParticles] = useState<Array<{id: number, x: number, y: number, delay: number}>>([]);
   // 当高德地图不可用时，启用 Deck 独立模式，避免离线遮罩挡住可视层
   const [deckStandaloneMode, setDeckStandaloneMode] = useState(false);
+  // 影院模式 & 命令面板（提升交互质感）
+  const [isCinematic, setIsCinematic] = useState(false);
+  const cinematicTimerRef = useRef<number | null>(null);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [commandInput, setCommandInput] = useState('');
   const showEpicGlobe = useVisualSettingsStore(s=>s.showEpicGlobe);
   const showLegacyParticles = useVisualSettingsStore(s=>s.showLegacyParticles);
   const enablePostFX = useVisualSettingsStore(s=>s.enablePostFX);
@@ -1028,6 +1033,41 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
 
   }, [isFlying, initializeDeck]);
 
+  // —— 影院模式：自动巡航浏览重点项目 ——
+  const startCinematicTour = useCallback(() => {
+    if (!mapRef.current || isCinematic) return;
+    const targets = (filteredProjects.length ? filteredProjects : projects).slice(0, minimalMode ? 4 : 8);
+    if (!targets.length) return;
+    setIsCinematic(true);
+    let i = 0;
+    const step = () => {
+      const p = targets[i % targets.length];
+      const zoom = p.area > 1500 ? 14 : 16;
+      try {
+        mapRef.current!.setZoomAndCenter(zoom, [p.location.lng, p.location.lat], false, 2200);
+        const basePitch = minimalMode ? 50 : 65;
+        const baseRot = (i * 60) % 360;
+        setTimeout(() => {
+          mapRef.current && mapRef.current.setPitch(basePitch);
+          mapRef.current && mapRef.current.setRotation(baseRot);
+          setSelectedProjectId(p.id);
+          setShowProjectDetails(true);
+        }, 600);
+      } catch {}
+      i += 1;
+      cinematicTimerRef.current = window.setTimeout(step, 3000);
+    };
+    step();
+  }, [filteredProjects, projects, minimalMode, isCinematic, setSelectedProjectId, setShowProjectDetails]);
+
+  const stopCinematicTour = useCallback(() => {
+    setIsCinematic(false);
+    if (cinematicTimerRef.current) {
+      clearTimeout(cinematicTimerRef.current);
+      cinematicTimerRef.current = null;
+    }
+  }, []);
+
   // ==== 将全局项目数据映射为浮动项目管理面板的数据结构 ====
   const panelProjects = useMemo(() => {
     return projects.slice(0, 120).map(p => ({
@@ -1206,6 +1246,42 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       }) : null;
 
       const layers = [newScatter, haloLayer, ...heatmaps];
+      // 选中点扩散波纹（更强反馈）
+      if (selectedProject) {
+        const wave1 = new ScatterplotLayer({
+          id: 'selection-wave1',
+          data: [selectedProject],
+          getPosition: (d: ExcavationProject) => [d.location.lng, d.location.lat],
+          getFillColor: [0,0,0,0],
+          getLineColor: [0, 255, 255, 180],
+          getLineWidth: 1.5,
+          stroked: true,
+          filled: false,
+          radiusUnits: 'pixels',
+          radiusMinPixels: 0,
+          radiusMaxPixels: 1200,
+          getRadius: () => 32 + (Math.sin(pulse * 1.4) + 1) * 18,
+          updateTriggers: { getRadius: [pulse, selectedProject.id] },
+          parameters: { depthTest: false }
+        });
+        const wave2 = new ScatterplotLayer({
+          id: 'selection-wave2',
+          data: [selectedProject],
+          getPosition: (d: ExcavationProject) => [d.location.lng, d.location.lat],
+          getFillColor: [0,0,0,0],
+          getLineColor: [0, 180, 255, 140],
+          getLineWidth: 1,
+          stroked: true,
+          filled: false,
+          radiusUnits: 'pixels',
+          radiusMinPixels: 0,
+          radiusMaxPixels: 1200,
+          getRadius: () => 48 + (Math.sin(pulse * 1.7 + Math.PI/2) + 1) * 22,
+          updateTriggers: { getRadius: [pulse, selectedProject.id] },
+          parameters: { depthTest: false }
+        });
+        layers.push(wave1, wave2);
+      }
       if (hex) layers.push(hex);
       if (newColumns) layers.push(newColumns);
       layers.push(newArcs, flyParticles);
@@ -1250,8 +1326,19 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
   // 键盘快捷键支持
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
+      // Ctrl+K 打开命令面板
+      if ((event.ctrlKey || event.metaKey) && (event.key.toLowerCase() === 'k')) {
+        event.preventDefault();
+        setShowCommandPalette(true);
+        setCommandInput('');
+        return;
+      }
       // ESC键退出
       if (event.key === 'Escape') {
+        if (showCommandPalette) {
+          setShowCommandPalette(false);
+          return;
+        }
         onExit();
       }
 
@@ -1304,7 +1391,10 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     return () => {
       window.removeEventListener('keydown', handleKeyPress);
     };
-  }, [onExit, resetMapView, theme, minimalMode, setVisual]);
+  }, [onExit, resetMapView, theme, minimalMode, setVisual, showCommandPalette]);
+
+  // 组件卸载清理影院模式定时器
+  useEffect(() => () => { if (cinematicTimerRef.current) clearTimeout(cinematicTimerRef.current); }, []);
 
   // 性能监控
   useEffect(() => {
@@ -1454,6 +1544,43 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           flexDirection: 'column',
           gap: '10px'
         }}>
+          <button
+            onClick={() => { isCinematic ? stopCinematicTour() : startCinematicTour(); }}
+            className="neon-border"
+            style={{
+              background: 'linear-gradient(45deg, rgba(0, 255, 180, 0.35) 0%, rgba(0, 160, 255, 0.35) 100%)',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#fff',
+              padding: '8px 12px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              transition: 'all 0.3s ease',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 0 15px rgba(0, 255, 255, 0.3)'
+            }}
+          >
+            🎬 {isCinematic ? '停止影院模式' : '启动影院模式'}
+          </button>
+
+          <button
+            onClick={() => { setShowCommandPalette(true); setCommandInput(''); }}
+            className="neon-border"
+            style={{
+              background: 'linear-gradient(45deg, rgba(0, 200, 255, 0.3) 0%, rgba(255, 0, 200, 0.3) 100%)',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#fff',
+              padding: '8px 12px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              transition: 'all 0.3s ease',
+              backdropFilter: 'blur(10px)'
+            }}
+          >
+            ⌘K 命令面板
+          </button>
           <button
             onClick={() => {
               if (mapRef.current) {
@@ -2535,6 +2662,74 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
                 正在加载地图引擎和可视化系统
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 命令面板 Overlay */}
+      <AnimatePresence>
+        {showCommandPalette && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', zIndex: 5000,
+              display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '15vh'
+            }}
+            onClick={() => setShowCommandPalette(false)}
+          >
+            <motion.div
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -20, opacity: 0 }}
+              className="neon-border"
+              style={{ width: 640, maxWidth: '90%', background: 'rgba(10,20,30,0.92)', borderRadius: 12, boxShadow: '0 20px 80px rgba(0,0,0,0.5)' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ padding: 12, borderBottom: '1px solid rgba(0,255,255,0.2)', display: 'flex', gap: 8 }}>
+                <input
+                  autoFocus
+                  value={commandInput}
+                  onChange={(e) => setCommandInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') { setShowCommandPalette(false); }
+                    if (e.key === 'Enter') {
+                      // 选第一项
+                      const list = (document.getElementById('palette-list') as HTMLDivElement | null);
+                      const first = list?.querySelector('[data-cmd]') as HTMLDivElement | null;
+                      if (first) (first as any).click();
+                    }
+                  }}
+                  placeholder="输入命令或项目名称..."
+                  style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(0,255,255,0.25)', color: '#fff', borderRadius: 8, padding: '10px 12px', outline: 'none' }}
+                />
+                <button onClick={() => setShowCommandPalette(false)} style={{ background:'transparent', border:'1px solid rgba(255,255,255,0.2)', color:'#fff', borderRadius:8, padding:'8px 10px', cursor:'pointer', fontSize:12 }}>关闭</button>
+              </div>
+              <div id="palette-list" style={{ maxHeight: 380, overflow: 'auto', padding: 8 }}>
+                {(() => {
+                  const base: Array<{ id: string; label: string; action: () => void }> = [
+                    { id: 'theme-next', label: '切换主题（暗色/极简/商务）', action: () => { const order: Array<typeof theme> = ['dark','minimal','business']; const idx = order.indexOf(theme); const next = order[(idx+1)%order.length]; setVisual({ theme: next }); } },
+                    { id: 'toggle-minimal', label: minimalMode ? '关闭极简模式' : '开启极简模式', action: () => setVisual({ minimalMode: !minimalMode }) },
+                    { id: 'reset', label: '重置视图到全国', action: resetMapView },
+                    { id: 'toggle-hex', label: showHex ? '隐藏六边形热区' : '显示六边形热区', action: () => toggle('showHex') },
+                    { id: 'toggle-columns', label: showColumns ? '隐藏3D柱体' : '显示3D柱体', action: () => toggle('showColumns') },
+                    { id: 'cinema', label: isCinematic ? '停止影院模式' : '启动影院模式', action: () => isCinematic ? stopCinematicTour() : startCinematicTour() },
+                  ];
+                  const projEntries = (projects.length ? projects : filteredProjects).slice(0, 20).map(p => ({ id: `fly-${p.id}`, label: `飞到项目：${p.name}`, action: () => flyToProject(p) }));
+                  const all = base.concat(projEntries);
+                  const kw = commandInput.trim().toLowerCase();
+                  const items = kw ? all.filter(it => it.label.toLowerCase().includes(kw)) : all;
+                  return items.length ? items.map(it => (
+                    <div key={it.id} data-cmd onClick={() => { it.action(); setShowCommandPalette(false); }} className="neon-border" style={{ background:'rgba(255,255,255,0.04)', borderRadius:8, padding:'10px 12px', margin:'8px 4px', color:'#fff', cursor:'pointer' }}>
+                      {it.label}
+                    </div>
+                  )) : (
+                    <div style={{ color:'rgba(255,255,255,0.6)', padding:16 }}>没有匹配的命令</div>
+                  );
+                })()}
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
