@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>地质重建系统测试 - Abaqus科技风</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        .test-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: rgba(0, 217, 255, 0.1);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 217, 255, 0.15);
+        }
+
+        .header h1 {
+            margin: 0;
+            color: #00d9ff;
+            text-shadow: 0 0 10px rgba(0, 217, 255, 0.5);
+            font-size: 28px;
+        }
+
+        .status {
+            margin-top: 10px;
+            color: #00ff88;
+            font-size: 16px;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            gap: 20px;
+        }
+
+        .panel-section {
+            width: 400px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 217, 255, 0.15);
+        }
+
+        .viewport-section {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 217, 255, 0.15);
+        }
+
+        .section-title {
+            color: #00d9ff;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            text-shadow: 0 0 8px rgba(0, 217, 255, 0.3);
+        }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .feature-list li {
+            padding: 8px 0;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .feature-list li::before {
+            content: '✓';
+            color: #00ff88;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .tech-badge {
+            display: inline-block;
+            background: linear-gradient(45deg, #7c4dff, #00d9ff);
+            color: #ffffff;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin: 2px;
+            box-shadow: 0 2px 8px rgba(124, 77, 255, 0.3);
+        }
+
+        .abaqus-frame {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border: 2px solid rgba(0, 217, 255, 0.5);
+            border-radius: 12px;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-shadow: 
+                0 0 20px rgba(0, 217, 255, 0.3),
+                inset 0 1px 2px rgba(0, 217, 255, 0.1);
+        }
+
+        .abaqus-frame::before {
+            content: '';
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            right: 8px;
+            bottom: 8px;
+            border: 1px solid rgba(0, 217, 255, 0.2);
+            border-radius: 8px;
+            pointer-events: none;
+        }
+
+        .demo-content {
+            text-align: center;
+            z-index: 1;
+        }
+
+        .demo-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 0 20px rgba(0, 217, 255, 0.5));
+        }
+
+        .demo-text {
+            font-size: 20px;
+            color: #00d9ff;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(0, 217, 255, 0.3);
+        }
+
+        .demo-subtext {
+            font-size: 14px;
+            color: #7c4dff;
+            font-family: 'Consolas', monospace;
+        }
+
+        .loading-bar {
+            width: 300px;
+            height: 4px;
+            background: rgba(0, 217, 255, 0.2);
+            border-radius: 2px;
+            margin: 20px auto;
+            overflow: hidden;
+        }
+
+        .loading-progress {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, #00d9ff, transparent);
+            animation: loading 2s ease-in-out infinite;
+        }
+
+        @keyframes loading {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="header">
+            <h1>🏔️ DeepCAD 地质重建系统</h1>
+            <div class="status">✅ 地质面板修复完成 | ✅ Abaqus科技风3D视口优化完成</div>
+        </div>
+        
+        <div class="main-content">
+            <div class="panel-section">
+                <div class="section-title">🔧 修复完成功能</div>
+                <ul class="feature-list">
+                    <li>地质重建参数面板 V2</li>
+                    <li>RBF/Kriging/IDW 算法参数</li>
+                    <li>智能参数预设系统</li>
+                    <li>实时质量评估指标</li>
+                    <li>钻孔数据可视化</li>
+                    <li>3D预览与提交流程</li>
+                    <li>参数缓存与优化</li>
+                    <li>水文参数模拟</li>
+                </ul>
+                
+                <div class="section-title" style="margin-top: 30px;">⚡ 技术栈</div>
+                <div style="text-align: center;">
+                    <div class="tech-badge">React 18</div>
+                    <div class="tech-badge">TypeScript</div>
+                    <div class="tech-badge">Three.js</div>
+                    <div class="tech-badge">Ant Design</div>
+                    <div class="tech-badge">GemPy</div>
+                    <div class="tech-badge">PyVista</div>
+                    <div class="tech-badge">Zustand</div>
+                    <div class="tech-badge">Framer Motion</div>
+                </div>
+            </div>
+            
+            <div class="viewport-section">
+                <div class="section-title">🎨 Abaqus风格3D视口</div>
+                <div class="abaqus-frame">
+                    <div class="demo-content">
+                        <div class="demo-icon">🌍</div>
+                        <div class="demo-text">极致科技风地质重建</div>
+                        <div class="demo-subtext">CAE Engine v3.0 | GemPy → PyVista → Three.js</div>
+                        <div class="loading-bar">
+                            <div class="loading-progress"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -2776,7 +2776,7 @@ try:
                         use_mesh = self.mesh
                     actor = self.plotter.add_mesh(
                         use_mesh,
-                        color='lightblue',
+                        color='#8CA3B5',
                         opacity=1.0,
                         show_edges=True,
                         edge_color='black'
@@ -2800,7 +2800,7 @@ try:
                 use_mesh = self.mesh
             actor = self.plotter.add_mesh(
                 use_mesh,
-                color='lightblue',
+                color='#8CA3B5',
                 opacity=1.0,
                 show_edges=True,
                 edge_color='black'
