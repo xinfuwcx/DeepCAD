@@ -545,7 +545,7 @@ const MaterialLibraryView: React.FC = () => {
           background: 'rgba(0, 217, 255, 0.05)',
           border: '1px solid rgba(0, 217, 255, 0.2)'
         }}
-        title="土体材料库"
+        title="材料库"
         extra={
           <Space>
             <Button
