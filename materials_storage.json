@@ -1,0 +1,1070 @@
+[
+  {
+    "name": "杂填土_1-0-0",
+    "constitutive_model": "MohrCoulomb",
+    "properties": {
+      "YOUNG_MODULUS": 5.32,
+      "POISSON_RATIO": 0.3,
+      "DENSITY": 1834,
+      "COHESION": 0,
+      "FRICTION_ANGLE": 15
+    },
+    "source": "地质勘察报告",
+    "description": "弹性模量: 5.32MPa, 密度: 1834kg/m3",
+    "id": "material_1_1755147190",
+    "created_at": "2025-08-14T12:53:10.663790",
+    "updated_at": "2025-08-14T12:53:10.663818"
+  },
+  {
+    "name": "细砂_2-0-0",
+    "constitutive_model": "MohrCoulomb",
+    "properties": {
+      "YOUNG_MODULUS": 15,
+      "POISSON_RATIO": 0.3,
+      "DENSITY": 2038,
+      "COHESION": 0,
+      "FRICTION_ANGLE": 20
+    },
+    "source": "地质勘察报告",
+    "description": "弹性模量: 15MPa, 密度: 2038kg/m3",
+    "id": "material_2_1755147190",
+    "created_at": "2025-08-14T12:53:10.667690",
+    "updated_at": "2025-08-14T12:53:10.667694"
+  },
+  {
+    "name": "粉质粘土_3-0-0",
+    "constitutive_model": "MohrCoulomb",
+    "properties": {
+      "YOUNG_MODULUS": 5,
+      "POISSON_RATIO": 0.3,
+      "DENSITY": 1988,
+      "COHESION": 26,
+      "FRICTION_ANGLE": 9
+    },
+    "source": "地质勘察报告",
+    "description": "弹性模量: 5MPa, 密度: 1988kg/m3",
+    "id": "material_3_1755147190",
+    "created_at": "2025-08-14T12:53:10.670097",
+    "updated_at": "2025-08-14T12:53:10.670100"
+  },
+  {
+    "name": "粉质粘土_4-0-0",
+    "constitutive_model": "MohrCoulomb",
+    "properties": {
+      "YOUNG_MODULUS": 5,
+      "POISSON_RATIO": 0.3,
+      "DENSITY": 1947,
+      "COHESION": 24,
+      "FRICTION_ANGLE": 10
+    },
+    "source": "地质勘察报告",
+    "description": "弹性模量: 5MPa, 密度: 1947kg/m3",
+    "id": "material_4_1755147190",
+    "created_at": "2025-08-14T12:53:10.672313",
+    "updated_at": "2025-08-14T12:53:10.672316"
+  },
+  {
+    "name": "粉质粘土_5-0-0",
+    "constitutive_model": "MohrCoulomb",
+    "properties": {
+      "YOUNG_MODULUS": 5,
+      "POISSON_RATIO": 0.3,
+      "DENSITY": 2121,
+      "COHESION": 22,
+      "FRICTION_ANGLE": 13
+    },
+    "source": "地质勘察报告",
+    "description": "弹性模量: 5MPa, 密度: 2121kg/m3",
+    "id": "material_5_1755147190",
+    "created_at": "2025-08-14T12:53:10.674829",
+    "updated_at": "2025-08-14T12:53:10.674832"
+  },
+  {
+    "name": "卵石_6-0-0",
+    "constitutive_model": "MohrCoulomb",
+    "properties": {
+      "YOUNG_MODULUS": 40,
+      "POISSON_RATIO": 0.3,
+      "DENSITY": 1988,
+      "COHESION": 0,
+      "FRICTION_ANGLE": 21
+    },
+    "source": "地质勘察报告",
+    "description": "弹性模量: 40MPa, 密度: 1988kg/m3",
+    "id": "material_6_1755147190",
+    "created_at": "2025-08-14T12:53:10.676962",
+    "updated_at": "2025-08-14T12:53:10.676964"
+  },
+  {
+    "name": "粉质粘土_7-0-0",
+    "constitutive_model": "MohrCoulomb",
+    "properties": {
+      "YOUNG_MODULUS": 8,
+      "POISSON_RATIO": 0.3,
+      "DENSITY": 2121,
+      "COHESION": 14,
+      "FRICTION_ANGLE": 25
+    },
+    "source": "地质勘察报告",
+    "description": "弹性模量: 8MPa, 密度: 2121kg/m3",
+    "id": "material_7_1755147190",
+    "created_at": "2025-08-14T12:53:10.678955",
+    "updated_at": "2025-08-14T12:53:10.678957"
+  },
+  {
+    "name": "粘土_7-2-0",
+    "constitutive_model": "MohrCoulomb",
+    "properties": {
+      "YOUNG_MODULUS": 5,
+      "POISSON_RATIO": 0.3,
+      "DENSITY": 2007,
+      "COHESION": 36,
+      "FRICTION_ANGLE": 9
+    },
+    "source": "地质勘察报告",
+    "description": "弹性模量: 5MPa, 密度: 2007kg/m3",
+    "id": "material_8_1755147190",
+    "created_at": "2025-08-14T12:53:10.680999",
+    "updated_at": "2025-08-14T12:53:10.681002"
+  },
+  {
+    "name": "粉质粘土_7-0-0_2",
+    "constitutive_model": "MohrCoulomb",
+    "properties": {
+      "YOUNG_MODULUS": 9,
+      "POISSON_RATIO": 0.3,
+      "DENSITY": 2111,
+      "COHESION": 20,
+      "FRICTION_ANGLE": 16
+    },
+    "source": "地质勘察报告",
+    "description": "弹性模量: 9MPa, 密度: 2111kg/m3",
+    "id": "material_9_1755147190",
+    "created_at": "2025-08-14T12:53:10.683066",
+    "updated_at": "2025-08-14T12:53:10.683069"
+  },
+  {
+    "name": "细砂_8-0-0",
+    "constitutive_model": "MohrCoulomb",
+    "properties": {
+      "YOUNG_MODULUS": 22,
+      "POISSON_RATIO": 0.3,
+      "DENSITY": 1988,
+      "COHESION": 0,
+      "FRICTION_ANGLE": 21
+    },
+    "source": "地质勘察报告",
+    "description": "弹性模量: 22MPa, 密度: 1988kg/m3",
+    "id": "material_10_1755147190",
+    "created_at": "2025-08-14T12:53:10.685090",
+    "updated_at": "2025-08-14T12:53:10.685093"
+  },
+  {
+    "name": "重粉质粘土_8-1-0",
+    "constitutive_model": "MohrCoulomb",
+    "properties": {
+      "YOUNG_MODULUS": 9,
+      "POISSON_RATIO": 0.3,
+      "DENSITY": 2060,
+      "COHESION": 23,
+      "FRICTION_ANGLE": 14
+    },
+    "source": "地质勘察报告",
+    "description": "弹性模量: 9MPa, 密度: 2060kg/m3",
+    "id": "material_11_1755147190",
+    "created_at": "2025-08-14T12:53:10.687133",
+    "updated_at": "2025-08-14T12:53:10.687136"
+  },
+  {
+    "name": "细砂_9-0-0",
+    "constitutive_model": "MohrCoulomb",
+    "properties": {
+      "YOUNG_MODULUS": 22,
+      "POISSON_RATIO": 0.3,
+      "DENSITY": 1988,
+      "COHESION": 0,
+      "FRICTION_ANGLE": 23
+    },
+    "source": "地质勘察报告",
+    "description": "弹性模量: 22MPa, 密度: 1988kg/m3",
+    "id": "material_12_1755147190",
+    "created_at": "2025-08-14T12:53:10.689697",
+    "updated_at": "2025-08-14T12:53:10.689701"
+  },
+  {
+    "name": "卵石_10-0-0",
+    "constitutive_model": "MohrCoulomb",
+    "properties": {
+      "YOUNG_MODULUS": 40,
+      "POISSON_RATIO": 0.3,
+      "DENSITY": 2141,
+      "COHESION": 0,
+      "FRICTION_ANGLE": 35
+    },
+    "source": "地质勘察报告",
+    "description": "弹性模量: 40MPa, 密度: 2141kg/m3",
+    "id": "material_13_1755147190",
+    "created_at": "2025-08-14T12:53:10.692183",
+    "updated_at": "2025-08-14T12:53:10.692185"
+  },
+  {
+    "name": "粉质粘土_11-0-0",
+    "constitutive_model": "MohrCoulomb",
+    "properties": {
+      "YOUNG_MODULUS": 12,
+      "POISSON_RATIO": 0.3,
+      "DENSITY": 2060,
+      "COHESION": 24,
+      "FRICTION_ANGLE": 17
+    },
+    "source": "地质勘察报告",
+    "description": "弹性模量: 12MPa, 密度: 2060kg/m3",
+    "id": "material_14_1755147190",
+    "created_at": "2025-08-14T12:53:10.694338",
+    "updated_at": "2025-08-14T12:53:10.694341"
+  },
+  {
+    "name": "细砂_12-0-0",
+    "constitutive_model": "MohrCoulomb",
+    "properties": {
+      "YOUNG_MODULUS": 20,
+      "POISSON_RATIO": 0.3,
+      "DENSITY": 2070,
+      "COHESION": 0,
+      "FRICTION_ANGLE": 26
+    },
+    "source": "地质勘察报告",
+    "description": "弹性模量: 20MPa, 密度: 2070kg/m3",
+    "id": "material_15_1755147190",
+    "created_at": "2025-08-14T12:53:10.696583",
+    "updated_at": "2025-08-14T12:53:10.696586"
+  },
+  {
+    "name": "测试材料_无类型",
+    "constitutive_model": "MohrCoulomb",
+    "properties": {
+      "YOUNG_MODULUS": 30,
+      "POISSON_RATIO": 0.3,
+      "DENSITY": 2000,
+      "COHESION": 15,
+      "FRICTION_ANGLE": 20
+    },
+    "source": "测试",
+    "description": "测试移除type字段后的材料添加功能",
+    "id": "material_16_1755153870",
+    "created_at": "2025-08-14T14:44:30.490373",
+    "updated_at": "2025-08-14T14:44:30.490376"
+  },
+  {
+    "name": "杂填土1-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 5320000.0,
+      "poissonRatio": 0.3,
+      "density": 1800.0,
+      "cohesion": 0,
+      "frictionAngle": 15.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_17_1755156063",
+    "created_at": "2025-08-14T15:21:03.362087",
+    "updated_at": "2025-08-14T15:21:03.362091"
+  },
+  {
+    "name": "细砂2-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 15000000.0,
+      "poissonRatio": 0.3,
+      "density": 2000.0,
+      "cohesion": 0,
+      "frictionAngle": 20.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_18_1755156063",
+    "created_at": "2025-08-14T15:21:03.362096",
+    "updated_at": "2025-08-14T15:21:03.362098"
+  },
+  {
+    "name": "粉质粘土3-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 5000000.0,
+      "poissonRatio": 0.3,
+      "density": 1950.0,
+      "cohesion": 26000.0,
+      "frictionAngle": 9.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_19_1755156063",
+    "created_at": "2025-08-14T15:21:03.362100",
+    "updated_at": "2025-08-14T15:21:03.362101"
+  },
+  {
+    "name": "粉质粘土4-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 5000000.0,
+      "poissonRatio": 0.3,
+      "density": 1910.0000000000002,
+      "cohesion": 24000.0,
+      "frictionAngle": 10.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_20_1755156063",
+    "created_at": "2025-08-14T15:21:03.362103",
+    "updated_at": "2025-08-14T15:21:03.362104"
+  },
+  {
+    "name": "粉质粘土5-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 5000000.0,
+      "poissonRatio": 0.3,
+      "density": 2080.0,
+      "cohesion": 22000.0,
+      "frictionAngle": 13.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_21_1755156063",
+    "created_at": "2025-08-14T15:21:03.362106",
+    "updated_at": "2025-08-14T15:21:03.362107"
+  },
+  {
+    "name": "卵石6-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 40000000.0,
+      "poissonRatio": 0.3,
+      "density": 1950.0,
+      "cohesion": 0,
+      "frictionAngle": 21.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_22_1755156063",
+    "created_at": "2025-08-14T15:21:03.362109",
+    "updated_at": "2025-08-14T15:21:03.362110"
+  },
+  {
+    "name": "粉质粘土7-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 8000000.0,
+      "poissonRatio": 0.3,
+      "density": 2080.0,
+      "cohesion": 14000.0,
+      "frictionAngle": 25.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_23_1755156063",
+    "created_at": "2025-08-14T15:21:03.362112",
+    "updated_at": "2025-08-14T15:21:03.362113"
+  },
+  {
+    "name": "粘土7-2-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 5000000.0,
+      "poissonRatio": 0.3,
+      "density": 1970.0,
+      "cohesion": 36000.0,
+      "frictionAngle": 9.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_24_1755156063",
+    "created_at": "2025-08-14T15:21:03.362114",
+    "updated_at": "2025-08-14T15:21:03.362115"
+  },
+  {
+    "name": "粉质粘土7-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 9000000.0,
+      "poissonRatio": 0.3,
+      "density": 2070.0,
+      "cohesion": 20500.0,
+      "frictionAngle": 16.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_25_1755156063",
+    "created_at": "2025-08-14T15:21:03.362117",
+    "updated_at": "2025-08-14T15:21:03.362118"
+  },
+  {
+    "name": "细砂8-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 22000000.0,
+      "poissonRatio": 0.3,
+      "density": 1950.0,
+      "cohesion": 0,
+      "frictionAngle": 21.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_26_1755156063",
+    "created_at": "2025-08-14T15:21:03.362120",
+    "updated_at": "2025-08-14T15:21:03.362121"
+  },
+  {
+    "name": "重粉质粘土8-1-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 9000000.0,
+      "poissonRatio": 0.3,
+      "density": 2020.0,
+      "cohesion": 23000.0,
+      "frictionAngle": 14.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_27_1755156063",
+    "created_at": "2025-08-14T15:21:03.362123",
+    "updated_at": "2025-08-14T15:21:03.362124"
+  },
+  {
+    "name": "细砂9-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 22000000.0,
+      "poissonRatio": 0.3,
+      "density": 1950.0,
+      "cohesion": 0,
+      "frictionAngle": 23.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_28_1755156063",
+    "created_at": "2025-08-14T15:21:03.362126",
+    "updated_at": "2025-08-14T15:21:03.362128"
+  },
+  {
+    "name": "卵石10-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 40000000.0,
+      "poissonRatio": 0.3,
+      "density": 2100.0,
+      "cohesion": 0,
+      "frictionAngle": 35.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_29_1755156063",
+    "created_at": "2025-08-14T15:21:03.362130",
+    "updated_at": "2025-08-14T15:21:03.362131"
+  },
+  {
+    "name": "粉质粘土11-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 12000000.0,
+      "poissonRatio": 0.3,
+      "density": 2020.0,
+      "cohesion": 24000.0,
+      "frictionAngle": 17.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_30_1755156063",
+    "created_at": "2025-08-14T15:21:03.362132",
+    "updated_at": "2025-08-14T15:21:03.362133"
+  },
+  {
+    "name": "细砂12-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 20000000.0,
+      "poissonRatio": 0.3,
+      "density": 2030.0,
+      "cohesion": 0,
+      "frictionAngle": 26.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_31_1755156063",
+    "created_at": "2025-08-14T15:21:03.362135",
+    "updated_at": "2025-08-14T15:21:03.362136"
+  },
+  {
+    "name": "C30",
+    "material_type": "concrete",
+    "constitutive_model": "LINEAR_ELASTIC",
+    "properties": {
+      "elasticModulus": 30000000000.0,
+      "poissonRatio": 0.2,
+      "density": 2500.0,
+      "compressiveStrength": 30000000000.0,
+      "tensileStrength": 3000000000.0
+    },
+    "description": "从Excel导入的concrete材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "concrete",
+    "tags": [
+      "excel导入",
+      "concrete"
+    ],
+    "reliability": "empirical",
+    "id": "material_32_1755156063",
+    "created_at": "2025-08-14T15:21:03.362138",
+    "updated_at": "2025-08-14T15:21:03.362139"
+  },
+  {
+    "name": "锚杆",
+    "material_type": "steel",
+    "constitutive_model": "LINEAR_ELASTIC",
+    "properties": {
+      "elasticModulus": 206000000000.0,
+      "poissonRatio": 0.3,
+      "density": 7850.0,
+      "yieldStrength": 355000000.0,
+      "ultimateStrength": 490000000.0
+    },
+    "description": "从Excel导入的steel材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "steel",
+    "tags": [
+      "excel导入",
+      "steel"
+    ],
+    "reliability": "empirical",
+    "id": "material_33_1755156063",
+    "created_at": "2025-08-14T15:21:03.362140",
+    "updated_at": "2025-08-14T15:21:03.362141"
+  },
+  {
+    "name": "杂填土1-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 5320000.0,
+      "poissonRatio": 0.3,
+      "density": 1800.0,
+      "cohesion": 0,
+      "frictionAngle": 15.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_34_1755156937",
+    "created_at": "2025-08-14T15:35:37.360452",
+    "updated_at": "2025-08-14T15:35:37.360456"
+  },
+  {
+    "name": "细砂2-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 15000000.0,
+      "poissonRatio": 0.3,
+      "density": 2000.0,
+      "cohesion": 0,
+      "frictionAngle": 20.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_35_1755156937",
+    "created_at": "2025-08-14T15:35:37.360460",
+    "updated_at": "2025-08-14T15:35:37.360461"
+  },
+  {
+    "name": "粉质粘土3-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 5000000.0,
+      "poissonRatio": 0.3,
+      "density": 1950.0,
+      "cohesion": 26000.0,
+      "frictionAngle": 9.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_36_1755156937",
+    "created_at": "2025-08-14T15:35:37.360463",
+    "updated_at": "2025-08-14T15:35:37.360464"
+  },
+  {
+    "name": "粉质粘土4-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 5000000.0,
+      "poissonRatio": 0.3,
+      "density": 1910.0000000000002,
+      "cohesion": 24000.0,
+      "frictionAngle": 10.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_37_1755156937",
+    "created_at": "2025-08-14T15:35:37.360466",
+    "updated_at": "2025-08-14T15:35:37.360468"
+  },
+  {
+    "name": "粉质粘土5-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 5000000.0,
+      "poissonRatio": 0.3,
+      "density": 2080.0,
+      "cohesion": 22000.0,
+      "frictionAngle": 13.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_38_1755156937",
+    "created_at": "2025-08-14T15:35:37.360470",
+    "updated_at": "2025-08-14T15:35:37.360472"
+  },
+  {
+    "name": "卵石6-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 40000000.0,
+      "poissonRatio": 0.3,
+      "density": 1950.0,
+      "cohesion": 0,
+      "frictionAngle": 21.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_39_1755156937",
+    "created_at": "2025-08-14T15:35:37.360474",
+    "updated_at": "2025-08-14T15:35:37.360475"
+  },
+  {
+    "name": "粉质粘土7-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 8000000.0,
+      "poissonRatio": 0.3,
+      "density": 2080.0,
+      "cohesion": 14000.0,
+      "frictionAngle": 25.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_40_1755156937",
+    "created_at": "2025-08-14T15:35:37.360476",
+    "updated_at": "2025-08-14T15:35:37.360477"
+  },
+  {
+    "name": "粘土7-2-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 5000000.0,
+      "poissonRatio": 0.3,
+      "density": 1970.0,
+      "cohesion": 36000.0,
+      "frictionAngle": 9.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_41_1755156937",
+    "created_at": "2025-08-14T15:35:37.360479",
+    "updated_at": "2025-08-14T15:35:37.360480"
+  },
+  {
+    "name": "粉质粘土7-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 9000000.0,
+      "poissonRatio": 0.3,
+      "density": 2070.0,
+      "cohesion": 20500.0,
+      "frictionAngle": 16.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_42_1755156937",
+    "created_at": "2025-08-14T15:35:37.360482",
+    "updated_at": "2025-08-14T15:35:37.360483"
+  },
+  {
+    "name": "细砂8-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 22000000.0,
+      "poissonRatio": 0.3,
+      "density": 1950.0,
+      "cohesion": 0,
+      "frictionAngle": 21.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_43_1755156937",
+    "created_at": "2025-08-14T15:35:37.360485",
+    "updated_at": "2025-08-14T15:35:37.360486"
+  },
+  {
+    "name": "重粉质粘土8-1-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 9000000.0,
+      "poissonRatio": 0.3,
+      "density": 2020.0,
+      "cohesion": 23000.0,
+      "frictionAngle": 14.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_44_1755156937",
+    "created_at": "2025-08-14T15:35:37.360487",
+    "updated_at": "2025-08-14T15:35:37.360488"
+  },
+  {
+    "name": "细砂9-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 22000000.0,
+      "poissonRatio": 0.3,
+      "density": 1950.0,
+      "cohesion": 0,
+      "frictionAngle": 23.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_45_1755156937",
+    "created_at": "2025-08-14T15:35:37.360490",
+    "updated_at": "2025-08-14T15:35:37.360491"
+  },
+  {
+    "name": "卵石10-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 40000000.0,
+      "poissonRatio": 0.3,
+      "density": 2100.0,
+      "cohesion": 0,
+      "frictionAngle": 35.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_46_1755156937",
+    "created_at": "2025-08-14T15:35:37.360493",
+    "updated_at": "2025-08-14T15:35:37.360494"
+  },
+  {
+    "name": "粉质粘土11-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 12000000.0,
+      "poissonRatio": 0.3,
+      "density": 2020.0,
+      "cohesion": 24000.0,
+      "frictionAngle": 17.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_47_1755156937",
+    "created_at": "2025-08-14T15:35:37.360495",
+    "updated_at": "2025-08-14T15:35:37.360496"
+  },
+  {
+    "name": "细砂12-0-0",
+    "material_type": "soil",
+    "constitutive_model": "MOHR_COULOMB",
+    "properties": {
+      "elasticModulus": 20000000.0,
+      "poissonRatio": 0.3,
+      "density": 2030.0,
+      "cohesion": 0,
+      "frictionAngle": 26.0,
+      "permeability": 1e-07
+    },
+    "description": "从Excel导入的soil材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "soil",
+    "tags": [
+      "excel导入",
+      "soil"
+    ],
+    "reliability": "empirical",
+    "id": "material_48_1755156937",
+    "created_at": "2025-08-14T15:35:37.360498",
+    "updated_at": "2025-08-14T15:35:37.360500"
+  },
+  {
+    "name": "C30",
+    "material_type": "concrete",
+    "constitutive_model": "LINEAR_ELASTIC",
+    "properties": {
+      "elasticModulus": 30000000000.0,
+      "poissonRatio": 0.2,
+      "density": 2500.0,
+      "compressiveStrength": 30000000000.0,
+      "tensileStrength": 3000000000.0
+    },
+    "description": "从Excel导入的concrete材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "concrete",
+    "tags": [
+      "excel导入",
+      "concrete"
+    ],
+    "reliability": "empirical",
+    "id": "material_49_1755156937",
+    "created_at": "2025-08-14T15:35:37.360501",
+    "updated_at": "2025-08-14T15:35:37.360502"
+  },
+  {
+    "name": "锚杆",
+    "material_type": "steel",
+    "constitutive_model": "LINEAR_ELASTIC",
+    "properties": {
+      "elasticModulus": 206000000000.0,
+      "poissonRatio": 0.3,
+      "density": 7850.0,
+      "yieldStrength": 355000000.0,
+      "ultimateStrength": 490000000.0
+    },
+    "description": "从Excel导入的steel材料",
+    "source": "材料参数1-系统输入.xls",
+    "category": "steel",
+    "tags": [
+      "excel导入",
+      "steel"
+    ],
+    "reliability": "empirical",
+    "id": "material_50_1755156937",
+    "created_at": "2025-08-14T15:35:37.360504",
+    "updated_at": "2025-08-14T15:35:37.360505"
+  }
+]

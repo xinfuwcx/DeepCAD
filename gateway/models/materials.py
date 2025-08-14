@@ -14,7 +14,6 @@ class GeotechnicalMaterial(BaseModel):
     
     # Basic information
     name = Column(String(200), nullable=False)
-    material_type = Column(String(50), nullable=False, index=True)
     constitutive_model = Column(String(50), nullable=False, index=True)
     description = Column(Text, nullable=True)
     source = Column(String(100), nullable=True)

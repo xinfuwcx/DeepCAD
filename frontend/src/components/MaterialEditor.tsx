@@ -7,7 +7,8 @@ import {
 import {
   SaveOutlined, PlusOutlined, DeleteOutlined, UploadOutlined,
   ExperimentOutlined, CalculatorOutlined, SettingOutlined,
-  InfoCircleOutlined, BulbOutlined
+  InfoCircleOutlined, BulbOutlined, FileExcelOutlined,
+  ImportOutlined
 } from '@ant-design/icons';
 
 const { Option } = Select;
@@ -68,7 +69,7 @@ const MaterialEditor: React.FC<MaterialEditorProps> = ({
 }) => {
   const [form] = Form.useForm();
   const [activeTab, setActiveTab] = useState('basic');
-  const [materialType, setMaterialType] = useState<string>('concrete');
+  // 材料类型已移除，统一使用通用材料属性
   const [properties, setProperties] = useState<Record<string, number>>({});
   const [advancedMode, setAdvancedMode] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -77,16 +78,15 @@ const MaterialEditor: React.FC<MaterialEditorProps> = ({
     if (material && mode === 'edit') {
       form.setFieldsValue({
         name: material.name,
-        type: material.type,
         description: material.description,
         ...material.parameters
       });
-      setMaterialType(material.type);
+      // 材料类型已移除
       setProperties(material.parameters || {});
     } else {
       // 重置表单为创建模式
       form.resetFields();
-      const defaultProps = MATERIAL_PROPERTIES[materialType];
+      const defaultProps = MATERIAL_PROPERTIES['soil']; // 统一使用土壤材料属性
       const defaultValues = defaultProps.reduce((acc, prop) => {
         acc[prop.name] = prop.value;
         return acc;
@@ -94,7 +94,7 @@ const MaterialEditor: React.FC<MaterialEditorProps> = ({
       setProperties(defaultValues);
       form.setFieldsValue(defaultValues);
     }
-  }, [material, mode, visible, materialType, form]);
+  }, [material, mode, visible, form]);
 
   const handleTypeChange = (type: string) => {
     setMaterialType(type);
@@ -117,7 +117,7 @@ const MaterialEditor: React.FC<MaterialEditorProps> = ({
 
   const validateMaterial = () => {
     const errors: string[] = [];
-    const props = MATERIAL_PROPERTIES[materialType];
+    const props = MATERIAL_PROPERTIES['soil']; // 统一使用土壤材料属性
     
     props.forEach(prop => {
       if (prop.required && (!properties[prop.name] || properties[prop.name] <= 0)) {
@@ -125,16 +125,12 @@ const MaterialEditor: React.FC<MaterialEditorProps> = ({
       }
     });
 
-    // 特殊验证规则
-    if (materialType === 'concrete' && properties.poissonRatio >= 0.5) {
-      errors.push('混凝土泊松比应小于0.5');
+    // 通用验证规则
+    if (properties.poissonRatio >= 0.5) {
+      errors.push('泊松比应小于0.5');
     }
     
-    if (materialType === 'steel' && properties.yieldStrength >= properties.ultimateStrength) {
-      errors.push('屈服强度应小于极限强度');
-    }
-    
-    if (materialType === 'soil' && properties.frictionAngle > 45) {
+    if (properties.frictionAngle && properties.frictionAngle > 45) {
       errors.push('内摩擦角通常不超过45°');
     }
 
@@ -154,7 +150,6 @@ const MaterialEditor: React.FC<MaterialEditorProps> = ({
       const materialData = {
         id: material?.id || String(Date.now()),
         name: values.name,
-        type: materialType,
         description: values.description,
         parameters: properties,
         createdAt: material?.createdAt || new Date().toISOString(),
@@ -169,7 +164,7 @@ const MaterialEditor: React.FC<MaterialEditorProps> = ({
   };
 
   const renderPropertyInputs = () => {
-    const props = MATERIAL_PROPERTIES[materialType];
+    const props = MATERIAL_PROPERTIES['soil']; // 统一使用土壤材料属性
     
     return props.map(prop => (
       <Col span={12} key={prop.name}>
@@ -260,20 +255,13 @@ const MaterialEditor: React.FC<MaterialEditorProps> = ({
               <Input placeholder="输入材料名称" />
             </Form.Item>
 
+            {/* 材料类型已隐藏 - 默认为土壤类型 */}
             <Form.Item
-              label="材料类型"
               name="type"
-              rules={[{ required: true, message: '请选择材料类型' }]}
+              style={{ display: 'none' }}
+              initialValue="soil"
             >
-              <Select 
-                value={materialType} 
-                onChange={handleTypeChange}
-                placeholder="选择材料类型"
-              >
-                <Option value="concrete">混凝土</Option>
-                <Option value="steel">钢材</Option>
-                <Option value="soil">土壤</Option>
-              </Select>
+              <Input type="hidden" />
             </Form.Item>
 
             <Form.Item label="描述" name="description">
@@ -344,7 +332,7 @@ const MaterialEditor: React.FC<MaterialEditorProps> = ({
                 <div className="material-preview-section">
                   <h4>基本信息</h4>
                   <p><strong>名称:</strong> {form.getFieldValue('name') || '未设置'}</p>
-                  <p><strong>类型:</strong> {materialType === 'concrete' ? '混凝土' : materialType === 'steel' ? '钢材' : '土壤'}</p>
+                  <p><strong>类型:</strong> 通用材料</p>
                   <p><strong>描述:</strong> {form.getFieldValue('description') || '无'}</p>
                 </div>
               </Col>
@@ -352,7 +340,7 @@ const MaterialEditor: React.FC<MaterialEditorProps> = ({
                 <div className="material-preview-section">
                   <h4>关键参数</h4>
                   {Object.entries(properties).slice(0, 3).map(([key, value]) => {
-                    const prop = MATERIAL_PROPERTIES[materialType].find(p => p.name === key);
+                    const prop = MATERIAL_PROPERTIES['soil'].find(p => p.name === key); // 统一使用土壤材料属性
                     return (
                       <p key={key}>
                         <strong>{prop?.description}:</strong> {value} {prop?.unit}

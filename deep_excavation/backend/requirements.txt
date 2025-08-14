@@ -19,6 +19,7 @@ scipy>=1.16.1
 pandas>=2.3.1
 h5py>=3.12.0
 matplotlib>=3.10.0
+openpyxl>=3.1.2
 
 # 几何和网格
 pyvista>=0.45.3

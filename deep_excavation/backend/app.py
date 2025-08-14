@@ -5,6 +5,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from deep_excavation.backend.api.routes import geology_router, auth_router, project_router
+from deep_excavation.backend.api.routes import material_import_router
+from deep_excavation.backend.api.routes import materials_api
 from deep_excavation.backend.core.error_handler import UnifiedErrorHandler, ErrorType
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import logging
@@ -39,6 +41,8 @@ app.add_middleware(
 app.include_router(auth_router.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(project_router.router, prefix="/api/projects", tags=["Projects"])
 app.include_router(geology_router.router, prefix="/api/geology", tags=["Geology"])
+app.include_router(material_import_router.router, tags=["材料导入"])
+app.include_router(materials_api.router, tags=["材料管理"])
 
 # 全局异常处理
 @app.exception_handler(StarletteHTTPException)

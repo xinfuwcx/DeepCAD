@@ -3,15 +3,7 @@
  * 2号几何专家 - 专业CAE材料属性管理
  */
 
-// 材料类型枚举
-export enum MaterialType {
-  CONCRETE = 'CONCRETE',           // 混凝土
-  STEEL = 'STEEL',                 // 钢材
-  SOIL = 'SOIL',                   // 土体
-  ROCK = 'ROCK',                   // 岩石
-  COMPOSITE = 'COMPOSITE',         // 复合材料
-  COMPACTED_SOIL = 'COMPACTED_SOIL' // 挤密土体 - 2号专家特有
-}
+// 材料类型枚举已移除 - 统一使用通用材料属性
 
 // 材料行为模型
 export enum ConstitutiveModel {
@@ -140,10 +132,9 @@ export interface RockMaterialProperties extends BaseMaterialProperties {
 export interface MaterialDefinition {
   id: string;                          // 材料ID
   name: string;                        // 材料名称
-  type: MaterialType;                  // 材料类型
   constitutiveModel: ConstitutiveModel; // 本构模型
   
-  // 材料属性（根据类型动态确定）
+  // 材料属性（统一使用通用属性接口）
   properties: BaseMaterialProperties | ConcreteMaterialProperties | 
               SteelMaterialProperties | SoilMaterialProperties | 
               RockMaterialProperties;
@@ -195,7 +186,6 @@ export interface MaterialLibrary {
 export interface MaterialSearchCriteria {
   // 基本搜索
   name?: string;                       // 名称关键词
-  type?: MaterialType[];               // 类型筛选
   model?: ConstitutiveModel[];         // 本构模型筛选
   
   // 属性范围筛选
@@ -214,7 +204,7 @@ export interface MaterialSearchCriteria {
   recentlyUsed?: boolean;              // 最近使用
   
   // 排序
-  sortBy?: 'name' | 'type' | 'modified' | 'usage' | 'reliability';
+  sortBy?: 'name' | 'modified' | 'usage' | 'reliability';
   sortOrder?: 'asc' | 'desc';
 }
 
