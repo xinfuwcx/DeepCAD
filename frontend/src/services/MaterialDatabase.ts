@@ -15,6 +15,7 @@ import {
 } from '../interfaces/MaterialInterfaces';
 import { moduleHub } from '../integration/ModuleIntegrationHub';
 import { logger } from '../utils/advancedLogger';
+import { materialAPIService } from './MaterialAPIService';
 
 // 数据库事件类型
 export type MaterialDatabaseEvent = 
@@ -45,7 +46,9 @@ export class MaterialDatabase {
   
   constructor() {
     this.initializeDatabase();
-    this.loadDefaultMaterials();
+    this.loadDefaultMaterials().catch(error => {
+      logger.error('初始化材料数据库失败', { error });
+    });
   }
 
   /**
@@ -73,9 +76,40 @@ export class MaterialDatabase {
   }
 
   /**
-   * 加载默认材料
+   * 加载默认材料 - 从后端API获取
    */
-  private loadDefaultMaterials() {
+  private async loadDefaultMaterials() {
+    try {
+      console.log('MaterialDatabase: 开始加载材料数据...');
+      // 尝试从后端API加载材料
+      const backendMaterials = await materialAPIService.getMaterials();
+      console.log('MaterialDatabase: 收到后端材料数据:', backendMaterials);
+      
+      if (backendMaterials && backendMaterials.length > 0) {
+        // 转换后端数据格式并添加到本地数据库
+        for (const backendMaterial of backendMaterials) {
+          const material = materialAPIService.convertFromBackend(backendMaterial);
+          console.log('MaterialDatabase: 转换材料:', material.name);
+          this.materials.set(material.id, material);
+          
+          // 添加到默认库
+          const library = this.libraries.get(this.defaultLibraryId)!;
+          library.materials.push(material);
+        }
+        
+        console.log('MaterialDatabase: 成功加载', backendMaterials.length, '个材料');
+        logger.info('从后端API加载材料成功', { 
+          materialCount: backendMaterials.length 
+        });
+        
+        return;
+      }
+    } catch (error) {
+      console.error('MaterialDatabase: 从后端加载失败:', error);
+      logger.warn('从后端API加载材料失败，使用默认材料', { error });
+    }
+
+    // 后端加载失败时的兜底默认材料
     const defaultMaterials: MaterialDefinition[] = [
       // C30混凝土
       {
@@ -100,117 +134,6 @@ export class MaterialDatabase {
         reliability: 'standard',
         tags: ['混凝土', '结构', '标准'],
         category: '建筑材料'
-      },
-      
-      // Q235钢材
-      {
-        id: 'steel_q235',
-        name: 'Q235钢材',
-        type: MaterialType.STEEL,
-        constitutiveModel: ConstitutiveModel.ELASTOPLASTIC,
-        properties: {
-          density: 7850,
-          elasticModulus: 206e9,
-          poissonRatio: 0.3,
-          yieldStrength: 235e6,
-          ultimateStrength: 370e6,
-          thermalExpansion: 12e-6
-        },
-        description: '普通碳素结构钢，广泛用于建筑结构',
-        standard: 'GB/T 700-2006',
-        created: new Date(),
-        modified: new Date(),
-        version: '1.0.0',
-        validated: true,
-        reliability: 'standard',
-        tags: ['钢材', '结构', '标准'],
-        category: '金属材料'
-      },
-      
-      // 粘性土
-      {
-        id: 'soil_clay',
-        name: '粘性土',
-        type: MaterialType.SOIL,
-        constitutiveModel: ConstitutiveModel.MOHR_COULOMB,
-        properties: {
-          density: 1900,
-          elasticModulus: 15e6,
-          poissonRatio: 0.35,
-          cohesion: 25e3,
-          frictionAngle: 18,
-          permeability: 1e-9,
-          soilType: '粘性土',
-          plasticityIndex: 15
-        },
-        description: '典型城市地区粘性土，适用于基坑工程分析',
-        standard: 'GB 50007-2011',
-        created: new Date(),
-        modified: new Date(),
-        version: '1.0.0',
-        validated: true,
-        reliability: 'empirical',
-        tags: ['土体', '粘土', '基坑'],
-        category: '岩土材料'
-      },
-      
-      // 砂性土
-      {
-        id: 'soil_sand',
-        name: '砂性土',
-        type: MaterialType.SOIL,
-        constitutiveModel: ConstitutiveModel.MOHR_COULOMB,
-        properties: {
-          density: 1800,
-          elasticModulus: 25e6,
-          poissonRatio: 0.3,
-          cohesion: 5e3,
-          frictionAngle: 32,
-          permeability: 1e-5,
-          soilType: '砂性土',
-          plasticityIndex: 5
-        },
-        description: '中密砂性土，渗透性良好',
-        standard: 'GB 50007-2011',
-        created: new Date(),
-        modified: new Date(),
-        version: '1.0.0',
-        validated: true,
-        reliability: 'empirical',
-        tags: ['土体', '砂土', '渗透'],
-        category: '岩土材料'
-      },
-      
-      // 挤密土体 - 2号专家特有
-      {
-        id: 'compacted_soil',
-        name: '挤密土体',
-        type: MaterialType.COMPACTED_SOIL,
-        constitutiveModel: ConstitutiveModel.HARDENING_SOIL,
-        properties: {
-          density: 2100,
-          elasticModulus: 45e6,
-          poissonRatio: 0.25,
-          cohesion: 40e3,
-          frictionAngle: 28,
-          permeability: 5e-8,
-          soilType: '挤密土体',
-          compactionEffect: {
-            compactionRadius: 2.5,
-            densityIncrease: 300,
-            stiffnessIncrease: 2.0,
-            permeabilityDecrease: 0.5
-          }
-        },
-        description: '桩基施工产生的挤密土体，具有改良的工程特性',
-        standard: 'DeepCAD内部标准',
-        created: new Date(),
-        modified: new Date(),
-        version: '1.0.0',
-        validated: true,
-        reliability: 'experimental',
-        tags: ['挤密土', '桩基', '改良土体'],
-        category: '特殊材料'
       }
     ];
 
@@ -618,6 +541,29 @@ export class MaterialDatabase {
     ]);
 
     return [headers, ...rows].map(row => row.join(',')).join('\n');
+  }
+
+  /**
+   * 刷新材料数据 - 从后端重新加载
+   */
+  public async refreshMaterials(): Promise<void> {
+    try {
+      // 清空现有材料
+      this.materials.clear();
+      const library = this.libraries.get(this.defaultLibraryId)!;
+      library.materials = [];
+      
+      // 重新加载
+      await this.loadDefaultMaterials();
+      
+      // 触发刷新事件
+      this.emitEvent('database_synced', { materialCount: this.materials.size });
+      
+      logger.info('材料数据刷新完成', { materialCount: this.materials.size });
+    } catch (error) {
+      logger.error('材料数据刷新失败', { error });
+      throw error;
+    }
   }
 
   /**

@@ -223,18 +223,62 @@ const MaterialLibraryView: React.FC = () => {
     loadMaterials();
   }, []);
 
-  const loadMaterials = () => {
+  const loadMaterials = async () => {
     setLoading(true);
-    // 模拟从本地存储或后端加载材料数据
-    setTimeout(() => {
+    try {
+      console.log('MaterialLibraryView: 开始从后端加载材料...');
+      
+      // 尝试从后端API加载材料
+      const response = await fetch('http://localhost:8000/api/materials/list');
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('MaterialLibraryView: 后端API响应:', data);
+        
+        if (data.status === 'success' && data.materials) {
+          // 转换后端数据格式为前端格式
+          const convertedMaterials = data.materials.map((backendMaterial: any) => {
+            const material: MaterialDefinition = {
+              id: backendMaterial.id,
+              name: backendMaterial.name,
+              description: backendMaterial.description || '从后端导入的材料',
+              constitutive_model: backendMaterial.constitutive_model === 'MOHR_COULOMB' ? 'mohr_coulomb' : 'linear_elastic',
+              parameters: {
+                density: Math.round(backendMaterial.properties.density || 1900),
+                unit_weight: Math.round((backendMaterial.properties.density || 1900) * 9.8 / 1000),
+                cohesion: Math.round((backendMaterial.properties.cohesion || 0) / 1000),
+                friction: Math.round(backendMaterial.properties.frictionAngle || 0),
+                elastic_modulus: Math.round((backendMaterial.properties.elasticModulus || 0) / 1000),
+                poisson_ratio: backendMaterial.properties.poissonRatio || 0.3
+              },
+              is_default: false
+            };
+            return material;
+          });
+          
+          console.log('MaterialLibraryView: 转换后的材料数据:', convertedMaterials);
+          setMaterials(convertedMaterials);
+          message.success(`成功加载 ${convertedMaterials.length} 个材料`);
+          setLoading(false);
+          return;
+        }
+      }
+      
+      throw new Error('后端API响应异常');
+    } catch (error) {
+      console.error('MaterialLibraryView: 从后端加载失败:', error);
+      message.warning('从后端加载材料失败，使用默认材料');
+      
+      // 后端加载失败时，尝试从localStorage加载
       const savedMaterials = localStorage.getItem('soil_materials');
       if (savedMaterials) {
         setMaterials(JSON.parse(savedMaterials));
       } else {
         setMaterials(defaultMaterials);
       }
-      setLoading(false);
-    }, 500);
+    }
+    
+    setLoading(false);
   };
 
   const saveMaterials = (newMaterials: MaterialDefinition[]) => {
@@ -543,9 +587,19 @@ const MaterialLibraryView: React.FC = () => {
       <Card
         style={{ 
           background: 'rgba(0, 217, 255, 0.05)',
-          border: '1px solid rgba(0, 217, 255, 0.2)'
+          border: '1px solid rgba(0, 217, 255, 0.2)',
+          height: 'calc(100vh - 200px)', // 固定高度
+          display: 'flex',
+          flexDirection: 'column'
         }}
         title="土体材料库"
+        bodyStyle={{ 
+          flex: 1, 
+          display: 'flex', 
+          flexDirection: 'column',
+          overflow: 'hidden',
+          padding: '16px'
+        }}
         extra={
           <Space>
             <Button
@@ -577,19 +631,28 @@ const MaterialLibraryView: React.FC = () => {
           </Space>
         }
       >
-        <Table
-          columns={columns}
-          dataSource={materials}
-          rowKey="id"
-          loading={loading}
-          size="small"
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total) => `共 ${total} 个材料`
-          }}
-        />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <Table
+            columns={columns}
+            dataSource={materials}
+            rowKey="id"
+            loading={loading}
+            size="small"
+            scroll={{ y: 'calc(100vh - 380px)' }} // 调整滚动高度为分页留出空间
+            pagination={{
+              pageSize: 10, // 改回10个，这样分页更有意义
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total) => `共 ${total} 个材料`,
+              pageSizeOptions: ['5', '10', '20', '50'],
+              style: { 
+                marginTop: '16px',
+                textAlign: 'center'
+              }
+            }}
+            style={{ flex: 1 }}
+          />
+        </div>
       </Card>
 
       {/* 材料编辑模态框 */}

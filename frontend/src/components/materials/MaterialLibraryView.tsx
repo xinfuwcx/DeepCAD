@@ -223,13 +223,13 @@ const MaterialCard: React.FC<MaterialCardProps> = ({
         <div style={{
           marginTop: '12px',
           padding: '8px',
-          backgroundColor: `${typeInfo.color}10`,
+          backgroundColor: `${materialInfo.color}10`,
           borderRadius: '6px',
-          border: `1px solid ${typeInfo.color}20`
+          border: `1px solid ${materialInfo.color}20`
         }}>
           <p style={{
             fontSize: '11px',
-            color: typeInfo.color,
+            color: materialInfo.color,
             margin: 0,
             textAlign: 'center'
           }}>
@@ -259,7 +259,14 @@ const MaterialLibraryView: React.FC = () => {
   const [sortBy, setSortBy] = useState<'name' | 'type' | 'modified' | 'usage'>('name');
 
   // 加载材料数据
-  const loadMaterials = useCallback(() => {
+  const loadMaterials = useCallback(async () => {
+    try {
+      // 先尝试刷新后端数据
+      await materialDatabase.refreshMaterials();
+    } catch (error) {
+      console.warn('刷新后端数据失败，使用本地数据', error);
+    }
+    
     const allMaterials = materialDatabase.searchMaterials({});
     setMaterials(allMaterials);
     
@@ -393,6 +400,15 @@ const MaterialLibraryView: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '12px' }}>
+          <Button
+            variant="outline"
+            size="md"
+            caeType="material"
+            onClick={loadMaterials}
+          >
+            🔄 刷新
+          </Button>
+          
           <Button
             variant="outline"
             size="md"

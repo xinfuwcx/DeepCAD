@@ -1,0 +1,202 @@
+{
+  "Sheet1": [
+    {
+      "Unnamed: 0": NaN,
+      "Unnamed: 1": NaN,
+      "材料名称": NaN,
+      "主要参数": "弹性模量(mpa)",
+      "Unnamed: 4": "泊松比",
+      "Unnamed: 5": "容重(KN/m3)",
+      "Unnamed: 6": "粘聚力(kpa)",
+      "Unnamed: 7": "摩擦角(°)",
+      "本构模型": NaN
+    },
+    {
+      "Unnamed: 0": NaN,
+      "Unnamed: 1": NaN,
+      "材料名称": "杂填土1-0-0",
+      "主要参数": 5.32,
+      "Unnamed: 4": 0.3,
+      "Unnamed: 5": 18,
+      "Unnamed: 6": 0,
+      "Unnamed: 7": 15,
+      "本构模型": "莫尔-库伦模型"
+    },
+    {
+      "Unnamed: 0": NaN,
+      "Unnamed: 1": NaN,
+      "材料名称": "细砂2-0-0",
+      "主要参数": 15,
+      "Unnamed: 4": 0.3,
+      "Unnamed: 5": 20,
+      "Unnamed: 6": 0,
+      "Unnamed: 7": 20,
+      "本构模型": "莫尔-库伦模型"
+    },
+    {
+      "Unnamed: 0": NaN,
+      "Unnamed: 1": NaN,
+      "材料名称": "粉质粘土3-0-0",
+      "主要参数": 5,
+      "Unnamed: 4": 0.3,
+      "Unnamed: 5": 19.5,
+      "Unnamed: 6": 26,
+      "Unnamed: 7": 9,
+      "本构模型": "莫尔-库伦模型"
+    },
+    {
+      "Unnamed: 0": NaN,
+      "Unnamed: 1": NaN,
+      "材料名称": "粉质粘土4-0-0",
+      "主要参数": 5,
+      "Unnamed: 4": 0.3,
+      "Unnamed: 5": 19.1,
+      "Unnamed: 6": 24,
+      "Unnamed: 7": 10,
+      "本构模型": "莫尔-库伦模型"
+    },
+    {
+      "Unnamed: 0": NaN,
+      "Unnamed: 1": NaN,
+      "材料名称": "粉质粘土5-0-0",
+      "主要参数": 5,
+      "Unnamed: 4": 0.3,
+      "Unnamed: 5": 20.8,
+      "Unnamed: 6": 22,
+      "Unnamed: 7": 13,
+      "本构模型": "莫尔-库伦模型"
+    },
+    {
+      "Unnamed: 0": NaN,
+      "Unnamed: 1": NaN,
+      "材料名称": "卵石6-0-0",
+      "主要参数": 40,
+      "Unnamed: 4": 0.3,
+      "Unnamed: 5": 19.5,
+      "Unnamed: 6": 0,
+      "Unnamed: 7": 21,
+      "本构模型": "莫尔-库伦模型"
+    },
+    {
+      "Unnamed: 0": NaN,
+      "Unnamed: 1": NaN,
+      "材料名称": "粉质粘土7-0-0",
+      "主要参数": 8,
+      "Unnamed: 4": 0.3,
+      "Unnamed: 5": 20.8,
+      "Unnamed: 6": 14,
+      "Unnamed: 7": 25,
+      "本构模型": "莫尔-库伦模型"
+    },
+    {
+      "Unnamed: 0": NaN,
+      "Unnamed: 1": NaN,
+      "材料名称": "粘土7-2-0",
+      "主要参数": 5,
+      "Unnamed: 4": 0.3,
+      "Unnamed: 5": 19.7,
+      "Unnamed: 6": 36,
+      "Unnamed: 7": 9,
+      "本构模型": "莫尔-库伦模型"
+    },
+    {
+      "Unnamed: 0": NaN,
+      "Unnamed: 1": NaN,
+      "材料名称": "粉质粘土7-0-0",
+      "主要参数": 9,
+      "Unnamed: 4": 0.3,
+      "Unnamed: 5": 20.7,
+      "Unnamed: 6": 20.5,
+      "Unnamed: 7": 16,
+      "本构模型": "莫尔-库伦模型"
+    },
+    {
+      "Unnamed: 0": NaN,
+      "Unnamed: 1": NaN,
+      "材料名称": "细砂8-0-0",
+      "主要参数": 22,
+      "Unnamed: 4": 0.3,
+      "Unnamed: 5": 19.5,
+      "Unnamed: 6": 0,
+      "Unnamed: 7": 21,
+      "本构模型": "莫尔-库伦模型"
+    },
+    {
+      "Unnamed: 0": NaN,
+      "Unnamed: 1": NaN,
+      "材料名称": "重粉质粘土8-1-0",
+      "主要参数": 9,
+      "Unnamed: 4": 0.3,
+      "Unnamed: 5": 20.2,
+      "Unnamed: 6": 23,
+      "Unnamed: 7": 14,
+      "本构模型": "莫尔-库伦模型"
+    },
+    {
+      "Unnamed: 0": NaN,
+      "Unnamed: 1": NaN,
+      "材料名称": "细砂9-0-0",
+      "主要参数": 22,
+      "Unnamed: 4": 0.3,
+      "Unnamed: 5": 19.5,
+      "Unnamed: 6": 0,
+      "Unnamed: 7": 23,
+      "本构模型": "莫尔-库伦模型"
+    },
+    {
+      "Unnamed: 0": NaN,
+      "Unnamed: 1": NaN,
+      "材料名称": "卵石10-0-0",
+      "主要参数": 40,
+      "Unnamed: 4": 0.3,
+      "Unnamed: 5": 21,
+      "Unnamed: 6": 0,
+      "Unnamed: 7": 35,
+      "本构模型": "莫尔-库伦模型"
+    },
+    {
+      "Unnamed: 0": NaN,
+      "Unnamed: 1": NaN,
+      "材料名称": "粉质粘土11-0-0",
+      "主要参数": 12,
+      "Unnamed: 4": 0.3,
+      "Unnamed: 5": 20.2,
+      "Unnamed: 6": 24,
+      "Unnamed: 7": 17,
+      "本构模型": "莫尔-库伦模型"
+    },
+    {
+      "Unnamed: 0": NaN,
+      "Unnamed: 1": NaN,
+      "材料名称": "细砂12-0-0",
+      "主要参数": 20,
+      "Unnamed: 4": 0.3,
+      "Unnamed: 5": 20.3,
+      "Unnamed: 6": 0,
+      "Unnamed: 7": 26,
+      "本构模型": "莫尔-库伦模型"
+    },
+    {
+      "Unnamed: 0": NaN,
+      "Unnamed: 1": NaN,
+      "材料名称": "C30",
+      "主要参数": 30000,
+      "Unnamed: 4": 0.2,
+      "Unnamed: 5": 25,
+      "Unnamed: 6": NaN,
+      "Unnamed: 7": NaN,
+      "本构模型": "线弹性模型 "
+    },
+    {
+      "Unnamed: 0": NaN,
+      "Unnamed: 1": NaN,
+      "材料名称": "锚杆",
+      "主要参数": 206000,
+      "Unnamed: 4": 0.3,
+      "Unnamed: 5": 78.5,
+      "Unnamed: 6": NaN,
+      "Unnamed: 7": NaN,
+      "本构模型": "线弹性模型 "
+    }
+  ]
+}
