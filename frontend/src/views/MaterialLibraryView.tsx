@@ -227,14 +227,14 @@ const MaterialLibraryView: React.FC = () => {
     setLoading(true);
     try {
       console.log('MaterialLibraryView: 开始从后端加载材料...');
-      
+
       // 尝试从后端API加载材料
       const response = await fetch('http://localhost:8000/api/materials/list');
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log('MaterialLibraryView: 后端API响应:', data);
-        
+
         if (data.status === 'success' && data.materials) {
           // 转换后端数据格式为前端格式
           const convertedMaterials = data.materials.map((backendMaterial: any) => {
@@ -255,7 +255,7 @@ const MaterialLibraryView: React.FC = () => {
             };
             return material;
           });
-          
+
           console.log('MaterialLibraryView: 转换后的材料数据:', convertedMaterials);
           setMaterials(convertedMaterials);
           message.success(`成功加载 ${convertedMaterials.length} 个材料`);
@@ -263,12 +263,12 @@ const MaterialLibraryView: React.FC = () => {
           return;
         }
       }
-      
+
       throw new Error('后端API响应异常');
     } catch (error) {
       console.error('MaterialLibraryView: 从后端加载失败:', error);
       message.warning('从后端加载材料失败，使用默认材料');
-      
+
       // 后端加载失败时，尝试从localStorage加载
       const savedMaterials = localStorage.getItem('soil_materials');
       if (savedMaterials) {
@@ -277,7 +277,7 @@ const MaterialLibraryView: React.FC = () => {
         setMaterials(defaultMaterials);
       }
     }
-    
+
     setLoading(false);
   };
 
@@ -593,9 +593,9 @@ const MaterialLibraryView: React.FC = () => {
           flexDirection: 'column'
         }}
         title="土体材料库"
-        bodyStyle={{ 
-          flex: 1, 
-          display: 'flex', 
+        bodyStyle={{
+          flex: 1,
+          display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
           padding: '16px'
@@ -645,7 +645,7 @@ const MaterialLibraryView: React.FC = () => {
               showQuickJumper: true,
               showTotal: (total) => `共 ${total} 个材料`,
               pageSizeOptions: ['5', '10', '20', '50'],
-              style: { 
+              style: {
                 marginTop: '16px',
                 textAlign: 'center'
               }
