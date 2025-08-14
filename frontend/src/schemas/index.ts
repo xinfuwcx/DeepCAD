@@ -64,9 +64,6 @@ export const MaterialDefinitionSchema = z.object({
     .min(1, '材料名称不能为空')
     .max(100, '材料名称不能超过100个字符'),
   description: z.string().optional(),
-  soil_type: z.enum(['clay', 'sand', 'silt', 'gravel', 'rock', 'fill'], {
-    errorMap: () => ({ message: '请选择有效的土层类型' })
-  }),
   constitutive_model: SoilConstitutiveModelSchema,
   parameters: MaterialParametersSchema,
   created_date: z.string().optional(),
@@ -90,9 +87,6 @@ export const StratumSchema = z.object({
   bottom_elev: z.number()
     .min(-200, '底部标高不能低于-200米')
     .max(100, '底部标高不能高于100米'),
-  soil_type: z.enum(['clay', 'sand', 'silt', 'gravel', 'rock', 'fill'], {
-    errorMap: () => ({ message: '请选择有效的土层类型' })
-  }),
   // 基础物理参数
   density: z.number()
     .min(1000, '密度不能小于1000 kg/m³')

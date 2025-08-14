@@ -72,7 +72,6 @@ const MaterialLibraryView: React.FC = () => {
       id: '',
       name: '',
       description: '',
-      soil_type: 'clay',
       constitutive_model: 'mohr_coulomb',
       parameters: {
         density: 1900,
@@ -146,7 +145,6 @@ const MaterialLibraryView: React.FC = () => {
       id: 'clay_soft',
       name: '软粘土',
       description: '典型的软弱粘土，常见于沿海地区',
-      soil_type: 'clay',
       constitutive_model: 'mohr_coulomb',
       parameters: {
         density: 1750,
@@ -162,7 +160,6 @@ const MaterialLibraryView: React.FC = () => {
       id: 'clay_hard',
       name: '硬粘土',
       description: '密实的硬质粘土，承载力较高',
-      soil_type: 'clay',
       constitutive_model: 'mohr_coulomb',
       parameters: {
         density: 2000,
@@ -178,7 +175,6 @@ const MaterialLibraryView: React.FC = () => {
       id: 'sand_loose',
       name: '松散砂土',
       description: '密度较低的砂土，内摩擦角中等',
-      soil_type: 'sand',
       constitutive_model: 'mohr_coulomb',
       parameters: {
         density: 1800,
@@ -194,7 +190,6 @@ const MaterialLibraryView: React.FC = () => {
       id: 'sand_dense',
       name: '密实砂土',
       description: '密度较高的砂土，内摩擦角较大',
-      soil_type: 'sand',
       constitutive_model: 'mohr_coulomb',
       parameters: {
         density: 2100,
@@ -210,7 +205,6 @@ const MaterialLibraryView: React.FC = () => {
       id: 'rock_weak',
       name: '软质岩石',
       description: '风化程度较高的软质岩石',
-      soil_type: 'rock',
       constitutive_model: 'mohr_coulomb',
       parameters: {
         density: 2200,
@@ -254,7 +248,6 @@ const MaterialLibraryView: React.FC = () => {
       id: `material_${Date.now()}`,
       name: '',
       description: '',
-      soil_type: 'clay',
       constitutive_model: 'mohr_coulomb',
       parameters: {
         density: 1900,
@@ -326,28 +319,6 @@ const MaterialLibraryView: React.FC = () => {
           {record.is_default && <Tag color="blue">默认</Tag>}
         </Space>
       )
-    },
-    {
-      title: '土层类型',
-      dataIndex: 'soil_type',
-      key: 'soil_type',
-      width: 80,
-      render: (type: string) => {
-        const typeMap = {
-          clay: { label: '粘土', color: '#8B4513' },
-          sand: { label: '砂土', color: '#F4A460' },
-          silt: { label: '粉土', color: '#DDD' },
-          gravel: { label: '卵石', color: '#696969' },
-          rock: { label: '基岩', color: '#2F4F4F' },
-          fill: { label: '填土', color: '#D2B48C' }
-        };
-        const info = typeMap[type as keyof typeof typeMap];
-        return (
-          <Tag color={info?.color} style={{ color: '#000' }}>
-            {info?.label}
-          </Tag>
-        );
-      }
     },
     {
       title: '本构模型',
@@ -639,24 +610,6 @@ const MaterialLibraryView: React.FC = () => {
                   control={control}
                   render={({ field }) => (
                     <Input {...field} placeholder="请输入材料名称" />
-                  )}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="土层类型" required>
-                <Controller
-                  name="soil_type"
-                  control={control}
-                  render={({ field }) => (
-                    <Select {...field}>
-                      <Option value="clay">粘土</Option>
-                      <Option value="sand">砂土</Option>
-                      <Option value="silt">粉土</Option>
-                      <Option value="gravel">卵石</Option>
-                      <Option value="rock">基岩</Option>
-                      <Option value="fill">填土</Option>
-                    </Select>
                   )}
                 />
               </Form.Item>

@@ -7,7 +7,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   MaterialDefinition, 
-  MaterialType, 
   ConstitutiveModel,
   MaterialSearchCriteria,
   MaterialValidationResult
@@ -18,6 +17,7 @@ import { logger } from '../../utils/advancedLogger';
 import { designTokens } from '../../design/tokens';
 import MaterialEditor from './MaterialEditor';
 import MaterialImportExport from './MaterialImportExport';
+import MaterialImportPanel from './MaterialImportPanel';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import GlassmorphismCard from '../ui/GlassmorphismCard';
@@ -42,25 +42,12 @@ const MaterialCard: React.FC<MaterialCardProps> = ({
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 
-  // 获取材料类型图标和颜色
-  const getMaterialTypeInfo = (type: MaterialType) => {
-    switch (type) {
-      case MaterialType.CONCRETE:
-        return { icon: '🏗️', color: designTokens.colors.accent.glow };
-      case MaterialType.STEEL:
-        return { icon: '⚡', color: designTokens.colors.accent.quantum };
-      case MaterialType.SOIL:
-        return { icon: '🌍', color: designTokens.colors.semantic.success };
-      case MaterialType.ROCK:
-        return { icon: '🗿', color: designTokens.colors.accent.visualization };
-      case MaterialType.COMPACTED_SOIL:
-        return { icon: '🏗️', color: designTokens.colors.accent.computation };
-      default:
-        return { icon: '🔗', color: designTokens.colors.light.secondary };
-    }
+  // 统一使用通用材料图标和颜色
+  const getMaterialInfo = () => {
+    return { icon: '🧱', color: designTokens.colors.semantic.success };
   };
 
-  const typeInfo = getMaterialTypeInfo(material.type);
+  const materialInfo = getMaterialInfo();
 
   return (
     <motion.div
@@ -75,14 +62,14 @@ const MaterialCard: React.FC<MaterialCardProps> = ({
         backdropFilter: 'blur(20px)',
         borderRadius: '12px', // 1号架构师的优化：更扁平
         border: isSelected 
-          ? `2px solid ${typeInfo.color}`
+          ? `2px solid ${materialInfo.color}`
           : `1px solid ${designTokens.colors.accent.glow}40`, // 1号架构师的优化：更细腻
         padding: '20px',
         cursor: 'pointer',
         transition: 'all 0.3s ease',
         transform: isHovered ? 'translateY(-4px)' : 'translateY(0)',
         boxShadow: isHovered 
-          ? `0 20px 40px ${typeInfo.color}20`
+          ? `0 20px 40px ${materialInfo.color}20`
           : `0 8px 24px ${designTokens.colors.dark.deepSpace}40`
       }}
     >
@@ -94,7 +81,7 @@ const MaterialCard: React.FC<MaterialCardProps> = ({
         marginBottom: '16px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '24px' }}>{typeInfo.icon}</span>
+          <span style={{ fontSize: '24px' }}>{materialInfo.icon}</span>
           <div>
             <h3 style={{
               fontSize: '18px',
@@ -104,14 +91,6 @@ const MaterialCard: React.FC<MaterialCardProps> = ({
             }}>
               {material.name}
             </h3>
-            <p style={{
-              fontSize: '12px',
-              color: typeInfo.color,
-              margin: '2px 0 0 0',
-              fontWeight: 500
-            }}>
-              {material.type.replace('_', ' ')}
-            </p>
           </div>
         </div>
 
@@ -272,12 +251,11 @@ const MaterialLibraryView: React.FC = () => {
   const [isEditorVisible, setIsEditorVisible] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<MaterialDefinition | null>(null);
   const [isImportExportVisible, setIsImportExportVisible] = useState(false);
+  const [isImportPanelVisible, setIsImportPanelVisible] = useState(false);
   const [statistics, setStatistics] = useState<any>(null);
 
   // 搜索状态
   const [searchText, setSearchText] = useState('');
-  const [filterType, setFilterType] = useState<MaterialType | 'all'>('all');
-  const [filterModel, setFilterModel] = useState<ConstitutiveModel | 'all'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'type' | 'modified' | 'usage'>('name');
 
   // 加载材料数据
@@ -320,8 +298,6 @@ const MaterialLibraryView: React.FC = () => {
   useEffect(() => {
     const criteria: MaterialSearchCriteria = {
       name: searchText || undefined,
-      type: filterType === 'all' ? undefined : [filterType as MaterialType],
-      model: filterModel === 'all' ? undefined : [filterModel as ConstitutiveModel],
       sortBy,
       sortOrder: 'asc'
     };
@@ -329,7 +305,7 @@ const MaterialLibraryView: React.FC = () => {
     const results = materialDatabase.searchMaterials(criteria);
     setFilteredMaterials(results);
     setSearchCriteria(criteria);
-  }, [searchText, filterType, filterModel, sortBy, materials]);
+  }, [searchText, sortBy, materials]);
 
   // 处理材料编辑
   const handleEditMaterial = useCallback((material?: MaterialDefinition) => {
@@ -421,6 +397,15 @@ const MaterialLibraryView: React.FC = () => {
             variant="outline"
             size="md"
             caeType="material"
+            onClick={() => setIsImportPanelVisible(true)}
+          >
+            📊 Excel导入
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="md"
+            caeType="material"
             onClick={() => setIsImportExportVisible(true)}
           >
             📁 导入导出
@@ -458,27 +443,6 @@ const MaterialLibraryView: React.FC = () => {
           />
         </div>
 
-        {/* 类型筛选 */}
-        <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value as any)}
-          style={{
-            padding: '8px 12px',
-            border: `1px solid ${designTokens.colors.accent.glow}40`,
-            borderRadius: '6px',
-            backgroundColor: `${designTokens.colors.dark.surface}90`,
-            color: designTokens.colors.light.primary,
-            fontSize: '14px',
-            minWidth: '150px'
-          }}
-        >
-          <option value="all">所有类型</option>
-          <option value={MaterialType.CONCRETE}>混凝土</option>
-          <option value={MaterialType.STEEL}>钢材</option>
-          <option value={MaterialType.SOIL}>土体</option>
-          <option value={MaterialType.ROCK}>岩石</option>
-          <option value={MaterialType.COMPACTED_SOIL}>挤密土体</option>
-        </select>
 
         {/* 排序 */}
         <select
@@ -495,7 +459,6 @@ const MaterialLibraryView: React.FC = () => {
           }}
         >
           <option value="name">按名称</option>
-          <option value="type">按类型</option>
           <option value="modified">按修改时间</option>
           <option value="usage">按使用次数</option>
         </select>
@@ -584,8 +547,8 @@ const MaterialLibraryView: React.FC = () => {
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
           <h3 style={{ fontSize: '18px', margin: '0 0 8px 0' }}>未找到材料</h3>
           <p style={{ fontSize: '14px', margin: 0 }}>
-            {searchText || filterType !== 'all' 
-              ? '尝试调整搜索条件或筛选器'
+            {searchText 
+              ? '尝试调整搜索条件'
               : '点击"新建材料"创建第一个材料'
             }
           </p>
@@ -616,6 +579,16 @@ const MaterialLibraryView: React.FC = () => {
         }}
         onExportComplete={(data) => {
           logger.info('材料导出完成', { dataLength: data.length });
+        }}
+      />
+
+      {/* Excel材料导入面板 */}
+      <MaterialImportPanel
+        visible={isImportPanelVisible}
+        onCancel={() => setIsImportPanelVisible(false)}
+        onImportComplete={(materials) => {
+          logger.info('Excel材料导入完成', { count: materials.length });
+          loadMaterials(); // 重新加载材料列表
         }}
       />
     </div>
