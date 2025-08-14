@@ -21,6 +21,8 @@ import PhysicsAIView from '../../views/PhysicsAIView';
 import MaterialLibraryView from '../../views/MaterialLibraryView';
 import SettingsView from '../../views/SettingsView';
 import AIAssistantFloating from '../AIAssistantFloating';
+import WelcomeLanding from '../welcome/WelcomeLanding';
+import GeometryModelingWorkspace from '../../components/GeometryModelingWorkspace';
 // Removed unused imports (ComputationExpertView, MapStyle, legacy controllers)
 
 const { Sider, Content } = Layout;
@@ -190,13 +192,20 @@ const MainLayout: React.FC = () => {
         }}>
           <Routes>
             {/* 根路径直接进入统一控制中心 */}
-            <Route path="/" element={<DeepCADControlCenter onExit={() => navigate('/workspace')} />} />
+            <Route path="/" element={<WelcomeLanding />} />
+            <Route path="welcome" element={<WelcomeLanding />} />
             <Route path="dashboard" element={
+              <DeepCADControlCenter onExit={() => navigate('/workspace')} />
+            } />
+            <Route path="control-center" element={
               <DeepCADControlCenter onExit={() => navigate('/workspace')} />
             } />
             <Route path="excavation-design" element={<EnhancedMainWorkspaceView activeModule="excavation-design" />} />
             <Route path="support-structure" element={<EnhancedMainWorkspaceView activeModule="support-structure" />} />
-            <Route path="geology-reconstruction" element={<EnhancedMainWorkspaceView activeModule="geology-reconstruction" />} />
+            {/* 恢复原设计的“大界面”地质建模工作区 */}
+            <Route path="geology-reconstruction" element={<GeometryModelingWorkspace />} />
+            {/* 兼容别名：地质建模 */}
+            <Route path="geology-modeling" element={<GeometryModelingWorkspace />} />
             <Route path="tunnel-modeling" element={<EnhancedMainWorkspaceView activeModule="tunnel-modeling" />} />
             <Route path="adjacent-buildings" element={<EnhancedMainWorkspaceView activeModule="adjacent-buildings" />} />
             <Route path="meshing" element={<EnhancedMainWorkspaceView activeModule="meshing" />} />
