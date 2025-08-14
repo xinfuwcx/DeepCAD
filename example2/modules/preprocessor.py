@@ -16,134 +16,110 @@ from PyQt6.QtCore import Qt, pyqtSignal
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+# PyVista/pyvistaqt 可选（不影响其它功能）
+PYVISTA_AVAILABLE = False
 try:
-    import pyvista as pv
-    #!/usr/bin/env python3
-    # -*- coding: utf-8 -*-
-    """
-    前处理模块 - PreProcessor
-    负责网格显示、约束条件、荷载显示等前处理功能
-    稳定版：修复复选框切换时崩溃（锚杆/板元），PyVista可选依赖。
-    """
-    from __future__ import annotations
-
-    import sys
-    from pathlib import Path
-    from typing import Dict, List, Any, Optional
-
-    import numpy as np
-    from PyQt6.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel
-    from PyQt6.QtCore import Qt
-
-    # 添加项目路径
-    project_root = Path(__file__).parent.parent.parent
-    if str(project_root) not in sys.path:
-        sys.path.insert(0, str(project_root))
-
-    # PyVista/pyvistaqt 可选
-    PYVISTA_AVAILABLE = False
-    try:
-        import pyvista as pv  # type: ignore
-        from pyvistaqt import QtInteractor  # type: ignore
-        PYVISTA_AVAILABLE = True
-    except Exception:
-        print("警告: 未检测到 PyVista/pyvistaqt，3D可视化将受限（不影响程序其它功能）")
+    import pyvista as pv  # type: ignore
+    from pyvistaqt import QtInteractor  # type: ignore
+    PYVISTA_AVAILABLE = True
+except Exception:
+    print("警告: 未检测到 PyVista/pyvistaqt，3D可视化将受限（不影响程序其它功能）")
 
 
-    class PreProcessor:
-        """前处理模块（精简稳定实现）"""
+class PreProcessor:
+    """前处理模块（精简稳定实现）"""
 
-        # ---------- 初始化 ----------
-        def __init__(self) -> None:
-            # 数据/网格占位（由外部加载器赋值）
-            self.fpn_data: Optional[Dict[str, Any]] = None
-            self.mesh = None  # PyVista网格或其它占位
+    # ---------- 初始化 ----------
+    def __init__(self) -> None:
+        # 数据/网格占位（由外部加载器赋值）
+        self.fpn_data: Optional[Dict[str, Any]] = None
+        self.mesh = None  # PyVista网格或其它占位
 
-            # UI/渲染组件
-            self.viewer_widget: Optional[QWidget] = None
-            self.plotter = None
+        # UI/渲染组件
+        self.viewer_widget: Optional[QWidget] = None
+        self.plotter = None
 
-            # 显示状态
-            self.display_mode: str = 'transparent'  # transparent|wireframe|solid
-            self.show_plates: bool = False
-            self.show_anchors: bool = False
+        # 显示状态
+        self.display_mode: str = 'transparent'  # transparent|wireframe|solid
+        self.show_plates: bool = False
+        self.show_anchors: bool = False
 
-            # 缓存的几何（避免频繁重建）
-            self._plates_cached = None  # pv.PolyData or None
-            self._anchors_cached = None  # pv.PolyData or None
+        # 缓存的几何（避免频繁重建）
+        self._plates_cached = None  # pv.PolyData or None
+        self._anchors_cached = None  # pv.PolyData or None
 
-            # 渲染锁（防止频繁刷新导致卡死）
-            self._rendering: bool = False
+        # 渲染锁（防止频繁刷新导致卡死）
+        self._rendering: bool = False
 
-            # 创建/配置视图
-            self.create_viewer_widget()
+        # 创建/配置视图
+        self.create_viewer_widget()
 
-        # ---------- 视图 ----------
-        def create_viewer_widget(self) -> QWidget:
-            self.viewer_widget = QWidget()
-            layout = QVBoxLayout(self.viewer_widget)
-            layout.setContentsMargins(0, 0, 0, 0)
+    # ---------- 视图 ----------
+    def create_viewer_widget(self) -> QWidget:
+        self.viewer_widget = QWidget()
+        layout = QVBoxLayout(self.viewer_widget)
+        layout.setContentsMargins(0, 0, 0, 0)
 
-            if PYVISTA_AVAILABLE:
-                try:
-                    self.plotter = QtInteractor(self.viewer_widget)
-                    self.plotter.setMinimumSize(640, 480)
-                    layout.addWidget(self.plotter.interactor)
-                    self.setup_default_scene()
-                except Exception as e:
-                    print(f"创建PyVista视图失败: {e}")
-                    self._create_placeholder(layout)
-            else:
-                self._create_placeholder(layout)
-
-            return self.viewer_widget
-
-        def _create_placeholder(self, layout: QVBoxLayout) -> None:
-            placeholder = QFrame()
-            placeholder.setFrameStyle(QFrame.Shape.StyledPanel)
-            placeholder.setMinimumSize(640, 480)
-            placeholder.setStyleSheet(
-                """
-                QFrame {
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #f0f0f2, stop:1 #c0c4c8);
-                    border: 2px solid #606875;
-                    border-radius: 8px;
-                }
-                """
-            )
-            label = QLabel("3D视图不可用\n请安装: pip install pyvista pyvistaqt")
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            layout.addWidget(placeholder)
-            lay2 = QVBoxLayout(placeholder)
-            lay2.addWidget(label)
-
-        def setup_default_scene(self) -> None:
-            if not (PYVISTA_AVAILABLE and self.plotter):
-                return
+        if PYVISTA_AVAILABLE:
             try:
-                # 背景渐变 & 坐标轴
-                self.plotter.set_background(color=(0.75, 0.78, 0.82), top=(0.95, 0.95, 0.97))
-                self.plotter.show_axes()
-                self.show_welcome_info()
+                self.plotter = QtInteractor(self.viewer_widget)
+                self.plotter.setMinimumSize(640, 480)
+                layout.addWidget(self.plotter.interactor)
+                self.setup_default_scene()
             except Exception as e:
-                print(f"初始化场景失败: {e}")
+                print(f"创建PyVista视图失败: {e}")
+                self._create_placeholder(layout)
+        else:
+            self._create_placeholder(layout)
 
-        def show_welcome_info(self) -> None:
-            if not (PYVISTA_AVAILABLE and self.plotter):
-                return
-            try:
-                self.plotter.add_text(
-                    "DeepCAD Transparent Layers\nReady",
-                    position='upper_left',
-                    font_size=12,
-                    color='cyan',
-                )
-            except Exception:
-                pass
+        return self.viewer_widget
 
-        def get_viewer_widget(self) -> Optional[QWidget]:
-            return self.viewer_widget
+    def _create_placeholder(self, layout: QVBoxLayout) -> None:
+        placeholder = QFrame()
+        placeholder.setFrameStyle(QFrame.Shape.StyledPanel)
+        placeholder.setMinimumSize(640, 480)
+        placeholder.setStyleSheet(
+            """
+            QFrame {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #f0f0f2, stop:1 #c0c4c8);
+                border: 2px solid #606875;
+                border-radius: 8px;
+            }
+            """
+        )
+        label = QLabel("3D视图不可用\n请安装: pip install pyvista pyvistaqt")
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(placeholder)
+        lay2 = QVBoxLayout(placeholder)
+        lay2.addWidget(label)
+
+    def setup_default_scene(self) -> None:
+        if not (PYVISTA_AVAILABLE and self.plotter):
+            return
+        try:
+            # 背景渐变 & 坐标轴
+            self.plotter.set_background(color=(0.75, 0.78, 0.82), top=(0.95, 0.95, 0.97))
+            self.plotter.show_axes()
+            self.show_welcome_info()
+        except Exception as e:
+            print(f"初始化场景失败: {e}")
+
+    def show_welcome_info(self) -> None:
+        if not (PYVISTA_AVAILABLE and self.plotter):
+            return
+        try:
+            self.plotter.add_text(
+                "DeepCAD Transparent Layers\nReady",
+                position='upper_left',
+                font_size=12,
+                color='cyan',
+            )
+        except Exception:
+            pass
+
+    def get_viewer_widget(self) -> Optional[QWidget]:
+        return self.viewer_widget
 
         # ---------- 数据加载（占位） ----------
         def load_fpn_file(self, file_path: str) -> Optional[Dict[str, Any]]:
@@ -386,12 +362,12 @@ try:
                 import traceback
                 traceback.print_exc()
                 return None
-    
+
     def _should_show_anchor_element(self, eid: int, elem_data: Dict) -> bool:
         """判断是否应该显示该锚杆元素（考虑阶段过滤）"""
         if not self.filter_anchors_by_stage:
             return True
-        
+
         # TODO: 根据当前分析步和元素的激活阶段来判断
         # 这里需要根据具体FPN数据格式实现阶段过滤逻辑
         current_stage = self.get_current_analysis_stage()
@@ -401,7 +377,7 @@ try:
             if stage_visible:
                 stage_id = current_stage.get('id', 0)
                 return stage_id in stage_visible
-        
+
         return True
 
     def _display_anchors_overlay(self) -> None:
@@ -3232,7 +3208,6 @@ try:
                 actor.GetProperty().SetRepresentationToSurface()
             except:
                 pass
-
 
 # 测试函数
 def test_preprocessor():

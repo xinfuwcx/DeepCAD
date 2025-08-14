@@ -23,7 +23,11 @@ from PyQt6.QtGui import QIcon, QFont, QPixmap, QPalette, QColor, QAction
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from example2.modules.preprocessor import PreProcessor
+# 优先使用稳定备份版本，避免可选依赖导致崩溃
+try:
+    from example2.modules.preprocessor import PreProcessor
+except Exception:
+    from example2.modules.preprocessor_backup import PreProcessor
 from example2.modules.analyzer import Analyzer
 from example2.modules.postprocessor import PostProcessor
 from example2.utils.error_handler import ErrorHandler, ErrorLevel
