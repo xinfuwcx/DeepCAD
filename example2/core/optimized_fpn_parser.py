@@ -454,6 +454,20 @@ class OptimizedFPNParser:
                     progress.processed_lines = line_num
                     progress.current_section = current_section
 
+                    # 处理 MSETE/MSETN 的续行（逗号开头）
+                    if line.startswith(',') and getattr(self, 'current_mset_id', None) is not None:
+                        try:
+                            nums = [int(x) for x in line.split(',') if x.strip().isdigit()]
+                            if nums:
+                                kind = getattr(self, 'current_mset_kind', None)
+                                if kind == 'elements':
+                                    result['mesh_sets'][self.current_mset_id]['elements'].extend(nums)
+                                elif kind == 'nodes':
+                                    result['mesh_sets'][self.current_mset_id]['nodes'].extend(nums)
+                                continue
+                        except Exception:
+                            pass
+
                     # 跳过空行和注释
                     if not line or line.startswith('$$'):
                         continue
@@ -598,10 +612,58 @@ class OptimizedFPNParser:
                         current_section = "mesh_sets"
                         mesh_set_data = self.parse_mesh_set_line(line)
                         if mesh_set_data:
-                            result['mesh_sets'][mesh_set_data['id']] = mesh_set_data
+                            # 初始化占位，后续 MSETE/MSETN 会填充 elements/nodes
+                            ms = result['mesh_sets'].setdefault(mesh_set_data['id'], mesh_set_data)
+                            ms.setdefault('elements', [])
+                            ms.setdefault('nodes', [])
+                        # 清除当前集合续行状态
+                        self.current_mset_id = None
+                        self.current_mset_kind = None
+
+                    elif line.startswith('MSETE'):
+                        # 网格集合的元素成员开始，后续逗号开头行继续
+                        try:
+                            parts = [p.strip() for p in line.split(',')]
+                            mset_id = int(parts[1]) if parts[1] else None
+                            if mset_id is not None:
+                                result['mesh_sets'].setdefault(mset_id, {'id': mset_id, 'name': f"MeshSet_{mset_id}", 'type': 'mesh_set', 'elements': [], 'nodes': []})
+                                self.current_mset_id = mset_id
+                                self.current_mset_kind = 'elements'
+                        except Exception:
+                            pass
+                        current_section = "mesh_set_elements"
+                        # 本行可能也带有首批元素，解析之
+                        try:
+                            nums = [int(x) for x in parts[2:] if x and x.isdigit()]
+                            if nums:
+                                result['mesh_sets'][mset_id]['elements'].extend(nums)
+                        except Exception:
+                            pass
+
+                    elif line.startswith('MSETN'):
+                        # 网格集合的节点成员开始
+                        try:
+                            parts = [p.strip() for p in line.split(',')]
+                            mset_id = int(parts[1]) if parts[1] else None
+                            if mset_id is not None:
+                                result['mesh_sets'].setdefault(mset_id, {'id': mset_id, 'name': f"MeshSet_{mset_id}", 'type': 'mesh_set', 'elements': [], 'nodes': []})
+                                self.current_mset_id = mset_id
+                                self.current_mset_kind = 'nodes'
+                        except Exception:
+                            pass
+                        current_section = "mesh_set_nodes"
+                        try:
+                            nums = [int(x) for x in parts[2:] if x and x.isdigit()]
+                            if nums:
+                                result['mesh_sets'][mset_id]['nodes'].extend(nums)
+                        except Exception:
+                            pass
 
                     elif line.startswith('STAGE'):
                         current_section = "analysis_stages"
+                        # 切换到新段时，结束任何集合续行
+                        self.current_mset_id = None
+                        self.current_mset_kind = None
                         stage_data = self.parse_stage_line(line)
                         if stage_data:
                             result['analysis_stages'].append(stage_data)

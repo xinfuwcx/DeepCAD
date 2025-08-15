@@ -68,7 +68,6 @@ async def system_info():
     """系统信息接口"""
     try:
         import numpy as np
-        import pyvista as pv
         import gmsh
         
         return {
@@ -77,7 +76,6 @@ async def system_info():
             "python_version": sys.version,
             "dependencies": {
                 "numpy": np.__version__,
-                "pyvista": pv.__version__,
                 "gmsh": "available"
             },
             "root_dir": str(ROOT_DIR),
@@ -104,6 +102,13 @@ try:
     app.include_router(computation_router, prefix="/api/computation", tags=["数值计算"])
 except ImportError as e:
     print(f"WARNING: 数值计算模块未找到: {e}")
+
+try:
+    from gateway.modules.geology import router as geology_router
+    app.include_router(geology_router, prefix="/api/geology", tags=["地质重建"])
+    print("SUCCESS: 地质重建模块加载成功")
+except ImportError as e:
+    print(f"WARNING: 地质重建模块未找到: {e}")
 
 try:
     from gateway.modules.visualization import router as visualization_router

@@ -240,12 +240,12 @@ class TwoStageAnalysis:
                     "process_name": "VtkOutputProcess",
                     "Parameters": {
                         "model_part_name": "Structure",
-                        "output_control_type": "step",
+                        "output_control_type": "step",  # 每步输出一份，便于时程后处理
                         "output_frequency": 1,
                         "file_format": "binary",
                         "output_precision": 7,
                         "output_sub_model_parts": False,
-                        "folder_name": f"VTK_Output_Stage_{stage_num}",
+                        "output_path": str(Path("data") / f"VTK_Output_Stage_{stage_num}"),
                         "save_output_files_in_folder": True,
                         "nodal_solution_step_data_variables": [
                             "DISPLACEMENT",
@@ -271,7 +271,7 @@ class TwoStageAnalysis:
         print(f"⚙️ 项目参数保存到: {params_file}")
         return str(params_file)
 
-    def run_stage_analysis(self, stage_num: int, active_materials: List[int]) -> bool:
+    def run_stage_analysis(self, stage_num: int, active_materials: List[int], active_element_ids=None, active_mesh_set_ids=None) -> bool:
         """运行单个阶段的分析"""
         try:
             print(f"\n🚀 开始第{stage_num}阶段分析")
@@ -279,24 +279,30 @@ class TwoStageAnalysis:
 
             # 1. 设置Kratos接口
             self.kratos_interface = KratosInterface()
+            self.kratos_interface.current_stage = stage_num
 
-            # 2. 配置分析设置 - 非线性Newton-Raphson求解器
+            # 2. 配置分析设置 - 非线性（牛顿-拉夫森），便于判断收敛情况
             analysis_settings = AnalysisSettings(
                 analysis_type=AnalysisType.NONLINEAR,
                 solver_type=SolverType.NEWTON_RAPHSON,
-                max_iterations=100,
+                max_iterations=50,
                 convergence_tolerance=1e-6,
                 time_step=1.0,
-                end_time=float(stage_num)
+                end_time=1.0
             )
+            # 将设置传入 Kratos 接口，确保实际运行使用该时间步与结束时间
+            self.kratos_interface.set_analysis_settings(analysis_settings)
 
-            # 3. 设置材料
+            # 3. 设置材料 + 阶段激活集合/元素过滤（真实开挖）
             materials = self.setup_materials()
-            for mat_id, material in materials.items():
-                if mat_id in active_materials:
-                    self.kratos_interface.materials[mat_id] = material
+            self.kratos_interface.materials = materials  # 全量材料定义
+            self.kratos_interface.active_materials = set(int(m) for m in (active_materials or []))
+            # 本阶段激活集合/元素由外层传入（已按 stages 的 group_commands 计算）
+            # 这里不再访问未定义的 stage1/stage2
+            self.kratos_interface.active_mesh_set_ids = set(active_mesh_set_ids or [])
+            self.kratos_interface.active_element_ids = set(active_element_ids or [])
 
-            print(f"   配置了{len(self.kratos_interface.materials)}种材料")
+            print(f"   配置了{len(self.kratos_interface.materials)}种材料，激活集合数: {len(self.kratos_interface.active_mesh_set_ids)}, 激活元素数: {len(self.kratos_interface.active_element_ids)}")
 
             # 4. 设置模型
             print("   设置Kratos模型...")
@@ -455,56 +461,85 @@ class TwoStageAnalysis:
         if not self.load_fpn_data():
             return False
 
-        # 2. 分析FPN中的分析步
-        analysis_steps = self.fpn_data.get('analysis_steps', {})
+        # 2. 分析FPN中的阶段定义（优先使用 analysis_stages）
+        stages = self.fpn_data.get('analysis_stages')
 
-        # 如果没有找到分析步，手动定义两阶段分析
-        if not analysis_steps:
-            print("⚠️ FPN文件中未找到标准分析步定义，使用默认两阶段配置")
-            analysis_steps = {
+        # 如果没有找到阶段，手动定义两阶段分析
+        if not stages:
+            print("⚠️ FPN文件中未找到分析阶段定义，使用默认两阶段配置")
+            stages = {
                 1: {
                     'name': '初始应力平衡',
                     'type': 'initial_stress',
-                    'description': '建立初始地应力状态'
+                    'description': '建立初始地应力状态',
+                    'active_materials': list(self.fpn_data.get('materials', {}).keys()),
+                    'active_boundaries': [],
+                    'active_loads': []
                 },
                 2: {
                     'name': '基坑开挖',
                     'type': 'excavation',
-                    'description': '移除开挖区域土体'
+                    'description': '移除开挖区域土体',
+                    'active_materials': list(self.fpn_data.get('materials', {}).keys()),
+                    'active_boundaries': [],
+                    'active_loads': []
                 }
             }
 
-        print(f"\n📋 分析步配置 ({len(analysis_steps)}个阶段):")
-        for step_id, step_data in analysis_steps.items():
+        print(f"\n📋 分析步配置 ({len(stages)}个阶段):")
+        if isinstance(stages, dict):
+            iterable = stages.items()
+        else:
+            iterable = enumerate(stages, start=1)
+        for step_id, step_data in iterable:
             print(f"   阶段{step_id}: {step_data.get('name', 'Unknown')} - {step_data.get('description', '')}")
 
-        # 3. 执行各个阶段
-        all_materials = list(self.fpn_data.get('materials', {}).keys())
+        # 3. 执行各个阶段（按 analysis_stages 指定的激活集合/元素）
+        # Stage 1
+        stage1 = stages[0] if isinstance(stages, list) else stages.get(1)
+        # 设置当前阶段号用于输出路径
+        self.kratos_interface = self.kratos_interface or KratosInterface()
+        self.kratos_interface.current_stage = 1
+        mats1 = stage1.get('active_materials') or list(self.fpn_data.get('materials', {}).keys())
+        # 计算 Stage1 激活的 mesh_set/element 集合
+        mesh_sets = self.fpn_data.get('mesh_sets') or {}
+        active_sets_1 = set()
+        for cmd in (stage1.get('group_commands') or []):
+            if cmd.get('command') == 'MADD':
+                active_sets_1.update(cmd.get('group_ids') or [])
+            elif cmd.get('command') == 'MDEL':
+                active_sets_1.difference_update(cmd.get('group_ids') or [])
+        active_elems_1 = set()
+        for gid in active_sets_1:
+            active_elems_1.update(mesh_sets.get(gid, {}).get('elements') or [])
 
-        # 第一阶段：初始平衡（所有材料激活）
-        stage1_success = self.run_stage_analysis(1, all_materials)
-
+        stage1_success = self.run_stage_analysis(1, mats1, active_element_ids=active_elems_1, active_mesh_set_ids=active_sets_1)
         if not stage1_success:
             print("❌ 第一阶段分析失败，终止计算")
             return False
 
-        # 第二阶段：开挖阶段（移除部分土体材料）
-        # 假设移除前30%的土体材料作为开挖区域
-        soil_materials = []
-        for mat_id, mat_data in self.fpn_data.get('materials', {}).items():
-            if mat_data.get('properties', {}).get('type') == 'soil':
-                soil_materials.append(mat_id)
+        # Stage 2
+        stage2 = stages[1] if isinstance(stages, list) else stages.get(2)
+        mats2 = stage2.get('active_materials') or mats1
+        active_sets_2 = set(active_sets_1)
+        for cmd in (stage2.get('group_commands') or []):
+            if cmd.get('command') == 'MADD':
+                active_sets_2.update(cmd.get('group_ids') or [])
+            elif cmd.get('command') == 'MDEL':
+                active_sets_2.difference_update(cmd.get('group_ids') or [])
+        active_elems_2 = set()
+        for gid in active_sets_2:
+            active_elems_2.update(mesh_sets.get(gid, {}).get('elements') or [])
 
-        soil_materials.sort()
-        excavated_count = max(1, len(soil_materials) // 3)
-        excavated_materials = soil_materials[:excavated_count]
-        remaining_materials = [m for m in all_materials if m not in excavated_materials]
+        print(f"\n🗑️ 第二阶段开挖/激活变更 (集合ID):")
+        print(f"   Stage1 激活集合: {sorted(list(active_sets_1))}")
+        print(f"   Stage2 激活集合: {sorted(list(active_sets_2))}")
+        print(f"   Stage1 激活元素: {len(active_elems_1)}，Stage2 激活元素: {len(active_elems_2)}")
 
-        print(f"\n🗑️ 第二阶段开挖:")
-        print(f"   移除材料: {excavated_materials}")
-        print(f"   保留材料: {remaining_materials}")
-
-        stage2_success = self.run_stage_analysis(2, remaining_materials)
+        # 设置当前阶段号用于输出路径
+        self.kratos_interface = self.kratos_interface or KratosInterface()
+        self.kratos_interface.current_stage = 2
+        stage2_success = self.run_stage_analysis(2, mats2, active_element_ids=active_elems_2, active_mesh_set_ids=active_sets_2)
 
         # 4. 生成分析报告
         self.generate_analysis_report()
@@ -587,6 +622,12 @@ class TwoStageAnalysis:
 def main():
     """主函数"""
     print("🚀 启动两阶段基坑开挖分析程序")
+
+    # 并行设置：OpenMP 线程数使用本机CPU核数
+    try:
+        os.environ["OMP_NUM_THREADS"] = str(os.cpu_count() or 8)
+    except Exception:
+        pass
 
     # 检查FPN文件
     fpn_file = Path("data/两阶段计算2.fpn")

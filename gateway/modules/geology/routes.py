@@ -1,4 +1,73 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel, Field
+from typing import Any, Dict, Optional, Literal
+
+from .task_manager import jobs
+from .pipeline import enqueue_preview_task, enqueue_commit_task
+
+
+# Single router for geology module; do NOT reassign later to avoid dropping routes
+router = APIRouter()
+
+
+class Domain(BaseModel):
+    mode: str
+    nx: int
+    ny: int
+    nz: int
+    xmin: Optional[float] = None
+    xmax: Optional[float] = None
+    ymin: Optional[float] = None
+    ymax: Optional[float] = None
+    zmin: Optional[float] = None
+    zmax: Optional[float] = None
+
+
+class PreviewRequest(BaseModel):
+    hash: str
+    domain: Domain
+    boreholes: list[Any] = Field(default_factory=list)
+    waterHead: Dict[str, Any] = Field(default_factory=dict)
+    algorithm: Optional[Literal['rbf','kriging','idw']] = 'rbf'
+    algorithmParams: Dict[str, Any] = Field(default_factory=dict)
+    options: Dict[str, Any] = Field(default_factory=dict)
+
+
+@router.post("/reconstruct/preview")
+async def reconstruct_preview(payload: PreviewRequest, background: BackgroundTasks):
+    try:
+        job_id = enqueue_preview_task(payload.dict(), background)
+        return {"jobId": job_id, "status": "queued"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"预览任务创建失败: {e}")
+
+
+@router.post("/reconstruct/commit")
+async def reconstruct_commit(payload: PreviewRequest, background: BackgroundTasks):
+    try:
+        job_id = enqueue_commit_task(payload.dict(), background)
+        return {"jobId": job_id, "status": "queued"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"提交任务创建失败: {e}")
+
+
+@router.get("/jobs/{job_id}/status")
+async def job_status(job_id: str):
+    job = jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job 未找到")
+    return job.status_dict()
+
+
+@router.get("/jobs/{job_id}/result")
+async def job_result(job_id: str):
+    job = jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job 未找到")
+    if job.status != "succeeded":
+        raise HTTPException(status_code=409, detail=f"Job 未完成，当前状态: {job.status}")
+    return job.result or {}
+from fastapi import HTTPException
 from fastapi.responses import FileResponse
 from .schemas import (
     SoilDomainRequest, SoilDomainResponse,
@@ -14,11 +83,7 @@ import os
 import logging
 
 logger = logging.getLogger(__name__)
-
-router = APIRouter(
-    prefix="/geology",
-    tags=["Geology"],
-)
+# Keep using the same router defined above (mounted by gateway with prefix=/api/geology)
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "output", "geology")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -569,7 +634,7 @@ async def cleanup_geometry_task(task_id: str):
         logger.error(f"Error cleaning up geometry task {task_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/test-geometry-service")
+@router.get("/test-geometry-core")
 async def test_geometry_service():
     """测试地质几何建模服务"""
     try:

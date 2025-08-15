@@ -35,6 +35,13 @@ class PreProcessor:
         self.fpn_data: Optional[Dict[str, Any]] = None
         self.mesh = None  # PyVista网格或其它占位
 
+        # 结构数据容器（兼容调用方旧接口）
+        self.constraints: list = []
+        self.loads: list = []
+        self.materials: Dict[int, Any] = {}
+        self.boundaries: list = []
+
+
         # UI/渲染组件
         self.viewer_widget: Optional[QWidget] = None
         self.plotter = None
@@ -3170,8 +3177,8 @@ class PreProcessor:
             'n_cells': self.mesh.n_cells,
             'bounds': self.mesh.bounds,
             'center': self.mesh.center,
-            'constraints_count': len(self.constraints),
-            'loads_count': len(self.loads)
+            'constraints_count': len(getattr(self, 'constraints', [])),
+            'loads_count': len(getattr(self, 'loads', []))
         }
 
     def export_mesh(self, file_path: str):

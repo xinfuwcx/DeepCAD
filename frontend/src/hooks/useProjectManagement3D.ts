@@ -176,17 +176,18 @@ export const useProjectManagement3D = (
       // 地图加载完成后的事件处理
       map.on('load', () => {
         console.log('✅ MapLibre地图加载完成');
-        
+        try { map.easeTo({ pitch: 55, bearing: 20, duration: 800 }); } catch {}
+        try { map.resize(); } catch {}
         // 添加大气效果层（如果支持）
-        if (map.getSource('sky') === undefined) {
-          map.addSource('sky', {
-            type: 'sky',
-            paint: {
-              'sky-atmosphere-sun': [0.0, 0.0],
-              'sky-atmosphere-sun-intensity': 5
-            }
-          } as any);
-        }
+        try {
+          if ((map as any).getSource && (map as any).getSource('sky') === undefined) {
+            (map as any).addSource('sky', {
+              type: 'sky',
+              paint: { 'sky-atmosphere-sun': [0.0, 0.0], 'sky-atmosphere-sun-intensity': 5 }
+            });
+          }
+        } catch {}
+        setIsInitialized(true);
       });
 
       // 地图移动事件
