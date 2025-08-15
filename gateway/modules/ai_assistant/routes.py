@@ -40,8 +40,25 @@ def get_ai_response(user_message: str, history: List[dict]) -> str:
     """
     lower_message = user_message.lower()
     
+    # AI身份和能力询问
+    if any(word in lower_message for word in ["你是", "are you", "claude", "ai身份", "什么ai", "哪个ai", "助手身份"]):
+        return ("你好！我是DeepCAD专业AI助手，基于先进的大语言模型技术构建。\n\n"
+                "🤖 关于我的身份：\n"
+                "• 我是专为DeepCAD深基坑CAE平台设计的专业AI助手\n"
+                "• 我拥有深厚的土木工程、有限元分析和CAE软件专业知识\n"
+                "• 我整合了多种先进AI技术，包括自然语言处理和工程计算能力\n"
+                "• 我可以使用多种大语言模型后端（如LLaMA、Qwen等）提供服务\n\n"
+                "💡 我的专业能力：\n"
+                "🏗️ 几何建模 - 创建基坑、隧道等工程结构\n"
+                "🕸️ 网格生成 - 优化网格质量和密度\n"
+                "🧮 FEM分析 - 地质力学、固体力学、渗流分析\n"
+                "🧠 物理AI - IoT数据驱动的智能优化\n"
+                "📊 后处理 - 云图、矢量、动画可视化\n"
+                "💻 代码生成 - Kratos、GMSH、PyVista等专业代码\n\n"
+                "虽然我使用了先进的AI技术，但我是专门为DeepCAD平台定制的专业助手。您想了解我的哪项具体能力？")
+    
     # 问候和帮助
-    if any(word in lower_message for word in ["你好", "hello", "hi", "帮助", "help"]):
+    if any(word in lower_message for word in ["你好", "hello", "hi", "帮助", "help"]) and not any(word in lower_message for word in ["你是", "are you", "claude", "ai身份"]):
         return ("你好！我是DeepCAD AI助手。我可以帮助您：\n\n"
                 "🏗️ 几何建模 - 创建基坑、隧道等工程结构\n"
                 "🕸️ 网格生成 - 优化网格质量和密度\n"

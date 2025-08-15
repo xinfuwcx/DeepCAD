@@ -129,6 +129,10 @@ class CAEIntentClassifier:
     """CAE意图识别器"""
     
     CAE_INTENTS = {
+        "ai_identity": {
+            "keywords": ["你是", "are you", "claude", "ai身份", "什么ai", "哪个ai", "助手身份", "你的身份", "你叫什么", "版本", "4.1"],
+            "description": "AI身份和能力询问"
+        },
         "code_generation": {
             "keywords": ["生成代码", "写代码", "代码", "脚本", "python", "kratos", "gmsh"],
             "description": "CAE代码生成需求"
@@ -185,6 +189,16 @@ class CAEPromptEngineer:
     """CAE专业提示词工程师"""
     
     SYSTEM_PROMPTS = {
+        "ai_identity": """你是DeepCAD深基坑CAE平台的专业AI助手。当用户询问你的身份、版本或能力时，请明确说明：
+
+1. 你是专为DeepCAD平台设计的CAE专业AI助手
+2. 你拥有深厚的土木工程、有限元分析和CAE软件专业知识
+3. 你整合了先进的大语言模型技术，能够理解和生成专业的工程内容
+4. 你可以使用多种AI模型后端（如LLaMA、Qwen等）提供服务
+5. 你的专业领域包括：几何建模、网格生成、FEM分析、物理AI优化、后处理可视化、代码生成等
+
+请友好、准确地介绍自己的身份和能力，避免混淆或误导。如果用户询问特定的AI模型版本（如Claude 4.1），请说明你是基于多种技术构建的DeepCAD专业助手。""",
+
         "code_generation": """你是一个专业的CAE代码生成专家，特别擅长：
 1. Kratos Multiphysics Python脚本编写
 2. GMSH网格生成代码
@@ -308,6 +322,11 @@ class DeepCADAIAssistant:
     def _generate_suggestions(self, intent: str, user_input: str) -> List[str]:
         """生成相关建议"""
         suggestions_map = {
+            "ai_identity": [
+                "想了解我的具体技术能力吗？",
+                "需要我演示某个专业功能吗？",
+                "想看我如何帮助CAE工程师吗？"
+            ],
             "code_generation": [
                 "需要看完整的Kratos示例代码吗？",
                 "要我解释代码的工作原理吗？",
