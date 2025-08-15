@@ -1,7 +1,7 @@
 """
 GemPy集成服务 - 2号几何专家核心模块
 处理复杂地质结构：夹层、断层、稀疏钻孔数据
-技术栈：GemPy + PyVista + RBF增强插值 → ArrayBuffer → Three.js
+技术栈（精简版）：GemPy + 增强RBF → Three.js 直接导出（不依赖 PyVista）
 """
 
 import numpy as np
@@ -28,18 +28,6 @@ except Exception as e:
     GEMPY_AVAILABLE = False
     logger.warning(f"⚠️ GemPy not available: {e}")
     gp = None
-
-# PyVista导入 (现有系统已有)
-PYVISTA_AVAILABLE = False
-pv = None
-try:
-    import pyvista as pv
-    PYVISTA_AVAILABLE = True
-    logger.info("✓ PyVista available")
-except ImportError:
-    PYVISTA_AVAILABLE = False
-    logger.warning("⚠️ PyVista not available")
-    pv = None
 
 # GemPy-Viewer导入 (可视化组件)
 GEMPY_VIEWER_AVAILABLE = False
@@ -300,7 +288,7 @@ class GemPyIntegrationService:
         """检查依赖库可用性"""
         return {
             'gempy': GEMPY_AVAILABLE,
-            'pyvista': PYVISTA_AVAILABLE,
+            'pyvista': False,  # 已移除依赖
             'gempy_viewer': GEMPY_VIEWER_AVAILABLE,
             'scipy': True,  # 必须有
             'numpy': True,  # 必须有
@@ -446,15 +434,8 @@ class GemPyIntegrationService:
             interpolated_grid = rbf_result['interpolated_values'].reshape(resolution)
             confidence_grid = rbf_result['confidence_scores'].reshape(resolution)
             
-            # 生成等值面 (如果PyVista可用)
+            # 精简链路：不再生成 PyVista 等值面
             surfaces = {}
-            if PYVISTA_AVAILABLE:
-                try:
-                    surfaces = self._generate_formation_surfaces_pyvista(
-                        interpolated_grid, grid_points, resolution, borehole_data['bounds']
-                    )
-                except Exception as e:
-                    logger.warning(f"PyVista表面生成失败: {e}")
             
             result = {
                 'success': True,
@@ -502,40 +483,26 @@ class GemPyIntegrationService:
             # 4. 生成GemPy原生可视化
             native_viz = self.generate_gempy_native_visualization(geo_model)
             
-            # 5A. GemPy → Three.js 直接转换 (新方法)
+            # 5. GemPy → Three.js 直接转换（唯一路径）
             threejs_data_direct = self._export_gempy_to_threejs_direct(geo_model, gempy_solution)
-            
-            # 5B. 传统PyVista转换 (备用方法)
-            pyvista_meshes = self._convert_gempy_to_pyvista(geo_model, gempy_solution)
-            threejs_data_pyvista = self._export_pyvista_to_threejs(pyvista_meshes)
-            
-            # 6. 选择最佳转换结果
-            if threejs_data_direct and len(threejs_data_direct) > 0:
-                threejs_data = threejs_data_direct
-                conversion_method = "direct"
-                logger.info("🚀 使用GemPy → Three.js 直接转换")
-            else:
-                threejs_data = threejs_data_pyvista
-                conversion_method = "via_pyvista"
-                logger.info("🔄 回退到PyVista转换方法")
+            threejs_data = threejs_data_direct or {}
+            conversion_method = "direct"
+            logger.info("🚀 使用GemPy → Three.js 直接转换（精简链路）")
             
             result = {
                 'success': True,
                 'method': 'GemPy_Implicit_Modeling',
                 'geo_model': geo_model,
                 'solution': gempy_solution,
-                'native_visualization': native_viz,  # 新增：GemPy原生可视化
-                'pyvista_meshes': pyvista_meshes,
+                'native_visualization': native_viz,  # 可选：GemPy原生可视化
                 'threejs_data': threejs_data,
                 'display_chain': {  # 新增：完整显示链路信息
                     'gempy_available': GEMPY_AVAILABLE,
                     'gempy_viewer_available': GEMPY_VIEWER_AVAILABLE,
-                    'pyvista_available': PYVISTA_AVAILABLE,
                     'native_viz_success': native_viz.get('success', False),
-                    'pyvista_meshes_count': len(pyvista_meshes),
                     'threejs_objects_count': len(threejs_data),
                     'conversion_method': conversion_method,  # 新增：转换方法标识
-                    'direct_conversion_success': len(threejs_data_direct) > 0
+                    'direct_conversion_success': len(threejs_data) > 0
                 },
                 'model_stats': {
                     'n_formations': len(np.unique(borehole_data['formations'])),
@@ -653,57 +620,7 @@ class GemPyIntegrationService:
             logger.error(f"GemPy模型创建失败: {e}")
             raise
     
-    def _convert_gempy_to_pyvista(self, geo_model: Any, solution: Any) -> Dict[str, Any]:
-        """GemPy结果转换为PyVista格式 - 使用GemPy原生可视化"""
-        if not PYVISTA_AVAILABLE:
-            return {}
-        
-        try:
-            # 方法1: 使用GemPy-Viewer原生转换
-            if GEMPY_VIEWER_AVAILABLE:
-                logger.info("🎨 使用GemPy-Viewer原生可视化转换")
-                try:
-                    # 获取GemPy原生PyVista对象
-                    pyvista_mesh = gpv.plot_3d(geo_model, show=False, return_plotter=True)
-                    
-                    formations = {}
-                    if hasattr(pyvista_mesh, 'actors'):
-                        for i, actor in enumerate(pyvista_mesh.actors.values()):
-                            formations[f'formation_{i}'] = actor.mapper.GetInput()
-                    
-                    logger.info(f"✓ GemPy原生转换完成: {len(formations)}个地层")
-                    return formations
-                    
-                except Exception as e:
-                    logger.warning(f"GemPy-Viewer转换失败，使用备用方法: {e}")
-            
-            # 方法2: 传统方法 - 从solution提取
-            logger.info("🔄 使用传统PyVista转换")
-            
-            # 获取地质图
-            geological_map = solution.geological_map
-            
-            # 按地层分离
-            formations = {}
-            unique_formations = np.unique(geological_map)
-            
-            for formation_id in unique_formations:
-                if formation_id == 0:  # 跳过背景
-                    continue
-                
-                mask = (geological_map == formation_id)
-                if np.any(mask):
-                    # 创建PyVista网格 (简化实现)
-                    # 实际需要更复杂的体网格提取
-                    formation_mesh = pv.UniformGrid()
-                    formation_mesh.field_data[f'formation_{formation_id}'] = formation_id
-                    formations[f'formation_{formation_id}'] = formation_mesh
-            
-            return formations
-            
-        except Exception as e:
-            logger.warning(f"GemPy到PyVista转换失败: {e}")
-            return {}
+    # 已移除：PyVista 相关转换方法（精简链路）
     
     def generate_gempy_native_visualization(self, geo_model: Any) -> Dict[str, Any]:
         """生成GemPy原生可视化结果"""
@@ -878,81 +795,9 @@ class GemPyIntegrationService:
         color = formation_colors.get(formation_id, [0.7, 0.7, 0.7])  # 默认灰色
         return np.tile(color, (vertex_count, 1)).astype(np.float32)
     
-    def _export_pyvista_to_threejs(self, pyvista_meshes: Dict[str, Any]) -> Dict[str, Any]:
-        """PyVista网格转换为Three.js ArrayBuffer格式"""
-        if not pyvista_meshes:
-            return {}
-        
-        try:
-            threejs_data = {}
-            
-            for formation_name, mesh in pyvista_meshes.items():
-                if hasattr(mesh, 'points') and len(mesh.points) > 0:
-                    vertices = mesh.points.astype(np.float32)
-                    
-                    # 计算法向量
-                    try:
-                        mesh.compute_normals(inplace=True)
-                        normals = mesh.point_normals.astype(np.float32)
-                    except:
-                        normals = np.zeros_like(vertices)
-                    
-                    # 提取索引
-                    if hasattr(mesh, 'faces') and len(mesh.faces) > 0:
-                        faces = mesh.faces.reshape(-1, 4)[:, 1:4].astype(np.uint32)
-                    else:
-                        faces = np.array([], dtype=np.uint32)
-                    
-                    threejs_data[formation_name] = {
-                        'vertices': vertices.tobytes(),
-                        'normals': normals.tobytes(),
-                        'indices': faces.tobytes(),
-                        'vertex_count': len(vertices),
-                        'face_count': len(faces) // 3 if len(faces) > 0 else 0
-                    }
-            
-            return threejs_data
-            
-        except Exception as e:
-            logger.warning(f"Three.js数据导出失败: {e}")
-            return {}
+    # 已移除：PyVista → Three.js 导出方法（精简链路）
     
-    def _generate_formation_surfaces_pyvista(self,
-                                           interpolated_grid: np.ndarray,
-                                           grid_points: np.ndarray,
-                                           resolution: Tuple[int, int, int],
-                                           bounds: Dict[str, float]) -> Dict[str, Any]:
-        """使用PyVista生成地层表面"""
-        if not PYVISTA_AVAILABLE:
-            return {}
-        
-        try:
-            surfaces = {}
-            
-            # 创建结构化网格
-            x_coords = np.linspace(bounds['x_min'], bounds['x_max'], resolution[0])
-            y_coords = np.linspace(bounds['y_min'], bounds['y_max'], resolution[1])  
-            z_coords = np.linspace(bounds['z_min'], bounds['z_max'], resolution[2])
-            
-            grid = pv.RectilinearGrid(x_coords, y_coords, z_coords)
-            grid.point_data['formation'] = interpolated_grid.ravel()
-            
-            # 提取等值面
-            unique_formations = np.unique(interpolated_grid)
-            for formation_id in unique_formations:
-                if np.isfinite(formation_id):
-                    try:
-                        isosurface = grid.contour(isosurfaces=[float(formation_id)], scalars='formation')
-                        if isosurface.n_points > 0:
-                            surfaces[f'formation_{int(formation_id)}'] = isosurface
-                    except:
-                        continue
-            
-            return surfaces
-            
-        except Exception as e:
-            logger.warning(f"PyVista表面生成失败: {e}")
-            return {}
+    # 已移除：使用 PyVista 生成等值面的函数（精简链路）
 
     def process_geological_modeling_request(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
         """

@@ -39,7 +39,7 @@ shapely>=2.1.0
 # ====================
 meshio>=5.3.5
 pymeshfix>=0.16.3
-pyvista>=0.45.3
+# pyvista removed (GemPy → Three.js path does not require it)
 
 # ====================
 # 图像处理

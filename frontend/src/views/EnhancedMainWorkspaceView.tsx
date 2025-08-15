@@ -780,19 +780,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           { 
             key: 'geology-legacy', 
             label: <span>{getActivityBadge('process')}传统模式</span>, 
-            children: <GeologyReconstructionPanelV2 
-              domain={{
-                xmin: 0,
-                xmax: 100,
-                ymin: 0, 
-                ymax: 100,
-                nx: 50,
-                ny: 50,
-                nz: 20
-              }}
-              boreholes={[]}
-              onParamsChange={(params) => console.log('地质参数更新:', params)}
-            />
+            children: <GeologyReconstructionPanelV2 />
           }
         ]
       },

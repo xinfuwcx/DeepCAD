@@ -19,7 +19,10 @@ export interface GeologyPreviewResponse {
   fallback: boolean;            // server decided fallback
   roiAdjusted?: any;            // optional adjusted domain
   serverCost?: { memMB: number; sec: number };
+  serverMeta?: { N?: number; domainVolume?: number | null; avgCellVol?: number | null };
   source: 'mock' | 'server';
+  threeJsData?: Record<string, any>;
+  jobId?: string;
 }
 
 // Grade helper
@@ -72,15 +75,93 @@ function mockPreview(req: GeologyPreviewRequest): GeologyPreviewResponse {
   };
 }
 
+const USE_MOCK = (typeof window !== 'undefined' && (window as any).__USE_MOCK_GEOL__)
+  || (typeof process !== 'undefined' && (process as any).env?.USE_MOCK_GEOL === 'true');
+
+async function fetchJSON(url: string, init: RequestInit): Promise<any> {
+  const res = await fetch(url, init);
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: ${text}`);
+  }
+  return res.json();
+}
+
+function sleep(ms: number){ return new Promise(r=>setTimeout(r, ms)); }
+
+async function pollJobUntilDone(jobId: string, opts?: { signal?: AbortSignal; timeoutMs?: number; intervalMs?: number; maxIntervalMs?: number }): Promise<'succeeded'|'failed'|'timeout'> {
+  const start = Date.now();
+  const timeoutMs = opts?.timeoutMs ?? 45000;
+  let interval = opts?.intervalMs ?? 500;
+  const maxInterval = opts?.maxIntervalMs ?? 2000;
+  while (true) {
+    if (opts?.signal?.aborted) throw new Error('aborted');
+    try {
+      const st = await fetchJSON(`/api/geology/jobs/${jobId}/status`, { method: 'GET', signal: opts?.signal });
+      if (st.status === 'succeeded') return 'succeeded';
+      if (st.status === 'failed') return 'failed';
+    } catch (e) {
+      // transient errors: continue until timeout
+    }
+    if (Date.now() - start > timeoutMs) return 'timeout';
+    await sleep(interval);
+    interval = Math.min(maxInterval, Math.floor(interval * 1.3));
+  }
+}
+
 export async function previewGeology(req: GeologyPreviewRequest, signal?: AbortSignal): Promise<GeologyPreviewResponse> {
-  // Placeholder: simulate network latency
-  await new Promise(r=>setTimeout(r, 420));
-  // keep param referenced to satisfy linters when unused in mock
-  if (signal && (signal as any).__noop) {/* noop */}
-  return mockPreview(req);
+  if (USE_MOCK) {
+    await new Promise(r=>setTimeout(r, 420));
+    return mockPreview(req);
+  }
+  try {
+    const queued = await fetchJSON('/api/geology/reconstruct/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+      signal
+    });
+    const jobId = queued.jobId;
+    if (!jobId) throw new Error('No jobId returned');
+    const status = await pollJobUntilDone(jobId, { signal });
+    if (status !== 'succeeded') throw new Error(`Job ${status}`);
+    const result = await fetchJSON(`/api/geology/jobs/${jobId}/result`, { method: 'GET', signal });
+    const meta = result?.metadata || {};
+    const N = meta.N || ((req.domain?.nx||0)*(req.domain?.ny||0)*(req.domain?.nz||0));
+    return {
+      hash: req.hash,
+      quality: result?.quality || { rmseZ: 0, rmseH: 0, grade: 'A' },
+      fallback: !!result?.metadata?.flags?.fallback,
+      roiAdjusted: result?.metadata?.flags?.roiAdjusted,
+      serverCost: { memMB: N * 32 / 1024 / 1024, sec: Math.min(3, 0.00002 * N + 0.5) },
+      serverMeta: { N, domainVolume: meta.domainVolume ?? null, avgCellVol: meta.avgCellVol ?? null },
+      source: 'server',
+      threeJsData: result?.threeJsData,
+      jobId
+    };
+  } catch (e) {
+    // fallback to mock on failure
+    await new Promise(r=>setTimeout(r, 200));
+    return mockPreview(req);
+  }
 }
 
 export async function commitGeology(req: GeologyPreviewRequest, signal?: AbortSignal): Promise<GeologyPreviewResponse & { taskId: string }> {
-  const base = await previewGeology(req, signal);
-  return { ...base, taskId: 'TASK-'+base.hash.slice(0,6) };
+  if (USE_MOCK) {
+    const base = await previewGeology(req, signal);
+    return { ...base, taskId: 'TASK-'+base.hash.slice(0,6) };
+  }
+  try {
+  const data = await fetchJSON('/api/geology/reconstruct/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+      signal
+    });
+  // for commit, return taskId immediately and let caller poll or just display
+  return { hash: req.hash, quality: { rmseZ: 0, rmseH: 0, grade: 'A' }, fallback: false, source: 'server', taskId: data.jobId } as any;
+  } catch (e) {
+    const base = await previewGeology(req, signal);
+    return { ...base, taskId: 'TASK-'+base.hash.slice(0,6) };
+  }
 }

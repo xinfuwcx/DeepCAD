@@ -24,8 +24,8 @@
  * 
  * 技术特色: 专业算法集成、参数化配置、实时预览、进度可视化
  */
-import React, { useState, useRef, useEffect } from 'react';
-import { Row, Col, Button, message, Space, Typography, Card } from 'antd';
+import React, { useState, useRef } from 'react';
+import { Button, message, Typography, Card } from 'antd';
 import { RocketOutlined, EyeOutlined } from '@ant-design/icons';
 import GeologyModelingConfig from '../components/geology/GeologyModelingConfig';
 import ModelingRangeConfig from '../components/geology/ModelingRangeConfig';
@@ -59,20 +59,13 @@ interface BoreholeData {
   layer_id?: number;
 }
 
-interface ModelingParams {
-  modeling_method: string;
-  computation_domain: any;
-  rbf_params: any;
-  gmsh_params: any;
-  boreholes: BoreholeData[];
-}
 
 const GeologyModelingView: React.FC = () => {
   const viewportRef = useRef<GeometryViewportRef>(null);
   
   // 主要状态
   const [boreholes, setBoreholes] = useState<BoreholeData[]>([]);
-  const [modelingMethod, setModelingMethod] = useState<string>('rbf_gmsh_occ');
+  // 建模方法UI保留于 GeologyModelingConfig 内部，不在本组件持有
   const [computationDomain, setComputationDomain] = useState<any>(null);
   const [rbfParams, setRBFParams] = useState<any>({
     grid_resolution: 8.0,
@@ -81,7 +74,7 @@ const GeologyModelingView: React.FC = () => {
     enable_extrapolation: true,
     multilayer_interpolation: true
   });
-  const [gmshParams, setGMSHParams] = useState<any>({
+  const [gmshParams] = useState<any>({
     characteristic_length: 10.0,
     use_bspline_surface: true,
     export_geometry_files: false
@@ -97,10 +90,10 @@ const GeologyModelingView: React.FC = () => {
   const boreholeExtent = React.useMemo(() => {
     if (boreholes.length === 0) return undefined;
 
-    const xs = boreholes.map(b => b.x);
-    const ys = boreholes.map(b => b.y);
-    const zs = boreholes.map(b => b.z);
-    const grounds = boreholes.map(b => b.ground_elevation);
+  const xs = boreholes.map(b => b.x);
+  const ys = boreholes.map(b => b.y);
+  const zs = boreholes.map(b => b.z ?? 0);
+  const grounds = boreholes.map(b => b.ground_elevation ?? 0);
 
     return {
       x_range: [Math.min(...xs), Math.max(...xs)] as [number, number],
@@ -114,7 +107,7 @@ const GeologyModelingView: React.FC = () => {
     setIsLoading(true);
     try {
       // 模拟加载CSV文件
-      const text = await file.text();
+  await file.text();
       
       // 这里应该解析CSV文件，现在使用模拟数据
       const mockBoreholes: BoreholeData[] = [
@@ -171,14 +164,6 @@ const GeologyModelingView: React.FC = () => {
       message.warning('请设置建模范围');
       return;
     }
-
-    const modelingParams: ModelingParams = {
-      modeling_method: modelingMethod,
-      computation_domain: computationDomain,
-      rbf_params: rbfParams,
-      gmsh_params: gmshParams,
-      boreholes: boreholes
-    };
 
     setProgressModalVisible(true);
   };
@@ -274,7 +259,7 @@ const GeologyModelingView: React.FC = () => {
         <div className="flex-1 overflow-auto p-2 space-y-3">
           {/* 地质建模配置 */}
           <GeologyModelingConfig
-            onModelingMethodChange={setModelingMethod}
+            onModelingMethodChange={() => {}}
             onBoreholeDataLoad={handleBoreholeDataLoad}
             boreholeCount={boreholes.length}
             isLoading={isLoading}
@@ -290,9 +275,6 @@ const GeologyModelingView: React.FC = () => {
           {/* 插值参数设置 */}
           <InterpolationParamsConfig
             onRBFParamsChange={setRBFParams}
-            onGMSHParamsChange={setGMSHParams}
-            computationDomain={computationDomain}
-            boreholeCount={boreholes.length}
             isLoading={isLoading}
           />
         </div>
