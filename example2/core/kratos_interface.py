@@ -78,6 +78,9 @@ class MaterialProperties:
     poisson_ratio: float = 0.3
     cohesion: float = 50000.0  # Pa
     friction_angle: float = 30.0  # degrees
+    dilatancy_angle: float = 0.0  # degrees
+    yield_stress_tension: float = 3.0e6  # Pa
+    yield_stress_compression: float = 1.0e6  # Pa
 
     def to_kratos_dict(self) -> Dict[str, Any]:
         """转换为 Kratos 格式"""
@@ -88,7 +91,29 @@ class MaterialProperties:
             "YOUNG_MODULUS": self.young_modulus,
             "POISSON_RATIO": self.poisson_ratio,
             "COHESION": self.cohesion,
-            "INTERNAL_FRICTION_ANGLE": np.radians(self.friction_angle)
+            "INTERNAL_FRICTION_ANGLE": np.radians(self.friction_angle),
+            "DILATANCY_ANGLE": np.radians(self.dilatancy_angle),
+            "YIELD_STRESS_TENSION": self.yield_stress_tension,
+            "YIELD_STRESS_COMPRESSION": self.yield_stress_compression
+        }
+
+    def to_kratos_10_3_constitutive_law(self) -> Dict[str, Any]:
+        """转换为 Kratos 10.3 修正摩尔-库伦本构法则配置"""
+        return {
+            "constitutive_law": {
+                "name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D",
+                "Variables": {
+                    "YIELD_STRESS_TENSION": self.yield_stress_tension,
+                    "YIELD_STRESS_COMPRESSION": self.yield_stress_compression,
+                    "FRICTION_ANGLE": self.friction_angle,
+                    "DILATANCY_ANGLE": self.dilatancy_angle
+                }
+            },
+            "properties": {
+                "DENSITY": self.density,
+                "YOUNG_MODULUS": self.young_modulus,
+                "POISSON_RATIO": self.poisson_ratio
+            }
         }
 
 
@@ -1065,3 +1090,147 @@ if __name__ == "__main__":
             print(f"❌ 分析失败: {results}")
     else:
         print("❌ 模型设置失败")
+
+
+
+class KratosModernMohrCoulombConfigurator:
+    """Kratos 10.3 修正摩尔-库伦本构配置生成器"""
+    
+    def __init__(self, material_properties: MaterialProperties):
+        self.material = material_properties
+    
+    def generate_constitutive_law_config(self) -> Dict[str, Any]:
+        """生成Kratos 10.3修正摩尔-库伦本构配置"""
+        return {
+            "constitutive_law": {
+                "name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D",
+                "Variables": {
+                    "YIELD_STRESS_TENSION": self.material.yield_stress_tension,
+                    "YIELD_STRESS_COMPRESSION": self.material.yield_stress_compression, 
+                    "FRICTION_ANGLE": self.material.friction_angle,
+                    "DILATANCY_ANGLE": self.material.dilatancy_angle
+                }
+            }
+        }
+    
+    def generate_material_config(self) -> Dict[str, Any]:
+        """生成材料配置（用于materials.json）"""
+        return {
+            "properties": [
+                {
+                    "model_part_name": "Structure",
+                    "properties_id": self.material.id,
+                    "Material": {
+                        "name": "ModifiedMohrCoulombSoil",
+                        "constitutive_law": self.generate_constitutive_law_config()["constitutive_law"],
+                        "Variables": {
+                            "DENSITY": self.material.density,
+                            "YOUNG_MODULUS": self.material.young_modulus,
+                            "POISSON_RATIO": self.material.poisson_ratio,
+                            "COHESION": self.material.cohesion
+                        },
+                        "Tables": {}
+                    }
+                }
+            ]
+        }
+    
+    def generate_project_parameters(self, output_path: str = "output") -> Dict[str, Any]:
+        """生成ProjectParameters.json配置"""
+        return {
+            "problem_data": {
+                "problem_name": "mohr_coulomb_analysis", 
+                "parallel_type": "OpenMP",
+                "echo_level": 1,
+                "start_time": 0.0,
+                "end_time": 1.0
+            },
+            "solver_settings": {
+                "solver_type": "Static",
+                "model_part_name": "Structure", 
+                "domain_size": 3,
+                "echo_level": 1,
+                "analysis_type": "non_linear",
+                "model_import_settings": {
+                    "input_type": "mdpa",
+                    "input_filename": "model"
+                },
+                "material_import_settings": {
+                    "materials_filename": "materials.json"
+                },
+                "time_stepping": {"time_step": 1.0},
+                "convergence_criterion": "residual_criterion",
+                "displacement_relative_tolerance": 1e-4,
+                "displacement_absolute_tolerance": 1e-9,
+                "residual_relative_tolerance": 1e-4,
+                "residual_absolute_tolerance": 1e-9,
+                "max_iteration": 50,
+                "linear_solver_settings": {
+                    "solver_type": "amgcl",
+                    "tolerance": 1e-6,
+                    "max_iteration": 200,
+                    "scaling": True,
+                    "verbosity": 0
+                }
+            },
+            "processes": {
+                "constraints_process_list": [
+                    {
+                        "python_module": "assign_vector_variable_process",
+                        "kratos_module": "KratosMultiphysics",
+                        "process_name": "AssignVectorVariableProcess",
+                        "Parameters": {
+                            "model_part_name": "Structure.DISPLACEMENT_boundary",
+                            "variable_name": "DISPLACEMENT",
+                            "constrained": [True, True, True],
+                            "value": [0.0, 0.0, 0.0],
+                            "interval": [0.0, "End"]
+                        }
+                    }
+                ],
+                "loads_process_list": [
+                    {
+                        "python_module": "assign_vector_by_direction_process",
+                        "kratos_module": "KratosMultiphysics", 
+                        "process_name": "AssignVectorByDirectionProcess",
+                        "Parameters": {
+                            "model_part_name": "Structure",
+                            "variable_name": "VOLUME_ACCELERATION",
+                            "modulus": 9.81,
+                            "direction": [0.0, 0.0, -1.0],
+                            "interval": [0.0, "End"],
+                            "constrained": False
+                        }
+                    }
+                ]
+            },
+            "output_processes": {
+                "vtk_output": [
+                    {
+                        "python_module": "vtk_output_process",
+                        "kratos_module": "KratosMultiphysics",
+                        "process_name": "VtkOutputProcess",
+                        "Parameters": {
+                            "model_part_name": "Structure",
+                            "file_format": "binary",
+                            "output_sub_model_parts": True,
+                            "save_output_files_in_folder": True,
+                            "output_path": output_path,
+                            "output_control_type": "step",
+                            "output_interval": 1.0,
+                            "write_deformed_configuration": True,
+                            "write_ids": False,
+                            "output_precision": 7,
+                            "nodal_solution_step_data_variables": [
+                                "DISPLACEMENT",
+                                "REACTION"
+                            ],
+                            "element_data_value_variables": [
+                                "GREEN_LAGRANGE_STRAIN_TENSOR",
+                                "CAUCHY_STRESS_TENSOR"
+                            ]
+                        }
+                    }
+                ]
+            }
+        }

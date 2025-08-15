@@ -126,9 +126,7 @@ class Example2Application:
             
         # 显示主窗口
         self.main_window.show()
-        
-        # 启动事件循环
-        return self.app.exec_()
+    # 事件循环在 main() 中启动
 
 
 def check_dependencies():
@@ -137,6 +135,13 @@ def check_dependencies():
     try:
         import PyQt6
         print("OK PyQt6可用")
+        
+        # 设置OpenGL兼容性模式 - 修复OpenGL上下文错误
+        import os
+        os.environ['QT_OPENGL'] = 'software'  # 强制软件渲染
+        os.environ['QT_QUICK_BACKEND'] = 'software'  # Qt Quick软件渲染
+        print("✅ OpenGL兼容性模式已设置")
+        
     except ImportError:
         print("NO PyQt6不可用，请安装: pip install PyQt6")
         return False
@@ -145,17 +150,25 @@ def check_dependencies():
     try:
         import pyvista as pv
         
-        # 🔧 设置PyVista安全模式，避免3D旋转崩溃
+        # 🔧 设置PyVista增强稳定模式 - 修复OpenGL错误
         pv.set_error_output_file("pyvista_errors.log")  # 错误日志
         pv.OFF_SCREEN = False  # 确保屏幕渲染
         
-        # 设置更稳定的默认参数
+        # 更稳定的OpenGL设置
         try:
-            pv.global_theme.multi_samples = 0  # 禁用多重采样
-            pv.global_theme.show_edges = False # 默认不显示边界
-            pv.global_theme.line_width = 1     # 线宽设为1
-        except:
-            pass
+            pv.global_theme.multi_samples = 0        # 禁用多重采样
+            pv.global_theme.show_edges = False       # 默认不显示边界
+            pv.global_theme.line_width = 1           # 线宽设为1
+            pv.global_theme.font.size = 12           # 字体大小
+            pv.global_theme.background = 'white'     # 白色背景
+            
+            # OpenGL深度测试和混合设置
+            pv.global_theme.depth_peeling.enabled = False  # 禁用深度剥离
+            pv.global_theme.transparent_rendering_via_depth_peeling = False
+            
+            print("✅ PyVista增强稳定模式已配置")
+        except Exception as e:
+            print(f"⚠️ PyVista部分配置失败: {e}")
             
         print("OK PyVista可用")
     except ImportError:
@@ -180,7 +193,7 @@ def check_kratos_availability():
         print("OK Kratos计算引擎可用")
         return True
     except ImportError:
-        print("WARN Kratos计算引擎不可用，将使用模拟模式")
+        print("❌ Kratos计算引擎不可用，无法进行分析计算。请安装并配置Kratos Multiphysics。")
         return False
 
 
@@ -222,8 +235,10 @@ def main():
         try:
             # 创建并运行应用程序
             app = Example2Application()
-            exit_code = app.run()
-            
+            app.run()
+            # 启动事件循环（PyQt6 使用 exec 而非 exec_）
+            exit_code = app.app.exec()
+
             print("应用程序正常退出")
             sys.exit(exit_code)
             

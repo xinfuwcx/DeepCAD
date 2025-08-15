@@ -193,16 +193,20 @@ def write_project_parameters():
                     "process_name": "VtkOutputProcess",
                     "Parameters": {
                         "model_part_name": "Structure",
-                        "output_control_type": "time",
-                        "output_interval": 1.0,
+                        "file_format": "binary",
+                        "output_sub_model_parts": True,
                         "save_output_files_in_folder": True,
                         "output_path": VTK_DIR.resolve().as_posix(),
+                        "output_control_type": "step",
+                        "output_interval": 1.0,
                         "write_deformed_configuration": True,
                         "write_ids": False,
-                        "file_format": "binary",
                         "output_precision": 7,
-                        "nodal_solution_step_data_variables": ["DISPLACEMENT"],
-                    },
+                        "nodal_solution_step_data_variables": [
+                            "DISPLACEMENT"
+                        ],
+                        "element_data_value_variables": []
+                    }
                 }
             ]
         },

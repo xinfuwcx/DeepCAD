@@ -314,12 +314,12 @@ class PostProcessor:
                 
             else:
                 print("PyVista不可用，创建示例结果")
-                self.create_sample_results()
+                raise ValueError("真实计算结果不可用")
                 
         except Exception as e:
             print(f"加载结果失败: {e}")
-            # 创建示例结果
-            self.create_sample_results()
+            # 不再创建示例结果，要求真实数据
+            raise ValueError(f"加载真实结果失败: {e}")
             
     def load_json_results(self, file_path: str):
         """加载JSON格式结果"""
@@ -337,9 +337,9 @@ class PostProcessor:
         else:
             self.time_steps = [0.0]
             
-        # 创建示例网格
+        # 检查网格数据
         if not self.mesh:
-            self.create_sample_mesh()
+            raise ValueError("缺少网格数据，无法加载结果")
             
     def extract_results_from_mesh(self):
         """从网格中提取结果数据"""
@@ -363,48 +363,7 @@ class PostProcessor:
             
         print(f"提取到 {len(self.results_data)} 种结果类型")
         
-    def create_sample_results(self):
-        """创建示例结果"""
-        if PYVISTA_AVAILABLE:
-            # 创建示例网格
-            self.mesh = pv.Cube().triangulate()
-            
-            # 创建示例结果数据
-            n_points = self.mesh.n_points
-            
-            # 位移结果
-            displacement = np.random.random((n_points, 3)) * 0.1
-            displacement[:, 2] = -np.abs(displacement[:, 2])  # Z方向向下
-            self.results_data['displacement'] = displacement
-            
-            # 应力结果
-            stress = np.random.random(n_points) * 1000  # kPa
-            self.results_data['stress'] = stress
-            
-            # 应变结果
-            strain = stress / 30000  # 假设弹模30GPa
-            self.results_data['strain'] = strain
-            
-            # 创建多个时间步
-            self.time_steps = np.linspace(0, 1, 21)  # 21个时间步
-            
-            # 为每个时间步创建数据
-            self.create_time_varying_results()
-            
-            self.display_results()
-            print("创建示例结果数据")
-        else:
-            print("创建占位符结果")
-            
-    def create_sample_mesh(self):
-        """创建示例网格"""
-        if PYVISTA_AVAILABLE:
-            # 创建更复杂的示例网格
-            sphere = pv.Sphere(radius=5, center=(0, 0, 0))
-            cube = pv.Cube(center=(0, 0, -3), x_length=15, y_length=15, z_length=6)
-            
-            # 合并几何
-            self.mesh = sphere.boolean_union(cube).triangulate()
+    # 所有示例结果创建函数已移除 - 现在只接受真实计算结果
             
     def create_time_varying_results(self):
         """创建时变结果数据"""

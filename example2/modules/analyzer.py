@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from PyQt6.QtCore import QObject, QThread, pyqtSignal, QTimer
+import numpy as np
 
 # 添加项目路径
 project_root = Path(__file__).parent.parent.parent
@@ -22,7 +23,7 @@ try:
     KRATOS_AVAILABLE = True
 except ImportError:
     KRATOS_AVAILABLE = False
-    print("警告: Kratos不可用，将使用模拟分析")
+    raise ImportError("❌ Kratos Multiphysics is required for analysis functionality. Please install Kratos or check your installation.")
 
 
 class AnalysisStep:
@@ -132,7 +133,7 @@ class AnalysisWorker(QThread):
             if KRATOS_AVAILABLE:
                 return self.execute_kratos_step(step)
             else:
-                return self.execute_mock_step(step)
+                raise RuntimeError("Kratos integration is required for analysis")
 
         except Exception as e:
             return False, {'error': str(e)}
@@ -140,12 +141,36 @@ class AnalysisWorker(QThread):
     def execute_kratos_step(self, step: AnalysisStep) -> tuple:
         """执行Kratos分析步骤"""
         try:
-            from ..core.kratos_interface import KratosInterface, AnalysisSettings, AnalysisType, SolverType
+            from ..core.kratos_interface import (
+                KratosInterface, AnalysisSettings, AnalysisType, SolverType,
+                MaterialProperties, KratosModernMohrCoulombConfigurator
+            )
 
             self.log_message.emit(f"🚀 启动Kratos分析: {step.step_type}")
 
             # 创建 Kratos 接口
             kratos_interface = KratosInterface()
+            
+            # 使用Kratos 10.3修正摩尔-库伦本构配置
+            self.log_message.emit("⚙️ 配置Kratos 10.3修正摩尔-库伦本构...")
+            soil_material = MaterialProperties(
+                id=1,
+                name="基坑工程土体", 
+                density=1900.0,           # kg/m³
+                young_modulus=25e6,       # Pa
+                poisson_ratio=0.3,
+                cohesion=35000.0,         # Pa  
+                friction_angle=28.0,      # degrees
+                dilatancy_angle=8.0,      # degrees (通常为φ/3-φ/4)
+                yield_stress_tension=500000.0,    # Pa
+                yield_stress_compression=8000000.0  # Pa
+            )
+            
+            # 创建现代配置生成器
+            mc_configurator = KratosModernMohrCoulombConfigurator(soil_material)
+            kratos_interface.materials[1] = soil_material
+            
+            self.log_message.emit(f"✅ Kratos 10.3本构配置: φ={soil_material.friction_angle}°, c={soil_material.cohesion/1000:.0f}kPa")
 
             # 设置分析参数
             analysis_type = self._map_step_type_to_analysis(step.step_type)
@@ -202,8 +227,8 @@ class AnalysisWorker(QThread):
                 return False, results
 
         except ImportError:
-            self.log_message.emit("⚠️ Kratos接口不可用，使用模拟模式")
-            return self.execute_mock_step(step)
+            self.log_message.emit("❌ Kratos接口不可用，分析无法继续")
+            raise RuntimeError("Kratos integration is required for analysis")
         except Exception as e:
             self.log_message.emit(f"❌ Kratos分析异常: {e}")
             return False, {'error': f'Kratos分析异常: {e}'}
@@ -236,7 +261,7 @@ class AnalysisWorker(QThread):
         except Exception as e:
             self.log_message.emit(f"过滤模型失败: {e}")
 
-    def _map_step_type_to_analysis(self, step_type: str) -> 'AnalysisType':
+    def _map_step_type_to_analysis(self, step_type: str) -> Any:
         """映射分析步类型到Kratos分析类型"""
         try:
             from ..core.kratos_interface import AnalysisType
@@ -254,279 +279,7 @@ class AnalysisWorker(QThread):
         except ImportError:
             return 'static'  # fallback
 
-    def execute_mock_step(self, step: AnalysisStep) -> tuple:
-        """执行静力分析步骤"""
-        self.log_message.emit(f"执行静力求解: {step.step_type}")
-
-        # 静力求解步骤
-        if step.step_type in ['static', 'static_solution']:
-            return self.execute_static_analysis(step)
-        else:
-            # 其他类型仍用模拟
-            return self.execute_general_analysis(step)
-
-    def execute_static_analysis(self, step: AnalysisStep) -> tuple:
-        """执行摩尔-库伦非线性分析"""
-        self.log_message.emit("开始摩尔-库伦非线性分析...")
-
-        # 获取模型数据（优先使用过滤后的视图）
-        base_data = None
-        if hasattr(self, '_fpn_filtered_view') and self._fpn_filtered_view and self.use_active_materials_only:
-            base_data = self._fpn_filtered_view
-        elif hasattr(self.parent(), 'fpn_data') and self.parent().fpn_data:
-            base_data = self.parent().fpn_data
-        else:
-            return False, {'error': '缺少模型数据'}
-
-        nodes = base_data.get('nodes', [])
-        elements = base_data.get('elements', [])
-
-        if not nodes or not elements:
-            return False, {'error': '模型数据不完整'}
-
-        self.log_message.emit(f"模型规模: {len(nodes)}个节点, {len(elements)}个单元")
-
-        # 摩尔-库伦非线性分析
-        try:
-            import numpy as np
-
-            n_dofs = len(nodes) * 3
-            u = np.zeros(n_dofs)  # 位移向量
-
-            # 摩尔-库伦参数 (典型土体参数)
-            E = 20e6        # 弹性模量 (Pa)
-            nu = 0.3        # 泊松比
-            c = 20000       # 粘聚力 (Pa)
-            phi = 30        # 内摩擦角 (度)
-            psi = 5         # 剪胀角 (度)
-            gamma = 18000   # 重度 (N/m³)
-
-            self.log_message.emit(f"土体参数: E={E/1e6:.0f}MPa, φ={phi}°, c={c/1000:.0f}kPa")
-
-            # Newton-Raphson迭代参数
-            max_iter = step.parameters.get('max_iterations', 20)
-            tolerance = step.parameters.get('tolerance', 1e-6)
-
-            self.progress_updated.emit(10, "初始化非线性求解...")
-            self.msleep(300)
-
-            # Newton-Raphson迭代
-            for iteration in range(max_iter):
-                if not self.is_running:
-                    return False, {'error': '用户中断'}
-
-                self.progress_updated.emit(
-                    10 + int(70 * iteration / max_iter),
-                    f"Newton-Raphson迭代 {iteration+1}/{max_iter}"
-                )
-
-                # 1. 组装当前刚度矩阵 (考虑应力状态)
-                K_tan = self.assemble_tangent_stiffness(nodes, elements, u, E, nu, c, phi)
-
-                # 2. 计算残差向量
-                F_ext = self.compute_external_forces(nodes, gamma)
-                F_int = self.compute_internal_forces(nodes, elements, u, E, nu)
-                R = F_ext - F_int
-
-                # 3. 应用边界条件
-                K_tan, R = self.apply_boundary_conditions(K_tan, R, nodes)
-
-                # 4. 求解增量
-                try:
-                    du = np.linalg.solve(K_tan, R)
-                except np.linalg.LinAlgError:
-                    self.log_message.emit("切线刚度矩阵奇异，使用正则化")
-                    K_reg = K_tan + np.eye(n_dofs) * 1e3
-                    du = np.linalg.solve(K_reg, R)
-
-                # 5. 更新位移
-                u += du
-
-                # 6. 检查收敛性
-                norm_du = np.linalg.norm(du)
-                norm_u = np.linalg.norm(u)
-
-                if norm_u > 0:
-                    relative_error = norm_du / norm_u
-                else:
-                    relative_error = norm_du
-
-                self.log_message.emit(f"迭代{iteration+1}: 相对误差={relative_error:.2e}")
-
-                if relative_error < tolerance:
-                    self.log_message.emit(f"Newton-Raphson收敛! 迭代次数: {iteration+1}")
-                    converged = True
-                    break
-
-                self.msleep(200)  # 模拟计算时间
-            else:
-                self.log_message.emit("达到最大迭代次数，未完全收敛")
-                converged = False
-
-            self.progress_updated.emit(80, "计算应力和塑性状态...")
-            self.msleep(400)
-
-            # 7. 计算最终应力和塑性状态
-            displacement_field, stress_field, plastic_field = self.compute_final_results(
-                nodes, elements, u, E, nu, c, phi
-            )
-
-            self.progress_updated.emit(100, "非线性分析完成")
-
-            max_displacement = np.max(np.linalg.norm(np.array(displacement_field), axis=1))
-            max_stress = np.max(stress_field) if stress_field else 0
-
-            results = {
-                'converged': converged,
-                'iterations': iteration + 1,
-                'displacement_max': float(max_displacement),
-                'stress_max': float(max_stress),
-                'displacement_field': displacement_field,
-                'stress_field': stress_field,
-                'plastic_field': plastic_field,
-                'computation_time': time.time() - step.start_time,
-                'dofs': n_dofs,
-                'analysis_type': 'nonlinear_mohr_coulomb',
-                'material_model': 'Mohr-Coulomb',
-                'soil_parameters': {
-                    'E': E, 'nu': nu, 'c': c, 'phi': phi, 'gamma': gamma
-                }
-            }
-
-            self.log_message.emit(
-                f"摩尔-库伦分析完成: 最大位移 {max_displacement:.6f}m, "
-                f"最大应力 {max_stress/1000:.0f}kPa, 迭代{iteration+1}次"
-            )
-            return True, results
-
-        except Exception as e:
-            self.log_message.emit(f"摩尔-库伦分析失败: {str(e)}")
-            return False, {'error': f'计算错误: {str(e)}'}
-
-    def assemble_tangent_stiffness(self, nodes, elements, u, E, nu, c, phi):
-        """组装切线刚度矩阵 (考虑摩尔-库伦塑性)"""
-        n_dofs = len(nodes) * 3
-        K = np.zeros((n_dofs, n_dofs))
-
-        # 简化：使用弹性刚度作为基础，塑性修正
-        D_elastic = self.compute_elastic_matrix(E, nu)
-
-        for element in elements:
-            if isinstance(element, dict):
-                elem_nodes = element.get('nodes', [])
-                if len(elem_nodes) >= 4:  # 四面体单元
-                    # 单元刚度矩阵 (简化)
-                    k_elem = self.compute_element_stiffness(elem_nodes, D_elastic)
-
-                    # 装配到全局矩阵
-                    for i, ni in enumerate(elem_nodes):
-                        for j, nj in enumerate(elem_nodes):
-                            for di in range(3):
-                                for dj in range(3):
-                                    gi = (ni - 1) * 3 + di
-                                    gj = (nj - 1) * 3 + dj
-                                    if gi < n_dofs and gj < n_dofs:
-                                        K[gi, gj] += k_elem[i*3+di, j*3+dj]
-
-        return K
-
-    def compute_elastic_matrix(self, E, nu):
-        """计算弹性本构矩阵"""
-        factor = E / ((1 + nu) * (1 - 2*nu))
-        D = np.array([
-            [1-nu, nu, nu, 0, 0, 0],
-            [nu, 1-nu, nu, 0, 0, 0],
-            [nu, nu, 1-nu, 0, 0, 0],
-            [0, 0, 0, (1-2*nu)/2, 0, 0],
-            [0, 0, 0, 0, (1-2*nu)/2, 0],
-            [0, 0, 0, 0, 0, (1-2*nu)/2]
-        ]) * factor
-        return D
-
-    def compute_element_stiffness(self, nodes, D):
-        """计算单元刚度矩阵 (简化)"""
-        n = len(nodes)
-        k = np.eye(n * 3) * 1e6  # 简化的单元刚度
-        return k
-
-    def compute_external_forces(self, nodes, gamma):
-        """计算外力向量 (重力)"""
-        F = np.zeros(len(nodes) * 3)
-        for i in range(len(nodes)):
-            F[i * 3 + 2] = -gamma  # Z方向重力
-        return F
-
-    def compute_internal_forces(self, nodes, elements, u, E, nu):
-        """计算内力向量 (简化)"""
-        return np.zeros(len(nodes) * 3)  # 简化实现
-
-    def apply_boundary_conditions(self, K, F, nodes):
-        """应用边界条件 (固定底部)"""
-        for i, node in enumerate(nodes):
-            if isinstance(node, dict) and node.get('z', 0) < 0.1:
-                for dof in range(3):
-                    idx = i * 3 + dof
-                    if idx < len(F):
-                        K[idx, :] = 0
-                        K[:, idx] = 0
-                        K[idx, idx] = 1e12
-                        F[idx] = 0
-        return K, F
-
-    def compute_final_results(self, nodes, elements, u, E, nu, c, phi):
-        """计算最终结果 (位移、应力、塑性状态)"""
-        displacement_field = []
-        stress_field = []
-        plastic_field = []
-
-        for i in range(len(nodes)):
-            # 位移
-            ux = u[i * 3] if i * 3 < len(u) else 0
-            uy = u[i * 3 + 1] if i * 3 + 1 < len(u) else 0
-            uz = u[i * 3 + 2] if i * 3 + 2 < len(u) else 0
-            displacement_field.append([ux, uy, uz])
-
-            # 应力 (简化的摩尔-库伦应力)
-            strain_magnitude = np.sqrt(ux**2 + uy**2 + uz**2) * 100  # 应变
-            sigma = E * strain_magnitude  # 弹性应力
-
-            # 摩尔-库伦屈服检查
-            sigma_mean = sigma / 3
-            tau = sigma * 0.5  # 简化剪应力
-            phi_rad = np.radians(phi)
-            f_mc = tau - c * np.cos(phi_rad) - sigma_mean * np.sin(phi_rad)
-
-            is_plastic = f_mc > 0
-            plastic_field.append(1.0 if is_plastic else 0.0)
-
-            # 如果屈服，修正应力
-            if is_plastic:
-                sigma *= 0.8  # 简化的塑性修正
-
-            stress_field.append(sigma)
-
-        return displacement_field, stress_field, plastic_field
-    def execute_general_analysis(self, step: AnalysisStep) -> tuple:
-        """执行一般分析 (模拟)"""
-        iterations = step.parameters.get('max_iterations', 20)
-
-        for iter_num in range(1, iterations + 1):
-            if not self.is_running:
-                return False, {'error': '用户中断'}
-
-            self.msleep(100)
-            iter_progress = int((iter_num / iterations) * 100)
-            self.progress_updated.emit(iter_progress, f"迭代 {iter_num}/{iterations}")
-
-        results = {
-            'converged': True,
-            'iterations': iterations,
-            'displacement_max': 0.015,
-            'stress_max': 650.0,
-            'computation_time': time.time() - step.start_time
-        }
-
-        return True, results
+    # 所有模拟分析代码已移除 - 现在只支持真实的Kratos计算
 
     def pause(self):
         """暂停分析"""
@@ -795,7 +548,7 @@ class Analyzer(QObject):
             step.results = {}
 
         self.current_step = 0
-        self.analysis_results = {}
+        self.analysis_results = []
 
         # 创建工作线程
         self.analysis_worker = AnalysisWorker(self, self.analysis_steps)
@@ -955,7 +708,7 @@ def test_analyzer():
     # 运行5秒后退出
     QTimer.singleShot(10000, app.quit)
 
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":

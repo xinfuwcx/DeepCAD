@@ -1320,8 +1320,8 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'analysis_log'):
                 self.analysis_log.append("启动Kratos分析引擎...")
 
-            # 使用模拟分析，防止因依赖缺失导致崩溃
-            self.start_mock_analysis()
+            # 集成真实的Kratos计算引擎
+            self.start_real_analysis()
         except Exception as e:
             # 防御性处理，避免点击后异常导致应用退出
             if hasattr(self, 'analysis_log'):
@@ -1332,57 +1332,84 @@ class MainWindow(QMainWindow):
             self.pause_analysis_btn.setEnabled(False)
             self.stop_analysis_btn.setEnabled(False)
 
-    def start_mock_analysis(self):
-        """启动模拟分析"""
-        self.analysis_timer = QTimer()
-        self.analysis_step = 0
-        self.analysis_timer.timeout.connect(self.update_analysis_progress)
-        self.analysis_timer.start(200)
-
-    def update_analysis_progress(self):
-        """更新分析进度（加防护，避免异常导致应用退出）"""
+    def start_real_analysis(self):
+        """启动真实的Kratos分析"""
         try:
-            self.analysis_step += 1
-
-            # 更新进度条
-            overall_progress = min(self.analysis_step * 2, 100)
-            self.overall_progress.setValue(overall_progress)
-
-            step_progress = (self.analysis_step * 10) % 100
-            self.step_progress.setValue(step_progress)
-
-            iteration_progress = (self.analysis_step * 5) % 100
-            self.iteration_progress.setValue(iteration_progress)
-
-            # 更新状态标签
-            current_step = (self.analysis_step // 25) + 1
-            self.current_step_label.setText(f"步骤 {current_step}")
-            self.current_iteration_label.setText(f"{self.analysis_step % 25 + 1}/25")
-
-            # 添加日志
-            if self.analysis_step % 10 == 0 and hasattr(self, 'analysis_log'):
-                self.analysis_log.append(f"步骤 {current_step}: 迭代 {self.analysis_step % 25 + 1} 完成")
-
-            # 分析完成
-            if overall_progress >= 100:
-                if hasattr(self, 'analysis_timer'):
-                    self.analysis_timer.stop()
-                self.analysis_finished()
+            # 导入DeepCAD的Kratos集成模块
+            from core.kratos_integration import KratosIntegration
+            
+            self.kratos_solver = KratosIntegration()
+            
+            # 检查前处理数据
+            if not hasattr(self.preprocessor, 'fpn_data') or not self.preprocessor.fpn_data:
+                raise ValueError("缺少前处理数据，请先导入FPN文件")
+            
+            # 启动真实计算
+            self.analyzer.set_fpn_data(self.preprocessor.fpn_data)
+            self.analyzer.set_kratos_interface(self.kratos_solver)
+            
+            if hasattr(self, 'analysis_log'):
+                self.analysis_log.append("正在启动Kratos计算引擎...")
+            
+            # 连接分析器信号
+            self.analyzer.progress_updated.connect(self.on_analysis_progress)
+            self.analyzer.step_finished.connect(self.on_analysis_step_finished)
+            self.analyzer.analysis_finished.connect(self.analysis_finished)
+            
+            # 开始计算
+            self.analyzer.start_analysis()
+            
+        except ImportError:
+            if hasattr(self, 'analysis_log'):
+                self.analysis_log.append("Kratos集成模块不可用，请检查安装")
+            self.run_analysis_btn.setEnabled(True)
+            self.pause_analysis_btn.setEnabled(False)
+            self.stop_analysis_btn.setEnabled(False)
         except Exception as e:
-            # 捕获异常，记录日志，避免Qt槽函数异常导致进程退出
-            try:
-                if hasattr(self, 'analysis_log'):
-                    self.analysis_log.append(f"更新进度失败: {e}")
-                self.status_label.setText("更新进度失败")
-            except Exception:
-                pass
-            # 安全恢复按钮状态
-            try:
-                self.run_analysis_btn.setEnabled(True)
-                self.pause_analysis_btn.setEnabled(False)
-                self.stop_analysis_btn.setEnabled(False)
-            except Exception:
-                pass
+            if hasattr(self, 'analysis_log'):
+                self.analysis_log.append(f"启动分析失败: {e}")
+            self.run_analysis_btn.setEnabled(True)
+            self.pause_analysis_btn.setEnabled(False)
+            self.stop_analysis_btn.setEnabled(False)
+
+    def on_analysis_progress(self, progress_data):
+        """真实分析进度回调"""
+        try:
+            overall_progress = progress_data.get('overall_progress', 0)
+            step_progress = progress_data.get('step_progress', 0)
+            iteration_progress = progress_data.get('iteration_progress', 0)
+            
+            self.overall_progress.setValue(int(overall_progress))
+            self.step_progress.setValue(int(step_progress))
+            self.iteration_progress.setValue(int(iteration_progress))
+            
+            # 更新状态标签
+            current_step = progress_data.get('current_step', 'Unknown')
+            current_iteration = progress_data.get('current_iteration', '0/0')
+            convergence_status = progress_data.get('convergence_status', 'N/A')
+            
+            self.current_step_label.setText(str(current_step))
+            self.current_iteration_label.setText(str(current_iteration))
+            self.convergence_label.setText(str(convergence_status))
+            
+            # 添加日志
+            log_message = progress_data.get('log_message', '')
+            if log_message and hasattr(self, 'analysis_log'):
+                self.analysis_log.append(log_message)
+                
+        except Exception as e:
+            if hasattr(self, 'analysis_log'):
+                self.analysis_log.append(f"进度更新失败: {e}")
+    
+    def on_analysis_step_finished(self, step_data):
+        """分析步完成回调"""
+        try:
+            step_name = step_data.get('step_name', 'Unknown')
+            if hasattr(self, 'analysis_log'):
+                self.analysis_log.append(f"✅ 分析步完成: {step_name}")
+        except Exception as e:
+            if hasattr(self, 'analysis_log'):
+                self.analysis_log.append(f"步骤完成处理失败: {e}")
 
     def analysis_finished(self):
         """分析完成"""
@@ -1395,30 +1422,21 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'analysis_log'):
                 self.analysis_log.append("分析成功完成！")
 
-            # 优先使用 Analyzer 的真实结果
-            try:
-                if hasattr(self, 'analyzer') and hasattr(self.analyzer, 'analysis_results') and self.analyzer.analysis_results:
-                    last_result = self.analyzer.analysis_results[-1]
-                elif hasattr(self, 'analysis_results') and self.analysis_results:
-                    last_result = self.analysis_results[-1]
-                else:
-                    last_result = None
-            except Exception:
-                last_result = None
-
+            # 获取真实计算结果
             model_data = getattr(self.preprocessor, 'fpn_data', None)
-            if model_data and last_result:
+            if hasattr(self, 'analyzer') and hasattr(self.analyzer, 'analysis_results') and self.analyzer.analysis_results:
+                last_result = self.analyzer.analysis_results[-1]
                 try:
                     self.postprocessor.set_analysis_results(model_data, last_result)
-                    self.status_label.setText("分析完成，结果已加载到后处理模块。")
+                    self.status_label.setText("分析完成，真实结果已加载到后处理模块。")
                 except Exception as e:
                     if hasattr(self, 'analysis_log'):
                         self.analysis_log.append(f"设置后处理结果失败: {e}")
-                    # 回退到示例结果
-                    self.postprocessor.create_sample_results()
+                    self.status_label.setText("分析完成，但结果加载失败")
             else:
-                # 如果没有真实结果，加载示例结果用于演示
-                self.postprocessor.create_sample_results()
+                if hasattr(self, 'analysis_log'):
+                    self.analysis_log.append("⚠️ 未获取到计算结果")
+                self.status_label.setText("分析完成，但未获取到结果")
 
             # 自动切换到后处理标签页
             try:
