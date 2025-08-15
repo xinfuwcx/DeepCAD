@@ -1,0 +1,109 @@
+{
+  "app_info": {
+    "Name": "Example2 - DeepCAD System Test Program",
+    "Version": "1.0.0",
+    "Type": "Desktop CAE Application",
+    "GUI Framework": "PyQt6",
+    "3D Visualization": "PyVista + VTK",
+    "Analysis Engine": "Kratos Multiphysics",
+    "Target Domain": "Geotechnical Engineering",
+    "Specialization": "Multi-stage Excavation Analysis"
+  },
+  "fpn_analysis": {
+    "基坑两阶段1fpn.fpn": {
+      "size_mb": 5.76,
+      "total_lines": 107616,
+      "node_references": 14393,
+      "element_references": 0,
+      "material_references": 0,
+      "stage_references": 2,
+      "format": "MIDAS GTS NX"
+    },
+    "两阶段计算2.fpn": {
+      "size_mb": 25.23,
+      "total_lines": 411531,
+      "node_references": 93715,
+      "element_references": 0,
+      "material_references": 0,
+      "stage_references": 2,
+      "format": "MIDAS GTS NX"
+    }
+  },
+  "modules": {
+    "preprocessor": {
+      "size": 90811,
+      "features": {
+        "fpn_loading": true,
+        "mesh_generation": true,
+        "3d_visualization": true,
+        "material_management": true,
+        "analysis_stages": true,
+        "excavation_support": true
+      }
+    },
+    "analyzer": {
+      "size": 32732,
+      "features": {
+        "multi_step_analysis": true,
+        "kratos_integration": true,
+        "parallel_processing": true,
+        "result_monitoring": true,
+        "error_handling": true
+      }
+    },
+    "postprocessor": {
+      "size": 28807,
+      "features": {
+        "result_visualization": true,
+        "contour_plots": true,
+        "animation_support": true,
+        "export_capabilities": true
+      }
+    }
+  },
+  "excavation": {
+    "excavation_detection": true,
+    "multi_stage_support": true,
+    "material_filtering": true,
+    "stage_switching": true,
+    "gui_integration": true,
+    "chinese_support": true
+  },
+  "workflow": {
+    "steps": [
+      [
+        "1. Launch Application",
+        "python main.py (full GUI) or python simple_stable_gui.py (test)"
+      ],
+      [
+        "2. Load FPN Model",
+        "Import MIDAS GTS NX model file (基坑两阶段1fpn.fpn, 两阶段计算2.fpn)"
+      ],
+      [
+        "3. Model Review",
+        "3D visualization, mesh inspection, material properties"
+      ],
+      [
+        "4. Analysis Setup",
+        "Configure excavation stages, boundary conditions"
+      ],
+      [
+        "5. Multi-Stage Analysis",
+        "Run FEM analysis with Kratos Multiphysics"
+      ],
+      [
+        "6. Results Review",
+        "Stage-by-stage result comparison, excavation effects"
+      ],
+      [
+        "7. Export Results",
+        "VTU files, reports, visualizations"
+      ]
+    ],
+    "startup_options": [
+      "main.py",
+      "simple_stable_gui.py",
+      "simple_gui_test.py"
+    ]
+  }
+}
