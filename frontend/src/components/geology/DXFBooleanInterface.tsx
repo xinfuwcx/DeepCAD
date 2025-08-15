@@ -13,7 +13,7 @@ import {
 } from 'antd';
 import { 
   UploadOutlined, FolderOpenOutlined, ScissorOutlined,
-  UnionOutlined, BorderOutlined, IntersectionOutlined,
+  BorderOutlined, InteractionOutlined, NodeIndexOutlined,
   EyeOutlined, SettingOutlined, CheckCircleOutlined,
   ExclamationCircleOutlined, PlayCircleOutlined,
   PauseCircleOutlined, RedoOutlined, FileSearchOutlined,
@@ -314,7 +314,7 @@ const DXFBooleanInterface: React.FC<DXFBooleanInterfaceProps> = ({
                 }} 
               />
               <Text>{layer.name}</Text>
-              <Tag size="small">{layer.entityCount}</Tag>
+              <Tag>{layer.entityCount}</Tag>
             </Space>
           ),
           key: `${file.fileName}-${layer.name}`,
@@ -356,7 +356,7 @@ const DXFBooleanInterface: React.FC<DXFBooleanInterfaceProps> = ({
       key: 'type',
       width: 80,
       render: (type: string) => (
-        <Tag color="purple" size="small">{type}</Tag>
+  <Tag color="purple">{type}</Tag>
       )
     },
     {
@@ -634,10 +634,10 @@ const DXFBooleanInterface: React.FC<DXFBooleanInterfaceProps> = ({
                       onChange={(value) => setBooleanConfig(prev => ({...prev, operation: value}))}
                     >
                       <Option value="union">
-                        <Space><UnionOutlined />并集</Space>
+                        <Space><NodeIndexOutlined />并集</Space>
                       </Option>
                       <Option value="intersection">
-                        <Space><IntersectionOutlined />交集</Space>
+                        <Space><InteractionOutlined />交集</Space>
                       </Option>
                       <Option value="difference">
                         <Space><ScissorOutlined />差集</Space>
@@ -811,7 +811,7 @@ const DXFBooleanInterface: React.FC<DXFBooleanInterfaceProps> = ({
                               <Space>
                                 <CheckCircleOutlined style={{ color: 'var(--success-color)' }} />
                                 <Text strong>{result.operationType.toUpperCase()}</Text>
-                                <Tag size="small">{result.resultEntities.length}个实体</Tag>
+                                <Tag>{result.resultEntities.length}个实体</Tag>
                               </Space>
                               <Text style={{ fontSize: '11px' }}>
                                 {result.processingTime.toFixed(1)}s

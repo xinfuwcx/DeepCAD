@@ -1,9 +1,16 @@
 import numpy as np
 from scipy.interpolate import Rbf
 from typing import List, Dict, Tuple
-import pyvista as pv
 import os
 import uuid
+
+# 懒加载 PyVista，避免在模块导入阶段因缺失而崩溃
+PV_AVAILABLE = False
+try:
+    import pyvista as pv  # type: ignore
+    PV_AVAILABLE = True
+except Exception:
+    PV_AVAILABLE = False
 
 class SoilLayerGenerator:
     """
@@ -20,7 +27,6 @@ class SoilLayerGenerator:
     ):
         if not boreholes:
             raise ValueError("Borehole data cannot be empty.")
-            
         self.boreholes = np.array([[p['x'], p['y'], p['z']] for p in boreholes])
         self.domain_expansion = domain_expansion
         self.bottom_elevation = bottom_elevation
@@ -61,6 +67,11 @@ class SoilLayerGenerator:
         Generates the surface mesh and exports it directly to a glTF file.
         Returns the path to the generated file.
         """
+        # 延迟导入 PyVista，避免服务启动时因未安装而失败
+        try:
+            import pyvista as pv  # type: ignore
+        except Exception as e:
+            raise RuntimeError(f"PyVista 未安装或不可用，无法导出 glTF: {e}")
         self._train()
         
         min_coords = self.points_xy.min(axis=0) - self.domain_expansion

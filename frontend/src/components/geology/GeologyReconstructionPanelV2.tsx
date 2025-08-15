@@ -10,13 +10,16 @@
  * 后续阶段将补齐: 质量评估(RMSEz/H)、回退、缓存、水头参数细节、预览/commit API 对接、钻孔数据联动等。
  */
 import React, { useState, useMemo } from 'react';
-import { Card, Tabs, Radio, Slider, InputNumber, Row, Col, Space, Switch, Tag, Button, Typography, Alert, Tooltip, Divider, Segmented, message, Upload, Table, Statistic, Popconfirm, Form, Input, Select, Progress } from 'antd';
+import { Card, Tabs, Radio, Slider, InputNumber, Row, Col, Space, Switch, Tag, Button, Typography, Alert, Tooltip, Divider, Segmented, message, Upload, Table, Statistic, Popconfirm, Form, Input, Select } from 'antd';
 import { ExperimentOutlined, DeploymentUnitOutlined, DatabaseOutlined, ThunderboltOutlined, AimOutlined, CheckCircleTwoTone, WarningTwoTone, CloseCircleTwoTone, CloudUploadOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons';
 // Stage E: 3D 视口
 import GeologyReconstructionViewport3D from './GeologyReconstructionViewport3D';
 import { previewGeology, commitGeology } from '../../services/geologyReconstructionApi';
 import { geologyReconCache } from '../../services/geologyReconCache';
 import Papa from 'papaparse';
+import InterpolationParamsConfig from './InterpolationParamsConfig';
+import KrigingParamsPanel, { KrigingParams } from './KrigingParamsPanel';
+import AdaptiveIDWParamsPanel, { AdaptiveIDWParams } from './AdaptiveIDWParamsPanel';
 
 const { Text, Title } = Typography;
 
@@ -77,6 +80,7 @@ const GeologyReconstructionPanelV2: React.FC = () => {
   // Stage E: 3D 预览开关
   const [show3D, setShow3D] = useState(false);
   const [roiAdjusted, setRoiAdjusted] = useState(false);
+  const [serverThreeJsData, setServerThreeJsData] = useState<Record<string, any> | null>(null);
   const [showDomainBox, setShowDomainBox] = useState(true);
   const [show3DBoreholes, setShow3DBoreholes] = useState(true);
   const [boreholeOpacity3D, setBoreholeOpacity3D] = useState(0.85);
@@ -88,6 +92,18 @@ const GeologyReconstructionPanelV2: React.FC = () => {
   const [baselineHash, setBaselineHash] = useState<string | null>(geologyReconCache.getBaseline());
   const [cacheFilter, setCacheFilter] = useState('');
   const [showHotkeyHelp, setShowHotkeyHelp] = useState(false);
+
+  // ——— 算法参数配置（新增） ———
+  type Algorithm = 'rbf' | 'ordinary_kriging' | 'adaptive_idw';
+  const [algorithm, setAlgorithm] = useState<Algorithm>('rbf');
+  const [rbfParams, setRbfParams] = useState<any>({});
+  const [krigingParams, setKrigingParams] = useState<KrigingParams>({
+    variogramModel: 'spherical', range: 100, sill: 1, nugget: 0.1,
+    searchRadius: 150, minSamples: 3, maxSamples: 12, anisotropy: false, anisotropyRatio: 1
+  });
+  const [idwParams, setIdwParams] = useState<AdaptiveIDWParams>({
+    power: 2, minNeighbors: 3, maxNeighbors: 12, searchRadius: 150, adaptive: true, powerMin: 1, powerMax: 3, weighting: 'distance'
+  });
 
   // Mini sparkline component (inline to avoid external deps)
   const MiniQualityChart: React.FC<{ data: QualityHistItem[]; metric: 'rmseZ'|'rmseH'; title: string }> = ({ data, metric, title }) => {
@@ -201,11 +217,15 @@ const GeologyReconstructionPanelV2: React.FC = () => {
     const cacheEntry = geologyReconCache.get(globalHash);
     if (cacheEntry){
       setQuality(cacheEntry.quality); setFallbackUsed(cacheEntry.fallback); setCacheHit(true); setRoiAdjusted(!!cacheEntry.roiAdjusted);
+      setServerThreeJsData((cacheEntry as any).threeJsData || null);
       setPreviewing(false); message.success('缓存命中'); return;
     }
     try {
-  const resp = await previewGeology({ hash: globalHash, domain, boreholes, waterHead: waterParams, options:{ roiEnabled: domain.roiEnabled, fallbackPolicy } });
+  const algoForApi = (algorithm==='rbf'? 'rbf' : algorithm==='ordinary_kriging'? 'kriging' : 'idw') as any;
+  const algoParams = algorithm==='rbf' ? rbfParams : (algorithm==='ordinary_kriging' ? krigingParams : idwParams);
+      const resp = await previewGeology({ hash: globalHash, domain, boreholes, waterHead: waterParams, algorithm: algoForApi, algorithmParams: algoParams, options:{ roiEnabled: domain.roiEnabled, fallbackPolicy } });
       setQuality(resp.quality); setFallbackUsed(resp.fallback); setRoiAdjusted(!!resp.roiAdjusted);
+      setServerThreeJsData(resp.threeJsData || null);
       geologyReconCache.set({
         hash: globalHash,
         quality: resp.quality,
@@ -213,14 +233,18 @@ const GeologyReconstructionPanelV2: React.FC = () => {
         ts: Date.now(),
         roiAdjusted: !!resp.roiAdjusted,
         source: resp.source,
-        memMB: memoryMB,
-        sec: timeSec,
+        memMB: resp.serverCost?.memMB ?? memoryMB,
+        sec: resp.serverCost?.sec ?? timeSec,
         fallbackPolicy,
+        algorithm: (algorithm==='rbf'? 'rbf': algorithm==='ordinary_kriging'? 'kriging':'idw'),
+        algorithmParams: (algorithm==='rbf'? rbfParams: algorithm==='ordinary_kriging'? krigingParams: idwParams),
         domainSnapshot: domain,
         waterHeadSnapshot: waterParams,
         N,
-        domainVolume: domainVolume ?? undefined,
-        avgCellVol: avgCellVol ?? undefined
+        domainVolume: (resp.serverMeta?.domainVolume ?? domainVolume) ?? undefined,
+        avgCellVol: (resp.serverMeta?.avgCellVol ?? avgCellVol) ?? undefined,
+        // store threeJsData for quick re-open of 3D
+        ...(resp.threeJsData ? { threeJsData: resp.threeJsData } : {}) as any
       });
   setCacheVersion(v=>v+1);
       setQualityHistory(h=>{
@@ -238,17 +262,21 @@ const GeologyReconstructionPanelV2: React.FC = () => {
     if (!quality) { message.warning('请先预览并生成质量指标'); return; }
     setSubmitting(true);
     try {
-  const resp = await commitGeology({ hash: globalHash, domain, boreholes, waterHead: waterParams, options:{ roiEnabled: domain.roiEnabled, fallbackPolicy } });
+  const algoForApi = (algorithm==='rbf'? 'rbf' : algorithm==='ordinary_kriging'? 'kriging' : 'idw') as any;
+  const algoParams = algorithm==='rbf' ? rbfParams : (algorithm==='ordinary_kriging' ? krigingParams : idwParams);
+  const resp = await commitGeology({ hash: globalHash, domain, boreholes, waterHead: waterParams, algorithm: algoForApi, algorithmParams: algoParams, options:{ roiEnabled: domain.roiEnabled, fallbackPolicy } });
       message.success(`提交完成 任务ID=${resp.taskId}`);
     } catch(e:any){ message.error('提交失败: '+e.message);} finally { setSubmitting(false); }
   };
   const handleCancel = () => { setDomain(defaultDomain); setQuality(null); setCacheHit(false); setFallbackUsed(false); setRoiAdjusted(false); };
+  
 
   const globalHash = useMemo(()=>{
-    const sig = JSON.stringify({v:3,domain,holes:boreholes.length,layers:boreholes.reduce((s,h)=>s+(h.layers?.length||0),0),water:waterParams});
+    const algoParams = algorithm==='rbf' ? rbfParams : (algorithm==='ordinary_kriging' ? krigingParams : idwParams);
+    const sig = JSON.stringify({v:4,domain,holes:boreholes.length,layers:boreholes.reduce((s,h)=>s+(h.layers?.length||0),0),water:waterParams,algorithm,algoParams});
     let h=0; for (let i=0;i<sig.length;i++){ h = (h*131 + sig.charCodeAt(i))>>>0; }
     return h.toString(16).padStart(8,'0');
-  },[domain,boreholes,waterParams]);
+  },[domain,boreholes,waterParams,algorithm,rbfParams,krigingParams,idwParams]);
 
   // ---- Stage B: 解析函数 ----
   const HOLE_SOFT_LIMIT = 300;
@@ -271,8 +299,8 @@ const GeologyReconstructionPanelV2: React.FC = () => {
   }
   function parseCsv(text: string) {
     // 期望列: id,x,y,elevation,layer,top,bottom 或 formation,z
-    const { data, meta } = Papa.parse(text, { header: true, skipEmptyLines: true });
-    const rows: any[] = data as any[];
+  const { data } = Papa.parse(text, { header: true, skipEmptyLines: true });
+  const rows: any[] = data as any[];
     // 按 id 分组
     const holeMap: Record<string, any> = {};
     rows.forEach((r, idx) => {
@@ -324,17 +352,17 @@ const GeologyReconstructionPanelV2: React.FC = () => {
 
   const boreholeColumns = [
     { title: '孔ID', dataIndex: 'id', key: 'id', width: 110, fixed: 'left' as const },
-    { title: 'X', dataIndex: 'x', width: 90, render:(v)=> v?.toFixed? v.toFixed(2): v },
-    { title: 'Y', dataIndex: 'y', width: 90, render:(v)=> v?.toFixed? v.toFixed(2): v },
-    { title: '地面标高', dataIndex: 'elevation', width: 110, render:(v)=> v?.toFixed? v.toFixed(2): v },
+  { title: 'X', dataIndex: 'x', width: 90, render:(v: any)=> v?.toFixed? v.toFixed(2): v },
+  { title: 'Y', dataIndex: 'y', width: 90, render:(v: any)=> v?.toFixed? v.toFixed(2): v },
+  { title: '地面标高', dataIndex: 'elevation', width: 110, render:(v: any)=> v?.toFixed? v.toFixed(2): v },
     { title: '层数', width: 80, render: (_:any, r:any)=> r.layers?.length || 0 },
   ];
 
   const expandedRowRender = (record: any) => {
     const cols = [
       { title: '层名称', dataIndex: 'name', key: 'name', width: 140 },
-      { title: '顶深', dataIndex: 'topDepth', width: 80, render:(v)=> v?.toFixed? v.toFixed(2): v },
-      { title: '底深', dataIndex: 'bottomDepth', width: 80, render:(v)=> v?.toFixed? v.toFixed(2): v },
+  { title: '顶深', dataIndex: 'topDepth', width: 80, render:(v: any)=> v?.toFixed? v.toFixed(2): v },
+  { title: '底深', dataIndex: 'bottomDepth', width: 80, render:(v: any)=> v?.toFixed? v.toFixed(2): v },
       { title: '厚度', key: 'thk', width: 80, render: (_:any, l:any)=> ((l.bottomDepth??0)-(l.topDepth??0)).toFixed(2) },
     ];
     return <Table size="small" columns={cols} dataSource={record.layers?.map((l:any,i:number)=>({...l,key:i}))} pagination={false} rowKey="key" />;
@@ -728,6 +756,31 @@ const GeologyReconstructionPanelV2: React.FC = () => {
 
   const advancedTab = (
     <Space direction="vertical" style={{ width:'100%' }} size="middle">
+      <Card size="small" title={<Space><ThunderboltOutlined />算法参数</Space>} bodyStyle={{ padding: 12 }}>
+        <Space direction="vertical" style={{ width:'100%' }} size={8}>
+          <Form layout="inline" size="small">
+            <Form.Item label="算法">
+              <Select value={algorithm} onChange={(v)=> setAlgorithm(v)} style={{ minWidth: 180 }}>
+                <Select.Option value="rbf">RBF 多二次</Select.Option>
+                <Select.Option value="ordinary_kriging">普通克里金</Select.Option>
+                <Select.Option value="adaptive_idw">自适应IDW</Select.Option>
+              </Select>
+            </Form.Item>
+          </Form>
+          {algorithm==='rbf' && (
+            <InterpolationParamsConfig
+              onRBFParamsChange={(p)=> setRbfParams(p)}
+              isLoading={previewing || submitting}
+            />
+          )}
+          {algorithm==='ordinary_kriging' && (
+            <KrigingParamsPanel value={krigingParams} onChange={setKrigingParams} disabled={previewing || submitting} />
+          )}
+          {algorithm==='adaptive_idw' && (
+            <AdaptiveIDWParamsPanel value={idwParams} onChange={setIdwParams} disabled={previewing || submitting} />
+          )}
+        </Space>
+      </Card>
       <Card size="small" title={<Space><ThunderboltOutlined />缓存管理</Space>} bodyStyle={{ padding: 12 }}>
         <Space wrap style={{ marginBottom:8 }}>
           <Button size="small" onClick={()=>{
@@ -907,6 +960,7 @@ const GeologyReconstructionPanelV2: React.FC = () => {
           </div>
           <GeologyReconstructionViewport3D
             boreholeData={borehole3DData}
+            threeJsData={serverThreeJsData || undefined}
             domainBox={showDomainBox ? (domain.mode==='auto' && autoBounds ? {
               xmin: autoBounds.x.lo,
               xmax: autoBounds.x.hi,
