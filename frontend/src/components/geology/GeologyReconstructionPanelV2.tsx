@@ -1375,7 +1375,7 @@ const GeologyReconstructionPanelV2: React.FC<GeologyReconstructionPanelProps> = 
                 </div>
               </>
             ) : (
-              <div style={{ textAlign: 'center', padding: '60px 0' }}>
+              <div style={{ textAlign: 'center', padding: '24px 0' }}>
                 <Text type="secondary">请先完成数据上传和参数配置，然后开始重建</Text>
               </div>
             )}
@@ -1392,8 +1392,8 @@ const GeologyReconstructionPanelV2: React.FC<GeologyReconstructionPanelProps> = 
         </span>
       ),
       children: (
-        <Card size="small">
-          <div style={{ height: 500 }}>
+        <Card size="small" bodyStyle={{ padding: 0 }}>
+          <div style={{ height: 'auto' }}>
             <GeologyReconstructionViewport3D />
           </div>
         </Card>
@@ -1452,9 +1452,10 @@ const GeologyReconstructionPanelV2: React.FC<GeologyReconstructionPanelProps> = 
   ];
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    // 说明：避免在侧边面板中强制占满高度，改为自适应内容高度，减少大面积留白；整体做紧凑化处理
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {/* 遥测栏 */}
-      <Card size="small" style={{ marginBottom: 16 }}>
+      <Card size="small" style={{ marginBottom: 8 }}>
         <Row gutter={16} align="middle">
           <Col flex="auto">
             <Space>
@@ -1556,8 +1557,8 @@ const GeologyReconstructionPanelV2: React.FC<GeologyReconstructionPanelProps> = 
         )}
       </Card>
 
-      {/* 主要内容区域 */}
-      <Card style={{ flex: 1 }}>
+  {/* 主要内容区域：不再使用 flex:1 拉伸，保持随内容自适应高度；紧凑化内边距 */}
+  <Card size="small" bodyStyle={{ padding: 8 }}>
         <Tabs
           defaultActiveKey="params"
           items={tabItems}
@@ -1581,7 +1582,7 @@ const GeologyReconstructionPanelV2: React.FC<GeologyReconstructionPanelProps> = 
           </Button>
         ]}
       >
-        <div style={{ height: 400 }}>
+        <div style={{ height: 300 }}>
           <GeologyReconstructionViewport3D />
         </div>
       </Modal>

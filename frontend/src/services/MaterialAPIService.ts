@@ -2,7 +2,7 @@
  * 材料API服务 - 连接后端材料库API
  */
 
-import { MaterialDefinition } from '../interfaces/MaterialInterfaces';
+import { MaterialDefinition, ConstitutiveModel } from '../interfaces/MaterialInterfaces';
 
 export interface MaterialAPIResponse {
   status: string;
@@ -31,22 +31,22 @@ export class MaterialAPIService {
   async getMaterials(): Promise<any[]> {
     try {
       console.log('正在从后端获取材料列表...');
-      const response = await fetch(`${this.baseURL}/list`);
+      const response = await fetch(`${this.baseURL}/`);
       console.log('后端API响应状态:', response.status);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
-      const data: MaterialAPIResponse = await response.json();
+      const data = await response.json();
       console.log('后端API响应数据:', data);
       
-      if (data.status === 'success' && data.materials) {
-        console.log('成功获取材料数据，数量:', data.materials.length);
-        return data.materials;
+      if (Array.isArray(data)) {
+        console.log('成功获取材料数据，数量:', data.length);
+        return data;
       }
       
-      throw new Error(data.message || '获取材料列表失败');
+      throw new Error('获取材料列表失败：响应格式错误');
     } catch (error) {
       console.error('获取材料列表失败:', error);
       throw error;
@@ -134,27 +134,32 @@ export class MaterialAPIService {
    * 转换后端材料数据格式为前端格式
    */
   convertFromBackend(backendMaterial: any): MaterialDefinition {
+    console.log('MaterialAPIService: 转换材料数据:', backendMaterial);
+    
+    const params = backendMaterial.parameters || {};
+    console.log('MaterialAPIService: 参数:', params);
+    
     return {
       id: backendMaterial.id,
       name: backendMaterial.name,
-      type: this.mapMaterialType(backendMaterial.material_type),
-      constitutiveModel: this.mapConstitutiveModel(backendMaterial.constitutive_model),
+      type: this.mapMaterialType(backendMaterial.type),
+      constitutiveModel: ConstitutiveModel.LINEAR_ELASTIC,
       properties: {
-        density: backendMaterial.properties.density,
-        elasticModulus: backendMaterial.properties.elasticModulus,
-        poissonRatio: backendMaterial.properties.poissonRatio,
+        density: params.density || 2000,
+        elasticModulus: params.elasticModulus || 20000,
+        poissonRatio: params.poissonRatio || 0.25,
         // 根据材料类型添加特定属性
-        ...this.getTypeSpecificProperties(backendMaterial)
+        ...this.getTypeSpecificPropertiesFromParams(backendMaterial)
       },
-      description: backendMaterial.description || '',
-      standard: backendMaterial.source || '',
-      created: new Date(backendMaterial.created_at),
-      modified: new Date(backendMaterial.updated_at),
+      description: `来自后端的${backendMaterial.name}材料`,
+      standard: '系统默认',
+      created: new Date(),
+      modified: new Date(),
       version: '1.0.0',
       validated: true,
-      reliability: backendMaterial.reliability || 'empirical',
-      tags: backendMaterial.tags || [],
-      category: backendMaterial.category || ''
+      reliability: 'standard',
+      tags: [backendMaterial.type],
+      category: '系统材料'
     };
   }
 
@@ -235,6 +240,34 @@ export class MaterialAPIService {
         return {
           yieldStrength: props.yieldStrength || 355e6,
           ultimateStrength: props.ultimateStrength || 490e6
+        };
+      
+      default:
+        return {};
+    }
+  }
+
+  private getTypeSpecificPropertiesFromParams(backendMaterial: any): any {
+    const params = backendMaterial.parameters || {};
+    
+    switch (backendMaterial.type) {
+      case 'soil':
+        return {
+          cohesion: params.cohesion || 0,
+          frictionAngle: params.frictionAngle || 30,
+          permeability: params.permeability || 1e-7
+        };
+      
+      case 'concrete':
+        return {
+          compressiveStrength: params.compressiveStrength || 30e6,
+          tensileStrength: params.tensileStrength || 3e6
+        };
+      
+      case 'steel':
+        return {
+          yieldStrength: params.yieldStrength || 355e6,
+          ultimateStrength: params.ultimateStrength || 490e6
         };
       
       default:

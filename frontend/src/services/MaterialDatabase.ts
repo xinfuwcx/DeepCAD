@@ -6,7 +6,6 @@
 import { 
   MaterialDefinition, 
   MaterialLibrary, 
-  MaterialType, 
   ConstitutiveModel,
   MaterialSearchCriteria,
   MaterialValidationResult,
@@ -87,19 +86,30 @@ export class MaterialDatabase {
       
       if (backendMaterials && backendMaterials.length > 0) {
         // 转换后端数据格式并添加到本地数据库
-        for (const backendMaterial of backendMaterials) {
-          const material = materialAPIService.convertFromBackend(backendMaterial);
-          console.log('MaterialDatabase: 转换材料:', material.name);
-          this.materials.set(material.id, material);
-          
-          // 添加到默认库
-          const library = this.libraries.get(this.defaultLibraryId)!;
-          library.materials.push(material);
+        for (let i = 0; i < backendMaterials.length; i++) {
+          try {
+            const backendMaterial = backendMaterials[i];
+            console.log(`MaterialDatabase: 处理第${i+1}个材料:`, backendMaterial);
+            
+            const material = materialAPIService.convertFromBackend(backendMaterial);
+            console.log('MaterialDatabase: 转换后的材料:', material);
+            
+            this.materials.set(material.id, material);
+            
+            // 添加到默认库
+            const library = this.libraries.get(this.defaultLibraryId)!;
+            library.materials.push(material);
+            
+            console.log(`MaterialDatabase: 第${i+1}个材料 "${material.name}" 添加成功`);
+          } catch (error) {
+            console.error(`MaterialDatabase: 转换第${i+1}个材料失败:`, error);
+            // 继续处理下一个材料，不要因为一个失败就停止
+          }
         }
         
-        console.log('MaterialDatabase: 成功加载', backendMaterials.length, '个材料');
+        console.log('MaterialDatabase: 成功加载', this.materials.size, '个材料');
         logger.info('从后端API加载材料成功', { 
-          materialCount: backendMaterials.length 
+          materialCount: this.materials.size 
         });
         
         return;
@@ -115,7 +125,7 @@ export class MaterialDatabase {
       {
         id: 'concrete_c30',
         name: 'C30混凝土',
-        type: MaterialType.CONCRETE,
+        type: 'CONCRETE',
         constitutiveModel: ConstitutiveModel.LINEAR_ELASTIC,
         properties: {
           density: 2400,
@@ -570,7 +580,7 @@ export class MaterialDatabase {
    * 获取数据库统计信息
    */
   public getStatistics() {
-    const materialsByType = new Map<MaterialType, number>();
+    const materialsByType = new Map<string, number>();
     const materialsByModel = new Map<ConstitutiveModel, number>();
     let validatedCount = 0;
     let totalUsage = 0;

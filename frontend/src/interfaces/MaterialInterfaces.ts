@@ -132,6 +132,7 @@ export interface RockMaterialProperties extends BaseMaterialProperties {
 export interface MaterialDefinition {
   id: string;                          // 材料ID
   name: string;                        // 材料名称
+  type?: string;                       // 材料类型（可选，兼容性字段）
   constitutiveModel: ConstitutiveModel; // 本构模型
   
   // 材料属性（统一使用通用属性接口）
@@ -186,6 +187,7 @@ export interface MaterialLibrary {
 export interface MaterialSearchCriteria {
   // 基本搜索
   name?: string;                       // 名称关键词
+  type?: string[];                     // 材料类型筛选（兼容性字段）
   model?: ConstitutiveModel[];         // 本构模型筛选
   
   // 属性范围筛选

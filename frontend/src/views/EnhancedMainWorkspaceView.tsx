@@ -64,7 +64,7 @@ const { Title, Text } = Typography;
 interface EnhancedMainWorkspaceViewProps {
   activeModule?: string;
 }
-
+ 
 // 面板状态类型
 type PanelState = 'normal' | 'collapsed' | 'expanded' | 'floating';
 
@@ -80,7 +80,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
     style.textContent = `
       @keyframes pulse {
         0% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.5; transform: scale(1.2); }
+        50% { opacity: .6; transform: scale(0.98); }
         100% { opacity: 1; transform: scale(1); }
       }
       .expert-panel-header {
@@ -89,23 +89,27 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
       }
     `;
     document.head.appendChild(style);
-    
-    return () => {
-      if (style && style.parentNode && style.parentNode.contains(style)) {
-        style.parentNode.removeChild(style);
-      }
+    return () => { try { document.head.removeChild(style); } catch {}
     };
   }, []);
   const { themeConfig } = useDeepCADTheme();
-  const { 
-    layoutConfig, 
-    
-    touchOptimizations,
-    performanceOptimizations,
-    isTouch, 
-    isMobile, 
-    
-  } = useResponsiveLayout();
+  const { layoutConfig, isMobile } = useResponsiveLayout();
+
+  // 安全默认：触摸与性能优化参数（避免未定义变量导致运行时错误）
+  const isTouch = typeof window !== 'undefined' && (
+    ('ontouchstart' in window) ||
+    // @ts-ignore - Navigator may not have maxTouchPoints in some environments
+    (typeof navigator !== 'undefined' && (navigator as any).maxTouchPoints > 0)
+  );
+  const touchOptimizations = {
+    minButtonSize: 44,
+    spacing: 16,
+    animations: { duration: isMobile ? 200 : 300, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' }
+  };
+  const performanceOptimizations = {
+    lowerParticleCount: !!isMobile,
+    disableBlur: false
+  };
   
   // 响应式面板状态管理
   const [leftPanelState, setLeftPanelState] = useState<PanelState>(
@@ -1069,7 +1073,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           }
           size="small"
           style={{
-            height: '100%',
+            height: activeModule === 'geology-reconstruction' ? 'auto' : '100%',
             background: `rgba(${parseInt(themeConfig.colors.background.secondary.slice(1, 3), 16)}, ${parseInt(themeConfig.colors.background.secondary.slice(3, 5), 16)}, ${parseInt(themeConfig.colors.background.secondary.slice(5, 7), 16)}, ${themeConfig.effects.glassOpacity})`,
             backdropFilter: 'blur(20px)',
             border: `1px solid ${themeConfig.colors.border.primary}`,
@@ -1077,10 +1081,10 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
           }}
           bodyStyle={{
             padding: '12px',
-            height: 'calc(100% - 60px)',
-            overflowY: 'auto',
-            display: 'flex',
-            flexDirection: 'column'
+            height: activeModule === 'geology-reconstruction' ? 'auto' : 'calc(100% - 60px)',
+            overflowY: activeModule === 'geology-reconstruction' ? 'visible' : 'auto',
+            display: activeModule === 'geology-reconstruction' ? 'block' : 'flex',
+            flexDirection: activeModule === 'geology-reconstruction' ? undefined : 'column'
           }}
         >
           <Tabs
@@ -1088,8 +1092,7 @@ const EnhancedMainWorkspaceView: React.FC<EnhancedMainWorkspaceViewProps> = ({
             size="small"
             tabPosition="top"
             style={{ 
-              height: 'auto',
-              minHeight: '100%'
+              height: 'auto'
             }}
             tabBarStyle={{
               marginBottom: '8px'

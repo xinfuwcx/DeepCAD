@@ -229,27 +229,28 @@ const MaterialLibraryView: React.FC = () => {
       console.log('MaterialLibraryView: 开始从后端加载材料...');
 
       // 尝试从后端API加载材料
-      const response = await fetch('http://localhost:8000/api/materials/list');
+      const response = await fetch('http://localhost:8000/api/materials/');
 
       if (response.ok) {
         const data = await response.json();
         console.log('MaterialLibraryView: 后端API响应:', data);
 
-        if (data.status === 'success' && data.materials) {
+        if (Array.isArray(data)) {
           // 转换后端数据格式为前端格式
-          const convertedMaterials = data.materials.map((backendMaterial: any) => {
+          const convertedMaterials = data.map((backendMaterial: any) => {
+            // 后端数据结构：{id, name, type, parameters: {density, elasticModulus, poissonRatio}}
             const material: MaterialDefinition = {
               id: backendMaterial.id,
               name: backendMaterial.name,
-              description: backendMaterial.description || '从后端导入的材料',
-              constitutive_model: backendMaterial.constitutive_model === 'MOHR_COULOMB' ? 'mohr_coulomb' : 'linear_elastic',
+              description: `从后端导入的${backendMaterial.name}`,
+              constitutive_model: 'mohr_coulomb', // 默认使用莫尔-库伦模型
               parameters: {
-                density: Math.round(backendMaterial.properties.density || 1900),
-                unit_weight: Math.round((backendMaterial.properties.density || 1900) * 9.8 / 1000),
-                cohesion: Math.round((backendMaterial.properties.cohesion || 0) / 1000),
-                friction: Math.round(backendMaterial.properties.frictionAngle || 0),
-                elastic_modulus: Math.round((backendMaterial.properties.elasticModulus || 0) / 1000),
-                poisson_ratio: backendMaterial.properties.poissonRatio || 0.3
+                density: Math.round(backendMaterial.parameters?.density || 1900),
+                unit_weight: Math.round((backendMaterial.parameters?.density || 1900) * 9.8 / 1000),
+                cohesion: backendMaterial.type === 'soil' ? 20 : 0, // 土体默认粘聚力20kPa
+                friction: backendMaterial.type === 'soil' ? 25 : 0, // 土体默认摩擦角25度
+                elastic_modulus: Math.round((backendMaterial.parameters?.elasticModulus || 10000) / 1000), // 转换为kPa
+                poisson_ratio: backendMaterial.parameters?.poissonRatio || 0.3
               },
               is_default: false
             };
