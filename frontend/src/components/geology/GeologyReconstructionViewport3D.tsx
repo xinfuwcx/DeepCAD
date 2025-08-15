@@ -5,7 +5,12 @@
  */
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Space, message, Badge } from 'antd';
+import { Card, Space, Button, Tooltip, message, Switch, Slider, Select, Badge } from 'antd';
+import {
+  PlayCircleOutlined, PauseOutlined, ReloadOutlined, SettingOutlined,
+  EyeOutlined, EyeInvisibleOutlined, BorderOutlined, DashboardOutlined,
+  ThunderboltOutlined, ExperimentOutlined, EnvironmentOutlined
+} from '@ant-design/icons';
 import * as THREE from 'three';
 // @ts-ignore - types from examples
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
@@ -13,13 +18,13 @@ import { safeEmptyContainer } from '../../utils/threejsCleanup';
 
 // 导入现有的技术栈组件
 import { GeologicalThreeJSRenderer, GeologicalModelData, GeologicalFormationData } from '../../services/GeologicalThreeJSRenderer';
-import { PyVistaDataAPI } from '../../services/PyVistaIntegrationService';
-import { VerticalToolType } from '../geometry/VerticalToolbar';
+import { PyVistaDataAPI, PyVistaDataSet } from '../../services/PyVistaIntegrationService';
+import VerticalToolbar, { VerticalToolType } from '../geometry/VerticalToolbar';
 
 // 导入CAE引擎基础
 import { CAEThreeEngineCore, CAEThreeEngineProps } from '../3d/CAEThreeEngine';
 
-// no-op
+const { Option } = Select;
 
 // ==================== 接口定义 ====================
 
@@ -50,16 +55,6 @@ export interface GeologyReconstructionViewport3DProps {
   showToolbar?: boolean;
   showLayerControls?: boolean;
   enableAnimation?: boolean;
-  // 扩展：来自外部面板的可选辅助信息（用于渲染叠加/标注）
-  domainBox?: { xmin:number; xmax:number; ymin:number; ymax:number; zmin:number; zmax:number } | null;
-  baselineDomainBox?: { xmin:number; xmax:number; ymin:number; ymax:number; zmin:number; zmax:number } | null;
-  showBoreholesExternal?: boolean;
-  boreholeOpacity?: number;
-  resolution?: { nx:number; ny:number; nz:number };
-  baselineResolution?: { nx:number; ny:number; nz:number } | null;
-  domainVolume?: number;
-  avgCellVol?: number;
-  prevDomainVolume?: number;
 }
 
 interface BoreholeData {
@@ -111,7 +106,11 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
   externalExplodeOffset,
   externalScreenshotNonce,
   onToolSelect,
-  onRenderModeChange
+  onLayerVisibilityChange,
+  onRenderModeChange,
+  showToolbar = true,
+  showLayerControls = true,
+  enableAnimation = true
 }) => {
   // ==================== 状态管理 ====================
   
@@ -122,8 +121,12 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
   const animationFrameRef = useRef<number | null>(null);
   
   const [isInitialized, setIsInitialized] = useState(false);
+  const [activeTool, setActiveTool] = useState<VerticalToolType>('select');
   const [renderMode, setRenderMode] = useState<GeologyRenderMode>('solid');
-  
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [layerVisibility, setLayerVisibility] = useState<Record<string, boolean>>({});
+  const [globalOpacity, setGlobalOpacity] = useState(1.0);
+  const [showBoreholes, setShowBoreholes] = useState(true);
   const [sectionMode, setSectionMode] = useState(false);
   const [sectionPosition, setSectionPosition] = useState(0);
   const [sectionAxis, setSectionAxis] = useState<'x' | 'y' | 'z'>('x');
@@ -332,7 +335,11 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
       geologicalRendererRef.current.renderGeologicalModel(data);
       
       // 初始化图层可见性状态
-  // 初始化图层可见性（如需外部控制可扩展）
+      const visibility: Record<string, boolean> = {};
+      Object.keys(data.formations).forEach(formationId => {
+        visibility[formationId] = true;
+      });
+      setLayerVisibility(visibility);
       
       message.success(`地质模型加载完成：${data.statistics.formation_count} 个地层`);
       
@@ -464,7 +471,7 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
     const boreholesGroup = new THREE.Group();
     boreholesGroup.name = 'boreholes';
     
-  boreholes.forEach(borehole => {
+    boreholes.forEach(borehole => {
       const boreholeObject = createBoreholeVisualization(borehole);
       boreholesGroup.add(boreholeObject);
     });
@@ -479,7 +486,7 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
     
     // 钻孔柱状图
     let currentDepth = 0;
-  borehole.layers.forEach((layer) => {
+    borehole.layers.forEach((layer, index) => {
       const layerHeight = layer.bottomDepth - layer.topDepth;
       
       const geometry = new THREE.CylinderGeometry(0.5, 0.5, layerHeight, 8);
@@ -504,7 +511,8 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
     // 钻孔标签
     const labelGeometry = new THREE.SphereGeometry(0.8, 8, 6);
     const labelMaterial = new THREE.MeshBasicMaterial({ 
-      color: 0xff0000
+      color: 0xff0000,
+      emissive: 0x440000
     });
     const label = new THREE.Mesh(labelGeometry, labelMaterial);
     label.position.set(borehole.x, borehole.z + 1, borehole.y);
@@ -516,6 +524,7 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
   // ==================== 工具栏事件处理 ====================
 
   const handleToolSelect = useCallback((tool: VerticalToolType) => {
+    setActiveTool(tool);
     onToolSelect?.(tool);
     
     if (!caeEngineRef.current) return;
@@ -568,13 +577,25 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
         break;
         
       case 'select':
-        message.success('选择模式');
+        // 切换引擎交互模式为“选择”
+        try {
+          caeEngineRef.current.setInteractionMode?.('select');
+          message.success('选择模式');
+        } catch {}
         break;
+
       case 'pan':
-        message.success('平移模式');
+        try {
+          caeEngineRef.current.setInteractionMode?.('pan');
+          message.success('平移模式');
+        } catch {}
         break;
+
       case 'zoom':
-        message.success('缩放模式');
+        try {
+          caeEngineRef.current.setInteractionMode?.('zoom');
+          message.success('缩放模式');
+        } catch {}
         break;
 
       default:
@@ -649,11 +670,11 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
     const scene = engine.scene;
     const camera = engine.camera;
     const raycaster = new THREE.Raycaster();
-  const onClick = (e: MouseEvent) => {
+    const onClick = (e: MouseEvent) => {
       const rect = dom.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
+      raycaster.setFromCamera({ x, y }, camera);
       const intersects = raycaster.intersectObjects(scene.children, true);
       const hit = intersects.find(it => (it.object as any).isMesh);
       if (!hit) return;
@@ -692,11 +713,11 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
     const scene = engine.scene;
     const camera = engine.camera;
     const raycaster = new THREE.Raycaster();
-  const onClick = (e: MouseEvent) => {
+    const onClick = (e: MouseEvent) => {
       const rect = dom.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
+      raycaster.setFromCamera({ x, y }, camera);
       const intersects = raycaster.intersectObjects(scene.children, true);
       const hit = intersects.find(it => (it.object as any).isMesh);
       if (!hit) return;
@@ -858,14 +879,14 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
     const dom = (engine.renderer as any)?.domElement || containerRef.current;
     if (!dom) return;
 
-  const onClick = (e: MouseEvent) => {
+    const onClick = (e: MouseEvent) => {
       if (!isAnnotatingRef.current) return;
       const rect = (dom as HTMLElement).getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       const camera = engine.camera as THREE.PerspectiveCamera;
       const raycaster = new THREE.Raycaster();
-  raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
+      raycaster.setFromCamera({ x, y }, camera);
       // 仅对Mesh拾取
       const meshes: THREE.Object3D[] = [];
       engine.scene.traverse(obj => { if ((obj as any).isMesh) meshes.push(obj); });
@@ -943,11 +964,112 @@ const GeologyReconstructionViewport3D: React.FC<GeologyReconstructionViewport3DP
 
   // ==================== 图层控制 ====================
 
-  // 图层可见性控制已移除（由上层统一控制，如需恢复可在此实现）
+  const handleLayerVisibilityChange = (layerId: string, visible: boolean) => {
+    setLayerVisibility(prev => ({
+      ...prev,
+      [layerId]: visible
+    }));
+    
+    onLayerVisibilityChange?.(layerId, visible);
+    
+    // 更新场景中的图层可见性
+    if (caeEngineRef.current) {
+      const scene = caeEngineRef.current.scene;
+      const layerObject = scene.getObjectByName(`formation-${layerId}`);
+      if (layerObject) {
+        layerObject.visible = visible;
+      }
+    }
+  };
 
   // ==================== 渲染UI ====================
 
-  // 控制面板移除，避免与外部右侧控制重复
+  const renderControlPanel = () => (
+    <Card 
+      size="small" 
+      title="地质控制" 
+      className="geology-control-panel"
+      style={{
+        position: 'absolute',
+        top: '16px',
+        right: '16px',
+        width: '280px',
+        zIndex: 1000,
+        background: 'rgba(0, 0, 0, 0.8)',
+        borderColor: 'rgba(0, 217, 255, 0.3)'
+      }}
+    >
+      <Space direction="vertical" style={{ width: '100%' }}>
+        {/* 渲染模式控制 */}
+        <div>
+          <label style={{ color: '#ffffff', marginBottom: 8, display: 'block' }}>
+            渲染模式
+          </label>
+          <Select
+            value={renderMode}
+            onChange={(value) => {
+              setRenderMode(value);
+              onRenderModeChange?.(value);
+              updateRenderMode(value);
+            }}
+            style={{ width: '100%' }}
+          >
+            <Option value="solid">实体模式</Option>
+            <Option value="wireframe">线框模式</Option>
+            <Option value="transparent">透明模式</Option>
+            <Option value="section">剖面模式</Option>
+          </Select>
+        </div>
+
+        {/* 全局透明度 */}
+        <div>
+          <label style={{ color: '#ffffff', marginBottom: 8, display: 'block' }}>
+            全局透明度: {(globalOpacity * 100).toFixed(0)}%
+          </label>
+          <Slider
+            min={0.1}
+            max={1.0}
+            step={0.1}
+            value={globalOpacity}
+            onChange={setGlobalOpacity}
+          />
+        </div>
+
+        {/* 显示控制 */}
+        <div>
+          <Space>
+            <Switch
+              checked={showBoreholes}
+              onChange={setShowBoreholes}
+              checkedChildren="钻孔"
+              unCheckedChildren="钻孔"
+            />
+            <Switch
+              checked={sectionMode}
+              onChange={setSectionMode}
+              checkedChildren="剖面"
+              unCheckedChildren="剖面"
+            />
+          </Space>
+        </div>
+
+        {/* 剖面位置控制 */}
+        {sectionMode && (
+          <div>
+            <label style={{ color: '#ffffff', marginBottom: 8, display: 'block' }}>
+              剖面位置
+            </label>
+            <Slider
+              min={-50}
+              max={50}
+              value={sectionPosition}
+              onChange={setSectionPosition}
+            />
+          </div>
+        )}
+      </Space>
+    </Card>
+  );
 
   const renderStatusBar = () => (
     <div
