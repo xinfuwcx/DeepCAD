@@ -17,6 +17,7 @@ import GeologyReconstructionViewport3D from './GeologyReconstructionViewport3D';
 import { previewGeology, commitGeology } from '../../services/geologyReconstructionApi';
 import { geologyReconCache } from '../../services/geologyReconCache';
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 
 const { Text, Title } = Typography;
 
@@ -317,32 +318,108 @@ const GeologyReconstructionPanelV2: React.FC = () => {
     return Object.values(holeMap);
   }
 
-  const handleBoreholeBeforeUpload = (file: File) => {
-    setParsing(true);
-    const reader = new FileReader();
-    reader.onload = e => {
-      try {
-        const text = String(e.target?.result || '');
-        let raw: any[] = [];
-        if (file.name.toLowerCase().endsWith('.json')) {
-          raw = parseJson(text);
-        } else if (file.name.toLowerCase().endsWith('.csv')) {
-          raw = parseCsv(text);
-        } else {
-          message.error('仅支持 .json / .csv');
-          setParsing(false);
-          return;
+  function parseExcel(file: File): Promise<any[]> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          
+          // 获取第一个工作表
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          
+          // 转换为JSON数据，跳过空行
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          
+          // 过滤空行
+          const filteredData = jsonData.filter((row: any) => row && row.length > 0 && row.some((cell: any) => cell !== null && cell !== undefined && cell !== ''));
+          
+          if (filteredData.length === 0) {
+            throw new Error('Excel文件中没有有效数据');
+          }
+          
+          // 假设第一行是表头
+          const headers = filteredData[0] as string[];
+          const rows = filteredData.slice(1) as any[][];
+          
+          // 转换为对象数组
+          const objects = rows.map(row => {
+            const obj: any = {};
+            headers.forEach((header, index) => {
+              if (header && index < row.length) {
+                obj[header] = row[index];
+              }
+            });
+            return obj;
+          }).filter(obj => Object.keys(obj).length > 0);
+          
+          // 按 id 分组处理（与CSV处理逻辑相同）
+          const holeMap: Record<string, any> = {};
+          objects.forEach((r, idx) => {
+            const hid = r.id || r.hole || r.Hole || r['钻孔编号'] || r['孔号'] || `BH${idx + 1}`;
+            if (!holeMap[hid]) {
+              holeMap[hid] = { 
+                id: hid, 
+                x: Number(r.x ?? r.X ?? r['X坐标'] ?? r['x坐标']) || 0, 
+                y: Number(r.y ?? r.Y ?? r['Y坐标'] ?? r['y坐标']) || 0, 
+                elevation: Number(r.elevation ?? r.z ?? r.Z ?? r.Z坐标 ?? r.z坐标 ?? r['Z坐标'] ?? r['z坐标'] ?? r['地面标高'] ?? r['标高']) || 0, 
+                layers: [] 
+              };
+            }
+            const layerName = r.layer || r.Layer || r.formation || r.Formation || r['地层名称'] || r['岩性'] || r['土层'];
+            const top = Number(r.top ?? r.topDepth ?? r.top_depth ?? r.TD ?? r['顶深度'] ?? r['顶深'] ?? r.top_z ?? r.topZ ?? r.z_top) || undefined;
+            const bottom = Number(r.bottom ?? r.bottomDepth ?? r.bottom_depth ?? r.BD ?? r['底深度'] ?? r['底深'] ?? r.bottom_z ?? r.bottomZ ?? r.z_bottom) || undefined;
+            if (layerName) {
+              holeMap[hid].layers.push({ 
+                name: layerName, 
+                topDepth: top ?? 0, 
+                bottomDepth: bottom ?? (top ? top + 1 : 1) 
+              });
+            }
+          });
+          
+          resolve(Object.values(holeMap));
+        } catch (error) {
+          reject(error);
         }
-        const normalized = normalizeHoles(raw);
-        setBoreholes(normalized);
-        setBoreholeFileName(file.name);
-        message.success(`已加载钻孔 ${normalized.length} 个 (layers=${normalized.reduce((s,h)=>s+(h.layers?.length||0),0)})`);
-      } catch (err:any) {
-        console.error(err);
-        message.error('解析失败: ' + err.message);
-      } finally { setParsing(false); }
-    };
-    reader.readAsText(file);
+      };
+      reader.onerror = () => reject(new Error('文件读取失败'));
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  const handleBoreholeBeforeUpload = async (file: File) => {
+    setParsing(true);
+    try {
+      let raw: any[] = [];
+      const fileName = file.name.toLowerCase();
+      
+      if (fileName.endsWith('.json')) {
+        const text = await file.text();
+        raw = parseJson(text);
+      } else if (fileName.endsWith('.csv')) {
+        const text = await file.text();
+        raw = parseCsv(text);
+      } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+        raw = await parseExcel(file);
+      } else {
+        message.error('仅支持 .json / .csv / .xlsx / .xls 格式');
+        setParsing(false);
+        return false;
+      }
+      
+      const normalized = normalizeHoles(raw);
+      setBoreholes(normalized);
+      setBoreholeFileName(file.name);
+      message.success(`已加载钻孔 ${normalized.length} 个 (layers=${normalized.reduce((s,h)=>s+(h.layers?.length||0),0)})`);
+    } catch (err:any) {
+      console.error(err);
+      message.error('解析失败: ' + err.message);
+    } finally { 
+      setParsing(false); 
+    }
     return false; // 阻止自动上传
   };
 
@@ -429,7 +506,7 @@ const GeologyReconstructionPanelV2: React.FC = () => {
           <div style={{ marginTop: 16 }}>
             <Row gutter={12}>
               {(['xmin','xmax','ymin','ymax','zmin','zmax'] as const).map(key => (
-                <Col span={4} key={key} style={{ marginBottom: 8 }}>
+                <Col span={8} key={key} style={{ marginBottom: 8 }}>
                   <Text type="secondary" style={{ fontSize: 11 }}>{key}</Text>
                   <InputNumber
                     value={domain[key]}
@@ -440,6 +517,11 @@ const GeologyReconstructionPanelV2: React.FC = () => {
                 </Col>
               ))}
             </Row>
+            {domain.mode === 'manual' && (
+              <Alert type="success" showIcon style={{ marginTop: 12 }} message={
+                <span>手动域范围: X [{domain.xmin}, {domain.xmax}] · Y [{domain.ymin}, {domain.ymax}] · Z [{domain.zmin}, {domain.zmax}] · 体积: {domainVolume ? (domainVolume/1000000).toFixed(2) + ' 百万m³' : '计算中...'}</span>
+              } />
+            )}
           </div>
         )}
       </Card>
@@ -496,14 +578,15 @@ const GeologyReconstructionPanelV2: React.FC = () => {
       <Card size="small" title={<Space><ExperimentOutlined />钻孔数据导入</Space>} extra={boreholeFileName && <Tag color="blue">{boreholeFileName}</Tag>}>
         <Upload.Dragger
           multiple={false}
-          accept=".json,.csv"
+          accept=".json,.csv,.xlsx,.xls"
           showUploadList={false}
           beforeUpload={handleBoreholeBeforeUpload}
           disabled={parsing || submitting || previewing}
         >
           <p style={{ fontSize:32 }}><CloudUploadOutlined /></p>
-          <p style={{ marginBottom:4 }}>点击或拖拽上传 .json / .csv 钻孔数据</p>
-          <p style={{ fontSize:12, color:'#999' }}>JSON: {`{"holes":[...]}`} 或数组 | CSV: id,x,y,elevation,layer,top,bottom</p>
+          <p style={{ marginBottom:4 }}>点击或拖拽上传钻孔数据</p>
+          <p style={{ fontSize:12, color:'#999' }}>支持格式: JSON / CSV / Excel (.xlsx/.xls)</p>
+          <p style={{ fontSize:11, color:'#888' }}>表头示例: id/钻孔编号, x/X坐标, y/Y坐标, elevation/地面标高, layer/地层名称, top/顶深度, bottom/底深度</p>
         </Upload.Dragger>
         <Space wrap style={{ marginTop:8 }}>
           {boreholes.length>0 && <Popconfirm title="清除已加载数据?" onConfirm={()=>{setBoreholes([]); setBoreholeFileName(null);}}><Button size="small" icon={<DeleteOutlined />}>清除</Button></Popconfirm>}
@@ -531,6 +614,7 @@ const GeologyReconstructionPanelV2: React.FC = () => {
           <span>自动域建议: X [{autoBounds.x.lo.toFixed(1)}, {autoBounds.x.hi.toFixed(1)}] · Y [{autoBounds.y.lo.toFixed(1)}, {autoBounds.y.hi.toFixed(1)}] · Z [{autoBounds.z.lo.toFixed(1)}, {autoBounds.z.hi.toFixed(1)}]</span>
         } />
       )}
+
 
       <Card size="small" title={<Space><DatabaseOutlined />钻孔表</Space>} bodyStyle={{ padding: 0 }}>
         <Table
@@ -756,7 +840,8 @@ const GeologyReconstructionPanelV2: React.FC = () => {
   };
 
   const advancedTab = (
-    <Space direction="vertical" style={{ width:'100%' }} size="middle">
+    <div style={{ maxHeight: '70vh', overflowY: 'scroll', padding: '0 4px' }}>
+      <Space direction="vertical" style={{ width:'100%' }} size="middle">
       {/* 重建算法与参数 */}
       <Card size="small" title={<Space><ExperimentOutlined />重建算法与参数</Space>} bodyStyle={{ padding: 12 }}>
         <Space direction="vertical" style={{ width: '100%' }} size={8}>
@@ -917,7 +1002,8 @@ const GeologyReconstructionPanelV2: React.FC = () => {
         </Space>
       </Card>
       {HashDiffCard}
-    </Space>
+      </Space>
+    </div>
   );
 
   const waterHeadTab = (
@@ -1001,7 +1087,7 @@ const GeologyReconstructionPanelV2: React.FC = () => {
           </Col>
         </Row>
       </div>
-      <div style={{ flex: 1, overflow: 'auto', padding: 12 }}>
+      <div style={{ flex: 1, overflowY: 'scroll', padding: 12 }}>
         <Tabs
           size="small"
           tabPosition="top"

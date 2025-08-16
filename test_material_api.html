@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>材料API测试</title>
+</head>
+<body>
+    <h1>材料API测试</h1>
+    <div id="result"></div>
+    
+    <script>
+        async function testMaterialAPI() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                console.log('正在测试材料API...');
+                const response = await fetch('http://localhost:8000/api/materials/');
+                console.log('响应状态:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('响应数据:', data);
+                
+                resultDiv.innerHTML = `
+                    <h2>成功获取材料数据</h2>
+                    <p>数量: ${data.length}</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                console.error('测试失败:', error);
+                resultDiv.innerHTML = `
+                    <h2>测试失败</h2>
+                    <p style="color: red;">错误: ${error.message}</p>
+                `;
+            }
+        }
+        
+        // 页面加载后自动测试
+        window.onload = testMaterialAPI;
+    </script>
+</body>
+</html>
