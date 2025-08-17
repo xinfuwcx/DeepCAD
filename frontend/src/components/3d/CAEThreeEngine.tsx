@@ -1268,12 +1268,16 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
   const domainEdgesRef = useRef<THREE.LineSegments | null>(null);
   const originalDomainGeomRef = useRef<THREE.BufferGeometry | null>(null);
   const domainAutoFitDoneRef = useRef<boolean>(false);
+  // 锚杆组引用（挂在地连墙组下）
+  const anchorsGroupRef = useRef<THREE.Group | null>(null);
   // 地质域/钻孔渲染相关引用
   const domainBoundsRef = useRef<{ xmin:number;xmax:number;ymin:number;ymax:number;zmin:number;zmax:number }|null>(null);
   const boreholesGroupRef = useRef<THREE.Group | null>(null);
   const boreholesDataRef = useRef<{ holes:any[]; options?:{ show?:boolean; opacity?:number } }|null>(null);
   // 基坑遮罩体（模板缓冲）
   const excavationMaskRef = useRef<THREE.Group | null>(null);
+  // 最近一次开挖轮廓（用于地连墙自动沿基坑边生成）
+  const lastExcavationPolysRef = useRef<Array<Array<{x:number;y:number}>> | null>(null);
   // 开挖模式: add(仅向下增加分层实体) | cut(视觉/真实挖空)
   const excavationModeRef = useRef<'add'|'cut'>('cut');
   const animationIdRef = useRef<number>(0);
@@ -1351,6 +1355,16 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
       // 暴露全局接口（供基坑设计等模块调用）
       try {
         (window as any).__CAE_ENGINE__ = {
+          /** 是否存在“最近一次开挖”的轮廓可用于生成地连墙 */
+          hasLastExcavationOutline: (): boolean => {
+            const polys = lastExcavationPolysRef.current;
+            return !!(polys && Array.isArray(polys) && polys.length > 0);
+          },
+          /** 是否已经生成地连墙 */
+          hasDiaphragmWall: (): boolean => {
+            const eng = engineRef.current; if (!eng) return false;
+            return !!eng.scene.getObjectByName('DIAPHRAGM_WALL_GROUP');
+          },
           /** 设置开挖显示模式: 'add' 仅增加分层实体; 'cut' 使用模板遮罩视觉挖空 */
           setExcavationMode: (mode: 'add'|'cut') => { excavationModeRef.current = mode; },
           getExcavationMode: (): 'add'|'cut' => excavationModeRef.current,
@@ -1517,6 +1531,9 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
             const target = options?.targetSize ?? 200;
             const baseScale = Math.min(target/width, target/height);
             const scale = baseScale * (options?.scaleMultiplier ?? 1);
+
+            // 记录最近开挖轮廓（未缩放坐标，便于墙体沿边生成）
+            try { lastExcavationPolysRef.current = rotatedPolys.map(poly => poly.map(p => ({ x: p.x, y: p.y }))); } catch {}
 
             // 创建总组
             const group = new THREE.Group();
@@ -1769,6 +1786,557 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
               } catch {}
             }
           },
+          /** 移除地连墙 */
+          removeDiaphragmWall: () => {
+            const eng = engineRef.current; if (!eng) return;
+            const scene = eng.scene;
+            const group = scene.getObjectByName('DIAPHRAGM_WALL_GROUP');
+            if (group) {
+              scene.remove(group);
+              group.traverse((child: any) => {
+                try { child.geometry?.dispose?.(); } catch {}
+                try {
+                  const m = child.material; if (Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.();
+                } catch {}
+              });
+            }
+          },
+
+          /**
+           * 基于路径（多段线）生成地连墙：按厚度t在路径两侧成带状体，沿 -Y 向下挖至深度
+           * @param polylines 多边形或折线数组（闭合/不闭合均可）
+           * @param params { thickness: 墙厚(世界单位会按 XY 缩放), depth: 下挖深度(世界单位), rotationAngleDeg?: number }
+           */
+          addDiaphragmWall: (
+            polylines: Array<Array<{x:number;y:number}>>,
+            params: { thickness: number; depth: number; rotationAngleDeg?: number },
+            options?: { targetSize?: number; scaleMultiplier?: number; autoFit?: boolean }
+          ) => {
+            const eng = engineRef.current; if (!eng) return;
+            if ((!polylines || polylines.length === 0)) {
+              // 优先使用最近的开挖轮廓
+              if (lastExcavationPolysRef.current && lastExcavationPolysRef.current.length) {
+                polylines = lastExcavationPolysRef.current;
+              }
+            }
+            if (!polylines || polylines.length === 0) return;
+            const scene = eng.scene;
+            // 清理旧墙
+            const old = scene.getObjectByName('DIAPHRAGM_WALL_GROUP');
+            if (old) {
+              scene.remove(old);
+              old.traverse((child: any) => {
+                try { child.geometry?.dispose?.(); } catch {}
+                try { const m = child.material; if (Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.(); } catch {}
+              });
+            }
+
+            // 旋转到统一坐标
+            let srcMinX=Infinity, srcMinY=Infinity, srcMaxX=-Infinity, srcMaxY=-Infinity;
+            polylines.forEach(line => line.forEach(p => { srcMinX=Math.min(srcMinX,p.x); srcMaxX=Math.max(srcMaxX,p.x); srcMinY=Math.min(srcMinY,p.y); srcMaxY=Math.max(srcMaxY,p.y); }));
+            if (!isFinite(srcMinX) || !isFinite(srcMaxX) || !isFinite(srcMinY) || !isFinite(srcMaxY)) return;
+            const c0x = (srcMinX+srcMaxX)/2, c0y = (srcMinY+srcMaxY)/2;
+            const angleDeg = (params?.rotationAngleDeg ?? 0) % 360; 
+            const angleRad = angleDeg * Math.PI / 180;
+            const cosA = Math.cos(angleRad), sinA = Math.sin(angleRad);
+            const rotateAboutC0 = (x:number, y:number) => {
+              const dx = x - c0x, dy = y - c0y;
+              return { x: c0x + dx * cosA - dy * sinA, y: c0y + dx * sinA + dy * cosA };
+            };
+            const rotatedPolys: Array<Array<{x:number;y:number}>> = polylines.map(poly => poly.map(p => rotateAboutC0(p.x, p.y)));
+            let rotMinX=Infinity, rotMinY=Infinity, rotMaxX=-Infinity, rotMaxY=-Infinity;
+            rotatedPolys.forEach(line => line.forEach(p => { rotMinX=Math.min(rotMinX,p.x); rotMaxX=Math.max(rotMaxX,p.x); rotMinY=Math.min(rotMinY,p.y); rotMaxY=Math.max(rotMaxY,p.y); }));
+            const width = Math.max(1e-6, rotMaxX-rotMinX), height = Math.max(1e-6, rotMaxY-rotMinY);
+            const cx = (rotMinX+rotMaxX)/2, cy = (rotMinY+rotMaxY)/2; // 旋转后包围盒中心
+            const target = options?.targetSize ?? 200;
+            const baseScale = Math.min(target/width, target/height);
+            const scale = baseScale * (options?.scaleMultiplier ?? 1);
+
+            const thicknessScaled = Math.max(0.001, Number(params.thickness ?? 0)) * scale;
+            const depthWorld = Math.max(0.001, Number(params.depth ?? 0));
+
+            const group = new THREE.Group();
+            group.name = 'DIAPHRAGM_WALL_GROUP';
+
+            const mat = new THREE.MeshPhysicalMaterial({ color: 0x5b6b7a, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide, metalness: 0, roughness: 0.9 });
+            const edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthTest: true, depthWrite: false });
+
+            // 沿每段生成一块墙板（简单相交覆盖，转角处允许轻微重叠）
+            // 存储面板元数据（用于锚杆布置）
+            const wallPanels: Array<{ center:THREE.Vector3; segLen:number; angle:number; along:THREE.Vector3; outward:THREE.Vector3 }> = [];
+
+            const buildSegment = (ax:number, ay:number, bx:number, by:number) => {
+              const axs = (ax - cx) * scale, ays = (ay - cy) * scale;
+              const bxs = (bx - cx) * scale, bys = (by - cy) * scale;
+              const dx = bxs - axs, dz = bys - ays; // 注意：y(地质) -> Three 的 z
+              const segLen = Math.max(1e-6, Math.hypot(dx, dz));
+              const angle = Math.atan2(dz, dx); // 绕Y旋转角
+              const geom = new THREE.BoxGeometry(segLen, depthWorld, thicknessScaled);
+              const mesh = new THREE.Mesh(geom, mat);
+              mesh.position.set((axs + bxs) / 2, -depthWorld/2, (ays + bys) / 2);
+              mesh.rotation.y = angle;
+              // 存入段元数据，便于后续布置锚杆
+              (mesh as any).userData.__wallSeg = {
+                segLen,
+                thickness: thicknessScaled,
+                angle,
+              };
+              group.add(mesh);
+
+              // 加边线，提升可见度
+              try {
+                const edges = new THREE.EdgesGeometry(geom);
+                const line = new THREE.LineSegments(edges, edgeMat);
+                line.position.copy(mesh.position);
+                line.rotation.copy(mesh.rotation as any);
+                line.renderOrder = 998;
+                group.add(line);
+              } catch {}
+
+              // 计算“外侧”法向：以包围盒中心近似多边形内部方向
+              const midX = (axs + bxs) / 2; const midZ = (ays + bys) / 2;
+              const along = new THREE.Vector3(dx, 0, dz).normalize();
+              const nCandidate = new THREE.Vector3(-along.z, 0, along.x).normalize(); // 左法向
+              // 使用当前 poly 的旋转后 bbox 中心 (cx,cy) 相对该段中点来判断内外
+              const vToCenter = new THREE.Vector3((0), 0, (0));
+              vToCenter.set((0),0,(0));
+              vToCenter.x = - (0); // 保持编译器满意
+              // 实际向量：
+              const vecToBoxCenter = new THREE.Vector3(((rotMinX+rotMaxX)/2 - (ax+bx)/2)*scale, 0, ((rotMinY+rotMaxY)/2 - (ay+by)/2)*scale);
+              const dot = nCandidate.dot(vecToBoxCenter.normalize());
+              const outward = (dot > 0 ? nCandidate.clone().multiplyScalar(-1) : nCandidate).clone();
+              wallPanels.push({ center: new THREE.Vector3(midX, -depthWorld/2, midZ), segLen, angle, along: along.clone(), outward });
+            };
+
+            for (const poly of rotatedPolys) {
+              if (!poly || poly.length < 2) continue;
+              for (let i=0; i<poly.length-1; i++) {
+                const pA = poly[i]; const pB = poly[i+1];
+                buildSegment(pA.x, pA.y, pB.x, pB.y);
+              }
+              // 若未闭合，自动补上首尾段，保证墙体围合
+              const first = poly[0]; const last = poly[poly.length-1];
+              const dxC = last.x - first.x; const dyC = last.y - first.y;
+              if (Math.hypot(dxC, dyC) > 1e-6) {
+                buildSegment(last.x, last.y, first.x, first.y);
+              }
+            }
+
+            // 将墙体对齐到当前“土层顶面”，并以域中心为 XY 原点
+            try {
+              const bounds = domainBoundsRef.current;
+              if (bounds) {
+                const cxD = (bounds.xmin + bounds.xmax) / 2;
+                const czD = (bounds.ymin + bounds.ymax) / 2;
+                const yTopD = bounds.zmax; // 顶面
+                group.position.set(cxD, yTopD, czD);
+              }
+            } catch {}
+            // 将面板元数据挂到组上，供锚杆布置使用
+            (group as any).userData.panels = wallPanels;
+            (group as any).userData.thickness = thicknessScaled;
+            scene.add(group);
+
+            // 可选相机对焦
+            if (options?.autoFit !== false) {
+              try {
+                const box = new THREE.Box3().setFromObject(group);
+                const center = new THREE.Vector3(); box.getCenter(center);
+                const sphere = new THREE.Sphere(); box.getBoundingSphere(sphere);
+                const cam = eng.camera; const controls = eng.orbitControls;
+                const currDir = cam.position.clone().sub(controls.target).normalize();
+                const fov = cam.fov * Math.PI / 180;
+                const fitDist = (sphere.radius / Math.tan(fov / 2)) * 1.2;
+                controls.target.copy(center);
+                cam.position.copy(center.clone().add(currDir.multiplyScalar(fitDist)));
+                cam.lookAt(center);
+                controls.update();
+              } catch {}
+            }
+          },
+
+          /** 聚焦地连墙 */
+          focusDiaphragmWall: () => {
+            const eng = engineRef.current; if (!eng) return;
+            const scene = eng.scene; const group = scene.getObjectByName('DIAPHRAGM_WALL_GROUP');
+            if (!group) return;
+            try {
+              const box = new THREE.Box3().setFromObject(group);
+              const center = new THREE.Vector3(); box.getCenter(center);
+              const sphere = new THREE.Sphere(); box.getBoundingSphere(sphere);
+              const cam = eng.camera; const controls = eng.orbitControls;
+              const dir = cam.position.clone().sub(controls.target).normalize();
+              const fov = cam.fov * Math.PI / 180;
+              const dist = (sphere.radius / Math.tan(fov/2)) * 1.2;
+              controls.target.copy(center); cam.position.copy(center.clone().add(dir.multiplyScalar(dist))); cam.lookAt(center); controls.update();
+            } catch {}
+          },
+          /** 显隐地连墙 */
+          setDiaphragmWallVisible: (visible:boolean) => {
+            const eng = engineRef.current; if (!eng) return;
+            const g = eng.scene.getObjectByName('DIAPHRAGM_WALL_GROUP'); if (g) g.visible = !!visible;
+          },
+
+          /**
+           * 在地连墙上布置锚杆（均匀布置，沿外侧法线倾斜出墙）
+           * params: { spacing, levels, firstLevelDepth, levelStep, length, diameter, angleDeg }
+           */
+          addWallAnchors: (params: { spacing: number; levels: number; firstLevelDepth: number; levelStep: number; length: number; diameter: number; angleDeg?: number }, style?: { showHead?: boolean; plateSize?: number; plateThickness?: number; headSize?: number }) => {
+            const eng = engineRef.current; if (!eng) return;
+            const scene = eng.scene;
+            const wallGroup = scene.getObjectByName('DIAPHRAGM_WALL_GROUP') as THREE.Group | null;
+            if (!wallGroup) { console.warn('addWallAnchors: no wall group'); return; }
+            // 清理旧
+            const old = wallGroup.getObjectByName('ANCHOR_GROUP');
+            if (old) {
+              wallGroup.remove(old);
+              old.traverse((child:any)=>{ try{child.geometry?.dispose?.();}catch{} try{ const m=child.material; if(Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.(); }catch{} });
+            }
+            const group = new THREE.Group(); group.name = 'ANCHOR_GROUP';
+            const spacing = Math.max(0.2, Number(params.spacing||0));
+            const levels = Math.max(1, Math.floor(params.levels||1));
+            const firstDepth = Math.max(0.1, Number(params.firstLevelDepth||1));
+            const step = Math.max(0.1, Number(params.levelStep||1));
+            const length = Math.max(0.2, Number(params.length||3));
+            const dia = Math.max(0.02, Number(params.diameter||0.15));
+            const angle = (params.angleDeg ?? 10) * Math.PI / 180; // 向下倾角
+            const yDown = new THREE.Vector3(0,-1,0);
+            const cylGeomCache: Record<string, THREE.CylinderGeometry> = {};
+            const getCyl = (len:number, r:number) => {
+              const key = `${len.toFixed(3)}_${r.toFixed(3)}`; if (!cylGeomCache[key]) cylGeomCache[key]=new THREE.CylinderGeometry(r,r,len, 10, 1, false);
+              return cylGeomCache[key];
+            };
+            const matRod = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.6, roughness: 0.4 });
+            const showHead = style?.showHead ?? true;
+            const plateSize = Math.max(0.05, style?.plateSize ?? 0.4);
+            const plateThk = Math.max(0.01, style?.plateThickness ?? 0.05);
+            const headSize = Math.max(0.03, style?.headSize ?? 0.12);
+
+            // 取域中心，用于判断“外侧”方向（法线与-指向中心一致则为外侧）
+            const b = domainBoundsRef.current;
+            const centerWorld = b? new THREE.Vector3((b.xmin+b.xmax)/2, (b.zmin+b.zmax)/2, (b.ymin+b.ymax)/2) : new THREE.Vector3();
+
+            // 遍历每一块墙板（每段）
+            const segMeshes: THREE.Mesh[] = [];
+            wallGroup.traverse((o:any)=>{ if(o.isMesh && o.userData && o.userData.__wallSeg) segMeshes.push(o); });
+            for (const m of segMeshes) {
+              const seg = (m as any).userData.__wallSeg as { segLen:number; thickness:number; angle:number };
+              const segLen = seg.segLen; const thickness = seg.thickness;
+              if (segLen <= 0.01) continue;
+              // 水平外法线（世界坐标）
+              const nWorldHoriz = new THREE.Vector3(0,0,1).applyQuaternion(m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize();
+              // 确定外侧：与指向中心向量相反
+              const midLocal = new THREE.Vector3(0, -firstDepth, 0);
+              const midWorld = m.localToWorld(midLocal.clone());
+              const toCenter = centerWorld.clone().sub(midWorld).setY(0).normalize();
+              let outward = nWorldHoriz.clone();
+              if (outward.dot(toCenter) > 0) outward.multiplyScalar(-1); // 指向远离中心
+
+              // 锚杆方向（带倾角）
+              const dir = outward.clone().multiplyScalar(Math.cos(angle)).add(yDown.clone().multiplyScalar(Math.sin(angle))).normalize();
+              const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+
+              // 沿段均匀布置
+              const usableLen = segLen - spacing; // 两端留边
+              if (usableLen <= 0) continue;
+              const count = Math.max(1, Math.floor(usableLen / spacing));
+              for (let i=0;i<count;i++){
+                const xLocal = -segLen/2 + spacing/2 + i*spacing;
+                for (let lv=0; lv<levels; lv++){
+                  const depth = firstDepth + lv*step;
+                  const baseLocal = new THREE.Vector3(xLocal, -depth, thickness/2); // 从板外侧面出发（本地+Z）
+                  // 若外侧被判为 -Z，则将局部Z取 -thickness/2
+                  const zSign = (outward.dot(new THREE.Vector3(0,0,1).applyQuaternion(m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize()) >= 0) ? 1 : -1;
+                  baseLocal.z = zSign * thickness/2 + 0.01; // 微偏移避免重叠
+                  const baseWorld = m.localToWorld(baseLocal.clone());
+                  const rod = new THREE.Mesh(getCyl(length, dia/2), matRod);
+                  rod.quaternion.copy(quat);
+                  // 默认圆柱沿 +Y，放置到“中点=起点+0.5*dir*len”
+                  const centerPos = baseWorld.clone().add(dir.clone().multiplyScalar(length/2));
+                  rod.position.copy(centerPos);
+                  group.add(rod);
+
+                  if (showHead) {
+                    // 托盘：圆盘，法向与墙面外法线一致
+                    const plateGeom = new THREE.CylinderGeometry(plateSize/2, plateSize/2, plateThk, 16, 1, false);
+                    const plateMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.2, roughness: 0.7 });
+                    const plate = new THREE.Mesh(plateGeom, plateMat);
+                    const qPlate = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), outward.clone().normalize());
+                    plate.quaternion.copy(qPlate);
+                    // 挨着墙外表面
+                    const platePos = m.localToWorld(new THREE.Vector3(xLocal, -depth, zSign*thickness/2 + plateThk/2 + 0.002));
+                    plate.position.copy(platePos);
+                    group.add(plate);
+                    // 锚头/螺母：小短圆柱，放在托盘外侧
+                    const headGeom = new THREE.CylinderGeometry(headSize/2, headSize/2, headSize*0.5, 12, 1, false);
+                    const headMat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.5, roughness: 0.4 });
+                    const head = new THREE.Mesh(headGeom, headMat);
+                    head.quaternion.copy(qPlate);
+                    const headPos = platePos.clone().add(outward.clone().normalize().multiplyScalar(plateThk/2 + headSize*0.25 + 0.002));
+                    head.position.copy(headPos);
+                    group.add(head);
+                  }
+                }
+              }
+            }
+            wallGroup.add(group); anchorsGroupRef.current = group;
+          },
+
+          /**
+           * 自定义每一“道/层”锚杆的参数（深度、长度、直径、间距、倾角）
+           */
+          addWallAnchorsCustom: (levels: Array<{ depth:number; length:number; diameter:number; spacing:number; angleDeg?: number }>, style?: { showHead?: boolean; plateSize?: number; plateThickness?: number; headSize?: number }) => {
+            const eng = engineRef.current; if (!eng) return;
+            const scene = eng.scene;
+            const wallGroup = scene.getObjectByName('DIAPHRAGM_WALL_GROUP') as THREE.Group | null;
+            if (!wallGroup) { console.warn('addWallAnchorsCustom: no wall group'); return; }
+            // 清理旧
+            const old = wallGroup.getObjectByName('ANCHOR_GROUP');
+            if (old) {
+              wallGroup.remove(old);
+              old.traverse((child:any)=>{ try{child.geometry?.dispose?.();}catch{} try{ const m=child.material; if(Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.(); }catch{} });
+            }
+            const group = new THREE.Group(); group.name = 'ANCHOR_GROUP';
+            const cylGeomCache: Record<string, THREE.CylinderGeometry> = {};
+            const getCyl = (len:number, r:number) => { const key = `${len.toFixed(3)}_${r.toFixed(3)}`; return cylGeomCache[key] ||= new THREE.CylinderGeometry(r,r,len, 10, 1, false); };
+            const matRod = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.6, roughness: 0.4 });
+            const showHead = style?.showHead ?? true;
+            const plateSize = Math.max(0.05, style?.plateSize ?? 0.4);
+            const plateThk = Math.max(0.01, style?.plateThickness ?? 0.05);
+            const headSize = Math.max(0.03, style?.headSize ?? 0.12);
+            const b = domainBoundsRef.current;
+            const centerWorld = b? new THREE.Vector3((b.xmin+b.xmax)/2, (b.zmin+b.zmax)/2, (b.ymin+b.ymax)/2) : new THREE.Vector3();
+            // 拿到所有墙段
+            const segMeshes: THREE.Mesh[] = [];
+            wallGroup.traverse((o:any)=>{ if(o.isMesh && o.userData && o.userData.__wallSeg) segMeshes.push(o); });
+            for (const m of segMeshes) {
+              const seg = (m as any).userData.__wallSeg as { segLen:number; thickness:number; angle:number };
+              const segLen = seg.segLen; const thickness = seg.thickness;
+              if (segLen <= 0.01) continue;
+              const nWorldHoriz = new THREE.Vector3(0,0,1).applyQuaternion(m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize();
+              const midWorld = m.localToWorld(new THREE.Vector3(0, 0, 0));
+              const toCenter = centerWorld.clone().sub(midWorld).setY(0).normalize();
+              let outwardHoriz = nWorldHoriz.clone(); if (outwardHoriz.dot(toCenter) > 0) outwardHoriz.multiplyScalar(-1);
+              for (const lv of levels) {
+                const depth = Math.max(0.05, Number(lv.depth||0));
+                const length = Math.max(0.2, Number(lv.length||1));
+                const dia = Math.max(0.02, Number(lv.diameter||0.1));
+                const spacing = Math.max(0.2, Number(lv.spacing||2));
+                const angle = (lv.angleDeg ?? 10) * Math.PI / 180;
+                const dir = outwardHoriz.clone().multiplyScalar(Math.cos(angle)).add(new THREE.Vector3(0,-1,0).multiplyScalar(Math.sin(angle))).normalize();
+                const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+                const usableLen = segLen - spacing; if (usableLen <= 0) continue;
+                const count = Math.max(1, Math.floor(usableLen / spacing));
+                for (let i=0;i<count;i++){
+                  const xLocal = -segLen/2 + spacing/2 + i*spacing;
+                  const zSign = (outwardHoriz.dot(new THREE.Vector3(0,0,1).applyQuaternion(m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize()) >= 0) ? 1 : -1;
+                  const baseLocal = new THREE.Vector3(xLocal, -depth, zSign*thickness/2 + 0.01);
+                  const baseWorld = m.localToWorld(baseLocal.clone());
+                  const rod = new THREE.Mesh(getCyl(length, dia/2), matRod);
+                  rod.quaternion.copy(quat);
+                  rod.position.copy(baseWorld.clone().add(dir.clone().multiplyScalar(length/2)));
+                  group.add(rod);
+                  if (showHead) {
+                    const plateGeom = new THREE.CylinderGeometry(plateSize/2, plateSize/2, plateThk, 16, 1, false);
+                    const plateMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.2, roughness: 0.7 });
+                    const plate = new THREE.Mesh(plateGeom, plateMat);
+                    const qPlate = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), outwardHoriz.clone().normalize());
+                    plate.quaternion.copy(qPlate);
+                    const platePos = m.localToWorld(new THREE.Vector3(xLocal, -depth, zSign*thickness/2 + plateThk/2 + 0.002));
+                    plate.position.copy(platePos);
+                    group.add(plate);
+                    const headGeom = new THREE.CylinderGeometry(headSize/2, headSize/2, headSize*0.5, 12, 1, false);
+                    const headMat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.5, roughness: 0.4 });
+                    const head = new THREE.Mesh(headGeom, headMat);
+                    head.quaternion.copy(qPlate);
+                    head.position.copy(platePos.clone().add(outwardHoriz.clone().normalize().multiplyScalar(plateThk/2 + headSize*0.25 + 0.002)));
+                    group.add(head);
+                  }
+                }
+              }
+            }
+            wallGroup.add(group); anchorsGroupRef.current = group;
+          },
+
+          /** 获取地连墙段元信息（按生成顺序） */
+          getWallSegmentsMeta: (): Array<{ index:number; length:number; thickness:number }> => {
+            const eng = engineRef.current; if (!eng) return [];
+            const scene = eng.scene;
+            const wallGroup = scene.getObjectByName('DIAPHRAGM_WALL_GROUP') as THREE.Group | null;
+            if (!wallGroup) return [];
+            const segs: Array<{ index:number; length:number; thickness:number }> = [];
+            let idx = 0;
+            for (const child of wallGroup.children) {
+              const o: any = child as any;
+              if (o.isMesh && o.userData && o.userData.__wallSeg) {
+                const s = o.userData.__wallSeg as { segLen:number; thickness:number };
+                segs.push({ index: idx, length: s.segLen, thickness: s.thickness });
+              }
+              idx++;
+            }
+            return segs;
+          },
+
+          /**
+           * 逐根锚杆：按段索引与沿段距离自定义每一根
+           * anchors: [{ segIndex:number; offset:number; depth:number; length:number; diameter:number; angleDeg?:number }]
+           * - segIndex: 按生成顺序的墙段索引（可通过 getWallSegmentsMeta 获取）
+           * - offset: 距该段起点的本地距离 (m)，范围 [0, segLen]
+           */
+          addWallAnchorsPerAnchor: (anchors: Array<{ segIndex:number; offset:number; depth:number; length:number; diameter:number; angleDeg?:number }>, style?: { showHead?: boolean; plateSize?: number; plateThickness?: number; headSize?: number }) => {
+            const eng = engineRef.current; if (!eng) return;
+            const scene = eng.scene;
+            const wallGroup = scene.getObjectByName('DIAPHRAGM_WALL_GROUP') as THREE.Group | null;
+            if (!wallGroup) { console.warn('addWallAnchorsPerAnchor: no wall group'); return; }
+            // 清理旧
+            const old = wallGroup.getObjectByName('ANCHOR_GROUP');
+            if (old) {
+              wallGroup.remove(old);
+              old.traverse((child:any)=>{ try{child.geometry?.dispose?.();}catch{} try{ const m=child.material; if(Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.(); }catch{} });
+            }
+            const group = new THREE.Group(); group.name = 'ANCHOR_GROUP';
+            const matRod = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.6, roughness: 0.4 });
+            const cylGeomCache: Record<string, THREE.CylinderGeometry> = {};
+            const getCyl = (len:number, r:number) => { const key = `${len.toFixed(3)}_${r.toFixed(3)}`; return cylGeomCache[key] ||= new THREE.CylinderGeometry(r,r,len, 10, 1, false); };
+            const showHead = style?.showHead ?? true;
+            const plateSize = Math.max(0.05, style?.plateSize ?? 0.4);
+            const plateThk = Math.max(0.01, style?.plateThickness ?? 0.05);
+            const headSize = Math.max(0.03, style?.headSize ?? 0.12);
+
+            // 取域中心用于确定“外侧”水平法线朝向
+            const b = domainBoundsRef.current;
+            const centerWorld = b? new THREE.Vector3((b.xmin+b.xmax)/2, (b.zmin+b.zmax)/2, (b.ymin+b.ymax)/2) : new THREE.Vector3();
+
+            // 收集墙段（按 children 顺序），并建立映射
+            const segMeshes: THREE.Mesh[] = [];
+            for (const child of wallGroup.children) {
+              const o: any = child as any; if (o.isMesh && o.userData && o.userData.__wallSeg) segMeshes.push(o);
+            }
+
+            for (const a of anchors) {
+              const segIdx = Math.max(0, Math.min(segMeshes.length-1, Math.floor(a.segIndex||0)));
+              const m = segMeshes[segIdx]; if (!m) continue;
+              const seg = (m as any).userData.__wallSeg as { segLen:number; thickness:number; angle:number };
+              const segLen = seg.segLen; const thickness = seg.thickness;
+              const offset = Math.max(0.01, Math.min(segLen-0.01, Number(a.offset||0)));
+              const depth = Math.max(0.01, Number(a.depth||1));
+              const length = Math.max(0.1, Number(a.length||3));
+              const dia = Math.max(0.02, Number(a.diameter||0.15));
+              const angle = (a.angleDeg ?? 10) * Math.PI / 180;
+
+              // 计算外侧水平法线
+              const nWorldHoriz = new THREE.Vector3(0,0,1).applyQuaternion(m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize();
+              const midWorld = m.localToWorld(new THREE.Vector3(0, 0, 0));
+              const toCenter = centerWorld.clone().sub(midWorld).setY(0).normalize();
+              let outwardHoriz = nWorldHoriz.clone(); if (outwardHoriz.dot(toCenter) > 0) outwardHoriz.multiplyScalar(-1);
+              const dir = outwardHoriz.clone().multiplyScalar(Math.cos(angle)).add(new THREE.Vector3(0,-1,0).multiplyScalar(Math.sin(angle))).normalize();
+              const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+
+              // 段内横向位置（本地坐标的 X 轴）
+              const xLocal = -segLen/2 + offset;
+              const zSign = (outwardHoriz.dot(new THREE.Vector3(0,0,1).applyQuaternion(m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize()) >= 0) ? 1 : -1;
+              const baseLocal = new THREE.Vector3(xLocal, -depth, zSign*thickness/2 + 0.01);
+              const baseWorld = m.localToWorld(baseLocal.clone());
+              const rod = new THREE.Mesh(getCyl(length, dia/2), matRod);
+              rod.quaternion.copy(quat);
+              rod.position.copy(baseWorld.clone().add(dir.clone().multiplyScalar(length/2)));
+              group.add(rod);
+              if (showHead) {
+                const plateGeom = new THREE.CylinderGeometry(plateSize/2, plateSize/2, plateThk, 16, 1, false);
+                const plateMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.2, roughness: 0.7 });
+                const plate = new THREE.Mesh(plateGeom, plateMat);
+                const qPlate = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), outwardHoriz.clone().normalize());
+                plate.quaternion.copy(qPlate);
+                const platePos = m.localToWorld(new THREE.Vector3(xLocal, -depth, zSign*thickness/2 + plateThk/2 + 0.002));
+                plate.position.copy(platePos);
+                group.add(plate);
+                const headGeom = new THREE.CylinderGeometry(headSize/2, headSize/2, headSize*0.5, 12, 1, false);
+                const headMat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.5, roughness: 0.4 });
+                const head = new THREE.Mesh(headGeom, headMat);
+                head.quaternion.copy(qPlate);
+                head.position.copy(platePos.clone().add(outwardHoriz.clone().normalize().multiplyScalar(plateThk/2 + headSize*0.25 + 0.002)));
+                group.add(head);
+              }
+            }
+
+            wallGroup.add(group); anchorsGroupRef.current = group;
+          },
+
+          /** 移除锚杆 */
+          removeWallAnchors: () => {
+            const eng = engineRef.current; if (!eng) return;
+            const scene = eng.scene;
+            const wallGroup = scene.getObjectByName('DIAPHRAGM_WALL_GROUP') as THREE.Group | null;
+            if (!wallGroup) return;
+            const group = wallGroup.getObjectByName('ANCHOR_GROUP');
+            if (group) {
+              wallGroup.remove(group);
+              group.traverse((child:any)=>{ try{child.geometry?.dispose?.();}catch{} try{ const m=child.material; if(Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.(); }catch{} });
+            }
+            anchorsGroupRef.current = null;
+          },
+
+          /** 是否存在锚杆 */
+          hasAnchors: (): boolean => {
+            const eng = engineRef.current; if (!eng) return false;
+            const wallGroup = eng.scene.getObjectByName('DIAPHRAGM_WALL_GROUP') as THREE.Group | null;
+            if (!wallGroup) return false;
+            return !!wallGroup.getObjectByName('ANCHOR_GROUP');
+          },
+          /** 聚焦锚杆 */
+          focusAnchors: () => {
+            const eng = engineRef.current; if (!eng) return;
+            const wallGroup = eng.scene.getObjectByName('DIAPHRAGM_WALL_GROUP') as THREE.Group | null;
+            if (!wallGroup) return;
+            const group = wallGroup.getObjectByName('ANCHOR_GROUP'); if (!group) return;
+            try {
+              const box = new THREE.Box3().setFromObject(group);
+              const center = new THREE.Vector3(); box.getCenter(center);
+              const sphere = new THREE.Sphere(); box.getBoundingSphere(sphere);
+              const cam = eng.camera; const controls = eng.orbitControls;
+              const dir = cam.position.clone().sub(controls.target).normalize();
+              const fov = cam.fov * Math.PI / 180;
+              const dist = (sphere.radius / Math.tan(fov/2)) * 1.2;
+              controls.target.copy(center); cam.position.copy(center.clone().add(dir.multiplyScalar(dist))); cam.lookAt(center); controls.update();
+            } catch {}
+          },
+          /** 高亮锚杆（置顶渲染、发光），再次调用可恢复 */
+          setAnchorsHighlight: (highlight:boolean) => {
+            const eng = engineRef.current; if (!eng) return;
+            const wallGroup = eng.scene.getObjectByName('DIAPHRAGM_WALL_GROUP') as THREE.Group | null;
+            if (!wallGroup) return;
+            const group = wallGroup.getObjectByName('ANCHOR_GROUP') as THREE.Group | null; if (!group) return;
+            group.traverse((o:any)=>{
+              if (!o.isMesh) return;
+              if (highlight) {
+                if (!o.userData.__origMat) o.userData.__origMat = o.material;
+                const m = (o.material as any).clone?.() || o.material;
+                try { m.emissive = new THREE.Color(0xffe066); m.emissiveIntensity = 0.8; } catch {}
+                m.transparent = true; m.opacity = 1; m.depthTest = false; m.depthWrite = false; o.renderOrder = 999;
+                o.material = m;
+              } else if (o.userData.__origMat) {
+                const m = o.userData.__origMat; o.material = m; delete o.userData.__origMat; o.renderOrder = 0;
+              }
+            });
+          },
+
+          // 兼容旧面板方法名/参数
+      addAnchorsOnWall: (p: { length:number; diameter:number; pitchDeg?:number; rows:number; startOffset:number; rowSpacing:number; spacing:number }, style?: { showHead?: boolean; plateSize?: number; plateThickness?: number; headSize?: number }) => {
+            try {
+              (window as any).__CAE_ENGINE__?.addWallAnchors({
+                length: p.length,
+                diameter: p.diameter,
+                angleDeg: p.pitchDeg ?? 10,
+                levels: Math.max(1, Math.floor(p.rows||1)),
+                firstLevelDepth: p.startOffset,
+                levelStep: p.rowSpacing,
+                spacing: p.spacing,
+        }, style);
+              return true;
+            } catch { return false; }
+          },
+          removeAnchors: () => { try { (window as any).__CAE_ENGINE__?.removeWallAnchors(); } catch {} },
+          
           
           /**
            * 清空场景中的所有对象（不销毁渲染器/相机/控制器），默认删除画布中的所有内容。
@@ -2141,6 +2709,10 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
           }
           if (excavationMaskRef.current) {
             excavationMaskRef.current.position.set(cxNew, b.zmax, czNew);
+          }
+          const wallGroup = scene.getObjectByName('DIAPHRAGM_WALL_GROUP');
+          if (wallGroup) {
+            (wallGroup as THREE.Group).position.set(cxNew, b.zmax, czNew);
           }
         } catch {}
       } catch {}

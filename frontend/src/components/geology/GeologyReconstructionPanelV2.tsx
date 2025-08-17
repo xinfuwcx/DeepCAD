@@ -113,6 +113,142 @@ const GeologyReconstructionPanelV2: React.FC = () => {
   const [baselineHash, setBaselineHash] = useState<string | null>(geologyReconCache.getBaseline());
   const [cacheFilter, setCacheFilter] = useState('');
   const [showHotkeyHelp, setShowHotkeyHelp] = useState(false);
+  // 支护结构：地连墙 UI 状态
+  const [wallThickness, setWallThickness] = useState<number>(0.8);
+  const [wallDepth, setWallDepth] = useState<number>(20);
+  const [wallRotate, setWallRotate] = useState<number>(0);
+  // 锚杆参数
+  const [anchorLen, setAnchorLen] = useState<number>(12);
+  const [anchorDia, setAnchorDia] = useState<number>(0.15);
+  const [anchorPitch, setAnchorPitch] = useState<number>(10);
+  const [anchorRows, setAnchorRows] = useState<number>(2);
+  const [anchorStartOffset, setAnchorStartOffset] = useState<number>(1.5);
+  const [anchorRowSpacing, setAnchorRowSpacing] = useState<number>(2.5);
+  const [anchorSpacing, setAnchorSpacing] = useState<number>(2.5);
+  const [anchorShowHead, setAnchorShowHead] = useState<boolean>(true);
+  const [anchorPlateSize, setAnchorPlateSize] = useState<number>(0.4);
+  const [anchorPlateThk, setAnchorPlateThk] = useState<number>(0.05);
+  const [anchorHeadSize, setAnchorHeadSize] = useState<number>(0.12);
+  // 自定义锚杆（逐层/逐排）数量与参数，默认0层=不显示
+  const [anchorLevelCount, setAnchorLevelCount] = useState<number>(10);
+  const [anchorLevels, setAnchorLevels] = useState<Array<{ depth:number; length:number; diameter:number; spacing:number; angleDeg:number }>>(
+    Array.from({ length: 10 }, () => ({ depth: 2, length: 8, diameter: 0.15, spacing: 2.0, angleDeg: 10 }))
+  );
+  // 逐根锚杆：依赖墙段元数据（段索引、沿段偏距），默认空
+  type AnchorItem = { segIndex:number; offset:number; depth:number; length:number; diameter:number; angleDeg:number };
+  const [perAnchorList, setPerAnchorList] = useState<AnchorItem[]>([]);
+  // 生成/清除地连墙
+  const buildWall = () => {
+    try {
+      const hasOutline = (window as any).__CAE_ENGINE__?.hasLastExcavationOutline?.();
+      if (hasOutline) {
+        message.info('已自动使用最近一次开挖轮廓作为墙体路径');
+        (window as any).__CAE_ENGINE__?.addDiaphragmWall([], { thickness: wallThickness, depth: wallDepth, rotationAngleDeg: wallRotate }, { autoFit: true });
+      } else {
+        message.warning('未检测到开挖轮廓，使用示例矩形');
+        const cx = (domain.xmin + domain.xmax) / 2; const cy = (domain.ymin + domain.ymax) / 2;
+        const w = (domain.xmax - domain.xmin) * 0.4; const h = (domain.ymax - domain.ymin) * 0.2;
+        const rect = [
+          { x: cx - w/2, y: cy - h/2 },
+          { x: cx + w/2, y: cy - h/2 },
+          { x: cx + w/2, y: cy + h/2 },
+          { x: cx - w/2, y: cy + h/2 },
+          { x: cx - w/2, y: cy - h/2 },
+        ];
+        (window as any).__CAE_ENGINE__?.addDiaphragmWall([rect], { thickness: wallThickness, depth: wallDepth, rotationAngleDeg: wallRotate }, { autoFit: true });
+      }
+      // 生成墙后，若设置了锚杆数量>0，则根据当前参数自动布置一遍
+      try {
+        const eng = (window as any).__CAE_ENGINE__ as any;
+        const hasWall = eng?.hasDiaphragmWall?.();
+        if (hasWall && anchorLevelCount > 0) {
+          const levels = anchorLevels.slice(0, anchorLevelCount).map(l => ({ depth:Number(l.depth), length:Number(l.length), diameter:Number(l.diameter), spacing:Number(l.spacing), angleDeg:Number(l.angleDeg) }));
+          eng?.addWallAnchorsCustom?.(levels, { showHead: anchorShowHead, plateSize: anchorPlateSize, plateThickness: anchorPlateThk, headSize: anchorHeadSize });
+          // 生成后自动定位并短暂高亮
+          try { eng.focusAnchors?.(); eng.setAnchorsHighlight?.(true); setTimeout(()=>{ eng.setAnchorsHighlight?.(false); }, 2500); } catch {}
+        }
+      } catch {}
+      message.success('已生成地连墙');
+    } catch (e:any) { message.error('生成失败: ' + e.message); }
+  };
+  const clearWall = () => { try { (window as any).__CAE_ENGINE__?.removeDiaphragmWall?.(); message.success('已清除地连墙'); } catch {} };
+  const addAnchors = () => {
+  const ok = (window as any).__CAE_ENGINE__?.addAnchorsOnWall?.({
+      length: anchorLen,
+      diameter: anchorDia,
+      pitchDeg: anchorPitch,
+      rows: anchorRows,
+      startOffset: anchorStartOffset,
+      rowSpacing: anchorRowSpacing,
+      spacing: anchorSpacing,
+  }, { showHead: anchorShowHead, plateSize: anchorPlateSize, plateThickness: anchorPlateThk, headSize: anchorHeadSize });
+    if (ok) {
+      message.success('已在地连墙上生成锚杆');
+      try { const eng=(window as any).__CAE_ENGINE__; eng.focusAnchors?.(); eng.setAnchorsHighlight?.(true); setTimeout(()=>{ eng.setAnchorsHighlight?.(false); }, 2500);} catch {}
+    } else message.warning('请先生成地连墙再布置锚杆');
+  };
+  const clearAnchors = () => { try { (window as any).__CAE_ENGINE__?.removeAnchors?.(); message.success('已清除锚杆'); } catch {} };
+
+  // --- 自定义锚杆（逐层） ---
+  const updateAnchorLevel = (idx:number, key: keyof (typeof anchorLevels)[number], val:number) => {
+    setAnchorLevels(prev => {
+      const next = prev.slice();
+      next[idx] = { ...next[idx], [key]: Number(val) } as any;
+      // 实时应用到三维
+      const eng = (window as any).__CAE_ENGINE__ as any;
+      if (eng && anchorLevelCount>0) {
+        const levels = next.slice(0, anchorLevelCount).map(l => ({
+          depth: Number(l?.depth ?? 0), length: Number(l?.length ?? 8), diameter: Number(l?.diameter ?? 0.15), spacing: Number(l?.spacing ?? 2.0), angleDeg: Number(l?.angleDeg ?? 10)
+        }));
+  eng.addWallAnchorsCustom?.(levels, { showHead: anchorShowHead, plateSize: anchorPlateSize, plateThickness: anchorPlateThk, headSize: anchorHeadSize });
+      }
+      return next;
+    });
+  };
+  const applyAnchorsCustom = () => {
+    const eng = (window as any).__CAE_ENGINE__ as any;
+    if (!eng) return;
+    if (anchorLevelCount <= 0) { eng.removeAnchors?.(); message.info('锚杆层数为0，已清除'); return; }
+    const levels = anchorLevels.slice(0, anchorLevelCount).map(l => ({
+      depth: Number(l?.depth ?? 0),
+      length: Number(l?.length ?? 8),
+      diameter: Number(l?.diameter ?? 0.15),
+      spacing: Number(l?.spacing ?? 2.0),
+      angleDeg: Number(l?.angleDeg ?? 10),
+    }));
+  eng.addWallAnchorsCustom?.(levels, { showHead: anchorShowHead, plateSize: anchorPlateSize, plateThickness: anchorPlateThk, headSize: anchorHeadSize });
+    message.success('已应用自定义锚杆');
+    try { eng.focusAnchors?.(); } catch {}
+  };
+
+  // --- 逐根锚杆 ---
+  const refreshWallSegMeta = (): Array<{ index:number; length:number; thickness:number }> => {
+    try { return (window as any).__CAE_ENGINE__?.getWallSegmentsMeta?.() || []; } catch { return []; }
+  };
+  const addAnchorRow = () => {
+    const segs = refreshWallSegMeta(); if (!segs.length) { message.warning('请先生成地连墙'); return; }
+    const segIdx = 0; const len = segs[0].length || 1;
+    setPerAnchorList(list => [...list, { segIndex: segIdx, offset: len/2, depth: 2, length: 8, diameter: 0.15, angleDeg: 10 }]);
+  };
+  const removeAnchorRow = (idx:number) => setPerAnchorList(list => list.filter((_,i)=>i!==idx));
+  const updateAnchorItem = (idx:number, key: keyof AnchorItem, val:any) => {
+    setPerAnchorList(list => {
+      const next = list.slice();
+      (next[idx] as any)[key] = Number(val);
+      // 实时渲染
+      const eng = (window as any).__CAE_ENGINE__ as any;
+      if (eng) eng.addWallAnchorsPerAnchor?.(next, { showHead: anchorShowHead, plateSize: anchorPlateSize, plateThickness: anchorPlateThk, headSize: anchorHeadSize });
+      return next;
+    });
+  };
+  const applyPerAnchor = () => { 
+    try { 
+      const eng=(window as any).__CAE_ENGINE__;
+      eng?.addWallAnchorsPerAnchor?.(perAnchorList, { showHead: anchorShowHead, plateSize: anchorPlateSize, plateThickness: anchorPlateThk, headSize: anchorHeadSize }); 
+      message.success('已应用逐根锚杆'); 
+      try { eng.focusAnchors?.(); } catch {}
+    } catch {}
+  };
 
   // Mini sparkline component (inline to avoid external deps)
   const MiniQualityChart: React.FC<{ data: QualityHistItem[]; metric: 'rmseZ'|'rmseH'; title: string }> = ({ data, metric, title }) => {
@@ -943,13 +1079,13 @@ const GeologyReconstructionPanelV2: React.FC = () => {
                   </Col>
                   <Col span={24}>
                     <Text>核函数</Text>
-                    <Select style={{ width:'100%' }} value={currentParams.kernelType}
-                      onChange={(v)=> setCustomParams((p:any)=> ({...p, kernelType: v}))}
+                    <Select style={{ width:'100%' }} value={currentParams.kernelType as any}
+                      onChange={(v: any)=> setCustomParams((p:any)=> ({...p, kernelType: v}))}
                       options={[
                         { value:'gaussian', label:'gaussian 高斯' },
                         { value:'multiquadric', label:'multiquadric 多二次' },
                         { value:'thinplate', label:'thinplate 薄板样条' },
-                      ]} />
+                      ] as any} />
                   </Col>
                 </Row>
               )}
@@ -976,13 +1112,13 @@ const GeologyReconstructionPanelV2: React.FC = () => {
                   </Col>
                   <Col xs={12} md={6}>
                     <Text>模型</Text>
-                    <Select style={{ width:'100%' }} value={currentParams.model}
-                      onChange={(v)=> setCustomParams((p:any)=> ({...p, model: v}))}
+                    <Select style={{ width:'100%' }} value={currentParams.model as any}
+                      onChange={(v: any)=> setCustomParams((p:any)=> ({...p, model: v}))}
                       options={[
                         { value:'spherical', label:'球状' },
                         { value:'exponential', label:'指数' },
                         { value:'gaussian', label:'高斯' }
-                      ]} />
+                      ] as any} />
                   </Col>
                 </Row>
               )}
@@ -1135,6 +1271,135 @@ const GeologyReconstructionPanelV2: React.FC = () => {
             { key: 'boreholes', label: '钻孔数据', children: boreholeTab },
             { key: 'advanced', label: '参数配置', children: advancedTab },
             { key: 'water', label: '水头参数', children: waterHeadTab },
+            { key: 'support', label: '支护(地连墙)', children: (
+              <Card size="small" style={{ background:'rgba(255,255,255,0.02)' }}>
+                <Space direction="vertical" size={8} style={{ width:'100%' }}>
+                  <Alert type="info" showIcon message="地连墙：沿路径生成墙板，自土层顶面向下延伸至设定深度。未提供路径时使用示例矩形。" />
+                  <Row gutter={12}>
+                    <Col span={8}><span style={{ color:'#bbb' }}>墙厚(m)</span><InputNumber min={0.1} max={10} step={0.1} value={wallThickness} onChange={(v)=> setWallThickness(v||0.8)} style={{ width:'100%' }} /></Col>
+                    <Col span={8}><span style={{ color:'#bbb' }}>入土深度(m)</span><InputNumber min={0.5} max={100} step={0.5} value={wallDepth} onChange={(v)=> setWallDepth(v||20)} style={{ width:'100%' }} /></Col>
+                    <Col span={8}><span style={{ color:'#bbb' }}>旋转(°)</span><InputNumber min={-180} max={180} step={1} value={wallRotate} onChange={(v)=> setWallRotate(v||0)} style={{ width:'100%' }} /></Col>
+                  </Row>
+                  <Space>
+                    <Button type="primary" onClick={buildWall}>生成地连墙</Button>
+                    <Button onClick={clearWall}>清除</Button>
+                    <Button onClick={()=>{ const eng=(window as any).__CAE_ENGINE__; if(eng?.hasDiaphragmWall?.()) eng.focusDiaphragmWall?.(); else message.warning('未检测到地连墙'); }}>定位到地连墙</Button>
+                    <Button onClick={()=>{ const eng=(window as any).__CAE_ENGINE__; if(eng?.hasAnchors?.()) { eng.focusAnchors?.(); eng.setAnchorsHighlight?.(true); setTimeout(()=> eng.setAnchorsHighlight?.(false), 2000);} else message.warning('未检测到锚杆'); }}>定位锚杆</Button>
+                  </Space>
+                  <Alert type="warning" showIcon message="提示：后续可联动 DXF 抽取路径作为地连墙走向；当前为基础可视化。" />
+
+                  <Divider style={{ margin:'8px 0' }} />
+                  <Alert type="info" showIcon message="锚杆：沿地连墙外侧法向布置，支持多排、间距与俯仰角设置。请先生成地连墙。" />
+                  <Row gutter={12}>
+                    <Col xs={12} md={6}><span style={{ color:'#bbb' }}>长度(m)</span><InputNumber min={1} max={60} step={0.5} value={anchorLen} onChange={(v)=> setAnchorLen(v||12)} style={{ width:'100%' }} /></Col>
+                    <Col xs={12} md={6}><span style={{ color:'#bbb' }}>直径(m)</span><InputNumber min={0.03} max={0.5} step={0.01} value={anchorDia} onChange={(v)=> setAnchorDia(v||0.15)} style={{ width:'100%' }} /></Col>
+                    <Col xs={12} md={6}><span style={{ color:'#bbb' }}>俯仰(°)</span><InputNumber min={-30} max={30} step={1} value={anchorPitch} onChange={(v)=> setAnchorPitch(v||0)} style={{ width:'100%' }} /></Col>
+                    <Col xs={12} md={6}><span style={{ color:'#bbb' }}>排数</span><InputNumber min={1} max={6} step={1} value={anchorRows} onChange={(v)=> setAnchorRows(v||1)} style={{ width:'100%' }} /></Col>
+                  </Row>
+                  <Row gutter={12}>
+                    <Col xs={12} md={6}><span style={{ color:'#bbb' }}>距顶(m)</span><InputNumber min={0.2} max={20} step={0.1} value={anchorStartOffset} onChange={(v)=> setAnchorStartOffset(v||1.5)} style={{ width:'100%' }} /></Col>
+                    <Col xs={12} md={6}><span style={{ color:'#bbb' }}>排距(m)</span><InputNumber min={0.2} max={10} step={0.1} value={anchorRowSpacing} onChange={(v)=> setAnchorRowSpacing(v||2.5)} style={{ width:'100%' }} /></Col>
+                    <Col xs={12} md={6}><span style={{ color:'#bbb' }}>沿墙间距(m)</span><InputNumber min={0.5} max={20} step={0.1} value={anchorSpacing} onChange={(v)=> setAnchorSpacing(v||2.5)} style={{ width:'100%' }} /></Col>
+                    <Col xs={12} md={6}>
+                      <Space style={{ marginTop: 18 }}>
+                        <Button type="primary" onClick={addAnchors}>生成锚杆</Button>
+                        <Button onClick={clearAnchors}>清除锚杆</Button>
+                      </Space>
+                    </Col>
+                  </Row>
+                  <Row gutter={12}>
+                    <Col xs={12} md={6}><span style={{ color:'#bbb' }}>显示托盘/锚头</span><Switch checked={anchorShowHead} onChange={setAnchorShowHead} /></Col>
+                    <Col xs={12} md={6}><span style={{ color:'#bbb' }}>托盘直径(m)</span><InputNumber min={0.05} max={1.0} step={0.05} value={anchorPlateSize} onChange={(v)=> setAnchorPlateSize(v||0.4)} style={{ width:'100%' }} /></Col>
+                    <Col xs={12} md={6}><span style={{ color:'#bbb' }}>托盘厚度(m)</span><InputNumber min={0.01} max={0.2} step={0.01} value={anchorPlateThk} onChange={(v)=> setAnchorPlateThk(v||0.05)} style={{ width:'100%' }} /></Col>
+                    <Col xs={12} md={6}><span style={{ color:'#bbb' }}>锚头尺寸(m)</span><InputNumber min={0.03} max={0.3} step={0.01} value={anchorHeadSize} onChange={(v)=> setAnchorHeadSize(v||0.12)} style={{ width:'100%' }} /></Col>
+                  </Row>
+
+                  <Divider style={{ margin:'8px 0' }} />
+                  <Alert type="info" showIcon message="自定义锚杆：按道逐一设置深度/长度/直径/沿墙间距/倾角。默认数量为 0，不显示。" />
+                  <Space style={{ marginBottom:8 }}>
+                    <span style={{ color:'#bbb' }}>锚杆数量</span>
+                    <InputNumber min={0} max={50} value={anchorLevelCount} onChange={(v)=>{
+                      let n = Number(v)||0; if (n<0) n=0; if (n>50) n=50; setAnchorLevelCount(n);
+                      setAnchorLevels(prev=>{
+                        const next = prev.slice();
+                        while(next.length < n) next.push({ depth: 2, length: 8, diameter: 0.15, spacing: 2.0, angleDeg: 10 });
+                        if (next.length > n) next.length = n;
+                        // 实时应用默认参数到三维
+                        const eng = (window as any).__CAE_ENGINE__ as any;
+                        if (eng) {
+                          const hasWall = eng.hasDiaphragmWall?.();
+                          if (!hasWall) { message.info('请先生成地连墙'); }
+                          else {
+                            if (n<=0) eng.removeAnchors?.();
+                            else {
+                              const levels = next.slice(0, n).map(l => ({ depth:Number(l.depth), length:Number(l.length), diameter:Number(l.diameter), spacing:Number(l.spacing), angleDeg:Number(l.angleDeg) }));
+                              eng.addWallAnchorsCustom?.(levels, { showHead: anchorShowHead, plateSize: anchorPlateSize, plateThickness: anchorPlateThk, headSize: anchorHeadSize });
+                            }
+                          }
+                        }
+                        return next;
+                      });
+                    }} />
+                    <span style={{ color:'#888' }}>默认 0 = 不显示</span>
+                  </Space>
+                  {anchorLevelCount>0 && (
+                    <div style={{ maxHeight: 280, overflow:'auto', border:'1px solid rgba(255,255,255,0.08)', padding:8, borderRadius:4 }}>
+                      {Array.from({ length: anchorLevelCount }).map((_, i) => (
+                        <div key={i} style={{ display:'grid', gridTemplateColumns:'70px 80px 90px 90px 100px 90px', gap:8, alignItems:'center', marginBottom:6 }}>
+                          <b>第{i+1}道</b>
+                          <span>深度(m)</span>
+                          <InputNumber value={anchorLevels[i]?.depth} min={0} step={0.1} onChange={(v)=>updateAnchorLevel(i,'depth', Number(v))} />
+                          <span>长度(m)</span>
+                          <InputNumber value={anchorLevels[i]?.length} min={0.2} step={0.1} onChange={(v)=>updateAnchorLevel(i,'length', Number(v))} />
+                          <span>直径(m)</span>
+                          <InputNumber value={anchorLevels[i]?.diameter} min={0.02} step={0.01} onChange={(v)=>updateAnchorLevel(i,'diameter', Number(v))} />
+                          <span>间距(m)</span>
+                          <InputNumber value={anchorLevels[i]?.spacing} min={0.2} step={0.1} onChange={(v)=>updateAnchorLevel(i,'spacing', Number(v))} />
+                          <span>倾角(°)</span>
+                          <InputNumber value={anchorLevels[i]?.angleDeg} min={-30} max={60} step={1} onChange={(v)=>updateAnchorLevel(i,'angleDeg', Number(v))} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <Space style={{ marginTop:8 }}>
+                    <Button type="primary" onClick={applyAnchorsCustom} disabled={anchorLevelCount<=0}>应用自定义锚杆</Button>
+                    <Button onClick={clearAnchors}>清除锚杆</Button>
+                  </Space>
+
+                  <Divider style={{ margin:'12px 0' }} />
+                  <Alert type="info" showIcon message="逐根锚杆：针对每一根定义段索引、沿段偏距、深度、长度、直径、倾角。修改即时更新。" />
+                  <Space style={{ marginBottom:8 }}>
+                    <Button type="dashed" onClick={addAnchorRow}>新增一根</Button>
+                    <Button onClick={()=>{ setPerAnchorList([]); (window as any).__CAE_ENGINE__?.removeAnchors?.(); }}>清空全部</Button>
+                  </Space>
+                  {perAnchorList.length>0 && (
+                    <div style={{ maxHeight: 300, overflow:'auto', border:'1px solid rgba(255,255,255,0.08)', padding:8, borderRadius:4 }}>
+                      {perAnchorList.map((a, i) => (
+                        <div key={i} style={{ display:'grid', gridTemplateColumns:'60px 80px 90px 90px 90px 90px 80px', gap:8, alignItems:'center', marginBottom:6 }}>
+                          <b>#{i+1}</b>
+                          <span>段索引</span>
+                          <InputNumber min={0} step={1} value={a.segIndex} onChange={(v)=>updateAnchorItem(i,'segIndex', v)} />
+                          <span>偏距(m)</span>
+                          <InputNumber min={0} step={0.1} value={a.offset} onChange={(v)=>updateAnchorItem(i,'offset', v)} />
+                          <span>深度(m)</span>
+                          <InputNumber min={0} step={0.1} value={a.depth} onChange={(v)=>updateAnchorItem(i,'depth', v)} />
+                          <span>长度(m)</span>
+                          <InputNumber min={0.1} step={0.1} value={a.length} onChange={(v)=>updateAnchorItem(i,'length', v)} />
+                          <span>直径(m)</span>
+                          <InputNumber min={0.02} step={0.01} value={a.diameter} onChange={(v)=>updateAnchorItem(i,'diameter', v)} />
+                          <span>倾角(°)</span>
+                          <InputNumber min={-30} max={60} step={1} value={a.angleDeg} onChange={(v)=>updateAnchorItem(i,'angleDeg', v)} />
+                          <Button danger onClick={()=>removeAnchorRow(i)}>删除</Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <Space style={{ marginTop:8 }}>
+                    <Button type="primary" onClick={applyPerAnchor} disabled={perAnchorList.length===0}>应用逐根锚杆</Button>
+                  </Space>
+                </Space>
+              </Card>
+            ) },
           ]}
         />
         {quality && (
@@ -1248,7 +1513,6 @@ function renderCacheRow(it:any, onSelectA:(h:string)=>void, onSelectB:(h:string)
     </tr>
   );
 }
-
 // 简易稳定颜色哈希 (0xRRGGBB)
 function hashColor(key: string): number {
   let h=0; for (let i=0;i<key.length;i++){ h=(h*131 + key.charCodeAt(i))>>>0; }
