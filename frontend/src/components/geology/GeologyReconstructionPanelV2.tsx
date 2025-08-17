@@ -9,13 +9,14 @@
  *  - 估算: memory≈ N * 32 bytes; time≈ 基础系数 0.00008 * N 秒 (经验值，可后续校准)
  * 后续阶段将补齐: 质量评估(RMSEz/H)、回退、缓存、水头参数细节、预览/commit API 对接、钻孔数据联动等。
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, Tabs, Radio, Slider, InputNumber, Row, Col, Space, Switch, Tag, Button, Typography, Alert, Tooltip, Divider, Segmented, message, Upload, Table, Statistic, Popconfirm, Form, Input, Select } from 'antd';
 import { ExperimentOutlined, DeploymentUnitOutlined, DatabaseOutlined, ThunderboltOutlined, AimOutlined, CheckCircleTwoTone, WarningTwoTone, CloseCircleTwoTone, CloudUploadOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons';
 // Stage E: 3D 视口
 import GeologyReconstructionViewport3D from './GeologyReconstructionViewport3D';
 import { previewGeology, commitGeology } from '../../services/geologyReconstructionApi';
 import { geologyReconCache } from '../../services/geologyReconCache';
+import { eventBus } from '../../core/eventBus';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 
@@ -62,7 +63,7 @@ interface DomainState {
 }
 
 const defaultDomain: DomainState = {
-  mode: 'auto',
+  mode: 'manual',
   autoExpansion: 30,
   roiEnabled: false,
   xmin: 0, xmax: 500, ymin: 0, ymax: 500, zmin: -100, zmax: 0,
@@ -225,16 +226,17 @@ const GeologyReconstructionPanelV2: React.FC = () => {
   const handleHeadPreview = () => { setHeadPreviewing(true); setTimeout(()=>{ setHeadPreviewing(false); message.success('水头参数预览完成 (占位)'); },700); };
 
   // synthQuality (旧本地模拟质量函数) 已废弃，真实质量来源于 preview API 响应
-  const handlePreview = async () => {
-    if (risk.level === 'hard') { message.error('分辨率超硬上限，请降低后再预览'); return; }
-  setPreviewing(true); setCacheHit(false); setFallbackUsed(false); setRoiAdjusted(false);
+  const handlePreview = async (): Promise<{ rmseZ:number; rmseH:number; grade:string } | null> => {
+    if (risk.level === 'hard') { message.error('分辨率超硬上限，请降低后再预览'); return null; }
+    setPreviewing(true); setCacheHit(false); setFallbackUsed(false); setRoiAdjusted(false);
     const cacheEntry = geologyReconCache.get(globalHash);
     if (cacheEntry){
       setQuality(cacheEntry.quality); setFallbackUsed(cacheEntry.fallback); setCacheHit(true); setRoiAdjusted(!!cacheEntry.roiAdjusted);
-      setPreviewing(false); message.success('缓存命中'); return;
+      setPreviewing(false); message.success('缓存命中');
+      return cacheEntry.quality;
     }
     try {
-  const resp = await previewGeology({ hash: globalHash, domain, boreholes, waterHead: waterParams, options:{ roiEnabled: domain.roiEnabled, fallbackPolicy } });
+      const resp = await previewGeology({ hash: globalHash, domain, boreholes, waterHead: waterParams, options:{ roiEnabled: domain.roiEnabled, fallbackPolicy } });
       setQuality(resp.quality); setFallbackUsed(resp.fallback); setRoiAdjusted(!!resp.roiAdjusted);
       geologyReconCache.set({
         hash: globalHash,
@@ -252,23 +254,29 @@ const GeologyReconstructionPanelV2: React.FC = () => {
         domainVolume: domainVolume ?? undefined,
         avgCellVol: avgCellVol ?? undefined
       });
-  setCacheVersion(v=>v+1);
+      setCacheVersion(v=>v+1);
       setQualityHistory(h=>{
         const next = [{ ts: Date.now(), hash: globalHash, N, rmseZ: resp.quality.rmseZ, rmseH: resp.quality.rmseH, grade: resp.quality.grade, fallback: resp.fallback, roiAdjusted: !!resp.roiAdjusted }, ...h];
         return next.slice(0,50);
       });
-  if (!baselineHash && resp.quality.grade==='A') { setBaselineHash(globalHash); message.success('已自动设为基线 (首个A级)'); }
+      if (!baselineHash && resp.quality.grade==='A') { setBaselineHash(globalHash); message.success('已自动设为基线 (首个A级)'); }
       message.success(resp.fallback? '预览完成 (服务器回退)':'预览完成');
+      return resp.quality;
     } catch (e:any){
       message.error('预览失败: '+ e.message);
+      return null;
     } finally { setPreviewing(false); }
   };
   const handleCommit = async () => {
     if (risk.level === 'hard') { message.error('当前配置超硬上限，无法确定'); return; }
-    if (!quality) { message.warning('请先预览并生成质量指标'); return; }
+    if (!quality) {
+      message.info('未预览，正在自动预览...');
+      const q = await handlePreview();
+      if (!q) return; // 预览失败或被取消
+    }
     setSubmitting(true);
     try {
-  const resp = await commitGeology({ hash: globalHash, domain, boreholes, waterHead: waterParams, options:{ roiEnabled: domain.roiEnabled, fallbackPolicy } });
+      const resp = await commitGeology({ hash: globalHash, domain, boreholes, waterHead: waterParams, options:{ roiEnabled: domain.roiEnabled, fallbackPolicy } });
       message.success(`提交完成 任务ID=${resp.taskId}`);
     } catch(e:any){ message.error('提交失败: '+e.message);} finally { setSubmitting(false); }
   };
@@ -414,6 +422,8 @@ const GeologyReconstructionPanelV2: React.FC = () => {
       setBoreholes(normalized);
       setBoreholeFileName(file.name);
       message.success(`已加载钻孔 ${normalized.length} 个 (layers=${normalized.reduce((s,h)=>s+(h.layers?.length||0),0)})`);
+      // 新增：通知 3D 引擎更新钻孔，显示在当前计算域内
+      try { eventBus.emit('geology:boreholes:update', { holes: normalized, options: { show: true, opacity: boreholeOpacity3D } }); } catch {}
     } catch (err:any) {
       console.error(err);
       message.error('解析失败: ' + err.message);
@@ -423,8 +433,13 @@ const GeologyReconstructionPanelV2: React.FC = () => {
     return false; // 阻止自动上传
   };
 
+  // 当钻孔集合或透明度开关变化时，通知 3D 引擎刷新
+  useEffect(()=>{
+    try { eventBus.emit('geology:boreholes:update', { holes: boreholes, options: { show: show3DBoreholes, opacity: boreholeOpacity3D } }); } catch {}
+  }, [boreholes, show3DBoreholes, boreholeOpacity3D]);
+
   const holeCount = boreholes.length;
-  const layerCount = useMemo(()=> boreholes.reduce((s,h)=> s + (h.layers?.length||0),0), [boreholes]);
+  const layerCount = useMemo(()=> boreholes.reduce((s,h)=> s + (h.layers?.length||0), 0), [boreholes]);
   const holeLimitWarn = holeCount > HOLE_SOFT_LIMIT;
   const layerLimitWarn = layerCount > LAYER_SOFT_LIMIT;
 
@@ -468,6 +483,30 @@ const GeologyReconstructionPanelV2: React.FC = () => {
     const dx = autoBounds.x.hi-autoBounds.x.lo; const dy = autoBounds.y.hi-autoBounds.y.lo; const dz = autoBounds.z.hi-autoBounds.z.lo; if (dx>0&&dy>0&&dz>0) domainVolume = dx*dy*dz;
   }
   if (domainVolume!=null && N>0) avgCellVol = domainVolume / N;
+
+  // 向右侧主3D视口广播当前计算域范围，驱动线框盒实时更新
+  React.useEffect(() => {
+    try {
+      let bounds: null | { xmin:number; xmax:number; ymin:number; ymax:number; zmin:number; zmax:number } = null;
+      if (domain.mode === 'manual') {
+        const { xmin, xmax, ymin, ymax, zmin, zmax } = domain as any;
+        if ([xmin, xmax, ymin, ymax, zmin, zmax].every((v:any)=> typeof v === 'number' && isFinite(v))) {
+          bounds = { xmin, xmax, ymin, ymax, zmin, zmax };
+        }
+      } else if (autoBounds) {
+        bounds = {
+          xmin: autoBounds.x.lo,
+          xmax: autoBounds.x.hi,
+          ymin: autoBounds.y.lo,
+          ymax: autoBounds.y.hi,
+          zmin: autoBounds.z.lo,
+          zmax: autoBounds.z.hi,
+        };
+      }
+      if (!bounds) return;
+      eventBus.emit('geology:domain:update', { bounds });
+    } catch {}
+  }, [domain, autoBounds]);
 
   const domainTab = (
     <Space direction="vertical" style={{ width: '100%' }} size="middle">
@@ -840,7 +879,7 @@ const GeologyReconstructionPanelV2: React.FC = () => {
   };
 
   const advancedTab = (
-    <div style={{ maxHeight: '70vh', overflowY: 'scroll', padding: '0 4px' }}>
+    <div style={{ maxHeight: '70vh', overflowY: 'scroll', padding: '0 4px', paddingBottom: 140 }}>
       <Space direction="vertical" style={{ width:'100%' }} size="middle">
       {/* 重建算法与参数 */}
       <Card size="small" title={<Space><ExperimentOutlined />重建算法与参数</Space>} bodyStyle={{ padding: 12 }}>
@@ -1087,7 +1126,7 @@ const GeologyReconstructionPanelV2: React.FC = () => {
           </Col>
         </Row>
       </div>
-      <div style={{ flex: 1, overflowY: 'scroll', padding: 12 }}>
+  <div style={{ flex: 1, overflowY: 'scroll', padding: 12, paddingBottom: 140 }}>
         <Tabs
           size="small"
           tabPosition="top"
@@ -1186,7 +1225,7 @@ const GeologyReconstructionPanelV2: React.FC = () => {
   );
 };
 
-// --- 轻量行渲染函数（支持虚拟化 transform 注入） ---
+// --- 轻量行渲染函数（支持虚拟化 transform 注入）---
 function renderCacheRow(it:any, onSelectA:(h:string)=>void, onSelectB:(h:string)=>void, styleOverride:React.CSSProperties = {}){
   return (
     <tr key={it.hash} style={{ borderBottom:'1px solid rgba(255,255,255,0.06)', height:28, ...styleOverride, position: styleOverride.transform? 'absolute':'static', left:0, right:0 }}>

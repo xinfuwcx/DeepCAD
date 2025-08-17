@@ -15,6 +15,7 @@ import { GeometryData, MaterialZone } from '../../core/InterfaceProtocol';
 import { LODManager } from './performance/LODManager.simple';
 import { safeRemoveRenderer, disposeMaterial, safeEmptyContainer } from '../../utils/threejsCleanup';
 import { performanceStore } from '../../store/performanceStore';
+import { eventBus } from '../../core/eventBus';
 
 // CAE特定材质类型
 export enum CAEMaterialType {
@@ -187,7 +188,7 @@ export class CAEThreeEngineCore {
       antialias: true,
       alpha: false,
       depth: true,
-      stencil: false,
+      stencil: true,
       powerPreference: 'high-performance',
       failIfMajorPerformanceCaveat: false,
       preserveDrawingBuffer: false
@@ -1261,6 +1262,20 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
   const engineRef = useRef<CAEThreeEngineCore | null>(null);
   // DXF 覆盖层引用
   const dxfOverlayRef = useRef<THREE.Group | null>(null);
+  // 地质“计算域”盒实体引用
+  const domainBoxRef = useRef<THREE.Group | null>(null);
+  const domainSolidMeshRef = useRef<THREE.Mesh | null>(null);
+  const domainEdgesRef = useRef<THREE.LineSegments | null>(null);
+  const originalDomainGeomRef = useRef<THREE.BufferGeometry | null>(null);
+  const domainAutoFitDoneRef = useRef<boolean>(false);
+  // 地质域/钻孔渲染相关引用
+  const domainBoundsRef = useRef<{ xmin:number;xmax:number;ymin:number;ymax:number;zmin:number;zmax:number }|null>(null);
+  const boreholesGroupRef = useRef<THREE.Group | null>(null);
+  const boreholesDataRef = useRef<{ holes:any[]; options?:{ show?:boolean; opacity?:number } }|null>(null);
+  // 基坑遮罩体（模板缓冲）
+  const excavationMaskRef = useRef<THREE.Group | null>(null);
+  // 开挖模式: add(仅向下增加分层实体) | cut(视觉/真实挖空)
+  const excavationModeRef = useRef<'add'|'cut'>('cut');
   const animationIdRef = useRef<number>(0);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
@@ -1336,6 +1351,9 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
       // 暴露全局接口（供基坑设计等模块调用）
       try {
         (window as any).__CAE_ENGINE__ = {
+          /** 设置开挖显示模式: 'add' 仅增加分层实体; 'cut' 使用模板遮罩视觉挖空 */
+          setExcavationMode: (mode: 'add'|'cut') => { excavationModeRef.current = mode; },
+          getExcavationMode: (): 'add'|'cut' => excavationModeRef.current,
           /**
            * 渲染 DXF 线段到主 CAE 视口
            * @param segments 线段集合
@@ -1376,11 +1394,37 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
               const geom=new THREE.BufferGeometry().setFromPoints(pts);
               const line=new THREE.Line(geom, mat); line.renderOrder=999; group.add(line);
             });
+            // 将 DXF 覆盖层对齐到“地质土层”的顶面 (Three Y 对应地质 Z)
+            try {
+              const bounds = domainBoundsRef.current;
+              if (bounds) {
+                const cx = (bounds.xmin + bounds.xmax) / 2;
+                const cz = (bounds.ymin + bounds.ymax) / 2;
+                const yTop = bounds.zmax + 0.1; // 轻微抬高避免与顶面Z-fighting
+                group.position.set(cx, yTop, cz);
+              }
+            } catch {}
             scene.add(group); dxfOverlayRef.current=group;
             // 调整相机（仅在 autoFit 不为 false 时）
             if (options?.autoFit !== false) {
               try {
-                const cam = eng.camera; const maxDim=Math.max(width,height)*scale; cam.position.set(maxDim*1.2, maxDim*0.9, maxDim*1.2); cam.lookAt(0,0,0); eng.orbitControls.target.set(0,0,0); eng.orbitControls.update();
+                const cam = eng.camera; 
+                const maxDim=Math.max(width,height)*scale; 
+                const bounds = domainBoundsRef.current;
+                if (bounds) {
+                  const cx = (bounds.xmin + bounds.xmax) / 2;
+                  const cz = (bounds.ymin + bounds.ymax) / 2;
+                  const yTop = bounds.zmax;
+                  cam.position.set(cx + maxDim*1.2, yTop + maxDim*0.9, cz + maxDim*1.2);
+                  cam.lookAt(cx, yTop, cz);
+                  eng.orbitControls.target.set(cx, yTop, cz);
+                } else {
+                  const center = new THREE.Vector3(0, 0, 0);
+                  cam.position.set(center.x + maxDim*1.2, center.y + maxDim*0.9, center.z + maxDim*1.2);
+                  cam.lookAt(center);
+                  eng.orbitControls.target.copy(center);
+                }
+                eng.orbitControls.update();
               } catch {}
             }
           },
@@ -1397,6 +1441,17 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
                   const m = child.material; if (Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.();
                 } catch {}
               });
+            }
+            // 同时移除模板遮罩
+            if (excavationMaskRef.current) {
+              try {
+                scene.remove(excavationMaskRef.current);
+                excavationMaskRef.current.traverse((child: any) => {
+                  try { child.geometry?.dispose?.(); } catch {}
+                  try { const m = child.material; if (Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.(); } catch {}
+                });
+              } catch {}
+              excavationMaskRef.current = null;
             }
           },
           /**
@@ -1470,8 +1525,16 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
             // 材质调色板（分层渐变）
             const colors = [0x1890ff, 0x13c2c2, 0x52c41a, 0xfadb14, 0xfa8c16, 0xf5222d, 0x722ed1];
 
-            const layerDepthWorld = Math.max(0.001, params.layerDepth) * scale; // 可视化单位
-            const layers = Math.max(1, Math.min(200, Math.floor(params.layerCount)));
+            // 深度使用“世界单位(=地质Z同单位)”，不受XY缩放影响
+            let layers = Math.max(1, Math.min(200, Math.floor(params.layerCount)));
+            const totalDepthWorld = Math.max(0, Number(params.depth ?? 0));
+            let layerDepthWorld = Math.max(0, Number(params.layerDepth ?? 0));
+            if (layerDepthWorld <= 0 && totalDepthWorld > 0) {
+              layerDepthWorld = totalDepthWorld / layers;
+            }
+            if (layerDepthWorld <= 0) {
+              layerDepthWorld = 1; // 保底 1 个世界单位，避免看不见
+            }
 
             // 逐层生成（沿 -Y 方向堆叠）
             for (let layer = 0; layer < layers; layer++) {
@@ -1496,7 +1559,7 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
                 depth: layerDepthWorld,
                 bevelEnabled: false,
               });
-              // 将挤出方向从 +Z 旋转到 -Y（使得厚度向下，且形状平面满足 y -> Z 的可视化映射）
+              // 将挤出方向从 +Z 旋转到 -Y（使厚度向下）
               geom.rotateX(Math.PI / 2);
 
               const mat = new THREE.MeshPhongMaterial({
@@ -1535,12 +1598,163 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
               }
             } catch {}
 
+            // 生成模板遮罩体：仅在 'cut' 模式下启用（视觉挖空）
+            try {
+              if (excavationModeRef.current !== 'cut') {
+                // 非挖空模式，确保移除现有遮罩
+                if (excavationMaskRef.current) {
+                  try {
+                    scene.remove(excavationMaskRef.current);
+                    excavationMaskRef.current.traverse((child:any)=>{
+                      try { child.geometry?.dispose?.(); } catch {}
+                      try { const m = child.material; if (Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.(); } catch {}
+                    });
+                  } catch {}
+                  excavationMaskRef.current = null;
+                }
+                // 跳过创建遮罩
+              } else {
+              // 清理旧遮罩
+              if (excavationMaskRef.current) {
+                try {
+                  scene.remove(excavationMaskRef.current);
+                  excavationMaskRef.current.traverse((child:any)=>{
+                    try { child.geometry?.dispose?.(); } catch {}
+                    try { const m = child.material; if (Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.(); } catch {}
+                  });
+                } catch {}
+                excavationMaskRef.current = null;
+              }
+
+              const shapes: THREE.Shape[] = [];
+              for (const poly of rotatedPolys) {
+                if (!poly || poly.length < 3) continue;
+                const shape = new THREE.Shape();
+                const p0 = poly[0];
+                shape.moveTo((p0.x - cx) * scale, (p0.y - cy) * scale);
+                for (let i = 1; i < poly.length; i++) {
+                  const p = poly[i];
+                  shape.lineTo((p.x - cx) * scale, (p.y - cy) * scale);
+                }
+                shape.closePath();
+                shapes.push(shape);
+              }
+              if (shapes.length) {
+                const totalDepth = Math.max(0.001, layers * layerDepthWorld);
+                const maskGeom = new THREE.ExtrudeGeometry(shapes, { depth: totalDepth, bevelEnabled: false });
+                maskGeom.rotateX(Math.PI / 2);
+                const mkBase: any = new THREE.MeshBasicMaterial({ colorWrite: false });
+                mkBase.depthWrite = false; mkBase.depthTest = true;
+                mkBase.stencilWrite = true; mkBase.stencilRef = 1;
+                mkBase.stencilFunc = THREE.AlwaysStencilFunc;
+                mkBase.stencilFail = THREE.KeepStencilOp;
+                mkBase.stencilZFail = THREE.KeepStencilOp;
+                mkBase.stencilZPass = THREE.ReplaceStencilOp;
+                const mkFront = mkBase.clone(); mkFront.side = THREE.FrontSide; (mkFront as any).polygonOffset = true; (mkFront as any).polygonOffsetFactor = -1; (mkFront as any).polygonOffsetUnits = -1;
+                const mkBack = mkBase.clone(); mkBack.side = THREE.BackSide; (mkBack as any).polygonOffset = true; (mkBack as any).polygonOffsetFactor = -1; (mkBack as any).polygonOffsetUnits = -1;
+                const maskMeshFront = new THREE.Mesh(maskGeom, mkFront);
+                const maskMeshBack = new THREE.Mesh(maskGeom.clone(), mkBack);
+                maskMeshFront.renderOrder = 50; maskMeshBack.renderOrder = 50;
+                const maskGroup = new THREE.Group(); maskGroup.name = 'EXCAVATION_STENCIL_MASK';
+                maskGroup.add(maskMeshFront); maskGroup.add(maskMeshBack);
+                // 对齐到域顶面中心
+                try {
+                  const bounds = domainBoundsRef.current;
+                  if (bounds) {
+                    const cxD = (bounds.xmin + bounds.xmax) / 2;
+                    const czD = (bounds.ymin + bounds.ymax) / 2;
+                    const yTopD = bounds.zmax;
+                    maskGroup.position.set(cxD, yTopD, czD);
+                  }
+                } catch {}
+                scene.add(maskGroup);
+                excavationMaskRef.current = maskGroup;
+              }
+              }
+            } catch {}
+
+            // 将开挖实体对齐到当前“土层顶面”，并以域中心为 XY 原点
+            try {
+              const bounds = domainBoundsRef.current;
+              if (bounds) {
+                const cx = (bounds.xmin + bounds.xmax) / 2;
+                const cz = (bounds.ymin + bounds.ymax) / 2;
+                const yTop = bounds.zmax; // 顶面
+                group.position.set(cx, yTop, cz);
+              }
+            } catch {}
             scene.add(group);
+
+            // 若处于 'cut' 模式，尝试做真实布尔减法（CSG）；失败则保持遮罩方案
+            try {
+              if (excavationModeRef.current === 'cut' && domainSolidMeshRef.current && originalDomainGeomRef.current) {
+                // 使用 three-csg-ts（动态导入，若失败则跳过）
+                // @ts-ignore
+                import(/* @vite-ignore */ 'three-csg-ts').then((mod:any)=>{
+                  const { CSG } = mod;
+                  // 先加载 BufferGeometryUtils（addons 或 jsm 任一可用）
+                  const loadUtils = () => import('three/addons/utils/BufferGeometryUtils.js')
+                    .catch(()=>import('three/examples/jsm/utils/BufferGeometryUtils.js'));
+                  loadUtils().then((U:any)=>{
+                    try {
+                      const mergeGeometries = U.mergeGeometries || U.BufferGeometryUtils?.mergeGeometries;
+                      // 收集坑体所有层的 world 几何
+                      const geoms: THREE.BufferGeometry[] = [];
+                      const meshes: THREE.Mesh[] = []; group.traverse((o:any)=>{ if (o.isMesh) meshes.push(o); });
+                      for (const m of meshes) {
+                        const g = m.geometry.clone(); g.applyMatrix4(m.matrixWorld);
+                        geoms.push(g);
+                      }
+                      if (geoms.length === 0) return;
+                      const merged = mergeGeometries ? mergeGeometries(geoms, true) : geoms.reduce((acc:any, g:any)=>acc?acc:g, null);
+                      if (!merged) return;
+                      const tmpMesh = new THREE.Mesh(merged, new THREE.MeshBasicMaterial());
+                      const exCSG = CSG.fromMesh(tmpMesh);
+                      // 原始域体（未改写几何 + 当前世界位姿）
+                      const domainMesh = domainSolidMeshRef.current as THREE.Mesh | null;
+                      const orig = originalDomainGeomRef.current as THREE.BufferGeometry | null;
+                      if (!domainMesh || !orig) return;
+                      const domGeomWorld = orig.clone();
+                      domGeomWorld.applyMatrix4(domainMesh.matrixWorld);
+                      const domMeshForCSG = new THREE.Mesh(domGeomWorld, new THREE.MeshBasicMaterial());
+                      const domCSG = CSG.fromMesh(domMeshForCSG);
+                      const subCSG = domCSG.subtract(exCSG);
+                      const resultMesh = CSG.toMesh(subCSG, domainMesh.matrix.clone(), domainMesh.material as any);
+                      resultMesh.position.copy(domainMesh.position);
+                      // 替换域体
+                      const parent = domainMesh.parent;
+                      if (parent) {
+                        parent.remove(domainMesh);
+                        try { domainMesh.geometry.dispose(); } catch {}
+                        domainSolidMeshRef.current = resultMesh;
+                        parent.add(resultMesh);
+                        // 重建边线
+                        try {
+                          if (domainEdgesRef.current) { parent.remove(domainEdgesRef.current); }
+                          const newEdges = new THREE.EdgesGeometry(resultMesh.geometry as THREE.BufferGeometry);
+                          const lineMat = new THREE.LineBasicMaterial({ color: 0xffc53d, transparent: true, opacity: 0.9 });
+                          const line = new THREE.LineSegments(newEdges, lineMat);
+                          line.position.copy(resultMesh.position);
+                          line.renderOrder = 999;
+                          parent.add(line);
+                          domainEdgesRef.current = line;
+                        } catch {}
+                        // 去掉遮罩与开挖实体组（只保留被减去的域体）
+                        if (excavationMaskRef.current) { try { parent.remove(excavationMaskRef.current); } catch {} excavationMaskRef.current = null; }
+                        try { scene.remove(group); } catch {}
+                      }
+                    } catch (e) { console.warn('CSG subtract failed, fallback to stencil mask', e); }
+                  }).catch(()=>{/* utils 不可用则忽略，保留遮罩回退 */});
+                }).catch(()=>{/* CSG 不可用则忽略，保留遮罩回退 */});
+              }
+            } catch {}
 
             // 视角自适应（可选，保留当前视角方向，仅调整距离）
             if (options?.autoFit !== false) {
               try {
                 const box = new THREE.Box3().setFromObject(group);
+                const center = new THREE.Vector3();
+                box.getCenter(center);
                 const sphere = new THREE.Sphere();
                 box.getBoundingSphere(sphere);
                 const cam = eng.camera;
@@ -1548,9 +1762,9 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
                 const currDir = cam.position.clone().sub(controls.target).normalize();
                 const fov = cam.fov * Math.PI / 180;
                 const fitDist = (sphere.radius / Math.tan(fov / 2)) * 1.2; // 20% margin
-                controls.target.set(0, 0, 0);
-                cam.position.copy(currDir.multiplyScalar(fitDist));
-                cam.lookAt(0, 0, 0);
+                controls.target.copy(center);
+                cam.position.copy(center.clone().add(currDir.multiplyScalar(fitDist)));
+                cam.lookAt(center);
                 controls.update();
               } catch {}
             }
@@ -1580,7 +1794,16 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
               });
             });
             dxfOverlayRef.current = null;
-            try { eng.orbitControls.target.set(0,0,0); eng.orbitControls.update(); } catch {}
+            try {
+              const bounds = domainBoundsRef.current;
+              if (bounds) {
+                const cx = (bounds.xmin + bounds.xmax) / 2;
+                const cy = (bounds.zmin + bounds.zmax) / 2;
+                const cz = (bounds.ymin + bounds.ymax) / 2;
+                eng.orbitControls.target.set(cx, cy, cz);
+              }
+              eng.orbitControls.update();
+            } catch {}
           },
           /** 恢复默认画布元素（网格/地面等），退出空画布模式 */
           restoreDefaults: () => {
@@ -1794,6 +2017,190 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
     };
   }, [isInitialized]);
 
+  // 订阅地质面板的计算域更新，渲染“实体”盒（半透明 Mesh + 边框 + 角点）
+  useEffect(() => {
+    const off = eventBus.on('geology:domain:update', (payload: any) => {
+      try {
+        const eng = engineRef.current; if (!eng) return;
+        const scene = eng.scene;
+        const b = payload?.bounds;
+        if (!b) return;
+  // 记录最近的域范围（供钻孔可视化裁剪使用）
+  domainBoundsRef.current = { xmin:Number(b.xmin), xmax:Number(b.xmax), ymin:Number(b.ymin), ymax:Number(b.ymax), zmin:Number(b.zmin), zmax:Number(b.zmax) };
+        const sx = Math.max(1e-6, (b.xmax - b.xmin));
+        const sy = Math.max(1e-6, (b.zmax - b.zmin)); // 注意：引擎使用 Y 轴为竖直，对应地质 z
+        const sz = Math.max(1e-6, (b.ymax - b.ymin));
+        const cx = (b.xmin + b.xmax) / 2;
+        const cy = (b.zmin + b.zmax) / 2;
+        const cz = (b.ymin + b.ymax) / 2;
+
+        // 若已存在，先移除旧的
+        if (domainBoxRef.current) {
+          try {
+            scene.remove(domainBoxRef.current);
+            domainBoxRef.current.traverse((child: any) => {
+              if (child.geometry) { try { child.geometry.dispose(); } catch {} }
+              if (child.material) {
+                try {
+                  const m = child.material; if (Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m.dispose();
+                } catch {}
+              }
+            });
+          } catch {}
+          domainBoxRef.current = null;
+          domainSolidMeshRef.current = null;
+          domainEdgesRef.current = null;
+          try { originalDomainGeomRef.current?.dispose?.(); } catch {}
+          originalDomainGeomRef.current = null;
+        }
+
+        // 构造实体盒组
+        const group = new THREE.Group();
+        group.name = 'GEOLOGY_DOMAIN_BOX';
+
+        // 半透明实体
+  const geom = new THREE.BoxGeometry(sx, sy, sz);
+        const mat = new THREE.MeshPhysicalMaterial({
+          color: 0xffd666,
+          transparent: true,
+          opacity: 0.18,
+          depthWrite: false,
+          roughness: 0.9,
+          metalness: 0.0,
+          side: THREE.DoubleSide
+        });
+        // 允许通过模板缓冲“挖空”：仅在模板==0 时渲染（开挖遮罩会把模板写为1）
+        try {
+          (mat as any).stencilWrite = true;
+          (mat as any).stencilRef = 0;
+          (mat as any).stencilFunc = THREE.EqualStencilFunc;
+          (mat as any).stencilFail = THREE.KeepStencilOp;
+          (mat as any).stencilZFail = THREE.KeepStencilOp;
+          (mat as any).stencilZPass = THREE.KeepStencilOp;
+        } catch {}
+  const mesh = new THREE.Mesh(geom, mat);
+        mesh.renderOrder = 100;
+        mesh.position.set(cx, cy, cz);
+        group.add(mesh);
+  // 保存引用与原始几何（供 CSG 与还原）
+  domainSolidMeshRef.current = mesh;
+  try { originalDomainGeomRef.current?.dispose?.(); } catch {}
+  originalDomainGeomRef.current = geom.clone();
+
+        // 边框
+        try {
+          const edges = new THREE.EdgesGeometry(geom);
+          const lineMat = new THREE.LineBasicMaterial({ color: 0xffc53d, transparent: true, opacity: 0.9 });
+          const line = new THREE.LineSegments(edges, lineMat);
+          line.position.copy(mesh.position);
+          line.renderOrder = 999;
+          group.add(line);
+          domainEdgesRef.current = line;
+        } catch {}
+
+  // 不显示角点圆点（按需可在此添加角标/轴标识）
+
+        scene.add(group);
+        domainBoxRef.current = group;
+
+  // 首次自动对焦
+        if (!domainAutoFitDoneRef.current) {
+          try {
+            const box = new THREE.Box3().setFromObject(group);
+            const sphere = new THREE.Sphere(); box.getBoundingSphere(sphere);
+            const cam = eng.camera; const controls = eng.orbitControls;
+            const currDir = cam.position.clone().sub(controls.target).normalize();
+            const fov = cam.fov * Math.PI / 180;
+            const fitDist = (sphere.radius / Math.tan(fov / 2)) * 1.25; // 稍加余量
+            controls.target.copy(new THREE.Vector3(cx, cy, cz));
+            cam.position.copy(new THREE.Vector3(cx, cy, cz).add(currDir.multiplyScalar(fitDist)));
+            cam.lookAt(cx, cy, cz);
+            controls.update();
+            domainAutoFitDoneRef.current = true;
+          } catch {}
+        }
+
+        // 若钻孔已存在，随域变化重建一次，保证始终处于土体内
+        if (boreholesDataRef.current) {
+          try {
+            // 触发一次重建：复用同一事件逻辑
+            const { holes, options } = boreholesDataRef.current;
+            eventBus.emit('geology:boreholes:update', { holes, options });
+          } catch {}
+        }
+
+        // 域变化时，同步对齐 DXF 覆盖层与开挖实体到“新顶面”与“新中心”
+        try {
+          const cxNew = cx, cyTop = b.zmax + 0.1, czNew = cz;
+          if (dxfOverlayRef.current) {
+            dxfOverlayRef.current.position.set(cxNew, cyTop, czNew);
+          }
+          const exGroup = scene.getObjectByName('EXCAVATION_GROUP');
+          if (exGroup) {
+            (exGroup as THREE.Group).position.set(cxNew, b.zmax, czNew);
+          }
+          if (excavationMaskRef.current) {
+            excavationMaskRef.current.position.set(cxNew, b.zmax, czNew);
+          }
+        } catch {}
+      } catch {}
+    });
+    return () => { try { off?.(); } catch {} };
+  }, []);
+
+  // 订阅钻孔更新：在当前土体内显示竖向线段（轻量渲染）
+  useEffect(() => {
+    const off = eventBus.on('geology:boreholes:update', (payload:any) => {
+      try {
+        const eng = engineRef.current; if (!eng) return;
+        const scene = eng.scene;
+        const bounds = domainBoundsRef.current;
+        // 记录最新数据（以便域变化时重建）
+        boreholesDataRef.current = { holes: payload?.holes || [], options: payload?.options };
+
+        // 清理旧组
+        if (boreholesGroupRef.current) {
+          try {
+            scene.remove(boreholesGroupRef.current);
+            boreholesGroupRef.current.traverse((child:any)=>{
+              try { child.geometry?.dispose?.(); } catch {}
+              try { const m = child.material; if (Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.(); } catch {}
+            });
+          } catch {}
+          boreholesGroupRef.current = null;
+        }
+
+        const show = payload?.options?.show !== false;
+        const holes:any[] = payload?.holes || [];
+        if (!show || !holes.length || !bounds) return; // 无域或隐藏则不渲染
+
+        // 仅渲染位于水平范围内的孔，竖向范围裁剪到 [zmin, zmax]
+        const { xmin,xmax,ymin,ymax,zmin,zmax } = bounds;
+        const positions: number[] = []; // 每孔两个点（线段）
+        for (const h of holes) {
+          const x = Number(h.x), y = Number(h.y);
+          if (!isFinite(x) || !isFinite(y)) continue;
+          if (x < xmin || x > xmax || y < ymin || y > ymax) continue; // 超出水平土体则忽略
+          // 垂直：从 zmin 到 zmax（absolute 高程），映射为 Three 的 Y
+          const topY = Math.max(zmin, Math.min(zmax, zmax));
+          const botY = Math.min(zmax, Math.max(zmin, zmin));
+          // 实际就是 [zmin, zmax]，这里保留 clamp 模式方便后续扩展到分层
+          positions.push(x, topY, y, x, botY, y);
+        }
+
+        if (positions.length === 0) return;
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        const mat = new THREE.LineBasicMaterial({ color: 0x1890ff, transparent: true, opacity: Math.max(0.1, Math.min(1, payload?.options?.opacity ?? 0.85)), depthTest: true, depthWrite: false });
+        const lines = new THREE.LineSegments(geom, mat);
+        const group = new THREE.Group(); group.name = 'GEOLOGY_BOREHOLES_GROUP'; group.add(lines);
+        scene.add(group);
+        boreholesGroupRef.current = group;
+      } catch {}
+    });
+    return () => { try { off?.(); } catch {} };
+  }, []);
+
   // 发生上下文丢失时尝试自动重建 (一次性/有限次数) & 降级参数
   useEffect(()=>{
     if(!lostContext) return;
@@ -1824,6 +2231,8 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
     }, 300);
     return ()=>{ cancelled=true; clearTimeout(timer); };
   }, [lostContext, retryCount, props]);
+
+  // （已合并到“实体盒”订阅中）
 
   return (
     <div 
