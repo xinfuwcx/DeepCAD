@@ -152,16 +152,28 @@ class KratosIntegration:
 
         try:
             import KratosMultiphysics as KM
-            # Prefer using application-specific Analysis class which creates the solver
-            try:
-                from KratosMultiphysics.StructuralMechanicsApplication.structural_mechanics_analysis import StructuralMechanicsAnalysis as AnalysisCls
-            except Exception as inner_e:
-                logger.error(f"Failed to import StructuralMechanicsAnalysis: {inner_e}")
-                raise
 
-            # Read the ProjectParameters.json file
+            # Read the ProjectParameters.json file first to decide analysis class
             with open(project_path, 'r') as parameter_file:
                 parameters = KM.Parameters(parameter_file.read())
+
+            # Decide which Analysis class to use based on solver_type
+            AnalysisCls = None
+            try:
+                solver_type = parameters["solver_settings"]["solver_type"].GetString()
+            except Exception:
+                solver_type = ""
+
+            try:
+                if solver_type.lower().startswith("geomechanics"):
+                    from KratosMultiphysics.GeoMechanicsApplication.geomechanics_analysis import GeoMechanicsAnalysis as AnalysisCls  # type: ignore
+                    logger.info("Using GeoMechanicsAnalysis (by solver_type)")
+                else:
+                    from KratosMultiphysics.StructuralMechanicsApplication.structural_mechanics_analysis import StructuralMechanicsAnalysis as AnalysisCls
+                    logger.info("Using StructuralMechanicsAnalysis (by solver_type)")
+            except Exception as inner_e:
+                logger.error(f"Failed to import selected Analysis class for solver_type='{solver_type}': {inner_e}")
+                raise
 
             # Create and run the analysis stage
             model = KM.Model()

@@ -165,6 +165,8 @@ class KratosInterface:
         self.gravity_direction = [0.0, 0.0, -1.0]
         self.current_stage = 1
         self.results = {}
+        # GeoMechanics 开关：切换为岩土求解链路时置 True
+        self.use_geomechanics = False
 
         # 初始化 Kratos 集成（若可用）
         if KRATOS_AVAILABLE:
@@ -238,14 +240,14 @@ class KratosInterface:
                 kratos_data["elements"].append(kratos_element)
 
         # 转换板单元（TRIA/QUAD -> Triangle2D3N/Quadrilateral2D4N）
-    plate_elements = fpn_data.get('plate_elements') or {}
+        plate_elements = fpn_data.get('plate_elements') or {}
         if isinstance(plate_elements, dict):
             for eid, elem in plate_elements.items():
                 nodes = elem.get('nodes', [])
                 e_type = 'triangle' if len(nodes) == 3 else 'quad'
                 eid_int = int(eid)
-        # 严格模式：仅当该板单元ID在激活集合中时才导入
-        if active_element_ids and eid_int not in active_element_ids:
+                # 严格模式：仅当该板单元ID在激活集合中时才导入
+                if active_element_ids and eid_int not in active_element_ids:
                     continue
                 kratos_element = {
                     "id": eid_int,
