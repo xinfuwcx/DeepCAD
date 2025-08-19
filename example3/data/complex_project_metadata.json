@@ -1,0 +1,176 @@
+{
+  "project_name": "Complex_Geology_Test_Case",
+  "description": "复杂地质测试用例 - 12层土 + 100钻孔 + 断层系统",
+  "extent": {
+    "x_min": 0,
+    "x_max": 1000,
+    "y_min": 0,
+    "y_max": 1000,
+    "z_min": -200,
+    "z_max": 0
+  },
+  "coordinate_system": "Local",
+  "formations": {
+    "1": {
+      "name": "填土",
+      "thickness": [
+        2,
+        8
+      ],
+      "color": "#8B4513",
+      "density": 1.65
+    },
+    "2": {
+      "name": "粘土",
+      "thickness": [
+        8,
+        15
+      ],
+      "color": "#D2691E",
+      "density": 1.85
+    },
+    "3": {
+      "name": "粉质粘土",
+      "thickness": [
+        5,
+        12
+      ],
+      "color": "#CD853F",
+      "density": 1.75
+    },
+    "4": {
+      "name": "细砂",
+      "thickness": [
+        10,
+        20
+      ],
+      "color": "#F4A460",
+      "density": 1.95
+    },
+    "5": {
+      "name": "中砂",
+      "thickness": [
+        8,
+        18
+      ],
+      "color": "#DEB887",
+      "density": 2.05
+    },
+    "6": {
+      "name": "粗砂",
+      "thickness": [
+        6,
+        15
+      ],
+      "color": "#D2B48C",
+      "density": 2.1
+    },
+    "7": {
+      "name": "砾砂",
+      "thickness": [
+        10,
+        25
+      ],
+      "color": "#BC8F8F",
+      "density": 2.15
+    },
+    "8": {
+      "name": "卵石层",
+      "thickness": [
+        15,
+        30
+      ],
+      "color": "#A0522D",
+      "density": 2.25
+    },
+    "9": {
+      "name": "强风化岩",
+      "thickness": [
+        20,
+        40
+      ],
+      "color": "#8B7355",
+      "density": 2.4
+    },
+    "10": {
+      "name": "中风化岩",
+      "thickness": [
+        25,
+        50
+      ],
+      "color": "#696969",
+      "density": 2.5
+    },
+    "11": {
+      "name": "微风化岩",
+      "thickness": [
+        30,
+        60
+      ],
+      "color": "#2F4F4F",
+      "density": 2.65
+    },
+    "12": {
+      "name": "基岩",
+      "thickness": [
+        50,
+        100
+      ],
+      "color": "#1C1C1C",
+      "density": 2.75
+    }
+  },
+  "fault_systems": [
+    {
+      "name": "F1_主断层",
+      "type": "正断层",
+      "strike": 45,
+      "dip": 75,
+      "displacement": 15,
+      "x_start": 200,
+      "x_end": 800,
+      "y_start": 150,
+      "y_end": 900,
+      "z_top": -20,
+      "z_bottom": -180,
+      "influence_radius": 100
+    },
+    {
+      "name": "F2_次断层",
+      "type": "逆断层",
+      "strike": 120,
+      "dip": 60,
+      "displacement": 8,
+      "x_start": 100,
+      "x_end": 600,
+      "y_start": 300,
+      "y_end": 700,
+      "z_top": -40,
+      "z_bottom": -160,
+      "influence_radius": 60
+    },
+    {
+      "name": "F3_小断层",
+      "type": "平移断层",
+      "strike": 0,
+      "dip": 85,
+      "displacement": 5,
+      "x_start": 600,
+      "x_end": 950,
+      "y_start": 200,
+      "y_end": 600,
+      "z_top": -10,
+      "z_bottom": -120,
+      "influence_radius": 40
+    }
+  ],
+  "statistics": {
+    "num_formations": 12,
+    "num_boreholes": 100,
+    "num_faults": 3,
+    "modeling_volume": 200000000,
+    "total_depth": 200
+  },
+  "generated_time": "2025-08-16T11:59:57.267098",
+  "generator_version": "1.0"
+}

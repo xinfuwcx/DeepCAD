@@ -19,7 +19,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QPropertyAnimation, QE
 from PyQt6.QtGui import QFont, QPixmap, QIcon, QPalette, QColor, QPainter, QLinearGradient
 
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import pyvista as pv
 import pyvistaqt as pvqt

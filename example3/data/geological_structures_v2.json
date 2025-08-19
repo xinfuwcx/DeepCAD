@@ -1,0 +1,24 @@
+{
+  "fault": {
+    "name": "F1_主断层",
+    "type": "normal_fault",
+    "center_x": 600,
+    "center_y": 400,
+    "strike": 45,
+    "dip": 75,
+    "length": 300,
+    "width": 100,
+    "displacement": 15,
+    "description": "正断层，切断中砂、粗砂等地层"
+  },
+  "fold": {
+    "name": "A1_背斜",
+    "type": "anticline",
+    "center_x": 300,
+    "center_y": 700,
+    "axis_strike": 30,
+    "radius": 150,
+    "amplitude": 20,
+    "description": "背斜构造，造成地层重复和交叉"
+  }
+}

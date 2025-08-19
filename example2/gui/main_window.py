@@ -23,11 +23,11 @@ from PyQt6.QtGui import QIcon, QFont, QPixmap, QPalette, QColor, QAction
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-# 优先使用稳定备份版本，避免可选依赖导致崩溃
+# 优先使用稳定版本；若主实现不可用，则回退到 dev_archive 的备份实现
 try:
     from example2.modules.preprocessor import PreProcessor
 except Exception:
-    from example2.modules.preprocessor_backup import PreProcessor
+    from example2.dev_archive.preprocessor_backup import PreProcessor
 from example2.modules.analyzer import Analyzer
 from example2.modules.postprocessor import PostProcessor
 from example2.utils.error_handler import ErrorHandler, ErrorLevel
@@ -103,15 +103,26 @@ class MainWindow(QMainWindow):
         layout = QHBoxLayout(tab)
         layout.setContentsMargins(8, 8, 8, 8)
 
+        # 使用QSplitter确保3D视口不被压缩
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+
         # 左侧控制面板
         left_panel = self.create_preprocessor_controls()
         left_panel.setMaximumWidth(350)
-        layout.addWidget(left_panel)
+        left_panel.setMinimumWidth(300)
+        splitter.addWidget(left_panel)
 
         # 右侧3D视图
         right_panel = self.create_preprocessor_viewer()
-        layout.addWidget(right_panel)
+        right_panel.setMinimumSize(640, 480)  # 确保3D视口有足够大小
+        splitter.addWidget(right_panel)
 
+        # 设置分割比例: 左侧300px，右侧占据剩余空间
+        splitter.setSizes([300, 900])
+        splitter.setStretchFactor(0, 0)  # 左侧面板不拉伸
+        splitter.setStretchFactor(1, 1)  # 右侧3D视口可拉伸
+
+        layout.addWidget(splitter)
         self.workflow_tabs.addTab(tab, "🔧 前处理")
 
     def create_preprocessor_controls(self):
@@ -119,198 +130,238 @@ class MainWindow(QMainWindow):
         panel = QFrame()
         panel.setFrameStyle(QFrame.StyledPanel)
 
-        layout = QVBoxLayout(panel)
-        layout.setContentsMargins(8, 8, 8, 8)
+        # 添加滚动区域
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
-        # 项目管理组
-        project_group = QGroupBox("📁 项目管理")
-        project_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
-        project_layout = QVBoxLayout(project_group)
+        # 创建滚动内容容器
+        scroll_content = QWidget()
+        layout = QVBoxLayout(scroll_content)
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(8)
 
-        self.new_project_btn = QPushButton("🆕 新建项目")
-        self.load_project_btn = QPushButton("📂 加载项目")
-        self.save_project_btn = QPushButton("💾 保存项目")
+        # 精简项目管理组
+        project_group = QGroupBox("📁 项目")
+        project_group.setFont(QFont("Microsoft YaHei", 9, QFont.Weight.Bold))
+        project_layout = QHBoxLayout(project_group)
+        project_layout.setSpacing(4)
+
+        self.new_project_btn = QPushButton("🆕")
+        self.load_project_btn = QPushButton("📂")
+        self.save_project_btn = QPushButton("💾")
 
         for btn in [self.new_project_btn, self.load_project_btn, self.save_project_btn]:
-            btn.setMinimumHeight(35)
+            btn.setMinimumHeight(28)
+            btn.setMaximumWidth(35)
+            btn.setToolTip({"🆕": "新建项目", "📂": "加载项目", "💾": "保存项目"}[btn.text()])
             project_layout.addWidget(btn)
 
         layout.addWidget(project_group)
 
-        # 几何模型组
-        geometry_group = QGroupBox("📐 几何模型")
-        geometry_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
+        # 精简几何模型组
+        geometry_group = QGroupBox("📐 模型")
+        geometry_group.setFont(QFont("Microsoft YaHei", 9, QFont.Weight.Bold))
         geometry_layout = QVBoxLayout(geometry_group)
+        geometry_layout.setSpacing(4)
 
-        self.import_fpn_btn = QPushButton("📄 导入FPN文件")
-        self.generate_mesh_btn = QPushButton("🔨 生成网格")
-        self.mesh_quality_btn = QPushButton("🔍 网格质量检查")
+        # 主要操作(两列布局)
+        main_ops_layout = QHBoxLayout()
 
-        for btn in [self.import_fpn_btn, self.generate_mesh_btn, self.mesh_quality_btn]:
-            btn.setMinimumHeight(30)
-            geometry_layout.addWidget(btn)
+        self.import_fpn_btn = QPushButton("📁 导入FPN")
+        self.import_fpn_btn.setToolTip("从MIDAS导入FPN文件 (Ctrl+I)")
+        self.import_fpn_btn.setShortcut("Ctrl+I")
+        self.demo_mesh_btn = QPushButton("🎯 演示网格")
+        self.demo_mesh_btn.setToolTip("生成示例网格用于调试")
+
+        for btn in [self.import_fpn_btn, self.demo_mesh_btn]:
+            btn.setMinimumHeight(28)
+            main_ops_layout.addWidget(btn)
+
+        geometry_layout.addLayout(main_ops_layout)
+
+        # 次要操作(两列布局)
+        secondary_ops_layout = QHBoxLayout()
+
+        self.generate_mesh_btn = QPushButton("⚙️ 生成网格")
+        self.generate_mesh_btn.setToolTip("构造演示网格 (Ctrl+G)")
+        self.generate_mesh_btn.setShortcut("Ctrl+G")
+        self.refresh_3d_btn = QPushButton("🔄 刷新视图")
+        self.refresh_3d_btn.setToolTip("重建3D视口并刷新 (Ctrl+R)")
+        self.refresh_3d_btn.setShortcut("Ctrl+R")
+
+        for btn in [self.generate_mesh_btn, self.refresh_3d_btn]:
+            btn.setMinimumHeight(28)
+            secondary_ops_layout.addWidget(btn)
+
+        geometry_layout.addLayout(secondary_ops_layout)
 
         layout.addWidget(geometry_group)
 
-        # 模型信息组
-        info_group = QGroupBox("📋 模型信息")
-        info_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
-        info_layout = QFormLayout(info_group)
+        # 紧凑模型信息组
+        info_group = QGroupBox("📋 信息")
+        info_group.setFont(QFont("Microsoft YaHei", 9, QFont.Weight.Bold))
+        info_layout = QGridLayout(info_group)
+        info_layout.setSpacing(2)
 
+        # 使用网格布局，两列显示
         self.nodes_count_label = QLabel("0")
-        info_layout.addRow("节点数:", self.nodes_count_label)
-
         self.elements_count_label = QLabel("0")
-        info_layout.addRow("单元数:", self.elements_count_label)
-
         self.materials_count_label = QLabel("0")
-        info_layout.addRow("材料数:", self.materials_count_label)
-
         self.constraints_count_label = QLabel("0")
-        info_layout.addRow("约束数:", self.constraints_count_label)
-
         self.loads_count_label = QLabel("0")
-        info_layout.addRow("荷载数:", self.loads_count_label)
+
+        info_layout.addWidget(QLabel("节点:"), 0, 0)
+        info_layout.addWidget(self.nodes_count_label, 0, 1)
+        info_layout.addWidget(QLabel("单元:"), 0, 2)
+        info_layout.addWidget(self.elements_count_label, 0, 3)
+        info_layout.addWidget(QLabel("材料:"), 1, 0)
+        info_layout.addWidget(self.materials_count_label, 1, 1)
+        info_layout.addWidget(QLabel("约束:"), 1, 2)
+        info_layout.addWidget(self.constraints_count_label, 1, 3)
+        info_layout.addWidget(QLabel("载荷:"), 2, 0)
+        info_layout.addWidget(self.loads_count_label, 2, 1)
 
         layout.addWidget(info_group)
 
-        # 边界条件组 (只展示，不修改)
-        boundary_group = QGroupBox("🔒 边界条件")
-        boundary_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
-        boundary_layout = QVBoxLayout(boundary_group)
-
-        self.boundary_list = QListWidget()
-        self.boundary_list.setMaximumHeight(150)
-        # 添加示例边界条件
-        self.boundary_list.addItem("固定约束: 底面全约束")
-        self.boundary_list.addItem("荷载: 顶面 100kN/m²")
-        self.boundary_list.addItem("侧向约束: 法向约束")
-
-        boundary_layout.addWidget(QLabel("边界条件列表:"))
-        boundary_layout.addWidget(self.boundary_list)
-
-        layout.addWidget(boundary_group)
-
-        # 物理组选择
-        physics_group = QGroupBox("🧱 物理组选择")
-        physics_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
+        # 精简物理组选择
+        physics_group = QGroupBox("🧱 分组")
+        physics_group.setFont(QFont("Microsoft YaHei", 9, QFont.Weight.Bold))
         physics_layout = QVBoxLayout(physics_group)
+        physics_layout.setSpacing(3)
 
-        physics_layout.addWidget(QLabel("材料组:"))
+        # 合并下拉框到两列
+        group_layout = QGridLayout()
+        group_layout.setSpacing(2)
+
         self.material_group_combo = QComboBox()
         self.material_group_combo.addItem("所有材料组")
-        physics_layout.addWidget(self.material_group_combo)
-
-        physics_layout.addWidget(QLabel("荷载组:"))
         self.load_group_combo = QComboBox()
         self.load_group_combo.addItem("所有荷载组")
-        physics_layout.addWidget(self.load_group_combo)
-
-        physics_layout.addWidget(QLabel("边界组:"))
         self.boundary_group_combo = QComboBox()
         self.boundary_group_combo.addItem("所有边界组")
-        physics_layout.addWidget(self.boundary_group_combo)
 
+        group_layout.addWidget(QLabel("材料:"), 0, 0)
+        group_layout.addWidget(self.material_group_combo, 0, 1)
+        group_layout.addWidget(QLabel("荷载:"), 1, 0)
+        group_layout.addWidget(self.load_group_combo, 1, 1)
+        group_layout.addWidget(QLabel("边界:"), 2, 0)
+        group_layout.addWidget(self.boundary_group_combo, 2, 1)
+
+        physics_layout.addLayout(group_layout)
         layout.addWidget(physics_group)
 
         # 分析步选择
-        analysis_group = QGroupBox("📊 分析步选择")
-        analysis_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
+        analysis_group = QGroupBox("📊 分析步")
+        analysis_group.setFont(QFont("Microsoft YaHei", 9, QFont.Weight.Bold))
         analysis_layout = QVBoxLayout(analysis_group)
+        analysis_layout.setSpacing(3)
 
-        analysis_layout.addWidget(QLabel("当前分析步:"))
         self.analysis_stage_combo = QComboBox()
         self.analysis_stage_combo.addItem("初始状态")
         analysis_layout.addWidget(self.analysis_stage_combo)
 
         layout.addWidget(analysis_group)
 
-        # 显示控制组
+        # 重要：显示控制组
         display_group = QGroupBox("👁️ 显示控制")
-        display_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
+        display_group.setFont(QFont("Microsoft YaHei", 9, QFont.Weight.Bold))
         display_layout = QVBoxLayout(display_group)
+        display_layout.setSpacing(4)
 
-        # 显示模式切换
+        # 显示模式切换(紧凑布局)
         mode_layout = QHBoxLayout()
-        self.wireframe_btn = QPushButton("线框")
-        self.solid_btn = QPushButton("实体")
-        self.transparent_btn = QPushButton("半透明")
+        mode_layout.setSpacing(2)
+
+        self.wireframe_btn = QPushButton("线框 (&1)")
+        self.solid_btn = QPushButton("实体 (&2)")
+        self.transparent_btn = QPushButton("半透明 (&3)")
+
+        # 标记为模式按钮，便于QSS样式区分
+        for btn in [self.wireframe_btn, self.solid_btn, self.transparent_btn]:
+            btn.setProperty("modeButton", True)
 
         # 设置按钮样式和状态
         for btn in [self.wireframe_btn, self.solid_btn, self.transparent_btn]:
             btn.setCheckable(True)
-            btn.setMinimumHeight(30)
+            btn.setMinimumHeight(26)
+            btn.setFont(QFont("Microsoft YaHei", 8))
             mode_layout.addWidget(btn)
 
-        # 默认选中半透明模式
+        # 创建互斥按钮组
+        from PyQt6.QtWidgets import QButtonGroup
+        self.view_mode_group = QButtonGroup(self)
+        self.view_mode_group.setExclusive(True)
+        self.view_mode_group.addButton(self.wireframe_btn)
+        self.view_mode_group.addButton(self.solid_btn)
+        self.view_mode_group.addButton(self.transparent_btn)
+
+        # 默认选中半透明模式(稍后在setup_connections中调用逻辑以同步到预处理器)
         self.transparent_btn.setChecked(True)
         display_layout.addLayout(mode_layout)
 
-        # 其他显示选项
-        self.show_mesh_cb = QCheckBox("显示网格边")
-        self.show_mesh_cb.setChecked(True)
-        self.show_nodes_cb = QCheckBox("显示节点")
-        self.show_supports_cb = QCheckBox("显示支承")
-        self.show_supports_cb.setChecked(True)
-        self.show_loads_cb = QCheckBox("显示荷载")
-        self.show_loads_cb.setChecked(True)
-        # 新增：仅显示激活材料（基于分析步）
-        self.only_active_materials_cb = QCheckBox("仅显示激活材料")
-        self.only_active_materials_cb.setChecked(False)
-        # 新增：按材料类型分层显示（part 开关）
-        self.show_soil_cb = QCheckBox("显示土体")
+        # 紧凑的复选框布局(两列)
+        checkbox_grid = QGridLayout()
+        checkbox_grid.setSpacing(3)
+
+        # 创建复选框
+        self.show_mesh_cb = QCheckBox("网格边")
+        self.show_mesh_cb.setChecked(False)
+        self.show_nodes_cb = QCheckBox("节点")
+        self.show_supports_cb = QCheckBox("支承")
+        self.show_supports_cb.setChecked(False)
+        self.show_loads_cb = QCheckBox("荷载")
+        self.show_loads_cb.setChecked(False)
+
+        # 🎯 地下工程专业构件(精简优化版)
+        self.show_soil_cb = QCheckBox("土体")
         self.show_soil_cb.setChecked(True)
-        self.show_concrete_cb = QCheckBox("显示混凝土")
-        self.show_concrete_cb.setChecked(True)
-        self.show_steel_cb = QCheckBox("显示钢构/钢筋")
-        self.show_steel_cb.setChecked(True)
-        # 板元显示
-        self.show_plates_cb = QCheckBox("显示板单元 (PSHELL)")
-        self.show_plates_cb.setChecked(True)
-        # 预应力锚杆显示（锚杆线元）
-        self.show_anchors_cb = QCheckBox("显示预应力锚杆")
-        self.show_anchors_cb.setChecked(False)
+        
+        # 主要支护结构
+        self.show_diaphragm_wall_cb = QCheckBox("地连墙")
+        self.show_diaphragm_wall_cb.setChecked(True)
+        self.show_anchors_cb = QCheckBox("锚杆")
+        self.show_anchors_cb.setChecked(True)
 
-        # 土体分层选择
-        soil_layer_layout = QHBoxLayout()
-        soil_layer_layout.addWidget(QLabel("土体分层:"))
-        self.soil_layer_combo = QComboBox()
-        self.soil_layer_combo.addItem("全部土体", None)
-        soil_layer_layout.addWidget(self.soil_layer_combo)
-        display_layout.addLayout(soil_layer_layout)
-        # 配色主题选择
-        theme_layout = QHBoxLayout()
-        theme_layout.addWidget(QLabel("配色主题:"))
-        self.color_theme_combo = QComboBox()
-        self.color_theme_combo.addItems(["earth", "pro", "dark"])
-        theme_layout.addWidget(self.color_theme_combo)
-        display_layout.addLayout(theme_layout)
+        # 基础和支撑结构
+        self.show_piles_cb = QCheckBox("桩基")
+        self.show_piles_cb.setChecked(True)
+        self.show_strutting_cb = QCheckBox("内撑")
+        self.show_strutting_cb.setChecked(True)
 
+        # 图例显示开关
+        self.show_legend_cb = QCheckBox("图例")
+        self.show_legend_cb.setChecked(True)
 
-        # 按阶段过滤预应力路径
-        self.filter_anchors_by_stage_cb = QCheckBox("按分析步过滤预应力路径")
-        self.filter_anchors_by_stage_cb.setChecked(False)
+        # 🎯 精简专业布局：两列显示
+        checkboxes = [
+            (self.show_mesh_cb, self.show_nodes_cb),
+            (self.show_supports_cb, self.show_loads_cb),
+            (self.show_soil_cb, self.show_diaphragm_wall_cb),
+            (self.show_anchors_cb, self.show_piles_cb),
+            (self.show_strutting_cb, self.show_legend_cb)  # 加入图例开关
+        ]
 
+        for row, (cb1, cb2) in enumerate(checkboxes):
+            checkbox_grid.addWidget(cb1, row, 0)
+            if cb2:  # 处理最后一行只有一个复选框的情况
+                checkbox_grid.addWidget(cb2, row, 1)
 
-        for cb in [
-            self.show_mesh_cb,
-            self.show_nodes_cb,
-            self.show_supports_cb,
-            self.show_loads_cb,
-            self.only_active_materials_cb,
-            self.show_soil_cb,
-            self.show_concrete_cb,
-            self.show_steel_cb,
-            self.show_plates_cb,
-            self.show_anchors_cb,
-            self.filter_anchors_by_stage_cb,
-        ]:
-            display_layout.addWidget(cb)
+        display_layout.addLayout(checkbox_grid)
 
         layout.addWidget(display_group)
 
-        # 添加弹簧
+        # 添加弹性空间，把内容推到顶部
         layout.addStretch()
+
+        # 设置滚动区域
+        scroll_area.setWidget(scroll_content)
+
+        # 主面板布局
+        main_layout = QVBoxLayout(panel)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.addWidget(scroll_area)
 
         return panel
 
@@ -583,15 +634,26 @@ class MainWindow(QMainWindow):
         layout = QHBoxLayout(tab)
         layout.setContentsMargins(8, 8, 8, 8)
 
+        # 使用QSplitter确保3D视口不被压缩
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+
         # 左侧控制面板
         left_panel = self.create_postprocessor_controls()
         left_panel.setMaximumWidth(350)
-        layout.addWidget(left_panel)
+        left_panel.setMinimumWidth(300)
+        splitter.addWidget(left_panel)
 
         # 右侧3D视图
         right_panel = self.create_postprocessor_viewer()
-        layout.addWidget(right_panel)
+        right_panel.setMinimumSize(640, 480)  # 确保3D视口有足够大小
+        splitter.addWidget(right_panel)
 
+        # 设置分割比例: 左侧300px，右侧占据剩余空间
+        splitter.setSizes([300, 900])
+        splitter.setStretchFactor(0, 0)  # 左侧面板不拉伸
+        splitter.setStretchFactor(1, 1)  # 右侧3D视口可拉伸
+
+        layout.addWidget(splitter)
         self.workflow_tabs.addTab(tab, "📊 后处理")
 
     def create_postprocessor_controls(self):
@@ -689,6 +751,12 @@ class MainWindow(QMainWindow):
 
         self.show_wireframe = QCheckBox("显示线框")
         display_layout.addRow(self.show_wireframe)
+        try:
+            self.show_wireframe.stateChanged.connect(
+                lambda _: self.postprocessor.set_show_wireframe(self.show_wireframe.isChecked())
+            )
+        except Exception:
+            pass
 
         # 新增：使用 StageVisible 过滤
         self.use_stage_visible_cb = QCheckBox("使用StageVisible过滤")
@@ -853,169 +921,68 @@ class MainWindow(QMainWindow):
         self.memory_label = QLabel("内存: 0 MB")
         statusbar.addPermanentWidget(self.memory_label)
 
+        # FPS与网格信息
+        self.fps_label = QLabel("FPS: 0.0")
+        statusbar.addPermanentWidget(self.fps_label)
+        self.mesh_label = QLabel("Mesh: 0 / 0")
+        statusbar.addPermanentWidget(self.mesh_label)
+
+        # 启动状态刷新计时器
+        try:
+            self._status_timer = QTimer(self)
+            self._status_timer.setInterval(500)
+            self._status_timer.timeout.connect(self._update_status_metrics)
+            self._status_timer.start()
+        except Exception:
+            pass
+
+    def _update_status_metrics(self):
+        """定期刷新状态栏指标(FPS/内存/网格规模)"""
+        # FPS from preprocessor render time
+        try:
+            ms = float(getattr(self.preprocessor, 'last_render_ms', 0.0) or 0.0)
+            fps = 0.0 if ms <= 0 else 1000.0 / ms
+            self.fps_label.setText(f"FPS: {fps:.1f}")
+        except Exception:
+            pass
+
+        # Mesh stats
+        try:
+            info = self.preprocessor.get_mesh_info() if hasattr(self.preprocessor, 'get_mesh_info') else {}
+            npts = info.get('n_points', 0)
+            ncells = info.get('n_cells', 0)
+            self.mesh_label.setText(f"Mesh: {npts} / {ncells}")
+        except Exception:
+            pass
+
+        # Process memory (optional psutil)
+        try:
+            import psutil  # type: ignore
+            proc = psutil.Process()
+            mem_mb = proc.memory_info().rss / 1024 / 1024
+            self.memory_label.setText(f"内存: {mem_mb:.0f} MB")
+        except Exception:
+            # keep previous text
+            pass
+
     def apply_modern_style(self):
-        """应用现代化样式"""
-        style_sheet = """
-        QMainWindow {
-            background-color: #f5f5f5;
-        }
-
-        QTabWidget::pane {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            background-color: white;
-        }
-
-        QTabWidget::tab-bar {
-            alignment: center;
-        }
-
-        QTabBar::tab {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            padding: 12px 24px;
-            margin-right: 4px;
-            border-top-left-radius: 8px;
-            border-top-right-radius: 8px;
-            font-weight: bold;
-        }
-
-        QTabBar::tab:selected {
-            background-color: white;
-            border-bottom-color: white;
-            color: #007bff;
-        }
-
-        QTabBar::tab:hover {
-            background-color: #e9ecef;
-        }
-
-        QFrame {
-            background-color: white;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-        }
-
-        QGroupBox {
-            font-weight: bold;
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
-            margin-top: 1ex;
-            padding-top: 10px;
-        }
-
-        QGroupBox::title {
-            subcontrol-origin: margin;
-            left: 10px;
-            padding: 0 8px 0 8px;
-            background-color: white;
-        }
-
-        QPushButton {
-            background-color: #ffffff;
-            border: 1px solid #ced4da;
-            border-radius: 6px;
-            padding: 8px 16px;
-            font-weight: 500;
-            color: #495057;
-        }
-
-        QPushButton:hover {
-            background-color: #e9ecef;
-            border-color: #adb5bd;
-        }
-
-        QPushButton:pressed {
-            background-color: #dee2e6;
-            border-color: #6c757d;
-        }
-
-        QPushButton:disabled {
-            background-color: #f8f9fa;
-            color: #6c757d;
-            border-color: #dee2e6;
-        }
-
-        QComboBox, QSpinBox, QDoubleSpinBox {
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            padding: 6px;
-            background-color: white;
-        }
-
-        QProgressBar {
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            text-align: center;
-            background-color: #f8f9fa;
-            font-weight: bold;
-        }
-
-        QProgressBar::chunk {
-            background-color: #007bff;
-            border-radius: 7px;
-        }
-
-        QListWidget {
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
-            background-color: white;
-        }
-
-        QListWidget::item {
-            padding: 4px;
-            border-radius: 4px;
-        }
-
-        QListWidget::item:hover {
-            background-color: #f8f9fa;
-        }
-
-        QListWidget::item:selected {
-            background-color: #007bff;
-            color: white;
-        }
-
-        QTextEdit {
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
-            background-color: #f8f9fa;
-        }
-
-        QCheckBox {
-            spacing: 8px;
-        }
-
-        QCheckBox::indicator {
-            width: 16px;
-            height: 16px;
-            border: 1px solid #ced4da;
-            border-radius: 3px;
-            background-color: white;
-        }
-
-        QCheckBox::indicator:checked {
-            background-color: #007bff;
-            border-color: #0056b3;
-        }
-
-        QSlider::groove:horizontal {
-            border: 1px solid #dee2e6;
-            height: 6px;
-            background-color: #f8f9fa;
-            border-radius: 3px;
-        }
-
-        QSlider::handle:horizontal {
-            background-color: #007bff;
-            border: 1px solid #0056b3;
-            width: 16px;
-            border-radius: 8px;
-            margin: -5px 0;
-        }
-        """
-
-        self.setStyleSheet(style_sheet)
+        """应用现代化样式: 优先从资源QSS加载，失败则回退内置样式"""
+        try:
+            qss_path = Path(__file__).parent / 'resources' / 'styles' / 'modern_theme.qss'
+            if qss_path.exists():
+                with open(qss_path, 'r', encoding='utf-8') as f:
+                    self.setStyleSheet(f.read())
+                return
+        except Exception:
+            pass
+        
+        # 轻量回退(与旧版一致的核心规则)+ 模式按钮选中态
+        self.setStyleSheet("""
+        QMainWindow{background:#f5f5f5;}
+        QFrame{background:#fff;border:1px solid #dee2e6;border-radius:8px;}
+        QPushButton[modeButton="true"]{background:#f0f3f7;border:1px solid #cfd6e3;border-radius:6px;padding:4px 10px;}
+        QPushButton[modeButton="true"]:checked{background:#2962FF;color:#fff;border:1px solid #2962FF;}
+        """)
 
     def setup_connections(self):
         """设置信号连接"""
@@ -1025,6 +992,8 @@ class MainWindow(QMainWindow):
         self.save_project_btn.clicked.connect(self.save_project)
         self.import_fpn_btn.clicked.connect(self.import_fpn)
         self.generate_mesh_btn.clicked.connect(self.generate_mesh)
+        self.demo_mesh_btn.clicked.connect(self.generate_demo_mesh)
+        self.refresh_3d_btn.clicked.connect(self.refresh_3d_viewport)
 
         # 物理组和分析步选择连接
         self.material_group_combo.currentTextChanged.connect(self.on_material_group_changed)
@@ -1046,22 +1015,29 @@ class MainWindow(QMainWindow):
         self.show_nodes_cb.stateChanged.connect(self.update_display)
         self.show_supports_cb.stateChanged.connect(self.update_display)
         self.show_loads_cb.stateChanged.connect(self.update_display)
+        # 图例开关联动
+        try:
+            if hasattr(self.preprocessor, 'set_show_material_legend'):
+                self.show_legend_cb.stateChanged.connect(lambda _: self.preprocessor.set_show_material_legend(self.show_legend_cb.isChecked()))
+        except Exception:
+            pass
         # 新增：仅显示激活材料
         try:
             self.only_active_materials_cb.stateChanged.connect(self.update_display)
         except Exception:
             pass
         # 新增：part 类型显示
-        for cb in [getattr(self, 'show_soil_cb', None), getattr(self, 'show_concrete_cb', None), getattr(self, 'show_steel_cb', None)]:
+        for cb in [getattr(self, 'show_soil_cb', None)]:
             if cb:
                 cb.stateChanged.connect(self.update_display)
 
-        # 板元/锚杆 显示开关联动
+        # 新增工程构件显示连接
+        for cb in [getattr(self, 'show_diaphragm_wall_cb', None), getattr(self, 'show_piles_cb', None), getattr(self, 'show_strutting_cb', None)]:
+            if cb:
+                cb.stateChanged.connect(self.update_display)
+
+        # 锚杆显示开关联动
         try:
-            if hasattr(self.preprocessor, 'toggle_show_plates'):
-                self.show_plates_cb.stateChanged.connect(
-                    lambda _: self.preprocessor.toggle_show_plates(self.show_plates_cb.isChecked())
-                )
             if hasattr(self.preprocessor, 'toggle_show_anchors'):
                 self.show_anchors_cb.stateChanged.connect(
                     lambda _: self.preprocessor.toggle_show_anchors(self.show_anchors_cb.isChecked())
@@ -1104,6 +1080,29 @@ class MainWindow(QMainWindow):
         self.play_btn.clicked.connect(self.play_animation)
         self.pause_btn.clicked.connect(self.pause_animation)
         self.stop_btn.clicked.connect(self.stop_animation)
+        # 后处理图例按钮：切换材料图例
+        try:
+            if hasattr(self, 'post_legend_btn') and hasattr(self, 'postprocessor'):
+                def _toggle_post_legend():
+                    try:
+                        cur = bool(getattr(self.postprocessor, 'show_material_legend', True))
+                        if hasattr(self.postprocessor, 'set_show_material_legend'):
+                            self.postprocessor.set_show_material_legend(not cur)
+                        else:
+                            self.postprocessor.show_material_legend = not cur
+                            if hasattr(self.postprocessor, 'display_results'):
+                                self.postprocessor.display_results()
+                    except Exception:
+                        pass
+                self.post_legend_btn.clicked.connect(_toggle_post_legend)
+        except Exception:
+            pass
+
+        # 确保默认模式与UI一致：触发一次半透明模式
+        try:
+            self.set_transparent_mode()
+        except Exception:
+            pass
         # StageVisible过滤联动
         try:
             self.use_stage_visible_cb.stateChanged.connect(lambda _: self._toggle_stage_visible_filter())
@@ -1154,7 +1153,7 @@ class MainWindow(QMainWindow):
             self.status_label.setText(f"保存项目: {Path(file_path).name}")
 
     def import_fpn(self):
-        """导入FPN文件（使用多线程）"""
+        """导入FPN文件(使用多线程)"""
         file_path, _ = QFileDialog.getOpenFileName(
             self, "导入MIDAS FPN文件", "", "FPN文件 (*.fpn);;所有文件 (*.*)"
         )
@@ -1176,9 +1175,19 @@ class MainWindow(QMainWindow):
                     show_progress=True
                 )
             else:
-                # 回退到同步处理
+                # 回退到同步处理(手动导入,强制加载)
                 try:
-                    self.preprocessor.load_fpn_file(file_path)
+                    # 兼容性调用：优先带 force_load，若旧实现不支持则回退无参
+                    import inspect
+                    print("Using:", type(self.preprocessor).__module__)
+                    try:
+                        print("Sig:", inspect.signature(self.preprocessor.load_fpn_file))
+                    except Exception:
+                        pass
+                    try:
+                        self.preprocessor.load_fpn_file(file_path, force_load=True)
+                    except TypeError:
+                        self.preprocessor.load_fpn_file(file_path)
                     self.status_label.setText(f"FPN文件加载完成: {Path(file_path).name}")
                     self.update_model_info()
                     self.update_physics_combos()
@@ -1191,7 +1200,7 @@ class MainWindow(QMainWindow):
         try:
             # 隐藏进度条
             self.overall_progress.hide()
-            # 将材料类型映射传给后处理（用于part过滤显示）
+            # 将材料类型映射传给后处理(用于part过滤显示)
             try:
                 if hasattr(self.preprocessor, 'materials') and hasattr(self.postprocessor, 'mesh'):
                     # 构建 id->type 的映射
@@ -1210,6 +1219,48 @@ class MainWindow(QMainWindow):
 
             # 从FPN数据创建网格
             self.preprocessor.create_mesh_from_fpn(fpn_data)
+
+            # 大模型显示保护：在首次显示前关闭高负载渲染选项，避免导入即崩溃
+            try:
+                n_cells = 0
+                if hasattr(self.preprocessor, 'mesh') and self.preprocessor.mesh is not None:
+                    try:
+                        n_cells = int(getattr(self.preprocessor.mesh, 'n_cells', 0))
+                    except Exception:
+                        n_cells = 0
+                if n_cells > 500_000:
+                    print(f"🛡️ 大模型保护生效: 单元 {n_cells}，关闭边/叠加层以防崩溃")
+                    # 1) 关闭前处理的标志位(即使复选框尚未同步)
+                    for attr in [
+                        'show_mesh_edges','show_nodes','show_supports','show_loads',
+                        'show_plates','show_anchors','show_diaphragm_wall','show_piles',
+                        'show_strutting','show_steel']:
+                        if hasattr(self.preprocessor, attr):
+                            try:
+                                setattr(self.preprocessor, attr, False)
+                            except Exception:
+                                pass
+                    # 2) 同步关闭UI复选框,防止 update_display 再次打开
+                    for cb in [
+                        getattr(self, 'show_mesh_cb', None),
+                        getattr(self, 'show_nodes_cb', None),
+                        getattr(self, 'show_supports_cb', None),
+                        getattr(self, 'show_loads_cb', None),
+                        getattr(self, 'show_plates_cb', None),
+                        getattr(self, 'show_anchors_cb', None),
+                        getattr(self, 'show_diaphragm_wall_cb', None),
+                        getattr(self, 'show_piles_cb', None),
+                        getattr(self, 'show_strutting_cb', None),
+                        getattr(self, 'show_steel_cb', None),
+                    ]:
+                        try:
+                            if cb:
+                                cb.setChecked(False)
+                        except Exception:
+                            pass
+            except Exception as e:
+                print(f"大模型显示保护设置失败: {e}")
+
 
             # 显示网格
             self.preprocessor.display_mesh()
@@ -1299,6 +1350,91 @@ class MainWindow(QMainWindow):
         self.status_label.setText("网格生成完成")
         self.update_model_info()
 
+    def generate_demo_mesh(self):
+        """生成演示网格用于测试复选框功能"""
+        print("🎯 生成演示网格...")
+        self.status_label.setText("正在生成演示网格...")
+
+        try:
+            # 调用前处理器创建演示网格
+            if hasattr(self.preprocessor, '_create_demo_mesh'):
+                self.preprocessor._create_demo_mesh()
+                self.status_label.setText("演示网格生成完成 - 可测试复选框功能")
+                print("✅ 演示网格生成成功，可以测试复选框了！")
+
+                # 更新模型信息
+                self.update_model_info()
+
+                # 提示用户可以测试复选框
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.information(
+                    self,
+                    "演示网格已就绪",
+                    "演示网格已生成！\n\n现在您可以测试以下复选框功能：\n"
+                    "• 显示网格边\n"
+                    "• 显示节点\n"
+                    "• 显示支承\n"
+                    "• 显示荷载\n"
+                    "• 线框/实体/半透明模式\n\n"
+                    "点击复选框即可看到实时效果！"
+                )
+            else:
+                self.status_label.setText("演示网格功能不可用")
+                print("❌ 前处理器不支持演示网格功能")
+        except Exception as e:
+            error_msg = f"生成演示网格失败: {e}"
+            self.status_label.setText(error_msg)
+            print(f"❌ {error_msg}")
+
+    def refresh_3d_viewport(self):
+        """刷新3D视口 - 重新初始化PyVista"""
+        print("🔄 刷新3D视口...")
+        self.status_label.setText("正在刷新3D视口...")
+
+        try:
+            # 重新创建前处理器的视图组件
+            old_viewer = self.preprocessor.viewer_widget
+
+            # 创建新的视图组件
+            self.preprocessor.create_viewer_widget()
+            new_viewer = self.preprocessor.get_viewer_widget()
+
+            if new_viewer and old_viewer:
+                # 在前处理标签页中替换视图组件
+                # 找到当前的分割器
+                pre_tab = self.workflow_tabs.widget(0)  # 前处理是第一个标签
+                if pre_tab:
+                    layout = pre_tab.layout()
+                    if layout and layout.count() > 0:
+                        splitter = layout.itemAt(0).widget()
+                        if hasattr(splitter, 'widget') and splitter.count() >= 2:
+                            # 移除旧的视图
+                            old_widget = splitter.widget(1)
+                            if old_widget:
+                                old_widget.setParent(None)
+
+                            # 添加新的视图
+                            new_viewer.setMinimumSize(640, 480)
+                            splitter.addWidget(new_viewer)
+                            splitter.setSizes([300, 900])
+
+                            self.status_label.setText("3D视口刷新成功")
+                            print("✅ 3D视口刷新成功")
+
+                            # 如果有网格数据，重新显示
+                            if hasattr(self.preprocessor, 'mesh') and self.preprocessor.mesh:
+                                self.preprocessor.display_mesh()
+
+                            return
+
+            self.status_label.setText("3D视口刷新完成")
+            print("✅ 3D视口刷新完成")
+
+        except Exception as e:
+            error_msg = f"刷新3D视口失败: {e}"
+            self.status_label.setText(error_msg)
+            print(f"❌ {error_msg}")
+
     def update_model_info(self):
         """更新模型信息显示"""
         info = self.preprocessor.get_mesh_info()
@@ -1337,28 +1473,28 @@ class MainWindow(QMainWindow):
         try:
             # 导入DeepCAD的Kratos集成模块
             from core.kratos_integration import KratosIntegration
-            
+
             self.kratos_solver = KratosIntegration()
-            
+
             # 检查前处理数据
             if not hasattr(self.preprocessor, 'fpn_data') or not self.preprocessor.fpn_data:
                 raise ValueError("缺少前处理数据，请先导入FPN文件")
-            
+
             # 启动真实计算
             self.analyzer.set_fpn_data(self.preprocessor.fpn_data)
             self.analyzer.set_kratos_interface(self.kratos_solver)
-            
+
             if hasattr(self, 'analysis_log'):
                 self.analysis_log.append("正在启动Kratos计算引擎...")
-            
+
             # 连接分析器信号
             self.analyzer.progress_updated.connect(self.on_analysis_progress)
             self.analyzer.step_finished.connect(self.on_analysis_step_finished)
             self.analyzer.analysis_finished.connect(self.analysis_finished)
-            
+
             # 开始计算
             self.analyzer.start_analysis()
-            
+
         except ImportError:
             if hasattr(self, 'analysis_log'):
                 self.analysis_log.append("Kratos集成模块不可用，请检查安装")
@@ -1378,29 +1514,29 @@ class MainWindow(QMainWindow):
             overall_progress = progress_data.get('overall_progress', 0)
             step_progress = progress_data.get('step_progress', 0)
             iteration_progress = progress_data.get('iteration_progress', 0)
-            
+
             self.overall_progress.setValue(int(overall_progress))
             self.step_progress.setValue(int(step_progress))
             self.iteration_progress.setValue(int(iteration_progress))
-            
+
             # 更新状态标签
             current_step = progress_data.get('current_step', 'Unknown')
             current_iteration = progress_data.get('current_iteration', '0/0')
             convergence_status = progress_data.get('convergence_status', 'N/A')
-            
+
             self.current_step_label.setText(str(current_step))
             self.current_iteration_label.setText(str(current_iteration))
             self.convergence_label.setText(str(convergence_status))
-            
+
             # 添加日志
             log_message = progress_data.get('log_message', '')
             if log_message and hasattr(self, 'analysis_log'):
                 self.analysis_log.append(log_message)
-                
+
         except Exception as e:
             if hasattr(self, 'analysis_log'):
                 self.analysis_log.append(f"进度更新失败: {e}")
-    
+
     def on_analysis_step_finished(self, step_data):
         """分析步完成回调"""
         try:
@@ -1524,7 +1660,7 @@ class MainWindow(QMainWindow):
             else:
                 self.analysis_stage_combo.addItem("无分析步")
 
-        # 更新材料组（使用网格集合信息）
+        # 更新材料组(使用网格集合信息)
         self.material_group_combo.clear()
         self.material_group_combo.addItem("所有材料组")
 
@@ -1540,7 +1676,7 @@ class MainWindow(QMainWindow):
             for group_id, group_info in material_groups.items():
                 self.material_group_combo.addItem(f"材料组 {group_id} ({group_info.get('material_count', 0)} 材料)")
 
-        # 填充“土体分层”下拉（按材料ID切换土层）
+        # 填充“土体分层”下拉(按材料ID切换土层)
         try:
             if hasattr(self, 'soil_layer_combo'):
                 self.soil_layer_combo.clear()
@@ -1609,7 +1745,7 @@ class MainWindow(QMainWindow):
                 stage_id = stage.get('id', '?')
                 self.analysis_stage_combo.addItem(f"{stage_name} (ID: {stage_id})")
             else:
-                # 处理stage不是字典的情况（例如直接是ID）
+                # 处理stage不是字典的情况(例如直接是ID)
                 self.analysis_stage_combo.addItem(f"分析步 ID: {stage}")
 
     def on_material_group_changed(self, text):
@@ -1636,7 +1772,7 @@ class MainWindow(QMainWindow):
             current_index = self.analysis_stage_combo.currentIndex()
 
             if current_index >= 0:
-                # 设置预处理器的当前分析步（通过索引）
+                # 设置预处理器的当前分析步(通过索引)
                 if hasattr(self.preprocessor, 'set_current_analysis_stage'):
                     self.preprocessor.set_current_analysis_stage(current_index)
                     print(f"设置分析步索引: {current_index}")
@@ -1748,7 +1884,7 @@ class MainWindow(QMainWindow):
         try:
             if not hasattr(self.preprocessor, 'materials'):
                 return
-            # 从下拉取选中的材料ID（存储在 itemData）
+            # 从下拉取选中的材料ID(存储在 itemData)
             mid = self.soil_layer_combo.currentData()
             if mid is None:
                 # 显示全部土体
@@ -1799,69 +1935,297 @@ class MainWindow(QMainWindow):
     # 显示模式切换方法
     def set_wireframe_mode(self):
         """设置线框模式"""
+        print("🔄 切换到线框模式")
         self.wireframe_btn.setChecked(True)
         self.solid_btn.setChecked(False)
         self.transparent_btn.setChecked(False)
 
         if hasattr(self.preprocessor, 'set_display_mode'):
             self.preprocessor.set_display_mode('wireframe')
+            print("✅ 线框模式已激活")
         self.status_label.setText("显示模式: 线框")
 
     def set_solid_mode(self):
         """设置实体模式"""
+        print("🔄 切换到实体模式")
         self.wireframe_btn.setChecked(False)
         self.solid_btn.setChecked(True)
         self.transparent_btn.setChecked(False)
 
         if hasattr(self.preprocessor, 'set_display_mode'):
             self.preprocessor.set_display_mode('solid')
+            print("✅ 实体模式已激活")
         self.status_label.setText("显示模式: 实体")
 
     def set_transparent_mode(self):
         """设置半透明模式"""
+        print("🔄 切换到半透明模式")
         self.wireframe_btn.setChecked(False)
         self.solid_btn.setChecked(False)
         self.transparent_btn.setChecked(True)
 
         if hasattr(self.preprocessor, 'set_display_mode'):
             self.preprocessor.set_display_mode('transparent')
+            print("✅ 半透明模式已激活")
         self.status_label.setText("显示模式: 半透明")
 
     def update_display(self):
-        """更新显示"""
-        if hasattr(self.preprocessor, 'display_mesh'):
-            # 将复选框状态同步到预处理器标志位
+        """🚨 阶段1 UI保护机制：非阻塞显示更新"""
+        # 防抖保护：避免频繁调用
+        if hasattr(self, '_display_update_timer'):
+            self._display_update_timer.stop()
+        
+        self._display_update_timer = QTimer()
+        self._display_update_timer.setSingleShot(True)
+        self._display_update_timer.timeout.connect(self._protected_update_display)
+        self._display_update_timer.start(150)  # 150ms防抖延迟
+
+    def _protected_update_display(self):
+        """受保护的显示更新实现 - 异步非阻塞"""
+        print("🔄 启动受保护的显示更新...")
+        
+        if not hasattr(self.preprocessor, 'display_mesh'):
+            return
+            
+        # 🚨 UI保护：显示加载状态
+        try:
+            if hasattr(self, 'status_label'):
+                self.status_label.setText("🔄 正在更新显示...")
+        except Exception:
+            pass
+            
+        # 大模型保护：若当前网格过大，强制关闭高负载选项并回写到复选框
             try:
-                if hasattr(self, 'show_soil_cb'):
-                    self.preprocessor.show_soil = self.show_soil_cb.isChecked()
-                if hasattr(self, 'show_concrete_cb'):
-                    self.preprocessor.show_concrete = self.show_concrete_cb.isChecked()
-                if hasattr(self, 'show_steel_cb'):
-                    self.preprocessor.show_steel = self.show_steel_cb.isChecked()
+                n_cells = 0
+                if hasattr(self.preprocessor, 'mesh') and self.preprocessor.mesh is not None:
+                    try:
+                        n_cells = int(getattr(self.preprocessor.mesh, 'n_cells', 0))
+                    except Exception:
+                        n_cells = 0
+                is_big_model = n_cells > 500_000
+                if is_big_model:
+                    for cb in [
+                        getattr(self, 'show_mesh_cb', None),
+                        getattr(self, 'show_plates_cb', None),
+                        getattr(self, 'show_anchors_cb', None),
+                        getattr(self, 'show_diaphragm_wall_cb', None),
+                        getattr(self, 'show_piles_cb', None),
+                        getattr(self, 'show_strutting_cb', None),
+                        getattr(self, 'show_steel_cb', None),
+                    ]:
+                        try:
+                            if cb and cb.isChecked():
+                                cb.setChecked(False)
+                        except Exception:
+                            pass
+            except Exception as e:
+                print(f"大模型保护回写失败: {e}")
+
+            # 🔧 修复：将复选框状态正确同步到预处理器
+            try:
+                # 基础显示控制
                 if hasattr(self, 'show_mesh_cb'):
                     self.preprocessor.show_mesh_edges = self.show_mesh_cb.isChecked()
+                    print(f"网格边: {self.preprocessor.show_mesh_edges}")
+
+                if hasattr(self, 'show_nodes_cb'):
+                    self.preprocessor.show_nodes = self.show_nodes_cb.isChecked()
+                    print(f"节点: {self.preprocessor.show_nodes}")
+                    
+                # 🔧 修复：工程构件显示同步
+                if hasattr(self, 'show_soil_cb'):
+                    self.preprocessor.show_soil = getattr(self, 'show_soil_cb').isChecked()
+                    print(f"土体: {self.preprocessor.show_soil}")
+                    
+                if hasattr(self, 'show_diaphragm_wall_cb'):
+                    self.preprocessor.show_diaphragm_wall = getattr(self, 'show_diaphragm_wall_cb').isChecked()
+                    print(f"地连墙: {self.preprocessor.show_diaphragm_wall}")
+                    
+                if hasattr(self, 'show_anchors_cb'):
+                    self.preprocessor.show_anchors = getattr(self, 'show_anchors_cb').isChecked()
+                    print(f"锚杆: {self.preprocessor.show_anchors}")
+                    
+                if hasattr(self, 'show_piles_cb'):
+                    self.preprocessor.show_piles = getattr(self, 'show_piles_cb').isChecked()
+                    print(f"桩基: {self.preprocessor.show_piles}")
+                    
+                if hasattr(self, 'show_strutting_cb'):
+                    self.preprocessor.show_strutting = getattr(self, 'show_strutting_cb').isChecked()
+                    print(f"内撑: {self.preprocessor.show_strutting}")
+                    print(f"节点: {self.preprocessor.show_nodes}")
+
                 if hasattr(self, 'show_supports_cb'):
                     self.preprocessor.show_supports = self.show_supports_cb.isChecked()
+                    print(f"支承: {self.preprocessor.show_supports}")
+
                 if hasattr(self, 'show_loads_cb'):
                     self.preprocessor.show_loads = self.show_loads_cb.isChecked()
-            except Exception as e:
-                print(f"同步显示开关到预处理器失败: {e}")
+                    print(f"荷载: {self.preprocessor.show_loads}")
 
-            # 如果勾选“仅显示激活材料”，根据当前分析步过滤；否则清空过滤
-            try:
-                if hasattr(self, 'only_active_materials_cb') and self.only_active_materials_cb.isChecked():
-                    if hasattr(self.preprocessor, 'get_current_analysis_stage'):
-                        stage = self.preprocessor.get_current_analysis_stage()
-                        if stage:
-                            groups = self.preprocessor.determine_active_groups_for_stage(stage)
-                            mats = groups.get('materials', [])
-                            if mats:
-                                self.preprocessor.filter_materials_by_stage(mats)
+                # 材料类型显示控制
+                if hasattr(self, 'show_soil_cb'):
+                    self.preprocessor.show_soil = self.show_soil_cb.isChecked()
+                    print(f"土体: {self.preprocessor.show_soil}")
+
+                # 专业地下工程构件设置
+                # (已删除冗余的混凝土、钢材、板单元选项)
+
+                if hasattr(self, 'show_anchors_cb'):
+                    self.preprocessor.show_anchors = self.show_anchors_cb.isChecked()
+                    print(f"锚杆: {self.preprocessor.show_anchors}")
+
+                # 可选：节点/支承/荷载在大模型也可能较重，这里已在 on_fpn_import_success 初次关闭
+
+                # 新增工程构件显示控制
+                if hasattr(self, 'show_diaphragm_wall_cb'):
+                    self.preprocessor.show_diaphragm_wall = self.show_diaphragm_wall_cb.isChecked()
+                    print(f"地连墙: {self.preprocessor.show_diaphragm_wall}")
+
+                if hasattr(self, 'show_piles_cb'):
+                    self.preprocessor.show_piles = self.show_piles_cb.isChecked()
+                    print(f"桩基: {self.preprocessor.show_piles}")
+
+                if hasattr(self, 'show_strutting_cb'):
+                    self.preprocessor.show_strutting = self.show_strutting_cb.isChecked()
+                    print(f"内撑: {self.preprocessor.show_strutting}")
+
+                # 🚨 UI保护：异步非阻塞显示刷新
+                self._start_async_display_update()
+
+                # 更新状态栏提示
+                active_options = []
+                if getattr(self.preprocessor, 'show_mesh_edges', False):
+                    active_options.append("网格边")
+                if getattr(self.preprocessor, 'show_nodes', False):
+                    active_options.append("节点")
+                if getattr(self.preprocessor, 'show_supports', False):
+                    active_options.append("支承")
+                if getattr(self.preprocessor, 'show_loads', False):
+                    active_options.append("荷载")
+
+                status_msg = f"显示选项: {', '.join(active_options) if active_options else '无'}"
+                if hasattr(self, 'status_label'):
+                    self.status_label.setText(status_msg)
+                print(f"✅ {status_msg}")
+
+            except Exception as e:
+                error_msg = f"同步显示开关失败: {e}"
+                print(f"❌ {error_msg}")
+                if hasattr(self, 'status_label'):
+                    self.status_label.setText(error_msg)
+        else:
+            print("❌ 前处理器不可用")
+            if hasattr(self, 'status_label'):
+                self.status_label.setText("前处理器不可用")
+
+    def _start_async_display_update(self):
+        """🚨 启动异步显示更新：防止UI阻塞"""
+        try:
+            # 防止重复启动
+            if hasattr(self, '_display_thread') and self._display_thread.isRunning():
+                print("⚠️ 显示更新已在进行中，跳过重复请求")
+                return
+                
+            # 创建异步显示线程
+            self._display_thread = DisplayUpdateThread(self.preprocessor)
+            self._display_thread.finished.connect(self._on_display_update_finished)
+            self._display_thread.error.connect(self._on_display_update_error)
+            
+            # 显示进度状态
+            if hasattr(self, 'status_label'):
+                self.status_label.setText("🔄 正在更新3D显示...")
+                
+            # 禁用相关UI控件避免冲突操作
+            self._disable_display_controls(True)
+            
+            # 启动线程
+            self._display_thread.start()
+            print("🚀 异步显示更新已启动")
+            
+        except Exception as e:
+            print(f"❌ 启动异步显示更新失败: {e}")
+            if hasattr(self, 'status_label'):
+                self.status_label.setText(f"显示更新失败: {e}")
+            self._disable_display_controls(False)
+
+    def _on_display_update_finished(self):
+        """显示更新完成回调"""
+        try:
+            print("✅ 异步显示更新完成")
+            if hasattr(self, 'status_label'):
+                self.status_label.setText("✅ 3D显示更新完成")
+            self._disable_display_controls(False)
+        except Exception as e:
+            print(f"⚠️ 显示更新完成回调异常: {e}")
+
+    def _on_display_update_error(self, error_msg):
+        """显示更新错误回调"""
+        try:
+            print(f"❌ 异步显示更新失败: {error_msg}")
+            if hasattr(self, 'status_label'):
+                self.status_label.setText(f"❌ 显示更新失败: {error_msg}")
+            self._disable_display_controls(False)
+        except Exception as e:
+            print(f"⚠️ 显示更新错误回调异常: {e}")
+
+    def _disable_display_controls(self, disabled=True):
+        """临时禁用显示控件防止并发操作"""
+        try:
+            # 禁用/启用显示模式按钮
+            for btn_name in ['wireframe_btn', 'solid_btn', 'transparent_btn']:
+                btn = getattr(self, btn_name, None)
+                if btn:
+                    btn.setEnabled(not disabled)
+                    
+            # 禁用/启用复选框
+            checkbox_names = [
+                'show_mesh_cb', 'show_nodes_cb', 'show_supports_cb', 'show_loads_cb',
+                'show_soil_cb', 'show_anchors_cb', 'show_diaphragm_wall_cb', 
+                'show_piles_cb', 'show_strutting_cb'
+            ]
+            for cb_name in checkbox_names:
+                cb = getattr(self, cb_name, None)
+                if cb:
+                    cb.setEnabled(not disabled)
+                    
+        except Exception as e:
+            print(f"⚠️ 控件状态切换失败: {e}")
+
+
+class DisplayUpdateThread(QThread):
+    """专用的显示更新线程"""
+    finished = pyqtSignal()
+    error = pyqtSignal(str)
+    
+    def __init__(self, preprocessor):
+        super().__init__()
+        self.preprocessor = preprocessor
+        
+    def run(self):
+        """执行显示更新操作"""
+        try:
+            if hasattr(self.preprocessor, 'display_mesh'):
+                # 🔧 修复：根据当前显示模式重新渲染
+                current_mode = getattr(self.preprocessor, 'display_mode', 'transparent')
+                print(f"🔄 重新渲染，当前模式: {current_mode}")
+                
+                # 清空现有显示
+                if hasattr(self.preprocessor, 'plotter'):
+                    self.preprocessor.plotter.clear()
+                    # 重新设置背景
+                    if hasattr(self.preprocessor, 'set_abaqus_style_background'):
+                        self.preprocessor.set_abaqus_style_background()
+                    
+                # 根据模式重新渲染
+                if current_mode == 'transparent':
+                    self.preprocessor.display_transparent_layers()
+                elif current_mode == 'wireframe':
+                    self.preprocessor.display_wireframe_mode()
                 else:
-                    if hasattr(self.preprocessor, 'current_active_materials'):
-                        self.preprocessor.current_active_materials = set()
-            except Exception as e:
-                print(f"仅显示激活材料过滤失败: {e}")
-
-            self.preprocessor.display_mesh()
-        self.status_label.setText("显示已更新")
+                    self.preprocessor.display_mesh()
+                    
+                self.finished.emit()
+            else:
+                self.error.emit("预处理器无display_mesh方法")
+        except Exception as e:
+            self.error.emit(str(e))

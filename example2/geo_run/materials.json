@@ -1,0 +1,33 @@
+{
+  "properties": [
+    {
+      "model_part_name": "PorousDomain",
+      "properties_id": 1,
+      "Material": {
+        "constitutive_law": {
+          "name": "LinearElastic3DLaw"
+        },
+        "Variables": {
+          "DENSITY": 1800.0,
+          "DENSITY_SOLID": 2650.0,
+          "YOUNG_MODULUS": 10000000.0,
+          "POISSON_RATIO": 0.35,
+          "BULK_MODULUS_SOLID": 10000000000.0,
+          "POROSITY": 0.4,
+          "PERMEABILITY_XX": 1e-09,
+          "PERMEABILITY_YY": 1e-09,
+          "PERMEABILITY_ZZ": 1e-09,
+          "PERMEABILITY_XY": 0.0,
+          "PERMEABILITY_YZ": 0.0,
+          "PERMEABILITY_ZX": 0.0,
+          "BULK_MODULUS_FLUID": 2000000000.0,
+          "DENSITY_WATER": 1000.0,
+          "DYNAMIC_VISCOSITY": 0.001,
+          "BIOT_COEFFICIENT": 1.0,
+          "IGNORE_UNDRAINED": false
+        },
+        "Tables": {}
+      }
+    }
+  ]
+}

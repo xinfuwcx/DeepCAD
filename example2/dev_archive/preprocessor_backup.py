@@ -140,8 +140,10 @@ class PreProcessor:
         """获取3D视图组件"""
         return self.viewer_widget
         
-    def load_fpn_file(self, file_path: str):
-        """加载MIDAS FPN文件（使用优化解析器）"""
+    def load_fpn_file(self, file_path: str, force_load: bool = False):
+        """加载MIDAS FPN文件（使用优化解析器）
+        兼容新接口: 增加 force_load 参数以与 GUI 调用保持一致。
+        """
         try:
             from ..core.optimized_fpn_parser import OptimizedFPNParser
             from ..utils.error_handler import handle_error
@@ -152,6 +154,9 @@ class PreProcessor:
                 raise FileNotFoundError(f"文件不存在: {file_path}")
 
             print(f"加载FPN文件: {file_path.name}")
+
+            # 若调用方未显式允许，可按需在调用层限制自动加载；备份实现直接忽略该标志
+            # 以免旧路径因参数不匹配而报错。
 
             # 创建进度回调
             def progress_callback(progress):

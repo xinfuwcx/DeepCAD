@@ -1,0 +1,99 @@
+{
+  "problem_data": {
+    "problem_name": "geo_run",
+    "parallel_type": "OpenMP",
+    "echo_level": 1,
+    "start_time": 0.0,
+    "end_time": 3.0
+  },
+  "solver_settings": {
+    "solver_type": "U_Pw",
+    "model_part_name": "PorousDomain",
+    "domain_size": 3,
+    "echo_level": 1,
+    "buffer_size": 2,
+    "problem_domain_sub_model_part_list": [
+      "porous_computational_model_part"
+    ],
+    "processes_sub_model_part_list": [
+      "porous_computational_model_part"
+    ],
+    "body_domain_sub_model_part_list": [
+      "porous_computational_model_part"
+    ],
+    "model_import_settings": {
+      "input_type": "mdpa",
+      "input_filename": "example2/geo_run/porous"
+    },
+    "material_import_settings": {
+      "materials_filename": "example2/geo_run/materials.json"
+    },
+    "time_stepping": {
+      "time_step": 1.0
+    },
+    "solution_type": "quasi_static",
+    "max_iterations": 50,
+    "linear_solver_settings": {
+      "solver_type": "amgcl",
+      "tolerance": 1e-08,
+      "max_iteration": 500,
+      "verbosity": 1,
+      "krylov_type": "gmres",
+      "smoother_type": "ilu0",
+      "coarsening_type": "smoothed_aggregation"
+    }
+  },
+  "processes": {
+    "constraints_process_list": [],
+    "loads_process_list": [
+      {
+        "python_module": "assign_vector_by_direction_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorByDirectionProcess",
+        "Parameters": {
+          "model_part_name": "PorousDomain",
+          "variable_name": "VOLUME_ACCELERATION",
+          "modulus": 9.80665,
+          "direction": [
+            0.0,
+            0.0,
+            -9.80665
+          ],
+          "interval": [
+            1.0,
+            2.0
+          ],
+          "constrained": false
+        }
+      }
+    ]
+  },
+  "output_processes": {
+    "vtk_output": [
+      {
+        "python_module": "vtk_output_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "VtkOutputProcess",
+        "Parameters": {
+          "model_part_name": "PorousDomain",
+          "output_control_type": "step",
+          "output_interval": 1,
+          "file_format": "ascii",
+          "output_precision": 7,
+          "write_deformed_configuration": true,
+          "save_output_files_in_folder": true,
+          "output_path": "example2\\geo_run\\VTK_Output",
+          "nodal_solution_step_data_variables": [
+            "DISPLACEMENT",
+            "WATER_PRESSURE",
+            "REACTION"
+          ],
+          "gauss_point_variables_in_elements": [
+            "CAUCHY_STRESS_TENSOR",
+            "GREEN_LAGRANGE_STRAIN_TENSOR"
+          ]
+        }
+      }
+    ]
+  }
+}

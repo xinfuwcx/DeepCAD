@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 基于两阶段计算2.fpn的真正求解计算
-使用四面体单元和摩尔-库伦本构进行非线性分析
+使用四面体单元和线弹性本构进行线性静力分析
 """
 
 import os
@@ -20,32 +20,32 @@ from core.kratos_interface import KratosInterface, AnalysisSettings, AnalysisTyp
 
 class TwoStageAnalysis:
     """两阶段基坑开挖分析"""
-    
+
     def __init__(self, fpn_file: str, output_dir: str = "output/two_stage_analysis"):
         self.fpn_file = Path(fpn_file)
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         self.fpn_data = None
         self.kratos_interface = None
         self.analysis_results = {}
-        
+
     def load_fpn_data(self) -> bool:
         """加载FPN数据"""
         try:
             print(f"📂 加载FPN文件: {self.fpn_file}")
             parser = OptimizedFPNParser()
             self.fpn_data = parser.parse_file_streaming(str(self.fpn_file))
-            
+
             if not self.fpn_data:
                 print("❌ FPN文件解析失败")
                 return False
-                
+
             print(f"✅ 成功解析FPN文件")
             print(f"   节点数: {len(self.fpn_data.get('nodes', {}))}")
             print(f"   单元数: {len(self.fpn_data.get('elements', {}))}")
             print(f"   材料数: {len(self.fpn_data.get('materials', {}))}")
-            print(f"   分析步数: {len(self.fpn_data.get('analysis_steps', {}))}")
+            print(f"   分析步数: {len(self.fpn_data.get('analysis_stages', []))}")
 
             # 调试：检查数据结构
             print(f"\n🔍 数据结构检查:")
@@ -68,120 +68,84 @@ class TwoStageAnalysis:
                 print(f"   材料类型: {type(materials)}")
 
             return True
-            
+
         except Exception as e:
             print(f"❌ 加载FPN文件失败: {e}")
             return False
-    
-    def setup_materials(self) -> Dict[int, MaterialProperties]:
-        """设置材料属性 - 重点配置摩尔-库伦本构"""
-        materials = {}
-        
-        # 从FPN数据中提取材料信息
-        fpn_materials = self.fpn_data.get('materials', {})
 
-        # 如果材料数据为空，创建默认材料
+    def setup_materials(self) -> Dict[int, MaterialProperties]:
+        """设置材料属性 - 与FPN一致，使用线弹性本构参数"""
+        materials = {}
+
+        fpn_materials = self.fpn_data.get('materials', {})
         if not fpn_materials:
-            print("⚠️ 未找到材料定义，创建默认土体材料")
+            print("⚠️ 未找到材料定义，创建默认土体材料(线弹性)")
             fpn_materials = {
-                1: {'name': '默认土体', 'properties': {'type': 'soil', 'DENSITY': 1900, 'YOUNG_MODULUS': 25e6, 'POISSON_RATIO': 0.35, 'COHESION': 25000, 'FRICTION_ANGLE': 28}}
+                1: {'name': '默认土体', 'properties': {'type': 'soil', 'DENSITY': 1900.0, 'YOUNG_MODULUS': 25e6, 'POISSON_RATIO': 0.35}}
             }
 
         for mat_id, mat_data in fpn_materials.items():
-            # 确保mat_data是字典类型
             if not isinstance(mat_data, dict):
                 print(f"⚠️ 材料{mat_id}数据格式异常，跳过")
                 continue
             props = mat_data.get('properties', {})
-            mat_type = props.get('type', 'soil')
-            
-            if mat_type == 'soil':
-                # 土体材料 - 使用摩尔-库伦本构
-                material = MaterialProperties(
-                    id=mat_id,
-                    name=mat_data.get('name', f'Soil_{mat_id}'),
-                    density=props.get('DENSITY', 1900.0),  # kg/m³
-                    young_modulus=props.get('YOUNG_MODULUS', 25e6),  # Pa
-                    poisson_ratio=props.get('POISSON_RATIO', 0.35),
-                    cohesion=props.get('COHESION', 25000.0),  # Pa
-                    friction_angle=props.get('FRICTION_ANGLE', 28.0)  # degrees
-                )
-                
-                print(f"🏗️ 土体材料 {mat_id}: E={material.young_modulus/1e6:.0f}MPa, "
-                      f"φ={material.friction_angle}°, c={material.cohesion/1000:.0f}kPa")
-                      
-            else:
-                # 结构材料 - 使用线弹性本构
-                material = MaterialProperties(
-                    id=mat_id,
-                    name=mat_data.get('name', f'Structure_{mat_id}'),
-                    density=props.get('DENSITY', 2500.0),
-                    young_modulus=props.get('YOUNG_MODULUS', 30e9),
-                    poisson_ratio=props.get('POISSON_RATIO', 0.2),
-                    cohesion=1e6,  # 高强度
-                    friction_angle=45.0
-                )
-                
-                print(f"🏢 结构材料 {mat_id}: E={material.young_modulus/1e9:.0f}GPa")
-            
+            # 统一按线弹性读取：密度/弹模/泊松比（兼容 FPN 字段名：E/NU）
+            density = props.get('DENSITY', 1900.0)
+            E_val = props.get('YOUNG_MODULUS', None)
+            if E_val is None:
+                E_val = props.get('E', None)
+            nu_val = props.get('POISSON_RATIO', None)
+            if nu_val is None:
+                nu_val = props.get('NU', None)
+
+            material = MaterialProperties(
+                id=mat_id,
+                name=mat_data.get('name', f'Material_{mat_id}'),
+                density=float(density),
+                young_modulus=float(E_val if E_val is not None else 25e6),
+                poisson_ratio=float(nu_val if nu_val is not None else 0.35),
+                cohesion=0.0,
+                friction_angle=0.0
+            )
+            print(f"🏗️ 材料 {mat_id}: 线弹性, E={material.young_modulus/1e6:.0f}MPa, ν={material.poisson_ratio}")
             materials[mat_id] = material
-            
         return materials
-    
+
     def create_kratos_materials_json(self, materials: Dict[int, MaterialProperties]) -> str:
-        """创建Kratos材料配置文件 - 简化版本，使用统一的土体材料"""
+        """创建Kratos材料配置文件（报告用，与实际求解一致：线弹性）"""
 
-        # 使用第一个土体材料作为代表性材料
-        representative_material = None
-        for material in materials.values():
-            if material.young_modulus < 1e9:  # 土体材料
-                representative_material = material
-                break
-
-        if not representative_material:
-            # 如果没有土体材料，使用第一个材料
-            representative_material = list(materials.values())[0]
-
-        # 创建单一的材料定义
-        properties = [{
-            "model_part_name": "Structure",
-            "properties_id": 1,  # 使用统一的属性ID
-            "Material": {
-                "constitutive_law": {
-                    "name": "MohrCoulombPlastic3DLaw"
-                },
-                "Variables": {
-                    "DENSITY": representative_material.density,
-                    "YOUNG_MODULUS": representative_material.young_modulus,
-                    "POISSON_RATIO": representative_material.poisson_ratio,
-                    "COHESION": representative_material.cohesion,
-                    "INTERNAL_FRICTION_ANGLE": np.radians(representative_material.friction_angle),
-                    "DILATANCY_ANGLE": np.radians(max(0, representative_material.friction_angle - 30)),
-                    "YIELD_STRESS": representative_material.cohesion,
-                    "ISOTROPIC_HARDENING_MODULUS": representative_material.young_modulus * 0.01,
-                    "EXPONENTIAL_SATURATION_YIELD_STRESS": representative_material.cohesion * 2.0,
-                    "HARDENING_CURVE": 0,
-                    "VISCOSITY": 1e-6
-                },
-                "Tables": {}
-            }
-        }]
+        # 直接按每个材料写入线弹性属性（与 KratosInterface 写入保持一致）
+        properties = []
+        for mat in materials.values():
+            properties.append({
+                "model_part_name": f"Structure.MAT_{mat.id}",
+                "properties_id": mat.id,
+                "Material": {
+                    "constitutive_law": {"name": "LinearElastic3DLaw"},
+                    "Variables": {
+                        "DENSITY": float(mat.density),
+                        "YOUNG_MODULUS": float(mat.young_modulus),
+                        "POISSON_RATIO": float(mat.poisson_ratio)
+                    },
+                    "Tables": {}
+                }
+            })
 
         materials_data = {"properties": properties}
 
-        print(f"🎯 使用代表性材料: E={representative_material.young_modulus/1e6:.0f}MPa, φ={representative_material.friction_angle}°, c={representative_material.cohesion/1000:.0f}kPa")
-        
-        # 保存材料文件
+        print("🎯 使用线弹性材料模型（与FPN一致）")
+
+        # 保存材料文件（报告目录）
         materials_file = self.output_dir / "materials.json"
         with open(materials_file, 'w', encoding='utf-8') as f:
             json.dump(materials_data, f, indent=2, ensure_ascii=False)
-            
+
         print(f"💾 材料配置保存到: {materials_file}")
         return str(materials_file)
-    
+
     def create_project_parameters(self, stage_name: str, stage_num: int) -> str:
         """创建Kratos项目参数文件 - 配置非线性求解器"""
-        
+
         # 非线性求解器配置
         project_params = {
             "problem_data": {
@@ -240,9 +204,9 @@ class TwoStageAnalysis:
                     "process_name": "VtkOutputProcess",
                     "Parameters": {
                         "model_part_name": "Structure",
-                        "output_control_type": "step",  # 每步输出一份，便于时程后处理
-                        "output_frequency": 1,
-                        "file_format": "binary",
+                        "output_control_type": "step",
+                        "output_interval": 1,
+                        "file_format": "ascii",
                         "output_precision": 7,
                         "output_sub_model_parts": False,
                         "output_path": str(Path("data") / f"VTK_Output_Stage_{stage_num}"),
@@ -253,7 +217,7 @@ class TwoStageAnalysis:
                             "VELOCITY",
                             "ACCELERATION"
                         ],
-                        "element_data_value_variables": [
+                        "gauss_point_variables_in_elements": [
                             "CAUCHY_STRESS_TENSOR",
                             "GREEN_LAGRANGE_STRAIN_TENSOR",
                             "PLASTIC_STRAIN_TENSOR"
@@ -262,12 +226,12 @@ class TwoStageAnalysis:
                 }]
             }
         }
-        
+
         # 保存参数文件
         params_file = self.output_dir / f"ProjectParameters_Stage_{stage_num}.json"
         with open(params_file, 'w', encoding='utf-8') as f:
             json.dump(project_params, f, indent=2, ensure_ascii=False)
-            
+
         print(f"⚙️ 项目参数保存到: {params_file}")
         return str(params_file)
 
@@ -277,16 +241,21 @@ class TwoStageAnalysis:
             print(f"\n🚀 开始第{stage_num}阶段分析")
             print(f"   激活材料: {active_materials}")
 
-            # 1. 设置Kratos接口
-            self.kratos_interface = KratosInterface()
+            # 1. 设置Kratos接口（不要覆盖外面已经设置好的激活组等状态）
+            self.kratos_interface = self.kratos_interface or KratosInterface()
             self.kratos_interface.current_stage = stage_num
 
-            # 2. 配置分析设置 - 非线性（牛顿-拉夫森），便于判断收敛情况
+            # 地应力平衡近似：使用非严格模式 + 自重 + 自动约束（若FPN未提供完整边界）
+            self.kratos_interface.strict_mode = False
+            self.kratos_interface.apply_self_weight = True
+            self.kratos_interface.gravity_direction = (0.0, 0.0, -1.0)
+
+            # 2. 配置分析设置 - 线性静力 + AMGCL（按FPN“弹性材料、无锚杆”的意图）
             analysis_settings = AnalysisSettings(
-                analysis_type=AnalysisType.NONLINEAR,
-                solver_type=SolverType.NEWTON_RAPHSON,
-                max_iterations=50,
-                convergence_tolerance=1e-6,
+                analysis_type=AnalysisType.STATIC,
+                solver_type=SolverType.LINEAR,
+                max_iterations=1,
+                convergence_tolerance=1e-12,
                 time_step=1.0,
                 end_time=1.0
             )
@@ -301,6 +270,22 @@ class TwoStageAnalysis:
             # 这里不再访问未定义的 stage1/stage2
             self.kratos_interface.active_mesh_set_ids = set(active_mesh_set_ids or [])
             self.kratos_interface.active_element_ids = set(active_element_ids or [])
+            # 从 stages 的 group_commands 同步本阶段激活的荷载/边界组
+            try:
+                active_loads = set()
+                active_bounds = set()
+                for cmd in (self.fpn_data.get('analysis_stages', [])[stage_num-1].get('group_commands') or []):
+                    if cmd.get('command') == 'LADD':
+                        active_loads.update(cmd.get('group_ids') or [])
+                    elif cmd.get('command') == 'BADD':
+                        active_bounds.update(cmd.get('group_ids') or [])
+                self.kratos_interface.active_load_groups = active_loads
+                self.kratos_interface.active_boundary_groups = active_bounds
+            except Exception:
+                pass
+            # 日志包含荷载/边界组
+            print(f"   激活荷载组: {sorted(list(getattr(self.kratos_interface,'active_load_groups', set())))}")
+            print(f"   激活边界组: {sorted(list(getattr(self.kratos_interface,'active_boundary_groups', set())))}")
 
             print(f"   配置了{len(self.kratos_interface.materials)}种材料，激活集合数: {len(self.kratos_interface.active_mesh_set_ids)}, 激活元素数: {len(self.kratos_interface.active_element_ids)}")
 
@@ -317,12 +302,12 @@ class TwoStageAnalysis:
             params_file = self.create_project_parameters(f"Stage_{stage_num}", stage_num)
 
             # 6. 运行分析
-            print(f"   执行Newton-Raphson非线性求解...")
+            print(f"   执行线性静力求解(AMGCL)...")
             print(f"   求解器配置:")
             print(f"     - 最大迭代次数: {analysis_settings.max_iterations}")
             print(f"     - 收敛容差: {analysis_settings.convergence_tolerance}")
-            print(f"     - 线搜索: 启用")
-            print(f"     - 本构模型: 摩尔-库伦塑性")
+            print(f"     - 线搜索: {'启用' if analysis_settings.solver_type != SolverType.LINEAR else '禁用'}")
+            print(f"     - 本构模型: 线弹性")
 
             success, results = self.kratos_interface.run_analysis()
 
@@ -453,8 +438,8 @@ class TwoStageAnalysis:
     def run_two_stage_analysis(self) -> bool:
         """运行完整的两阶段分析"""
         print("=" * 60)
-        print("🏗️ 两阶段基坑开挖非线性分析")
-        print("   四面体单元 + 摩尔-库伦本构 + Newton-Raphson求解器")
+        print("🏗️ 两阶段基坑开挖分析")
+        print("   四面体单元 + 线弹性本构 + AMGCL 线性求解器")
         print("=" * 60)
 
         # 1. 加载FPN数据
@@ -510,8 +495,29 @@ class TwoStageAnalysis:
             elif cmd.get('command') == 'MDEL':
                 active_sets_1.difference_update(cmd.get('group_ids') or [])
         active_elems_1 = set()
-        for gid in active_sets_1:
-            active_elems_1.update(mesh_sets.get(gid, {}).get('elements') or [])
+        # 调试：输出各集合的元素数量，帮助定位为何激活元素为0
+        print("\n   Mesh sets parsed:", len(mesh_sets))
+        for gid in sorted(list(active_sets_1)):
+            elems = mesh_sets.get(gid, {}).get('elements') or []
+            print(f"   - MSET {gid}: elements = {len(elems)}")
+            active_elems_1.update(elems)
+
+        # 激活的荷载/边界组（按 group_commands 汇总）
+        active_loads_1 = set()
+        active_bounds_1 = set()
+        for cmd in (stage1.get('group_commands') or []):
+            if cmd.get('command') == 'LADD':
+                active_loads_1.update(cmd.get('group_ids') or [])
+            elif cmd.get('command') == 'BADD':
+                active_bounds_1.update(cmd.get('group_ids') or [])
+
+        # 把阶段激活集合传给接口（用于过滤并构建进程）
+        self.kratos_interface.active_load_groups = set(active_loads_1)
+        self.kratos_interface.active_boundary_groups = set(active_bounds_1)
+
+        # 确保严格按集合控制：若本阶段未定义任何集合且未计算出元素集，则报错并终止
+        if not active_sets_1 and not active_elems_1:
+            raise RuntimeError("阶段1未定义任何网格集合或元素激活，FPN不完整，请检查STAGE/MSET/MSETE")
 
         stage1_success = self.run_stage_analysis(1, mats1, active_element_ids=active_elems_1, active_mesh_set_ids=active_sets_1)
         if not stage1_success:
@@ -528,8 +534,13 @@ class TwoStageAnalysis:
             elif cmd.get('command') == 'MDEL':
                 active_sets_2.difference_update(cmd.get('group_ids') or [])
         active_elems_2 = set()
-        for gid in active_sets_2:
-            active_elems_2.update(mesh_sets.get(gid, {}).get('elements') or [])
+        for gid in sorted(list(active_sets_2)):
+            elems = mesh_sets.get(gid, {}).get('elements') or []
+            print(f"   - (Stage2) MSET {gid}: elements = {len(elems)}")
+            active_elems_2.update(elems)
+
+        if not active_sets_2 and not active_elems_2:
+            raise RuntimeError("阶段2未定义任何网格集合或元素激活，FPN不完整，请检查STAGE/MSET/MSETE")
 
         print(f"\n🗑️ 第二阶段开挖/激活变更 (集合ID):")
         print(f"   Stage1 激活集合: {sorted(list(active_sets_1))}")
@@ -539,6 +550,17 @@ class TwoStageAnalysis:
         # 设置当前阶段号用于输出路径
         self.kratos_interface = self.kratos_interface or KratosInterface()
         self.kratos_interface.current_stage = 2
+        # 继承 Stage1 的激活，再应用 Stage2 的增量
+        active_loads_2 = set(active_loads_1)
+        active_bounds_2 = set(active_bounds_1)
+        for cmd in (stage2.get('group_commands') or []):
+            if cmd.get('command') == 'LADD':
+                active_loads_2.update(cmd.get('group_ids') or [])
+            elif cmd.get('command') == 'BADD':
+                active_bounds_2.update(cmd.get('group_ids') or [])
+        self.kratos_interface.active_load_groups = set(active_loads_2)
+        self.kratos_interface.active_boundary_groups = set(active_bounds_2)
+
         stage2_success = self.run_stage_analysis(2, mats2, active_element_ids=active_elems_2, active_mesh_set_ids=active_sets_2)
 
         # 4. 生成分析报告
@@ -557,8 +579,8 @@ class TwoStageAnalysis:
                 "fpn_file": str(self.fpn_file),
                 "analysis_type": "Two-Stage Excavation",
                 "element_type": "Tetrahedra3D4N (四面体单元)",
-                "constitutive_model": "Mohr-Coulomb Plasticity",
-                "solver": "Newton-Raphson Nonlinear Solver",
+                "constitutive_model": "Linear Elasticity",
+                "solver": "AMGCL Linear Solver",
                 "timestamp": str(np.datetime64('now'))
             },
             "model_statistics": {
@@ -596,7 +618,7 @@ class TwoStageAnalysis:
             f.write(f"FPN文件: {self.fpn_file}\n")
             f.write(f"分析时间: {report['analysis_info']['timestamp']}\n")
             f.write(f"单元类型: {report['analysis_info']['element_type']}\n")
-            f.write(f"本构模型: {report['analysis_info']['constitutive_model']}\n")
+            f.write(f"本构模型: {report['analysis_info']['constitutive_model']}\n")  # 与FPN一致：线弹性
             f.write(f"求解器: {report['analysis_info']['solver']}\n\n")
 
             f.write("模型统计:\n")
@@ -629,11 +651,25 @@ def main():
     except Exception:
         pass
 
-    # 检查FPN文件
-    fpn_file = Path("data/两阶段计算2.fpn")
+    # 检查FPN文件（支持命令行参数，优先使用你传入的实际项目FPN）
+    cli_path = None
+    try:
+        if len(sys.argv) > 1 and sys.argv[1]:
+            cli_path = sys.argv[1]
+    except Exception:
+        cli_path = None
+
+    if cli_path:
+        fpn_file = Path(cli_path)
+    else:
+        # 优先尝试：两阶段-全锚杆.fpn；回退：两阶段计算2.fpn
+        candidate1 = Path("data/两阶段-全锚杆.fpn")
+        candidate2 = Path("data/两阶段计算2.fpn")
+        fpn_file = candidate1 if candidate1.exists() else candidate2
+
     if not fpn_file.exists():
         print(f"❌ FPN文件不存在: {fpn_file}")
-        print("请确保文件路径正确")
+        print("请确保文件路径正确，或将文件放在 example2/data 目录下")
         return False
 
     try:
