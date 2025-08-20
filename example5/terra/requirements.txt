@@ -1,0 +1,39 @@
+# Terra 桌面版依赖包
+
+# GUI 框架
+PyQt6>=6.6.0
+PyQt6-WebEngine>=6.6.0
+
+# GMSH 几何引擎
+gmsh>=4.11.0
+
+# 科学计算
+numpy>=1.24.0
+scipy>=1.10.0
+
+# 3D 处理
+pyvista>=0.43.0
+vtk>=9.2.0
+
+# 数据处理
+pandas>=2.0.0
+h5py>=3.8.0
+
+# 数据库
+sqlite3  # Python 内置
+
+# 工具库
+Pillow>=10.0.0
+matplotlib>=3.7.0
+
+# 可选：如果要集成 Kratos
+# KratosMultiphysics>=9.0  # 需要单独安装
+
+# 开发工具 (可选)
+pytest>=7.4.0
+black>=23.0.0
+flake8>=6.0.0
+
+# 打包工具 (可选)
+# pyinstaller>=5.13.0
+# cx-Freeze>=6.15.0

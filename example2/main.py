@@ -63,6 +63,33 @@ class Example2Application:
         
         # 创建主窗口
         self.main_window = MainWindow()
+
+        # 应用退出时进行渲染器/Qt资源的干净清理，降低Windows上 wglMakeCurrent 报错
+        try:
+            self.app.aboutToQuit.connect(self._on_about_to_quit)
+        except Exception:
+            pass
+
+    def _on_about_to_quit(self):
+        """应用退出前的清理：关闭PyVista/Qt交互器，避免OpenGL上下文残留。"""
+        try:
+            if getattr(self, 'main_window', None):
+                # 预处理3D视口清理
+                try:
+                    pp = getattr(self.main_window, 'preprocessor', None)
+                    if pp and hasattr(pp, 'shutdown_viewer'):
+                        pp.shutdown_viewer()
+                except Exception:
+                    pass
+                # 后处理清理（若实现了类似接口）
+                try:
+                    po = getattr(self.main_window, 'postprocessor', None)
+                    if po and hasattr(po, 'shutdown_viewer'):
+                        po.shutdown_viewer()
+                except Exception:
+                    pass
+        except Exception:
+            pass
         
     def set_application_style(self):
         """设置应用程序样式"""
@@ -163,8 +190,10 @@ def check_dependencies():
             pv.global_theme.background = 'white'     # 白色背景
             
             # OpenGL深度测试和混合设置
-            pv.global_theme.depth_peeling.enabled = False  # 禁用深度剥离
-            pv.global_theme.transparent_rendering_via_depth_peeling = False
+            try:
+                pv.global_theme.depth_peeling.enabled = False  # 禁用深度剥离
+            except AttributeError:
+                pass  # 某些版本可能没有这个属性
             
             print("✅ PyVista增强稳定模式已配置")
         except Exception as e:

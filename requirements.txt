@@ -1,103 +1,37 @@
-# DeepCAD深基坑CAE平台 - 基于实际代码分析的精简依赖 (2025-07-30)
-# 只保留真正使用的依赖包
+# DeepCAD Professional CAE System 依赖列表
+# 核心依赖 (必需)
+PyQt6>=6.4.0
+numpy>=1.21.0
+pandas>=1.3.0
 
-# ====================
-# 核心Web服务框架
-# ====================
-fastapi>=0.115.0
-uvicorn[standard]>=0.35.0
-pydantic>=2.10.0
-pydantic-settings>=2.10.1
-starlette>=0.47.2
+# 3D可视化 (推荐)
+pyvista>=0.38.0
+pyvistaqt>=0.9.0
 
-# ====================
-# 数据库和ORM
-# ====================
-sqlalchemy>=2.0.42
-alembic>=1.14.0
-psycopg2-binary>=2.9.10
+# 图表绘制 (推荐)
+matplotlib>=3.5.0
 
-# ====================
-# 科学计算核心库
-# ====================
-numpy>=2.3.2
-scipy>=1.16.1
-matplotlib>=3.10.0
-pandas>=2.3.1
-h5py>=3.12.0
-sympy>=1.13.3
+# 界面图标 (推荐)
+qtawesome>=1.2.0
 
-# ====================
-# 几何建模和CAD
-# ====================
-gmsh>=4.13.1
-ezdxf>=1.3.4
-shapely>=2.1.0
+# 地质建模 (可选)
+gempy>=3.0.0
 
-# ====================
-# 网格生成和处理
-# ====================
-meshio>=5.3.5
-pymeshfix>=0.16.3
-# pyvista removed (GemPy → Three.js path does not require it)
+# 科学计算扩展 (可选)
+scipy>=1.7.0
+scikit-learn>=1.0.0
 
-# ====================
-# 图像处理
-# ====================
-pillow>=11.3.0
+# 系统监控 (可选)
+psutil>=5.8.0
 
-# ====================
-# 机器学习
-# ====================
-scikit-learn>=1.6.0
+# 数据处理扩展 (可选)
+openpyxl>=3.0.0  # Excel文件支持
+h5py>=3.0.0      # HDF5文件支持
 
-# ====================
-# 网络请求
-# ====================
-requests>=2.32.3
+# 网络功能 (可选)
+requests>=2.25.0
 
-# ====================
-# 日志记录
-# ====================
-loguru>=0.7.3
-
-# ====================
-# 配置管理
-# ====================
-python-dotenv>=1.1.1
-
-# ====================
-# Kratos多物理场求解器 (已预安装,请勿修改)
-# ====================
-# KratosMultiphysics>=10.3.0
-# KratosMultiphysics.StructuralMechanicsApplication>=10.3.0
-# KratosMultiphysics.FluidDynamicsApplication>=10.3.0
-# KratosMultiphysics.LinearSolversApplication>=10.3.0
-# KratosMultiphysics.MeshingApplication>=10.3.0
-
-# ====================
-# 可选依赖 (高级功能)
-# ====================
-# 地质建模核心依赖 (必需) - 使用最新稳定版本
-gempy>=2025.1.0
-
-# AI模块 (PINN/DeepONet等)
-# torch>=2.0.0+cu121 --index-url https://download.pytorch.org/whl/cu121
-# torchvision>=0.15.0+cu121 --index-url https://download.pytorch.org/whl/cu121
-
-# 微服务支持
-# celery>=5.4.0
-# redis>=5.2.1
-
-# 开发和测试
-# pytest>=8.4.1
-# black>=24.10.0
-# isort>=5.15.0
-
-# ====================
-# 安装说明
-# ====================
-# 1. 核心依赖: pip install -r requirements.txt
-# 2. Kratos已预安装,请勿重新安装
-# 3. 可选依赖根据需要单独安装
-# 4. AI功能需要CUDA环境支持
+# 开发工具 (开发时使用)
+pytest>=6.0.0
+black>=22.0.0
+flake8>=4.0.0

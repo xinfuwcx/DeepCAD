@@ -46,21 +46,25 @@ def main():
     print('FPN exists:', fpn.exists(), f"path={fpn}")
 
     p = PreProcessor()
-    p.load_fpn_file(str(fpn))
+    # 强制加载，绕过启动保护
+    p.load_fpn_file(str(fpn), force_load=True)
 
     out_dir = ROOT / 'output'
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # 基础网格导出
     vtk_path = out_dir / 'liangjianduan2_mesh.vtk'
-    try:
-        p.mesh.save(str(vtk_path))
-    except Exception:
-        p.export_mesh(str(vtk_path))
-    print('Exported:', vtk_path, 'exists:', vtk_path.exists())
+    if hasattr(p, 'mesh') and p.mesh is not None:
+        try:
+            p.mesh.save(str(vtk_path))
+        except Exception:
+            p.export_mesh(str(vtk_path))
+        print('Exported:', vtk_path, 'exists:', vtk_path.exists())
+    else:
+        print('No mesh to export (mesh is None)')
 
     # 为第二阶段生成带 StageVisible 的导出（如果存在第二阶段）
-    stages = p.fpn_data.get('analysis_stages', []) if hasattr(p, 'fpn_data') else []
+    stages = p.fpn_data.get('analysis_stages', []) if getattr(p, 'fpn_data', None) else []
     for i in range(min(2, len(stages))):
         summarize_stage(p, i)
         if i == 1 and hasattr(p, 'mesh') and p.mesh is not None:

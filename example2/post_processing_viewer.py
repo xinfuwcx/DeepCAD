@@ -60,21 +60,89 @@ class PostProcessingViewer:
             return False
     
     def find_vtk_files(self):
-        """查找VTK结果文件"""
-        # 查找临时分析目录中的VTK文件
-        temp_dir = Path("temp_kratos_analysis")
-        if temp_dir.exists():
-            vtk_dir = temp_dir / "VTK_Output"
-            if vtk_dir.exists():
-                vtk_files = list(vtk_dir.glob("*.vtk"))
-                if vtk_files:
-                    self.vtk_files['stage_1'] = sorted(vtk_files)
-                    print(f"✅ 找到{len(vtk_files)}个VTK文件")
-                    return
-        
-        # 如果没有找到VTK文件，创建示例网格
-        print("⚠️ 未找到VTK文件，将创建示例网格用于演示")
-        self.create_demo_mesh()
+        """查找VTK结果文件（支持多路径与分阶段）"""
+        candidates: List[Path] = []
+        # 新路径（KratosInterface 输出）
+        candidates.append(Path("temp_kratos_analysis") / "data" / "VTK_Output_Stage_1")
+        candidates.append(Path("temp_kratos_analysis") / "data" / "VTK_Output_Stage_2")
+        # 旧路径兼容
+        candidates.append(Path("temp_kratos_analysis") / "VTK_Output")
+        # example2 数据目录（可能用于离线演示）
+        candidates.append(Path("example2") / "data" / "VTK_Output_Stage_1")
+        candidates.append(Path("example2") / "data" / "VTK_Output_Stage_2")
+        candidates.append(Path("data") / "VTK_Output_Stage_1")
+        candidates.append(Path("data") / "VTK_Output_Stage_2")
+
+        found_any = False
+        for p in candidates:
+            try:
+                if not p.exists():
+                    continue
+                files = sorted([*p.glob("*.vtk"), *p.glob("*.vtu")])
+                if not files:
+                    continue
+                stage_key = 'stage_1' if 'Stage_1' in str(p) or str(p).endswith('VTK_Output') else ('stage_2' if 'Stage_2' in str(p) else 'stage_1')
+                self.vtk_files.setdefault(stage_key, []).extend(files)
+                found_any = True
+                print(f"✅ {stage_key} 找到 {len(files)} 个文件: {p}")
+            except Exception:
+                pass
+
+        if not found_any:
+            # 如果没有找到VTK文件，创建示例网格
+            print("⚠️ 未找到VTK文件，将创建示例网格用于演示")
+            self.create_demo_mesh()
+
+    def _load_stage_mesh(self, stage: int, step: int = -1):
+        """加载指定阶段的网格并计算常用标量（位移幅值/应力）"""
+        if not PYVISTA_AVAILABLE:
+            return None
+        stage_key = f"stage_{stage}"
+        files = self.vtk_files.get(stage_key) or []
+        if not files:
+            return None
+        idx = step if (0 <= step < len(files)) else -1
+        fpath = files[idx]
+        try:
+            import pyvista as pv
+            mesh = pv.read(str(fpath))
+            # 位移幅值（POINT_DATA: DISPLACEMENT）
+            try:
+                if hasattr(mesh, 'point_data') and 'DISPLACEMENT' in mesh.point_data:
+                    disp = np.array(mesh.point_data['DISPLACEMENT'])
+                    if disp.ndim == 2 and disp.shape[1] >= 3:
+                        mag = np.linalg.norm(disp[:, :3], axis=1)
+                        mesh.point_data['displacement_magnitude'] = mag
+            except Exception:
+                pass
+            # von Mises（CELL_DATA: CAUCHY_STRESS_TENSOR -> 点化）
+            try:
+                if hasattr(mesh, 'cell_data') and 'CAUCHY_STRESS_TENSOR' in mesh.cell_data:
+                    s = np.array(mesh.cell_data['CAUCHY_STRESS_TENSOR'])
+                    # s 形状 (n_cells, 9) 或 (n_cells, 6/3x3)
+                    if s.ndim == 2:
+                        if s.shape[1] == 9:
+                            s11, s12, s13, s21, s22, s23, s31, s32, s33 = s.T
+                            # 假设对称，取 s12=s21, ... 的平均
+                            s12 = 0.5 * (s12 + s21)
+                            s13 = 0.5 * (s13 + s31)
+                            s23 = 0.5 * (s23 + s32)
+                        elif s.shape[1] >= 6:
+                            s11, s22, s33, s12, s13, s23 = s[:, 0], s[:, 1], s[:, 2], s[:, 3], s[:, 4], s[:, 5]
+                        else:
+                            s11 = s22 = s33 = s12 = s13 = s23 = np.zeros(s.shape[0])
+                        vm = np.sqrt(0.5*((s11-s22)**2 + (s22-s33)**2 + (s33-s11)**2 + 6*(s12**2 + s13**2 + s23**2)))
+                        mesh.cell_data['von_mises'] = vm
+                        try:
+                            mesh = mesh.cell_data_to_point_data(pass_cell_data=True)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+            return mesh
+        except Exception as e:
+            print(f"⚠️ 加载VTK失败: {fpath} - {e}")
+            return None
     
     def create_demo_mesh(self):
         """创建演示网格"""
@@ -232,8 +300,14 @@ class PostProcessingViewer:
             # 获取要显示的数据
             display_type = self.display_var.get()
             
-            # 使用演示网格
-            mesh = self.demo_mesh
+            # 优先加载真实VTK
+            mesh = self._load_stage_mesh(self.current_stage, self.current_step)
+            if mesh is None:
+                # 使用演示网格
+                mesh = getattr(self, 'demo_mesh', None)
+                if mesh is None:
+                    self.create_demo_mesh()
+                    mesh = self.demo_mesh
             
             if display_type == "mesh":
                 # 显示网格
@@ -249,10 +323,11 @@ class PostProcessingViewer:
                                     position='upper_left', font_size=12)
                 
             elif display_type == "stress":
-                # 显示应力
-                self.plotter.add_mesh(mesh, scalars='stress', 
+                # 显示von Mises应力（优先真实数据）
+                scalars_name = 'von_mises' if 'von_mises' in mesh.array_names else 'stress'
+                self.plotter.add_mesh(mesh, scalars=scalars_name,
                                     show_edges=False, cmap='plasma',
-                                    scalar_bar_args={'title': '应力 (Pa)'})
+                                    scalar_bar_args={'title': 'von Mises (Pa)' if scalars_name=='von_mises' else '应力 (Pa)'} )
                 self.plotter.add_text(f"阶段{self.current_stage} - 应力分布", 
                                     position='upper_left', font_size=12)
             

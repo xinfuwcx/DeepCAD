@@ -5,32 +5,41 @@
 负责云图显示、动画播放、详细结果展示
 """
 
+from __future__ import annotations
+
 import sys
+import time
 import numpy as np
 from pathlib import Path
 from typing import Dict, List, Any, Optional
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel
+
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel
 
 # 添加项目路径
 project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
+# 可选的PyVista依赖
 try:
     import pyvista as pv
     from pyvistaqt import QtInteractor
     PYVISTA_AVAILABLE = True
-except ImportError:
+except Exception:
     PYVISTA_AVAILABLE = False
-    print("警告: PyVista不可用，后处理可视化将受限")
+
+# 可选的滚动图例面板
+try:
+    from example2.gui.widgets.material_legend import MaterialLegendPanel  # type: ignore
+except Exception:
+    MaterialLegendPanel = None  # type: ignore
 
 
 class AnimationController(QObject):
-    """动画控制器"""
-    
     frame_changed = pyqtSignal(int)
     animation_finished = pyqtSignal()
-    
+
     def __init__(self, total_frames: int = 100):
         super().__init__()
         self.total_frames = total_frames
@@ -38,34 +47,26 @@ class AnimationController(QObject):
         self.is_playing = False
         self.is_looping = True
         self.frame_rate = 10  # FPS
-        
-        # 定时器
         self.timer = QTimer()
         self.timer.timeout.connect(self.next_frame)
-        
+
     def play(self):
-        """播放动画"""
         if not self.is_playing:
             self.is_playing = True
-            interval = int(1000 / self.frame_rate)  # ms
-            self.timer.start(interval)
-            
+            self.timer.start(int(1000 / max(1, self.frame_rate)))
+
     def pause(self):
-        """暂停动画"""
         self.is_playing = False
         self.timer.stop()
-        
+
     def stop(self):
-        """停止动画"""
         self.is_playing = False
         self.timer.stop()
         self.current_frame = 0
         self.frame_changed.emit(self.current_frame)
-        
+
     def next_frame(self):
-        """下一帧"""
         self.current_frame += 1
-        
         if self.current_frame >= self.total_frames:
             if self.is_looping:
                 self.current_frame = 0
@@ -73,33 +74,32 @@ class AnimationController(QObject):
                 self.pause()
                 self.animation_finished.emit()
                 return
-                
         self.frame_changed.emit(self.current_frame)
-        
+
     def set_frame(self, frame: int):
-        """设置当前帧"""
         if 0 <= frame < self.total_frames:
             self.current_frame = frame
             self.frame_changed.emit(self.current_frame)
-            
+
     def set_frame_rate(self, fps: int):
-        """设置帧率"""
-        self.frame_rate = max(1, min(fps, 60))
+        self.frame_rate = max(1, min(int(fps), 60))
         if self.is_playing:
-            interval = int(1000 / self.frame_rate)
-            self.timer.setInterval(interval)
+            self.timer.setInterval(int(1000 / self.frame_rate))
 
 
 class PostProcessor:
     """后处理模块"""
-    
+
     def __init__(self):
+        # 数据
         self.mesh = None
-        self.results_data = {}
-        self.time_steps = []
+        self.results_data: Dict[str, Any] = {}
+        self.time_steps: List[float] = []
         self.current_time_step = 0
+
+        # 视图
         self.plotter = None
-        self.viewer_widget = None
+        self.viewer_widget: Optional[QWidget] = None
 
         # 显示设置
         self.show_deformed = True
@@ -108,145 +108,225 @@ class PostProcessor:
         self.show_wireframe = False
         self.current_result_type = 'displacement'
         self.current_component = 'magnitude'
-        # 新增：使用StageVisible过滤显示
         self.use_stage_visible_filter = False
 
-        # 动画控制器
+        # 图例/指标
+        self.show_material_legend = True
+        self._legend_actor_name = 'material_legend'
+        self._metrics_actor_name = 'post_metrics_overlay'
+        self._legend_panel = None
+        self.last_render_ms = 0.0
+
+        # 动画
         self.animation_controller = AnimationController()
         self.animation_controller.frame_changed.connect(self.update_animation_frame)
-        
+
         self.create_viewer_widget()
-        
-    def create_viewer_widget(self):
-        """创建3D视图组件"""
+
+    # ---------- UI构建 ----------
+    def _attach_legend_panel(self) -> None:
+        try:
+            if MaterialLegendPanel is None:
+                return
+            host = self.viewer_widget
+            if host is None:
+                return
+            self._legend_panel = MaterialLegendPanel(host)
+            self._legend_panel.attach(host)
+            self._legend_panel.show_panel(bool(self.show_material_legend))
+        except Exception:
+            self._legend_panel = None
+
+    def create_viewer_widget(self) -> None:
         self.viewer_widget = QWidget()
         layout = QVBoxLayout(self.viewer_widget)
         layout.setContentsMargins(0, 0, 0, 0)
-        
+
         if PYVISTA_AVAILABLE:
             try:
-                # 创建PyVista交互器（可能因OpenGL上下文失败）
                 self.plotter = QtInteractor(self.viewer_widget)
                 self.plotter.setMinimumSize(600, 400)
-                # 设置默认场景
                 self.setup_default_scene()
                 layout.addWidget(self.plotter.interactor)
-            except Exception as e:
-                print(f"PyVista初始化失败，使用后处理占位视图: {e}")
+                self._attach_legend_panel()
+            except Exception:
                 self.plotter = None
                 placeholder = QFrame()
                 placeholder.setFrameStyle(QFrame.StyledPanel)
                 placeholder.setMinimumSize(600, 400)
-                placeholder.setStyleSheet("""
-                    QFrame {
-                        background-color: #f8f9fa;
-                        border: 2px dashed #9C27B0;
-                        border-radius: 8px;
-                    }
-                """)
+                placeholder.setStyleSheet(
+                    "QFrame { background-color: #f8f9fa; border: 2px dashed #9C27B0; border-radius: 8px; }"
+                )
                 label = QLabel("3D后处理视图不可用（OpenGL失败）\n已切换为占位视图")
                 label.setAlignment(Qt.AlignCenter)
                 label.setStyleSheet("color: #9C27B0; font-size: 16px; font-weight: bold;")
-                placeholder_layout = QVBoxLayout(placeholder)
-                placeholder_layout.addWidget(label)
+                pl = QVBoxLayout(placeholder)
+                pl.addWidget(label)
                 layout.addWidget(placeholder)
         else:
-            # 创建占位符
             placeholder = QFrame()
             placeholder.setFrameStyle(QFrame.StyledPanel)
             placeholder.setMinimumSize(600, 400)
-            placeholder.setStyleSheet("""
-                QFrame {
-                    background-color: #f8f9fa;
-                    border: 2px dashed #9C27B0;
-                    border-radius: 8px;
-                }
-            """)
-
+            placeholder.setStyleSheet(
+                "QFrame { background-color: #f8f9fa; border: 2px dashed #9C27B0; border-radius: 8px; }"
+            )
             label = QLabel("PyVista不可用\n后处理可视化占位符")
             label.setAlignment(Qt.AlignCenter)
             label.setStyleSheet("color: #9C27B0; font-size: 16px; font-weight: bold;")
-
-            placeholder_layout = QVBoxLayout(placeholder)
-            placeholder_layout.addWidget(label)
-
+            pl = QVBoxLayout(placeholder)
+            pl.addWidget(label)
             layout.addWidget(placeholder)
-            
-    def setup_default_scene(self):
-        """设置默认场景"""
+
+    def setup_default_scene(self) -> None:
         if not PYVISTA_AVAILABLE:
             return
-            
-        # 设置背景渐变
         self.plotter.set_background('white', top='lightgray')
-        
-        # 添加坐标轴
         self.plotter.show_axes()
-        
-        # 设置相机
         self.plotter.camera_position = 'iso'
-        
-        # 显示欢迎信息
         self.show_welcome_info()
-        
-    def show_welcome_info(self):
-        """显示欢迎信息"""
+
+    def show_welcome_info(self) -> None:
         if not PYVISTA_AVAILABLE:
             return
-            
-        # 添加文本
-        self.plotter.add_text("DeepCAD后处理模块\n等待加载结果...", 
-                             position='upper_left', font_size=12, color='purple')
-                             
-    def get_viewer_widget(self):
-        """获取3D视图组件"""
+        self.plotter.add_text(
+            "DeepCAD后处理模块\n等待加载结果...",
+            position='upper_left', font_size=12, color='purple'
+        )
+
+    def get_viewer_widget(self) -> Optional[QWidget]:
         return self.viewer_widget
 
-    def set_analysis_results(self, model_data: Dict[str, Any], results: Dict[str, Any]):
-        """直接设置分析结果数据"""
+    # ---------- 颜色/图例 ----------
+    def _get_soil_palette(self) -> Dict[int, Any]:
         try:
-            print("设置分析结果...")
-            
-            # 从模型数据创建网格
+            from example2.gui.resources.styles.colors import SOIL_PALETTE
+            return SOIL_PALETTE  # type: ignore
+        except Exception:
+            return {
+                1: (141, 110, 99),
+                2: (161, 136, 127),
+                3: (188, 170, 164),
+                4: (215, 204, 200),
+                5: (62, 39, 35),
+                6: (93, 64, 55),
+                7: (121, 85, 72),
+                8: (109, 87, 76),
+                9: (109, 76, 65),
+                10: (78, 52, 46),
+            }
+
+    def _material_color_rgb(self, material_id: int) -> tuple:
+        palette = self._get_soil_palette()
+        if isinstance(material_id, (np.integer,)):
+            material_id = int(material_id)
+        if material_id in palette:
+            rgb = palette[material_id]
+            if isinstance(rgb, str) and rgb.startswith('#') and len(rgb) == 7:
+                r = int(rgb[1:3], 16); g = int(rgb[3:5], 16); b = int(rgb[5:7], 16)
+                return (r, g, b)
+            if isinstance(rgb, (list, tuple)) and len(rgb) >= 3:
+                return (int(rgb[0]), int(rgb[1]), int(rgb[2]))
+        mid = (abs(int(material_id)) % 12) / 12.0
+        h = 30/360.0 + 0.1 * mid
+        s = 0.35 + 0.25 * ((int(material_id) % 3) / 2.0)
+        v = 0.65
+        import colorsys
+        r, g, b = colorsys.hsv_to_rgb(h, s, v)
+        return (int(r*255), int(g*255), int(b*255))
+
+    def _compute_cell_rgb_colors(self, mesh) -> Optional[np.ndarray]:
+        try:
+            if hasattr(mesh, 'cell_data') and 'MaterialID' in mesh.cell_data:
+                mat_ids = np.array(mesh.cell_data['MaterialID']).astype(int)
+                colors = np.zeros((len(mat_ids), 3), dtype=np.uint8)
+                for i, mid in enumerate(mat_ids):
+                    colors[i] = np.array(self._material_color_rgb(int(mid)), dtype=np.uint8)
+                return colors
+        except Exception as e:
+            print(f"计算单元颜色失败: {e}")
+        return None
+
+    def _update_legend_panel_from_mesh(self, mesh) -> None:
+        try:
+            if self._legend_panel is None or not self.show_material_legend:
+                return
+            if not hasattr(mesh, 'cell_data') or 'MaterialID' not in mesh.cell_data:
+                self._legend_panel.show_panel(False)
+                return
+            mat_ids = np.array(mesh.cell_data['MaterialID']).astype(int)
+            uids, counts = np.unique(mat_ids, return_counts=True)
+            items = []
+            for mid, cnt in zip(uids.tolist(), counts.tolist()):
+                items.append({
+                    'id': int(mid),
+                    'name': f'材料 {int(mid)}',
+                    'count': int(cnt),
+                    'color': self._material_color_rgb(int(mid)),
+                })
+            try:
+                items.sort(key=lambda x: int(x.get('id', 0)))
+            except Exception:
+                pass
+            self._legend_panel.set_items(items)
+            self._legend_panel.show_panel(True)
+        except Exception:
+            pass
+
+    def _draw_material_legend(self, mesh) -> None:
+        if not (PYVISTA_AVAILABLE and self.plotter and self.show_material_legend):
+            return
+        try:
+            try:
+                self.plotter.remove_legend()
+            except Exception:
+                pass
+            if not hasattr(mesh, 'cell_data') or 'MaterialID' not in mesh.cell_data:
+                return
+            mat_ids = np.array(mesh.cell_data['MaterialID']).astype(int)
+            unique_ids, counts = np.unique(mat_ids, return_counts=True)
+            if self._legend_panel is not None:
+                return
+            labels = []
+            max_items = 12
+            for idx, mid in enumerate(unique_ids):
+                if idx >= max_items:
+                    break
+                rgb = self._material_color_rgb(int(mid))
+                label = f"材料 {int(mid)} ({int(counts[idx])})"
+                labels.append((label, rgb))
+            remaining = len(unique_ids) - len(labels)
+            if remaining > 0:
+                labels.append((f"+{remaining} 更多", (180, 180, 180)))
+            if labels:
+                self.plotter.add_legend(labels=labels, bcolor=(255, 255, 255), border=True)
+        except Exception as e:
+            print(f"绘制材料图例失败: {e}")
+
+    # ---------- 数据/加载 ----------
+    def set_analysis_results(self, model_data: Dict[str, Any], results: Dict[str, Any]) -> None:
+        try:
             nodes = model_data.get('nodes', [])
             elements = model_data.get('elements', [])
-            
             if not nodes or not elements:
-                print("警告: 模型数据不完整")
                 return
-                
             if PYVISTA_AVAILABLE:
-                # 创建网格
                 self.mesh = self.create_mesh_from_model(nodes, elements)
-                
-                # 设置结果数据
                 if 'displacement_field' in results:
                     displacement = np.array(results['displacement_field'])
                     if displacement.shape[0] == self.mesh.n_points:
-                        self.time_steps = [0]  # 静力分析只有一个时间步
+                        self.time_steps = [0]
                         self.current_time_step = 0
                         self.results_data = {
                             0: {
                                 'displacement': displacement,
-                                'stress': np.array(results.get('stress_field', [])) if 'stress_field' in results else None
+                                'stress': np.array(results.get('stress_field', [])) if 'stress_field' in results else None,
                             }
                         }
-                        
-                        print(f"成功设置结果: {len(displacement)}个节点位移")
-                        
-                        # 显示结果
                         self.display_results()
-                    else:
-                        print(f"位移数据维度不匹配: {displacement.shape[0]} vs {self.mesh.n_points}")
-                        
         except Exception as e:
             print(f"设置分析结果失败: {e}")
-        
 
-    
     def create_mesh_from_model(self, nodes: List[Dict], elements: List[Dict]):
-        """从模型数据创建PyVista网格"""
-        # 提取节点坐标
         points = []
         for node in nodes:
             if isinstance(node, dict):
@@ -254,22 +334,15 @@ class PostProcessor:
                 y = node.get('y', 0.0)
                 z = node.get('z', 0.0)
                 points.append([x, y, z])
-        
         points = np.array(points)
-        
-        # 提取单元连接
         cells = []
         cell_types = []
-        
         for element in elements:
             if isinstance(element, dict):
                 connectivity = element.get('nodes', [])
                 element_type = element.get('type', 'tetra')
-                
                 if len(connectivity) >= 3:
-                    # 转换为0索引
                     conn = [max(0, int(n) - 1) for n in connectivity if isinstance(n, (int, str))]
-                    
                     if element_type == 'tetra' and len(conn) == 4:
                         cells.extend([4] + conn)  # VTK_TETRA = 10
                         cell_types.append(10)
@@ -277,30 +350,20 @@ class PostProcessor:
                         cells.extend([8] + conn)  # VTK_HEXAHEDRON = 12
                         cell_types.append(12)
                     elif len(conn) >= 3:
-                        # 默认为三角形或四边形
                         cells.extend([len(conn)] + conn)
                         cell_types.append(5 if len(conn) == 3 else 9)
-        
         if cells:
             mesh = pv.UnstructuredGrid(cells, np.array(cell_types), points)
         else:
-            # 创建点云
             mesh = pv.PolyData(points)
-            
         return mesh
 
-    def load_results(self, file_path: str):
-        """加载结果文件"""
+    def load_results(self, file_path: str) -> None:
         try:
             file_path = Path(file_path)
-            
             if not file_path.exists():
                 raise FileNotFoundError(f"文件不存在: {file_path}")
-                
-            print(f"加载结果文件: {file_path.name}")
-            
             if PYVISTA_AVAILABLE:
-                # 根据文件扩展名选择读取方法
                 if file_path.suffix.lower() in ['.vtk', '.vtu', '.vtp']:
                     self.mesh = pv.read(str(file_path))
                     self.extract_results_from_mesh()
@@ -308,136 +371,65 @@ class PostProcessor:
                     self.load_json_results(str(file_path))
                 else:
                     raise ValueError(f"不支持的文件格式: {file_path.suffix}")
-                
-                # 显示结果
                 self.display_results()
-                
             else:
-                print("PyVista不可用，创建示例结果")
                 raise ValueError("真实计算结果不可用")
-                
         except Exception as e:
             print(f"加载结果失败: {e}")
-            # 不再创建示例结果，要求真实数据
             raise ValueError(f"加载真实结果失败: {e}")
-            
-    def load_json_results(self, file_path: str):
-        """加载JSON格式结果"""
+
+    def load_json_results(self, file_path: str) -> None:
         import json
-        
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            
-        # 提取结果数据
         if 'results' in data:
             self.results_data = data['results']
-            
         if 'time_steps' in data:
             self.time_steps = data['time_steps']
         else:
             self.time_steps = [0.0]
-            
-        # 检查网格数据
         if not self.mesh:
             raise ValueError("缺少网格数据，无法加载结果")
-            
-    def extract_results_from_mesh(self):
-        """从网格中提取结果数据"""
+
+    def extract_results_from_mesh(self) -> None:
         if not self.mesh:
             return
-            
-        # 提取点数据
         point_arrays = self.mesh.point_data
-        
         for name, data in point_arrays.items():
-            if name.lower() in ['displacement', 'displacements']:
+            low = name.lower()
+            if low in ['displacement', 'displacements']:
                 self.results_data['displacement'] = data
-            elif name.lower() in ['stress', 'stresses']:
+            elif low in ['stress', 'stresses']:
                 self.results_data['stress'] = data
-            elif name.lower() in ['strain', 'strains']:
+            elif low in ['strain', 'strains']:
                 self.results_data['strain'] = data
-                
-        # 如果没有时间步信息，创建单个时间步
         if not self.time_steps:
             self.time_steps = [1.0]
-            
-        print(f"提取到 {len(self.results_data)} 种结果类型")
-        
-    # 所有示例结果创建函数已移除 - 现在只接受真实计算结果
-            
-    def create_time_varying_results(self):
-        """创建时变结果数据"""
-        # 安全检查：避免数组比较问题
-        if self.mesh is None:
-            return
-        if not hasattr(self, 'time_steps') or self.time_steps is None:
-            return
-        if isinstance(self.time_steps, (list, tuple)) and len(self.time_steps) == 0:
-            return
-        if hasattr(self.time_steps, '__len__') and len(self.time_steps) == 0:
-            return
-            
-        n_points = self.mesh.n_points
-        n_steps = len(self.time_steps)
-        
-        # 为每个时间步创建变化的结果
-        time_varying_displacement = []
-        time_varying_stress = []
-        
-        for i, t in enumerate(self.time_steps):
-            # 位移随时间增长
-            factor = t
-            disp = self.results_data['displacement'] * factor
-            time_varying_displacement.append(disp)
-            
-            # 应力也随时间变化
-            stress = self.results_data['stress'] * (0.5 + 0.5 * factor)
-            time_varying_stress.append(stress)
-            
-        self.results_data['displacement_time'] = time_varying_displacement
-        self.results_data['stress_time'] = time_varying_stress
-        
-        # 更新动画控制器
-        self.animation_controller.total_frames = n_steps
-        
-    def display_results(self):
-        """显示结果（在无OpenGL时安全降级）"""
-        # 确保numpy可用
-        import numpy as np
 
+    # ---------- 显示 ----------
+    def display_results(self) -> None:
         if not PYVISTA_AVAILABLE or not self.mesh:
             return
         if self.plotter is None:
-            # 没有3D渲染器，直接打印提示
-            print("后处理：无可用3D渲染器，已加载结果但不显示图形。")
             return
-
         try:
-            # 清除现有内容
             self.plotter.clear()
-            # 重新设置场景
             self.setup_default_scene()
         except Exception as e:
-            print(f"刷新渲染器失败，跳过图形显示: {e}")
+            print(f"刷新渲染器失败: {e}")
             return
 
-        # 获取当前时间步的数据
         current_data = self.get_current_time_step_data()
-        
-        # 设置网格数据
         mesh_to_plot = self.mesh.copy()
-        
-        # 添加变形
+
         if self.show_deformed and 'displacement' in current_data:
             displacement = current_data['displacement']
-            if displacement.shape[1] == 3:  # 3D位移
+            if hasattr(displacement, 'shape') and displacement.shape[1] == 3:
                 deformed_points = mesh_to_plot.points + displacement * self.deformation_scale
                 mesh_to_plot.points = deformed_points
-                
-        # 添加标量场用于云图
+
         scalar_field = None
         scalar_name = ""
-        
         if self.show_contour:
             if self.current_result_type == 'displacement' and 'displacement' in current_data:
                 displacement = current_data['displacement']
@@ -453,56 +445,52 @@ class PostProcessor:
                 elif self.current_component == 'z':
                     scalar_field = displacement[:, 2]
                     scalar_name = "Z位移 (mm)"
-                    
             elif self.current_result_type == 'stress' and 'stress' in current_data:
                 scalar_field = current_data['stress']
                 scalar_name = "应力 (kPa)"
-                
             elif self.current_result_type == 'strain' and 'strain' in current_data:
                 scalar_field = current_data['strain']
                 scalar_name = "应变"
-                
-        # 添加标量场到网格
-        if scalar_field is not None:
+
+        if scalar_field is not None and scalar_name:
             mesh_to_plot[scalar_name] = scalar_field
-            
-        # StageVisible过滤（如有并启用）
+        try:
+            if self._legend_panel is not None and self.show_contour:
+                self._legend_panel.show_panel(False)
+        except Exception:
+            pass
+
         if self.use_stage_visible_filter and 'StageVisible' in mesh_to_plot.cell_data:
             try:
-                import numpy as np
                 mask = np.array(mesh_to_plot.cell_data['StageVisible']).astype(bool)
-                # 过滤cells：使用threshold_by_cell_data需要数据在cell_data中
                 mesh_to_plot = mesh_to_plot.extract_cells(mask)
             except Exception as e:
                 print(f"StageVisible过滤失败: {e}")
 
-        # 显示前：按part类型过滤（如果上层提供了material_type_map与开关）
         try:
             type_map = getattr(self, 'material_type_map', None)
             if type_map and hasattr(mesh_to_plot, 'cell_data') and 'MaterialID' in mesh_to_plot.cell_data:
                 show_types = set()
                 parent = None
-                # 尝试从Qt层拿到复选框（可能拿不到，容错）
                 if hasattr(self, 'parent') and callable(getattr(self, 'parent')):
                     parent = self.parent()
                 if parent and hasattr(parent, 'show_soil_cb'):
-                    if parent.show_soil_cb.isChecked(): show_types.add('soil')
-                    if parent.show_concrete_cb.isChecked(): show_types.add('concrete')
-                    if parent.show_steel_cb.isChecked(): show_types.add('steel')
+                    if parent.show_soil_cb.isChecked():
+                        show_types.add('soil')
+                    if parent.show_concrete_cb.isChecked():
+                        show_types.add('concrete')
+                    if parent.show_steel_cb.isChecked():
+                        show_types.add('steel')
                 if show_types:
-                    import numpy as np
                     mat_ids = np.array(mesh_to_plot.cell_data['MaterialID']).astype(int)
                     mask = np.array([type_map.get(int(mid)) in show_types for mid in mat_ids])
                     mesh_to_plot = mesh_to_plot.extract_cells(mask)
         except Exception as e:
             print(f"后处理按part过滤失败: {e}")
 
-        # 显示网格
+        _t0 = time.time()
         if scalar_field is not None and self.show_contour:
-            # 设置专业的彩虹色彩映射
             colormap = self.get_professional_colormap(self.current_result_type)
-
-            # 配置专业的标尺参数
             scalar_bar_args = {
                 'title': scalar_name,
                 'title_font_size': 14,
@@ -518,220 +506,244 @@ class PostProcessor:
                 'position_y': 0.125,
                 'color': 'black',
                 'background_color': 'white',
-                # 'background_opacity': 0.8  # 某些PyVista版本不支持此参数
             }
-            
-            # 显示云图with专业彩虹标尺
-            self.plotter.add_mesh(mesh_to_plot, scalars=scalar_name, 
-                                 cmap=colormap,
-                                 show_edges=self.show_wireframe,
-                                 edge_color='black' if self.show_wireframe else None,
-                                 show_scalar_bar=True, 
-                                 scalar_bar_args=scalar_bar_args,
-                                 opacity=0.9)
+            self.plotter.add_mesh(
+                mesh_to_plot,
+                scalars=scalar_name,
+                cmap=colormap,
+                show_edges=self.show_wireframe,
+                edge_color='black' if self.show_wireframe else None,
+                show_scalar_bar=True,
+                scalar_bar_args=scalar_bar_args,
+                opacity=0.9,
+            )
+            try:
+                self.plotter.remove_legend()
+            except Exception:
+                pass
         else:
-            # 只显示几何
             representation = 'wireframe' if self.show_wireframe else 'surface'
-            self.plotter.add_mesh(mesh_to_plot, show_edges=True, edge_color='black',
-                                 color='lightblue', opacity=0.8, representation=representation)
-                                 
-        # 显示信息
+            colors = self._compute_cell_rgb_colors(mesh_to_plot)
+            if colors is not None:
+                try:
+                    self.plotter.add_mesh(
+                        mesh_to_plot,
+                        scalars=colors,
+                        rgb=True,
+                        preference='cell',
+                        show_edges=True,
+                        edge_color='black',
+                        opacity=0.9,
+                        representation=representation,
+                    )
+                    self._draw_material_legend(mesh_to_plot)
+                    self._update_legend_panel_from_mesh(mesh_to_plot)
+                except Exception:
+                    self.plotter.add_mesh(
+                        mesh_to_plot,
+                        show_edges=True,
+                        edge_color='black',
+                        color='lightblue',
+                        opacity=0.8,
+                        representation=representation,
+                    )
+            else:
+                self.plotter.add_mesh(
+                    mesh_to_plot,
+                    show_edges=True,
+                    edge_color='black',
+                    color='lightblue',
+                    opacity=0.8,
+                    representation=representation,
+                )
+
         info_text = self.get_display_info()
         self.plotter.add_text(info_text, position='upper_right', font_size=10, color='blue')
-        
-        # 自动调整视图
+        try:
+            self.last_render_ms = (time.time() - _t0) * 1000.0
+        except Exception:
+            self.last_render_ms = 0.0
+        self._draw_metrics_overlay()
         self.plotter.reset_camera()
-        
+
+    def _draw_metrics_overlay(self) -> None:
+        try:
+            ms = float(getattr(self, 'last_render_ms', 0.0) or 0.0)
+            fps = 0.0 if ms <= 0 else 1000.0 / ms
+            npts = self.mesh.n_points if self.mesh is not None else 0
+            ncells = self.mesh.n_cells if self.mesh is not None else 0
+            txt = f"FPS: {fps:.1f}\nMesh: {npts} / {ncells}"
+            self.plotter.add_text(txt, position='lower_right', font_size=10, color='black')
+        except Exception:
+            pass
+
+    def update_animation_frame(self, frame: int) -> None:
+        """动画帧更新回调"""
+        try:
+            if not self.time_steps:
+                return
+            idx = int(frame) % max(1, len(self.time_steps))
+            if idx != self.current_time_step:
+                self.current_time_step = idx
+                self.display_results()
+        except Exception:
+            pass
+
     def get_current_time_step_data(self) -> Dict[str, np.ndarray]:
-        """获取当前时间步的数据"""
-        current_data = {}
-        
-        # 如果有时变数据
+        current_data: Dict[str, np.ndarray] = {}
         if 'displacement_time' in self.results_data:
             current_data['displacement'] = self.results_data['displacement_time'][self.current_time_step]
         elif 'displacement' in self.results_data:
             current_data['displacement'] = self.results_data['displacement']
-            
         if 'stress_time' in self.results_data:
             current_data['stress'] = self.results_data['stress_time'][self.current_time_step]
         elif 'stress' in self.results_data:
             current_data['stress'] = self.results_data['stress']
-            
         if 'strain_time' in self.results_data:
             current_data['strain'] = self.results_data['strain_time'][self.current_time_step]
         elif 'strain' in self.results_data:
             current_data['strain'] = self.results_data['strain']
-            
-        # 兼容新的单步结果格式
         if not current_data and self.current_time_step in self.results_data:
             return self.results_data[self.current_time_step]
-
         return current_data
-    
+
     def get_professional_colormap(self, result_type: str) -> str:
-        """根据结果类型获取专业的色彩映射"""
         colormap_mapping = {
-            'displacement': 'rainbow',      # 位移：彩虹色谱
-            'stress': 'plasma',            # 应力：等离子色谱  
-            'strain': 'viridis',           # 应变：绿蓝色谱
-            'pressure': 'coolwarm',        # 压力：冷暖色谱
-            'temperature': 'hot',          # 温度：热色谱
-            'velocity': 'jet'              # 速度：喷射色谱
+            'displacement': 'rainbow',
+            'stress': 'plasma',
+            'strain': 'viridis',
+            'pressure': 'coolwarm',
+            'temperature': 'hot',
+            'velocity': 'jet',
         }
         return colormap_mapping.get(result_type, 'rainbow')
-        
+
     def get_display_info(self) -> str:
-        """获取显示信息"""
         if not self.mesh:
             return "无结果数据"
-            
         info_lines = [
             f"节点数: {self.mesh.n_points}",
             f"单元数: {self.mesh.n_cells}",
         ]
-        
         if self.time_steps:
             current_time = self.time_steps[self.current_time_step]
             info_lines.append(f"时间: {current_time:.3f}s")
             info_lines.append(f"步骤: {self.current_time_step + 1}/{len(self.time_steps)}")
-            
         if self.show_deformed:
             info_lines.append(f"变形比例: {self.deformation_scale:.1f}x")
-            
         return "\n".join(info_lines)
-        
-    def set_result_type(self, result_type: str):
-        """设置结果类型"""
+
+    # ---------- 交互 ----------
+    def set_result_type(self, result_type: str) -> None:
         self.current_result_type = result_type
         self.display_results()
-        
-    def set_component(self, component: str):
-        """设置分量"""
+
+    def set_component(self, component: str) -> None:
         self.current_component = component
         self.display_results()
-        
-    def set_time_step(self, time_step: int):
-        """设置时间步"""
+
+    def set_time_step(self, time_step: int) -> None:
         if 0 <= time_step < len(self.time_steps):
             self.current_time_step = time_step
             self.display_results()
-            
-    def set_deformation_scale(self, scale: float):
-        """设置变形比例"""
-        self.deformation_scale = scale
+
+    def set_deformation_scale(self, scale: float) -> None:
+        self.deformation_scale = float(scale)
         if self.show_deformed:
             self.display_results()
-            
-    def set_show_deformed(self, show: bool):
-        """设置是否显示变形"""
-        self.show_deformed = show
+
+    def set_show_deformed(self, show: bool) -> None:
+        self.show_deformed = bool(show)
         self.display_results()
-        
-    def set_show_contour(self, show: bool):
-        """设置是否显示云图"""
-        self.show_contour = show
+
+    def set_show_contour(self, show: bool) -> None:
+        self.show_contour = bool(show)
         self.display_results()
-        
-    def set_show_wireframe(self, show: bool):
-        """设置是否显示线框"""
-        self.show_wireframe = show
+
+    def set_show_wireframe(self, show: bool) -> None:
+        self.show_wireframe = bool(show)
         self.display_results()
-        
-    def play_animation(self):
-        """播放动画"""
-        if len(self.time_steps) > 1:
-            self.animation_controller.play()
-            print("开始播放动画")
-        else:
-            print("没有足够的时间步用于动画")
-            
-    def pause_animation(self):
-        """暂停动画"""
-        self.animation_controller.pause()
-        print("动画已暂停")
-        
-    def stop_animation(self):
-        """停止动画"""
-        self.animation_controller.stop()
-        print("动画已停止")
-        
-    def update_animation_frame(self, frame: int):
-        """更新动画帧"""
-        if 0 <= frame < len(self.time_steps):
-            self.current_time_step = frame
+
+    def set_show_material_legend(self, enabled: bool):
+        self.show_material_legend = bool(enabled)
+        if PYVISTA_AVAILABLE and self.plotter:
+            try:
+                self.plotter.remove_legend()
+            except Exception:
+                pass
+            try:
+                if self._legend_panel is not None:
+                    self._legend_panel.show_panel(self.show_material_legend)
+            except Exception:
+                pass
             self.display_results()
-            
-    def export_screenshot(self, file_path: str):
-        """导出截图"""
+
+    # ---------- 导出 ----------
+    def export_screenshot(self, file_path: str) -> None:
         if PYVISTA_AVAILABLE and self.plotter:
             self.plotter.screenshot(file_path)
-            print(f"截图已保存到: {file_path}")
-            
-    def export_animation(self, output_dir: str, format: str = 'gif'):
-        """导出动画"""
+
+    def export_animation(self, output_dir: str, format: str = 'gif') -> None:
         if not PYVISTA_AVAILABLE or len(self.time_steps) <= 1:
-            print("无法导出动画")
             return
-            
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        
-        # 保存每一帧
         frame_files = []
-        
-        for i, time_step in enumerate(self.time_steps):
+        for i, _ in enumerate(self.time_steps):
             self.current_time_step = i
             self.display_results()
-            
             frame_file = output_dir / f"frame_{i:04d}.png"
             self.plotter.screenshot(str(frame_file))
             frame_files.append(frame_file)
-            
-        print(f"导出了 {len(frame_files)} 帧到 {output_dir}")
-        
-        # TODO: 合成为GIF或视频
         if format == 'gif':
             self.create_gif_from_frames(frame_files, output_dir / "animation.gif")
-            
-    def create_gif_from_frames(self, frame_files: List[Path], output_file: Path):
-        """从帧文件创建GIF"""
+
+    def play_animation(self) -> None:
+        """播放动画（基于时间步）"""
+        try:
+            n = len(self.time_steps)
+            if n <= 1:
+                return
+            self.animation_controller.total_frames = n
+            self.animation_controller.play()
+        except Exception:
+            pass
+
+    def pause_animation(self) -> None:
+        try:
+            self.animation_controller.pause()
+        except Exception:
+            pass
+
+    def stop_animation(self) -> None:
+        """停止动画并重置到第0帧"""
+        try:
+            self.animation_controller.stop()
+            self.current_time_step = 0
+            self.display_results()
+        except Exception:
+            pass
+
+    def create_gif_from_frames(self, frame_files: List[Path], output_file: Path) -> None:
         try:
             from PIL import Image
-            
-            images = []
-            for frame_file in frame_files:
-                img = Image.open(frame_file)
-                images.append(img)
-                
-            # 保存为GIF
-            images[0].save(
-                output_file,
-                save_all=True,
-                append_images=images[1:],
-                duration=100,  # ms per frame
-                loop=0
-            )
-            
-            print(f"GIF动画已保存到: {output_file}")
-            
-            # 清理临时文件
-            for frame_file in frame_files:
-                frame_file.unlink()
-                
-        except ImportError:
-            print("PIL不可用，无法创建GIF")
+            images = [Image.open(f) for f in frame_files]
+            images[0].save(output_file, save_all=True, append_images=images[1:], duration=100, loop=0)
+            for f in frame_files:
+                try:
+                    f.unlink()
+                except Exception:
+                    pass
         except Exception as e:
             print(f"创建GIF失败: {e}")
-            
-    def export_data(self, file_path: str):
-        """导出数据"""
+
+    def export_data(self, file_path: str) -> None:
         import json
-        
         export_data = {
             'mesh_info': {
                 'n_points': self.mesh.n_points if self.mesh else 0,
                 'n_cells': self.mesh.n_cells if self.mesh else 0,
-                'bounds': self.mesh.bounds.tolist() if self.mesh else []
+                'bounds': list(self.mesh.bounds) if self.mesh else [],
             },
             'time_steps': self.time_steps,
             'results_types': list(self.results_data.keys()),
@@ -740,19 +752,60 @@ class PostProcessor:
                 'component': self.current_component,
                 'deformation_scale': self.deformation_scale,
                 'show_deformed': self.show_deformed,
-                'show_contour': self.show_contour
-            }
+                'show_contour': self.show_contour,
+            },
         }
-        
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(export_data, f, indent=2, ensure_ascii=False)
-            
-        print(f"数据已导出到: {file_path}")
-        
-    def reset_view(self):
-        """重置视图"""
+
+    def reset_view(self) -> None:
         if PYVISTA_AVAILABLE and self.plotter:
             self.plotter.reset_camera()
+
+    # ---------- Demo/测试 ----------
+    def create_sample_results(self) -> None:
+        """创建示例网格与结果，便于本地手动测试"""
+        if not PYVISTA_AVAILABLE:
+            return
+        try:
+            # 创建一个规则网格
+            grid = pv.UniformGrid()
+            grid.dimensions = (10, 10, 10)
+            grid.spacing = (1.0, 1.0, 1.0)
+            grid.origin = (0.0, 0.0, 0.0)
+
+            # 转换为表面以减少渲染负担
+            mesh = grid.extract_surface().triangulate()
+
+            # 人为设置MaterialID（按cell）
+            n_cells = mesh.n_cells
+            mat_ids = np.random.randint(1, 6, size=n_cells).astype(np.int32)
+            mesh.cell_data['MaterialID'] = mat_ids
+
+            # 绑定
+            self.mesh = mesh
+
+            # 生成位移随时间变化（按点）
+            n_pts = self.mesh.n_points
+            n_steps = 20
+            self.time_steps = [float(i) for i in range(n_steps)]
+            base = self.mesh.points.copy()
+            disp_time = []
+            for t in range(n_steps):
+                phase = 2 * np.pi * (t / n_steps)
+                dx = 0.05 * np.sin(base[:, 0] * 0.3 + phase)
+                dy = 0.05 * np.cos(base[:, 1] * 0.3 + phase)
+                dz = 0.05 * np.sin(base[:, 2] * 0.3 + phase)
+                disp = np.column_stack([dx, dy, dz]).astype(np.float32)
+                disp_time.append(disp)
+            # 存入results
+            self.results_data = {
+                'displacement_time': disp_time,
+            }
+            self.current_time_step = 0
+            self.display_results()
+        except Exception as e:
+            print(f"创建示例结果失败: {e}")
 
 
 # 测试函数
@@ -783,7 +836,7 @@ def test_postprocessor():
     # 5秒后播放动画
     QTimer.singleShot(3000, postprocessor.play_animation)
     
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":

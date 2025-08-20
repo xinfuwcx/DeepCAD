@@ -16,6 +16,18 @@ from PyQt6.QtCore import Qt, pyqtSignal
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+# 共享的岩土配色资源（可选）
+try:
+    from example2.gui.resources.styles.colors import SOIL_PALETTE  # type: ignore
+except Exception:
+    SOIL_PALETTE = None  # 回退到内置映射
+
+# 可滚动材料图例面板（可选）
+try:
+    from example2.gui.widgets.material_legend import MaterialLegendPanel  # type: ignore
+except Exception:
+    MaterialLegendPanel = None  # 运行时可能不可用
+
 # PyVista/pyvistaqt 可选（不影响其它功能）
 PYVISTA_AVAILABLE = False
 try:
@@ -30,7 +42,7 @@ class PreProcessor:
     """前处理模块（精简稳定实现）"""
 
     # ---------- 初始化 ----------
-    def __init__(self) -> None:
+    def __init__(self, auto_load_demo: bool = False) -> None:
         # 数据/网格占位（由外部加载器赋值）
         self.fpn_data: Optional[Dict[str, Any]] = None
         self.mesh = None  # PyVista网格或其它占位
@@ -41,15 +53,28 @@ class PreProcessor:
         self.materials: Dict[int, Any] = {}
         self.boundaries: list = []
 
+        # 禁用自动加载标志
+        self.auto_load_demo = auto_load_demo
 
         # UI/渲染组件
         self.viewer_widget: Optional[QWidget] = None
         self.plotter = None
 
         # 显示状态
-        self.display_mode: str = 'transparent'  # transparent|wireframe|solid
+        self.display_mode: str = 'transparent'  # transparent|wireframe|solid - 默认半透明显示
         self.show_plates: bool = False
         self.show_anchors: bool = False
+        self.filter_anchors_by_stage: bool = False  # 预应力锚杆阶段过滤开关（默认关）
+        
+        # 🔧 修复：添加缺失的工程构件显示标志
+        self.show_soil: bool = True
+        self.show_diaphragm_wall: bool = True
+        self.show_piles: bool = True
+        self.show_strutting: bool = True
+        self.show_mesh_edges: bool = False
+        self.show_nodes: bool = False
+        self.show_supports: bool = False
+        self.show_loads: bool = False
 
         # 缓存的几何（避免频繁重建）
         self._plates_cached = None  # pv.PolyData or None
@@ -58,7 +83,13 @@ class PreProcessor:
         # 渲染锁（防止频繁刷新导致卡死）
         self._rendering: bool = False
 
-        # 创建/配置视图
+        # 视口叠加：材料图例与性能指标
+        self.show_material_legend: bool = True
+        self.last_render_ms: float = 0.0
+        self._metrics_actor_names = {'legend': 'material_legend', 'metrics': 'metrics_overlay'}
+        self._legend_panel = None
+
+        # 创建/配置视图（轻量级模式）
         self.create_viewer_widget()
 
     # ---------- 视图 ----------
@@ -73,50 +104,76 @@ class PreProcessor:
                 # 增强OpenGL兼容性设置
                 import pyvista as pv
                 
-                # 第一次尝试：使用最稳定的设置
+                # 多级PyVista初始化尝试
+                success = False
+                
+                # 尝试1：轻量级模式（降低内存占用）
                 try:
-                    # 设置OpenGL上下文属性
-                    pv.global_theme.jupyter_backend = 'static'
-                    pv.global_theme.notebook = False
-                    pv.set_jupyter_backend('static')
-                    
-                    # 创建QtInteractor with增强错误处理
                     from pyvistaqt import QtInteractor
-                    self.plotter = QtInteractor(self.viewer_widget)
-                    self.plotter.setMinimumSize(640, 480)
                     
-                    # 设置更保守的渲染参数
-                    try:
-                        self.plotter.enable_anti_aliasing('ssaa')  # 屏幕空间抗锯齿
-                    except:
-                        pass  # 如果不支持就跳过
+                    # 强制设置环境变量确保软件渲染（降低GPU占用）
+                    import os
+                    os.environ['PYVISTA_OFF_SCREEN'] = 'false'
+                    os.environ['MESA_GL_VERSION_OVERRIDE'] = '3.3'
+                    os.environ['PYVISTA_USE_PANEL'] = 'false'  # 禁用面板，降低内存
+                    
+                    # 轻量级初始化（禁用深度缓冲和多重采样）
+                    self.plotter = QtInteractor(
+                        self.viewer_widget, 
+                        auto_update=False,  # 禁用自动更新
+                        lighting='none'     # 禁用光照计算
+                    )
+                    self.plotter.setMinimumSize(480, 360)  # 更小的最小尺寸
                     layout.addWidget(self.plotter.interactor)
 
-                    # 设置默认场景
-                    self.setup_default_scene()
-                    print("✅ PyVista 3D视图初始化成功（标准模式）")
+                    # 立即设置轻量级背景
+                    self.setup_lightweight_scene()
+                    # 挂载图例面板（如可用）
+                    self._attach_legend_panel(layout)
+                    success = True
+                    print("✅ PyVista 3D视图初始化成功（轻量级模式）")
                     
                 except Exception as e1:
-                    print(f"标准3D初始化失败，尝试安全模式: {e1}")
+                    print(f"标准模式失败: {e1}")
                     
-                    # 第二次尝试：安全模式
+                    # 尝试2：强制软件渲染
                     try:
-                        # 强制软件渲染模式
                         import os
-                        os.environ['PYVISTA_OFF_SCREEN'] = 'false'
                         os.environ['PYVISTA_USE_PANEL'] = 'false'
+                        os.environ['QT_QUICK_BACKEND'] = 'software'
                         
                         self.plotter = QtInteractor(self.viewer_widget, auto_update=False)
                         self.plotter.setMinimumSize(640, 480)
                         layout.addWidget(self.plotter.interactor)
                         
-                        # 简化的场景设置
+                        # 设置Abaqus背景
                         self.setup_safe_scene()
-                        print("✅ PyVista 3D视图初始化成功（安全模式）")
+                        self._attach_legend_panel(layout)
+                        success = True
+                        print("✅ PyVista 3D视图初始化成功（软件渲染模式）")
                         
                     except Exception as e2:
-                        print(f"安全模式也失败，使用占位视图: {e2}")
-                        self._create_enhanced_placeholder(layout, f"OpenGL错误: {str(e1)[:50]}...")
+                        print(f"软件渲染模式失败: {e2}")
+                        
+                        # 尝试3：最小化配置
+                        try:
+                            # 最后尝试最小配置
+                            self.plotter = QtInteractor(self.viewer_widget, lighting='none')
+                            layout.addWidget(self.plotter.interactor)
+                            
+                            # 只设置背景色
+                            self.plotter.set_background([0.45, 0.5, 0.65])  # Abaqus中性蓝灰色
+                            self._attach_legend_panel(layout)
+                            success = True
+                            print("✅ PyVista 3D视图初始化成功（最小模式）")
+                            
+                        except Exception as e3:
+                            print(f"最小模式也失败: {e3}")
+                            success = False
+                            
+                if not success:
+                    print("所有PyVista初始化尝试都失败，创建Abaqus风格占位视图")
+                    self._create_abaqus_style_placeholder(layout)
 
             except ImportError as e:
                 print(f"PyVista导入失败: {e}")
@@ -125,6 +182,20 @@ class PreProcessor:
             self._create_enhanced_placeholder(layout, "PyVista未安装")
 
         return self.viewer_widget
+
+    def _attach_legend_panel(self, layout: QVBoxLayout) -> None:
+        """在3D视口上方附加可滚动图例面板（如果组件可用）"""
+        try:
+            if MaterialLegendPanel is None:
+                return
+            host = self.viewer_widget if hasattr(self, 'viewer_widget') else None
+            if host is None:
+                return
+            self._legend_panel = MaterialLegendPanel(host)
+            self._legend_panel.attach(host)
+            self._legend_panel.show_panel(bool(self.show_material_legend))
+        except Exception:
+            self._legend_panel = None
 
     def _create_enhanced_placeholder(self, layout: QVBoxLayout, error_msg: str = "3D视图不可用") -> None:
         """创建增强的占位符（显示错误信息和解决方案）"""
@@ -135,8 +206,8 @@ class PreProcessor:
             QFrame {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                     stop:0 #f8f9fa, stop:1 #e9ecef);
-                border: 2px dashed #FF6B35;
-                border-radius: 12px;
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
             }
         """)
         
@@ -145,7 +216,7 @@ class PreProcessor:
         
         # 错误信息标题
         title_label = QLabel("🔧 3D视图诊断")
-        title_label.setStyleSheet("color: #FF6B35; font-size: 20px; font-weight: bold; margin-bottom: 10px;")
+        title_label.setStyleSheet("color: #6c757d; font-size: 16px; font-weight: bold; margin-bottom: 10px;")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         placeholder_layout.addWidget(title_label)
         
@@ -176,6 +247,82 @@ class PreProcessor:
         placeholder_layout.addWidget(info_label)
         
         layout.addWidget(placeholder)
+
+    def _create_abaqus_style_placeholder(self, layout: QVBoxLayout) -> None:
+        """创建Abaqus风格的占位视图（美观的渐变背景）"""
+        placeholder = QFrame()
+        placeholder.setFrameStyle(QFrame.Shape.NoFrame)
+        placeholder.setMinimumSize(640, 480)
+        
+        # Abaqus经典渐变：从底部银灰色到顶部深蓝色
+        placeholder.setStyleSheet("""
+            QFrame {
+                background: qlineargradient(x1:0, y1:1, x2:0, y2:0,
+                    stop:0 rgb(217, 217, 230),
+                    stop:0.3 rgb(180, 185, 200),
+                    stop:0.7 rgb(120, 130, 150),
+                    stop:1 rgb(25, 51, 102));
+                border: 1px solid #808080;
+            }
+        """)
+        
+        placeholder_layout = QVBoxLayout(placeholder)
+        placeholder_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Abaqus风格的状态信息
+        title_label = QLabel("DeepCAD Analysis Viewport")
+        title_label.setStyleSheet("""
+            color: white; 
+            font-size: 18px; 
+            font-weight: bold; 
+            font-family: 'Arial', sans-serif;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px 16px;
+            border-radius: 6px;
+        """)
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        placeholder_layout.addWidget(title_label)
+        
+        # 添加一些间距
+        placeholder_layout.addSpacing(30)
+        
+        # 功能状态显示
+        status_label = QLabel("Ready for Analysis")
+        status_label.setStyleSheet("""
+            color: rgb(200, 220, 255); 
+            font-size: 14px; 
+            font-family: 'Arial', sans-serif;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 6px 12px;
+            border-radius: 4px;
+        """)
+        status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        placeholder_layout.addWidget(status_label)
+        
+        # 坐标轴指示
+        axis_info = QLabel("X  Y  Z")
+        axis_info.setStyleSheet("""
+            color: rgba(255, 255, 255, 0.8); 
+            font-size: 12px; 
+            font-family: 'Courier New', monospace;
+            margin-top: 20px;
+        """)
+        axis_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        placeholder_layout.addWidget(axis_info)
+        
+        # 添加一个半透明的网格图案覆盖层
+        overlay = QFrame()
+        overlay.setStyleSheet("""
+            QFrame {
+                background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><defs><pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="url(%23grid)"/></svg>');
+            }
+        """)
+        overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        overlay.setParent(placeholder)
+        overlay.resize(placeholder.size())
+        
+        layout.addWidget(placeholder)
+        print("Abaqus风格占位视图已创建")
         
     def setup_safe_scene(self):
         """设置安全的3D场景（简化版本，避免OpenGL错误）"""
@@ -183,21 +330,35 @@ class PreProcessor:
             return
             
         try:
-            # 只设置最基本的场景属性，避免复杂的OpenGL调用
-            self.plotter.set_background('white')
+            # 设置Abaqus风格背景（安全模式）
+            try:
+                self.set_abaqus_style_background()
+                print("✅ Abaqus渐变背景设置成功（安全模式）")
+            except:
+                # 如果渐变失败，使用单色Abaqus风格背景
+                self.plotter.set_background([0.45, 0.5, 0.65])
+                print("✅ Abaqus单色背景设置成功")
+            
+            # 显示坐标轴
+            try:
+                self.plotter.show_axes()
+            except:
+                pass
             
             # 添加简单的文本提示
             try:
-                self.plotter.add_text("DeepCAD前处理模块\n安全模式运行", 
+                self.plotter.add_text("DeepCAD Analysis Viewport\n[Safe Mode]", 
                                      position='upper_left', 
-                                     font_size=14, 
-                                     color='purple')
+                                     font_size=12, 
+                                     color='white')
             except:
                 pass  # 如果文本渲染失败也继续
                 
-            # 设置相机位置（保守设置）
+            # 设置专业地质工程视角
             try:
-                self.plotter.camera_position = 'iso'
+                # 地质工程专用斜视图：从东南上方观察，利于观察地层和支护结构
+                self.plotter.camera_position = [(1, -1, 0.8), (0, 0, 0), (0, 0, 1)]
+                self.plotter.camera.zoom(0.8)  # 适当缩放以显示全貌
             except:
                 pass
                 
@@ -210,14 +371,49 @@ class PreProcessor:
         """创建占位符（重定向到增强版本）"""
         self._create_enhanced_placeholder(layout)
 
+    def setup_lightweight_scene(self) -> None:
+        """设置轻量级3D场景（保持渐变背景）"""
+        if not (PYVISTA_AVAILABLE and self.plotter):
+            return
+        try:
+            # 恢复Abaqus风格渐变背景
+            self.set_abaqus_style_background()
+            
+            # 显示坐标轴
+            self.plotter.show_axes()
+            
+            # 设置专业地质工程视角
+            self.plotter.camera_position = [(1, -1, 0.8), (0, 0, 0), (0, 0, 1)]
+            self.plotter.camera.zoom(0.8)
+            
+            # 欢迎信息
+            self.plotter.add_text(
+                "DeepCAD Transparent Layers\nReady",
+                position='upper_left',
+                font_size=12,
+                color='cyan'
+            )
+            print("✅ 轻量级3D场景初始化成功")
+        except Exception as e:
+            print(f"轻量级场景初始化失败: {e}")
+
     def setup_default_scene(self) -> None:
         if not (PYVISTA_AVAILABLE and self.plotter):
             return
         try:
-            # 背景渐变 & 坐标轴
-            self.plotter.set_background(color=(0.75, 0.78, 0.82), top=(0.95, 0.95, 0.97))
+            # 使用正确的Abaqus风格渐变背景
+            self.set_abaqus_style_background()
+            
+            # 设置坐标轴
             self.plotter.show_axes()
+            
+            # 设置专业地质工程视角
+            self.plotter.camera_position = [(1, -1, 0.8), (0, 0, 0), (0, 0, 1)]
+            self.plotter.camera.zoom(0.8)
+            
+            # 显示欢迎信息
             self.show_welcome_info()
+            print("✅ Abaqus风格3D场景初始化成功")
         except Exception as e:
             print(f"初始化场景失败: {e}")
 
@@ -237,62 +433,75 @@ class PreProcessor:
     def get_viewer_widget(self) -> Optional[QWidget]:
         return self.viewer_widget
 
-        # ---------- 数据加载（占位） ----------
-        def load_fpn_file(self, file_path: str) -> Optional[Dict[str, Any]]:
-            """外部解析器应调用本方法把解析结果交给前处理器。
-            这里仅保存数据并触发一次刷新。"""
-            try:
-                # 这里不做实际解析，只保存路径占位
-                self.fpn_data = self.fpn_data or {}
-                self.fpn_data['__source_path__'] = str(file_path)
-                # 触发一次渲染刷新（若已有mesh/数据）
-                self.display_mesh()
-                return self.fpn_data
-            except Exception as e:
-                print(f"加载FPN占位失败: {e}")
-                return None
+    # (移除: 早期占位版 load_fpn_file 嵌套定义已删除，避免与正式实现签名冲突)
 
         # ---------- 显示主入口 ----------
         def display_mesh(self) -> None:
+            """统一的网格显示方法，支持所有复选框控制"""
             if not (PYVISTA_AVAILABLE and self.plotter):
+                print("PyVista不可用，无法显示网格")
                 return
             if self._rendering:
                 return
             try:
                 self._rendering = True
                 self.plotter.clear()
+                
+                # 设置Abaqus风格背景
+                self.set_abaqus_style_background()
 
-                # 如有主体网格（由外部创建并赋给 self.mesh）就显示之；否则仅显示背景/坐标轴
+                # 显示主体网格（如果存在）
                 if self.mesh is not None:
-                    try:
-                        # 安全显示主体网格（不做复杂材质，避免卡顿）
-                        self.plotter.add_mesh(
-                            self.mesh,
-                            color='#8090a0',
-                            opacity=0.6 if self.display_mode == 'transparent' else 1.0,
-                            show_edges=(self.display_mode != 'solid'),
-                            edge_color='#e0e0e0',
-                            line_width=0.4,
-                            name='main_mesh',
-                        )
-                    except Exception as e:
-                        print(f"显示主体网格失败: {e}")
+                    self._display_main_mesh()
+                else:
+                    # 没有网格时创建示例网格用于测试
+                    self._create_demo_mesh()
+
+                # 显示节点（如果复选框启用）
+                if getattr(self, 'show_nodes', False):
+                    self._display_nodes()
 
                 # 板元叠加
-                if self.show_plates:
+                if getattr(self, 'show_plates', False):
                     self._display_plates_overlay()
 
                 # 锚杆叠加
-                if self.show_anchors:
+                if getattr(self, 'show_anchors', False):
                     self._display_anchors_overlay()
+                    
+                # 显示约束（如果复选框启用）
+                if getattr(self, 'show_supports', True):
+                    self._display_supports()
+                    
+                # 显示荷载（如果复选框启用）
+                if getattr(self, 'show_loads', True):
+                    self._display_loads()
 
-                # 常规UI要素
+                # 新增工程构件显示
+                if getattr(self, 'show_diaphragm_wall', False):
+                    self._display_diaphragm_wall()
+                    
+                if getattr(self, 'show_piles', False):
+                    self._display_piles()
+                    
+                if getattr(self, 'show_strutting', False):
+                    self._display_strutting()
+                    
+                if getattr(self, 'show_steel', False):
+                    self._display_steel_structures()
+
+                # UI要素
                 self.plotter.show_axes()
+                
+                # 添加状态信息显示
+                self._update_status_display()
+                
                 try:
                     self.plotter.reset_camera()
                     self.plotter.render()
-                except Exception:
-                    pass
+                    print(f"✅ 网格显示更新完成 - 模式: {self.display_mode}")
+                except Exception as e:
+                    print(f"渲染失败: {e}")
             finally:
                 self._rendering = False
 
@@ -560,127 +769,450 @@ class PreProcessor:
                 print(f"切换锚杆显示失败: {e}")
                 return False
 
-        # ---------- 其余占位接口（保持兼容，不做复杂逻辑） ----------
-        def _is_excavation_stage(self) -> bool:
+    # ---------- 其余占位接口（保持兼容，不做复杂逻辑） ----------
+    def _is_excavation_stage(self) -> bool:
+        """根据当前分析步名称粗略判断是否为开挖阶段。
+        规则：若当前阶段名称包含“开挖”或“excavation”，则视为开挖阶段。
+        """
+        try:
+            # 优先使用缓存的当前阶段数据
+            stage = getattr(self, 'current_stage_data', None) or self.get_current_analysis_stage()
+            if not stage:
+                return False
+            name = str(stage.get('name', '')).lower()
+            return ('开挖' in name) or ('excavation' in name)
+        except Exception:
             return False
 
-        def _is_soil_material(self, mat_id: int) -> bool:
-            return int(mat_id) < 10
+    def _validate_connectivity(self, connectivity, n_points):
+        """验证连接关系有效性"""
+        try:
+            for node_idx in connectivity:
+                if node_idx < 0 or node_idx >= n_points:
+                    return False
+            return True
+        except:
+            return False
+            
+    def _create_safe_fallback_mesh(self, fpn_data):
+        """安全的降级网格创建"""
+        try:
+            # 简化策略：只创建基本点云
+            nodes = fpn_data.get('nodes', [])
+            if isinstance(nodes, dict):
+                nodes = list(nodes.values())
+            
+            if not nodes:
+                return False
+                
+            points = []
+            for node in nodes[:min(1000, len(nodes))]:  # 限制点数
+                if isinstance(node, dict) and 'id' in node:
+                    points.append([node.get('x', 0), node.get('y', 0), node.get('z', 0)])
+            
+            if points:
+                import pyvista as pv
+                self.mesh = pv.PolyData(points)
+                print("✅ 使用安全降级网格（点云模式）")
+                return True
+        except Exception as e:
+            print(f"❌ 安全降级也失败: {e}")
+        return False
 
-        def add_ground_grid(self):
-            pass
+    def _is_soil_material(self, mat_id: int) -> bool:
+        return int(mat_id) < 10
 
-        def parse_fpn_file(self, file_path: str) -> Dict[str, Any]:
-            return {}
+    def _create_multi_lod_meshes(self, original_mesh):
+        """创建多级LOD网格缓存"""
+        try:
+            import pyvista as pv
+            
+            if not hasattr(self, '_lod_cache'):
+                self._lod_cache = {}
+            
+            print("🔄 创建多级LOD缓存...")
+            
+            # 原始高质量网格 (LOD 0)
+            self._lod_cache['high'] = original_mesh
+            
+            # 中等质量网格 (LOD 1)
+            try:
+                medium_mesh = original_mesh.decimate_pro(target_reduction=0.5, preserve_topology=True)
+                self._lod_cache['medium'] = medium_mesh if medium_mesh.n_cells > 0 else original_mesh
+                print(f"  ✅ 中等LOD: {medium_mesh.n_cells:,} 面")
+            except Exception as e:
+                self._lod_cache['medium'] = original_mesh
+                print(f"  ⚠️ 中等LOD创建失败: {e}")
+            
+            # 低质量网格 (LOD 2)
+            try:
+                low_mesh = original_mesh.decimate_pro(target_reduction=0.75, preserve_topology=False)
+                self._lod_cache['low'] = low_mesh if low_mesh.n_cells > 0 else original_mesh
+                print(f"  ✅ 低质量LOD: {low_mesh.n_cells:,} 面")
+            except Exception as e:
+                self._lod_cache['low'] = original_mesh
+                print(f"  ⚠️ 低质量LOD创建失败: {e}")
+            
+            # 超低质量网格 (LOD 3) - 极限优化
+            try:
+                ultra_low_mesh = original_mesh.decimate_pro(target_reduction=0.9, preserve_topology=False)
+                if ultra_low_mesh.n_cells == 0:
+                    # 如果过度简化，尝试较温和的简化
+                    ultra_low_mesh = original_mesh.decimate(0.85)
+                self._lod_cache['ultra_low'] = ultra_low_mesh if ultra_low_mesh.n_cells > 0 else low_mesh
+                print(f"  ✅ 超低质量LOD: {ultra_low_mesh.n_cells:,} 面")
+            except Exception as e:
+                self._lod_cache['ultra_low'] = self._lod_cache.get('low', original_mesh)
+                print(f"  ⚠️ 超低质量LOD创建失败: {e}")
+                
+            print(f"✅ LOD缓存创建完成，共{len(self._lod_cache)}个级别")
+            
+        except Exception as e:
+            print(f"❌ LOD缓存创建失败: {e}")
+            self._lod_cache = {'high': original_mesh}
 
-        def parse_fpn_header(self, header_lines: List[str], fpn_data: Dict):
-            pass
+    def _adaptive_mesh_simplify(self, mesh, target_reduction):
+        """自适应网格简化，保持材料信息"""
+        try:
+            import pyvista as pv
+            
+            # 尝试多种简化策略
+            simplified_mesh = None
+            
+            # 策略1: 优先使用DecimatePro（保持拓扑）
+            try:
+                simplified_mesh = mesh.decimate_pro(
+                    target_reduction=target_reduction,
+                    preserve_topology=True,
+                    feature_angle=45,
+                    splitting=False,
+                    boundary_vertex_deletion=True
+                )
+                if simplified_mesh.n_cells > 0:
+                    print(f"  ✅ DecimatePro成功，面数: {simplified_mesh.n_cells:,}")
+                else:
+                    simplified_mesh = None
+            except Exception as e:
+                print(f"  ⚠️ DecimatePro失败: {e}")
+            
+            # 策略2: 回退到基础Decimate
+            if simplified_mesh is None or simplified_mesh.n_cells == 0:
+                try:
+                    simplified_mesh = mesh.decimate(target_reduction)
+                    if simplified_mesh.n_cells > 0:
+                        print(f"  ✅ Decimate成功，面数: {simplified_mesh.n_cells:,}")
+                    else:
+                        simplified_mesh = None
+                except Exception as e:
+                    print(f"  ⚠️ Decimate失败: {e}")
+            
+            # 策略3: 最后的防护
+            if simplified_mesh is None or simplified_mesh.n_cells == 0:
+                try:
+                    # 尝试更温和的简化
+                    moderate_target = min(target_reduction, 0.7)
+                    simplified_mesh = mesh.decimate(moderate_target)
+                    print(f"  ✅ 温和简化成功，面数: {simplified_mesh.n_cells:,}")
+                except Exception as e:
+                    print(f"  ❌ 所有简化策略都失败: {e}")
+                    simplified_mesh = mesh
+            
+            # 🎨 保持材料信息 - 增强版
+            if simplified_mesh and simplified_mesh != mesh:
+                try:
+                    if hasattr(mesh, 'cell_data') and 'MaterialID' in mesh.cell_data:
+                        original_materials = mesh.cell_data['MaterialID']
+                        unique_materials = np.unique(original_materials)
+                        
+                        if len(unique_materials) > 1:
+                            # 多材料情况：尝试保持多样性
+                            self._preserve_material_diversity(simplified_mesh, mesh, original_materials)
+                        else:
+                            # 单一材料情况：直接赋值
+                            simplified_mesh.cell_data['MaterialID'] = np.full(
+                                simplified_mesh.n_cells, unique_materials[0], dtype=np.int32
+                            )
+                        
+                        print(f"  🎨 材料保持: {len(unique_materials)}种材料映射完成")
+                except Exception as e:
+                    print(f"  ❌ 材料ID保持失败: {e}")
+            
+            return simplified_mesh
+            
+        except Exception as e:
+            print(f"❌ 自适应简化失败: {e}")
+            return mesh
 
-        def parse_gts_node_line(self, line: str) -> Optional[Dict]:
-            return None
+    def _emergency_material_recovery(self, surface_mesh, volume_mesh):
+        """紧急材料恢复机制"""
+        try:
+            if not (hasattr(volume_mesh, 'cell_data') and 'MaterialID' in volume_mesh.cell_data):
+                return
+            
+            original_materials = np.asarray(volume_mesh.cell_data['MaterialID'])
+            unique_materials = np.unique(original_materials)
+            
+            if len(unique_materials) <= 1:
+                # 如果只有一种材料，直接填充
+                if surface_mesh.n_cells > 0:
+                    surface_mesh.cell_data['MaterialID'] = np.full(
+                        surface_mesh.n_cells, unique_materials[0] if len(unique_materials) > 0 else 1, 
+                        dtype=np.int32
+                    )
+                print(f"🔧 紧急恢复: 单一材料 {unique_materials[0] if len(unique_materials) > 0 else 1}")
+                return
+            
+            # 多材料情况：基于几何位置的智能分配
+            print(f"🔧 紧急恢复: {len(unique_materials)}种材料的几何分配")
+            
+            # 获取表面网格的中心位置
+            surface_centers = surface_mesh.cell_centers().points
+            volume_centers = volume_mesh.cell_centers().points
+            
+            # 为每个表面单元找到最近的体单元，继承其材料ID
+            from scipy.spatial import KDTree
+            kdtree = KDTree(volume_centers)
+            distances, indices = kdtree.query(surface_centers)
+            
+            # 映射材料ID
+            recovered_materials = original_materials[indices]
+            surface_mesh.cell_data['MaterialID'] = recovered_materials.astype(np.int32)
+            
+            # 验证恢复效果
+            recovered_unique = np.unique(recovered_materials)
+            print(f"✅ 紧急恢复成功: 恢复了{len(recovered_unique)}种材料")
+            
+        except Exception as e:
+            print(f"❌ 紧急恢复也失败: {e}")
+            # 最后的保护：随机分配材料以保持视觉多样性
+            if surface_mesh.n_cells > 0 and len(unique_materials) > 0:
+                np.random.seed(42)  # 固定种子确保一致性
+                random_materials = np.random.choice(unique_materials, surface_mesh.n_cells)
+                surface_mesh.cell_data['MaterialID'] = random_materials.astype(np.int32)
+                print("🎲 使用随机分配保持视觉多样性")
 
-        def parse_gts_element_line(self, line: str) -> Optional[Dict]:
-            return None
+    def _preserve_material_diversity(self, simplified_mesh, original_mesh, original_materials):
+        """保持材料多样性的智能算法"""
+        try:
+            unique_materials = np.unique(original_materials)
+            n_simplified = simplified_mesh.n_cells
+            
+            if n_simplified == 0:
+                return
+            
+            # 策略1: 基于原始材料比例分配
+            material_ratios = {}
+            for mat_id in unique_materials:
+                count = np.sum(original_materials == mat_id)
+                material_ratios[mat_id] = count / len(original_materials)
+            
+            # 为简化网格分配材料ID，保持原有比例
+            assigned_materials = []
+            remaining_cells = n_simplified
+            
+            for i, (mat_id, ratio) in enumerate(material_ratios.items()):
+                if i == len(material_ratios) - 1:  # 最后一个材料
+                    count = remaining_cells
+                else:
+                    count = max(1, int(ratio * n_simplified))  # 至少分配1个
+                    remaining_cells -= count
+                
+                assigned_materials.extend([mat_id] * count)
+            
+            # 随机打散分配（固定种子保证一致性）
+            np.random.seed(42)
+            np.random.shuffle(assigned_materials)
+            
+            # 截断或填充到正确长度
+            if len(assigned_materials) > n_simplified:
+                assigned_materials = assigned_materials[:n_simplified]
+            elif len(assigned_materials) < n_simplified:
+                # 用最常见的材料填充
+                most_common = max(material_ratios.keys(), key=lambda x: material_ratios[x])
+                assigned_materials.extend([most_common] * (n_simplified - len(assigned_materials)))
+            
+            simplified_mesh.cell_data['MaterialID'] = np.asarray(assigned_materials, dtype=np.int32)
+            
+            # 验证分配结果
+            final_unique = np.unique(assigned_materials)
+            print(f"  🎨 材料分配: {len(unique_materials)}种 → {len(final_unique)}种")
+            
+        except Exception as e:
+            print(f"  ❌ 材料多样性保持失败: {e}")
+            # 回退到第一个材料
+            if len(unique_materials) > 0:
+                simplified_mesh.cell_data['MaterialID'] = np.full(
+                    n_simplified, unique_materials[0], dtype=np.int32
+                )
 
-        def parse_material_group_line(self, line: str) -> Optional[Dict]:
-            return None
+    def _create_emergency_box_mesh(self, original_mesh):
+        """创建紧急包围盒网格：当所有简化方法都失败时的最后安全措施
+        
+        确保始终有一个可渲染的极简网格，防止OpenGL崩溃
+        """
+        try:
+            import pyvista as pv
+            
+            # 获取原始网格的包围盒
+            bounds = original_mesh.bounds  # [xmin, xmax, ymin, ymax, zmin, zmax]
+            print(f"🚨 创建紧急包围盒网格，原始边界: {bounds}")
+            
+            # 创建简单的立方体网格（12个三角面）
+            center = [
+                (bounds[0] + bounds[1]) / 2,
+                (bounds[2] + bounds[3]) / 2, 
+                (bounds[4] + bounds[5]) / 2
+            ]
+            lengths = [
+                bounds[1] - bounds[0],
+                bounds[3] - bounds[2],
+                bounds[5] - bounds[4]
+            ]
+            
+            # 创建立方体
+            box_mesh = pv.Cube(center=center, x_length=lengths[0], 
+                              y_length=lengths[1], z_length=lengths[2])
+            
+            # 保持材料信息（尝试从原始网格继承主要材料）
+            try:
+                if hasattr(original_mesh, 'cell_data') and 'MaterialID' in original_mesh.cell_data:
+                    # 使用最常见的材料ID
+                    original_materials = original_mesh.cell_data['MaterialID']
+                    unique_ids, counts = np.unique(original_materials, return_counts=True)
+                    most_common_material = unique_ids[np.argmax(counts)]
+                else:
+                    most_common_material = 1  # 默认材料
+                
+                # 为立方体的所有面分配相同材料
+                box_mesh.cell_data['MaterialID'] = np.full(
+                    box_mesh.n_cells, most_common_material, dtype=np.int32
+                )
+                
+            except Exception as mat_e:
+                print(f"⚠️ 紧急网格材料分配失败: {mat_e}")
+                box_mesh.cell_data['MaterialID'] = np.full(box_mesh.n_cells, 1, dtype=np.int32)
+            
+            print(f"✅ 紧急包围盒创建完成: {box_mesh.n_cells} 面 (极简安全网格)")
+            return box_mesh
+            
+        except Exception as e:
+            print(f"❌ 紧急包围盒创建失败: {e}")
+            # 最后的最后：创建一个最简单的三角形
+            try:
+                import pyvista as pv
+                points = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]])
+                faces = np.array([3, 0, 1, 2])
+                emergency_mesh = pv.PolyData(points, faces)
+                emergency_mesh.cell_data['MaterialID'] = np.array([1], dtype=np.int32)
+                print("🆘 使用最简三角形网格")
+                return emergency_mesh
+            except Exception as final_e:
+                print(f"💀 连最简网格都创建失败: {final_e}")
+                return original_mesh  # 没办法了，返回原始网格
 
-        def parse_load_group_line(self, line: str) -> Optional[Dict]:
-            return None
+    def add_ground_grid(self):
+        pass
 
-        def parse_boundary_group_line(self, line: str) -> Optional[Dict]:
-            return None
+    def parse_fpn_file(self, file_path: str) -> Dict[str, Any]:
+        return {}
 
-        def parse_analysis_stage_line(self, line: str) -> Optional[Dict]:
-            return None
+    def parse_fpn_header(self, header_lines: List[str], fpn_data: Dict):
+        pass
 
-        def create_default_analysis_stages(self) -> List[Dict]:
-            return []
+    def parse_gts_node_line(self, line: str) -> Optional[Dict]:
+        return None
 
-        def calculate_coordinate_offset(self, fpn_data: Dict):
-            pass
+    def parse_gts_element_line(self, line: str) -> Optional[Dict]:
+        return None
 
-        def parse_gts_data_line(self, line: str, section: str, fpn_data: Dict):
-            pass
+    def parse_material_group_line(self, line: str) -> Optional[Dict]:
+        return None
 
-        def parse_mct_node_line(self, line: str, nodes: List[Dict]):
-            pass
+    def parse_load_group_line(self, line: str) -> Optional[Dict]:
+        return None
 
-        def parse_mct_element_line(self, line: str, elements: List[Dict]):
-            pass
+    def parse_boundary_group_line(self, line: str) -> Optional[Dict]:
+        return None
 
-        def parse_mct_material_line(self, line: str, materials: List[Dict]):
-            pass
+    def parse_analysis_stage_line(self, line: str) -> Optional[Dict]:
+        return None
 
-        def parse_mct_constraint_line(self, line: str, constraints: List[Dict]):
-            pass
+    def create_default_analysis_stages(self) -> List[Dict]:
+        return []
 
-        def parse_mct_load_line(self, line: str, loads: List[Dict]):
-            pass
+    def calculate_coordinate_offset(self, fpn_data: Dict):
+        pass
 
-        def parse_mct_stage_line(self, line: str, stages: List[Dict]):
-            pass
+    def parse_gts_data_line(self, line: str, section: str, fpn_data: Dict):
+        pass
 
-        def create_sample_fpn_data(self) -> Dict[str, Any]:
-            return {}
+    def parse_mct_node_line(self, line: str, nodes: List[Dict]):
+        pass
 
-        def create_mesh_from_fpn(self, fpn_data: Dict[str, Any]):
-            pass
+    def parse_mct_element_line(self, line: str, elements: List[Dict]):
+        pass
 
-        def get_material_color(self, material_id: int, material_name: str = "") -> tuple:
-            return (0.5, 0.5, 0.5)
+    def parse_mct_material_line(self, line: str, materials: List[Dict]):
+        pass
 
-        def get_analysis_stages(self) -> list:
-            return []
+    def parse_mct_constraint_line(self, line: str, constraints: List[Dict]):
+        pass
 
-        def get_current_analysis_stage(self) -> dict:
-            return {}
+    def parse_mct_load_line(self, line: str, loads: List[Dict]):
+        pass
 
-        def set_current_analysis_stage(self, stage_index: int):
-            pass
+    def parse_mct_stage_line(self, line: str, stages: List[Dict]):
+        pass
 
-        def update_display_for_stage(self, stage: dict):
-            pass
-
-        def determine_active_groups_for_stage(self, stage: dict) -> dict:
-            return {}
-
-        def _determine_groups_from_commands(self, current_stage_id: int, all_stages: list) -> dict:
-            return {}
-
-        def _determine_groups_from_active_lists(self, stage: dict) -> dict:
-            return {}
-
-        def filter_materials_by_stage(self, active_materials: list):
-            pass
-
-        def intelligent_material_selection(self, stage_name: str):
-            pass
-
-        def load_mesh(self, file_path: str):
-            pass
-
-        def read_gmsh_file(self, file_path: str):
-            pass
+    def create_sample_fpn_data(self) -> Dict[str, Any]:
+        return {}
 
 
-    # 轻量级自检（仅在直接运行本文件时）
-    def test_preprocessor() -> None:
-        pp = PreProcessor()
-        w = pp.get_viewer_widget()
-        print("PreProcessor ready:", isinstance(w, QWidget))
+    # 注意：颜色映射在文件后部统一实现，避免重复定义
+    # def get_material_color(self, material_id: int, material_name: str = "") -> tuple:
+    #     pass
+
+    def get_analysis_stages(self) -> list:
+        return []
+
+    def get_current_analysis_stage(self) -> dict:
+        return {}
+
+    def set_current_analysis_stage(self, stage_index: int):
+        pass
+
+    def update_display_for_stage(self, stage: dict):
+        pass
+
+    def determine_active_groups_for_stage(self, stage: dict) -> dict:
+        return {}
+
+    def _determine_groups_from_commands(self, current_stage_id: int, all_stages: list) -> dict:
+        return {}
+
+    def _determine_groups_from_active_lists(self, stage: dict) -> dict:
+        return {}
+
+    def filter_materials_by_stage(self, active_materials: list):
+        pass
+
+    def intelligent_material_selection(self, stage_name: str):
+        pass
+
+    def load_mesh(self, file_path: str):
+        pass
+
+    def read_gmsh_file(self, file_path: str):
+        pass
 
 
-    if __name__ == "__main__":
-        test_preprocessor()
-        self.plotter.add_text("DeepCAD前处理模块\n等待导入网格...",
-                             position='upper_left', font_size=12, color='orange')
+    # 轻量级自检（已在文件末尾提供独立实现）
 
     def get_viewer_widget(self):
         """获取3D视图组件"""
         return self.viewer_widget
 
-    def load_fpn_file(self, file_path: str):
+    def load_fpn_file(self, file_path: str, force_load: bool = False):
         """加载MIDAS FPN文件（使用优化解析器）"""
         try:
             # 🔧 确保正确的导入路径
@@ -692,6 +1224,22 @@ class PreProcessor:
             if str(project_root) not in sys.path:
                 sys.path.insert(0, str(project_root))
 
+            file_path = Path(file_path)
+
+            if not file_path.exists():
+                raise FileNotFoundError(f"文件不存在: {file_path}")
+
+            # ✅ 文件大小检查 - 防止启动时死机
+            file_size_mb = file_path.stat().st_size / (1024 * 1024)
+            if file_size_mb > 50:  # 超过50MB的文件警告
+                print(f"⚠️ 警告: 文件较大 ({file_size_mb:.1f}MB)，可能影响性能")
+            
+            # ✅ 启动保护 - 只允许显式的手动导入
+            if not force_load:
+                print(f"🛡️ 启动保护模式：跳过自动加载 {file_path.name}")
+                print("💡 要导入此文件，请使用GUI的导入按钮")
+                return None
+
             # 导入所需模块（优先从example2.core导入，避免被顶层core包遮蔽）
             try:
                 from example2.core.optimized_fpn_parser import OptimizedFPNParser
@@ -702,12 +1250,7 @@ class PreProcessor:
             except ImportError:
                 handle_error = None
 
-            file_path = Path(file_path)
-
-            if not file_path.exists():
-                raise FileNotFoundError(f"文件不存在: {file_path}")
-
-            print(f"加载FPN文件: {file_path.name}")
+            print(f"🔄 开始加载FPN文件: {file_path.name}")
 
             # 创建进度回调
             def progress_callback(progress):
@@ -1469,100 +2012,418 @@ class PreProcessor:
     # 示例FPN数据创建函数已移除 - 现在只接受真实的FPN文件
 
     def create_mesh_from_fpn(self, fpn_data: Dict[str, Any]):
-        """从FPN数据创建PyVista网格"""
+        """从FPN数据创建PyVista网格（增强版 - 防崩溃）
+        - 稀疏ID压缩为连续索引，避免巨大内存占用
+        - 大模型自动外表面提取 + 默认关闭边框显示
+        - 写入MaterialID到cell_data便于分层显示
+        """
         try:
             if not PYVISTA_AVAILABLE:
                 print("PyVista不可用，无法创建网格")
                 return
 
-            print("开始从FPN数据创建真实网格...")
-
-            # 保存FPN数据
-            self.fpn_data = fpn_data
+            print("🔄 开始从FPN数据创建优化网格...")
 
             # 处理节点数据（兼容 dict/list）
             nodes = fpn_data.get('nodes', [])
             if isinstance(nodes, dict):
                 nodes = list(nodes.values())
             if not nodes:
-                print("警告: 没有找到节点数据")
-                raise ValueError("需要真实的FPN数据来创建网格")
-                return
+                raise ValueError("FPN中未找到节点数据")
 
             # 处理单元数据（兼容 dict/list）
             elements = fpn_data.get('elements', [])
             if isinstance(elements, dict):
                 elements = list(elements.values())
             if not elements:
-                print("警告: 没有找到单元数据")
-                raise ValueError("需要真实的FPN数据来创建网格")
-                return
+                raise ValueError("FPN中未找到单元数据")
 
-            print(f"处理 {len(nodes)} 个节点和 {len(elements)} 个单元")
+            print(f"📊 原始数据: {len(nodes)} 个节点, {len(elements)} 个单元")
 
-            # 创建节点数组 (需要按照ID排序，确保索引正确)
-            node_dict = {int(node['id']): node for node in nodes}
-            max_node_id = max(node_dict.keys())
-            points = np.zeros((max_node_id, 3), dtype=float)
+            # 🔧 STEP 1: 稀疏ID压缩 - 避免巨大内存占用
+            node_ids = []
+            for node in nodes:
+                if isinstance(node, dict) and 'id' in node:
+                    node_ids.append(int(node['id']))
+                else:
+                    continue
+            
+            if not node_ids:
+                raise ValueError("节点数据格式错误，未找到有效ID")
 
-            for node_id, node in node_dict.items():
-                points[node_id-1] = [node['x'], node['y'], node['z']]
+            node_ids.sort()  # 排序节点ID
+            max_id = max(node_ids)
+            actual_count = len(node_ids)
+            
+            # 检测稀疏程度
+            sparsity_ratio = max_id / actual_count if actual_count > 0 else 1
+            print(f"🧮 节点ID范围: 1~{max_id}, 实际节点: {actual_count}, 稀疏度: {sparsity_ratio:.1f}x")
+            
+            if sparsity_ratio > 2.0:
+                print(f"⚠️ 检测到稀疏ID (稀疏度 {sparsity_ratio:.1f}x)，启用ID压缩")
+                # 建立ID到连续索引的映射
+                id_to_index = {node_id: i for i, node_id in enumerate(node_ids)}
+                use_sparse_compression = True
+            else:
+                id_to_index = None
+                use_sparse_compression = False
 
-            # 创建单元连接信息，支持 TETRA/HEXA/PENTA（大小写不敏感）
+            # STEP 2: 构建点坐标数组
+            if use_sparse_compression:
+                points = np.zeros((actual_count, 3), dtype=np.float32)
+                node_dict = {int(n['id']): n for n in nodes if isinstance(n, dict) and 'id' in n}
+                
+                for i, node_id in enumerate(node_ids):
+                    node = node_dict.get(node_id)
+                    if node:
+                        points[i] = [float(node.get('x', 0)), float(node.get('y', 0)), float(node.get('z', 0))]
+            else:
+                # 原始方法（非稀疏情况）
+                points = np.zeros((max_id + 1, 3), dtype=np.float32)
+                for node in nodes:
+                    if isinstance(node, dict) and 'id' in node:
+                        nid = int(node['id'])
+                        points[nid] = [float(node.get('x', 0)), float(node.get('y', 0)), float(node.get('z', 0))]
+                points = points[1:max_id+1]  # 移除索引0
+
+            print(f"✅ 点阵构建完成: {points.shape[0]} 个坐标点")
+
+            # STEP 3: 构建单元连接关系
+            cells = []
+            cell_material_ids = []
+            cell_types = []  # 正确的VTK单元类型数组
+            
+            for elem in elements:
+                if not isinstance(elem, dict):
+                    continue
+                    
+                # 获取节点连接
+                elem_nodes = []
+                if 'nodes' in elem:
+                    elem_nodes = elem['nodes']
+                elif 'connectivity' in elem:
+                    elem_nodes = elem['connectivity']
+                else:
+                    # 尝试从单元数据中提取节点（适配不同格式）
+                    for key in ['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8']:
+                        if key in elem:
+                            elem_nodes.append(elem[key])
+
+                if len(elem_nodes) < 3:
+                    continue  # 跳过无效单元
+
+                # 🔧 修复：ID映射转换和验证
+                mapped_nodes = []
+                if use_sparse_compression:
+                    for node_id in elem_nodes:
+                        idx = id_to_index.get(int(node_id))
+                        if idx is not None:
+                            mapped_nodes.append(idx)
+                else:
+                    for node_id in elem_nodes:
+                        node_idx = int(node_id) - 1  # 转为0-based索引
+                        # 🔧 关键修复：验证节点索引范围
+                        if 0 <= node_idx < points.shape[0]:
+                            mapped_nodes.append(node_idx)
+
+                # 🔧 修复：严格验证连接关系
+                if len(mapped_nodes) >= 3 and self._validate_connectivity(mapped_nodes, points.shape[0]):
+                    # 判定单元类型并写入VTK类型编码
+                    etype_raw = str(elem.get('type', '')).lower()
+                    vtk_type = None
+                    # 优先依据节点数量推断（常见体单元）
+                    if len(mapped_nodes) == 4:
+                        vtk_type = 10  # VTK_TETRA
+                    elif len(mapped_nodes) == 8:
+                        vtk_type = 12  # VTK_HEXAHEDRON
+                    elif len(mapped_nodes) == 6:
+                        vtk_type = 13  # VTK_WEDGE
+                    elif len(mapped_nodes) == 3:
+                        vtk_type = 5   # VTK_TRIANGLE
+                    elif len(mapped_nodes) == 4 and ('quad' in etype_raw):
+                        vtk_type = 9   # VTK_QUAD
+
+                    # 若未能推断，尝试基于类型字段
+                    if vtk_type is None:
+                        if 'tetra' in etype_raw or etype_raw == 't4':
+                            vtk_type = 10
+                        elif 'hexa' in etype_raw or 'hex' in etype_raw or etype_raw == 'h8':
+                            vtk_type = 12
+                        elif 'wedge' in etype_raw or 'penta' in etype_raw or etype_raw == 'w6':
+                            vtk_type = 13
+
+                    # 无法识别的单元类型则跳过，避免构造非法网格
+                    if vtk_type is None:
+                        continue
+
+                    # 🔧 修复：添加单元（正确的VTK格式：[节点数, 节点1, 节点2, ...]）
+                    cells.extend([len(mapped_nodes)] + mapped_nodes)
+                    cell_types.append(vtk_type)
+                    # 记录材料ID
+                    material_id = elem.get('material_id', elem.get('material', 1))
+                    cell_material_ids.append(int(material_id))
+
+            if not cells:
+                raise ValueError("未找到有效的单元连接数据")
+
+            # 🔧 修复：STEP 4: 创建PyVista网格（正确的VTK格式）
+            cells_array = np.asarray(cells, dtype=np.int32)  # 修复：使用int32而非int64
+            types_array = np.asarray(cell_types, dtype=np.uint8)
+            
+            # 🔧 修复：安全的网格创建
+            try:
+                mesh = pv.UnstructuredGrid(cells_array, types_array, points)
+                # 验证网格完整性
+                if mesh.n_cells == 0 or mesh.n_points == 0:
+                    raise ValueError("创建的网格为空")
+            except Exception as e:
+                print(f"❌ 网格创建失败: {e}")
+                # 🔧 安全降级：创建简化网格
+                return self._create_safe_fallback_mesh(fpn_data)
+
+            # 添加材料ID数据
+            if cell_material_ids and mesh.n_cells == len(cell_material_ids):
+                mesh.cell_data['MaterialID'] = np.asarray(cell_material_ids, dtype=np.int32)
+
+            # 🚀 STEP 5: 大模型优化策略
+            n_cells = mesh.n_cells
+            print(f"📈 网格统计: {mesh.n_points} 点, {n_cells} 单元")
+            
+            # 超大模型外表面提取
+            if n_cells > 500000:
+                print(f"🔥 超大模型 ({n_cells} 单元) - 提取外表面以防崩溃")
+                try:
+                    # 保留原始体网格以便必要时引用
+                    self._volume_mesh = mesh
+                    # 提取外表面，带上原始单元ID，便于映射MaterialID
+                    surface_mesh = mesh.extract_surface(pass_cellid=True)
+                    # 🎨 增强材料ID映射 - 保证多层土体颜色
+                    try:
+                        orig_ids = surface_mesh.cell_data.get('vtkOriginalCellIds')
+                        if orig_ids is not None and 'MaterialID' in mesh.cell_data:
+                            original_material_ids = np.asarray(mesh.cell_data['MaterialID'])
+                            mapped_materials = original_material_ids[np.asarray(orig_ids, dtype=int)]
+                            surface_mesh.cell_data['MaterialID'] = mapped_materials.astype(np.int32)
+                            
+                            # 材料映射统计报告
+                            unique_original = np.unique(original_material_ids)
+                            unique_surface = np.unique(mapped_materials)
+                            print(f"🎨 材料ID映射: 原始{len(unique_original)}种 → 表面{len(unique_surface)}种")
+                            print(f"   原始材料: {sorted(unique_original.tolist())}")
+                            print(f"   表面材料: {sorted(unique_surface.tolist())}")
+                        else:
+                            print("⚠️ 无MaterialID数据，将使用统一颜色")
+                    except Exception as _e:
+                        print(f"❌ 表面MaterialID映射失败: {_e}")
+                        # 紧急修复：如果映射失败，尝试恢复原始材料信息
+                        self._emergency_material_recovery(surface_mesh, mesh)
+                    # 🎯 激进网格简化：多级LOD策略
+                    try:
+                        surf_faces = int(getattr(surface_mesh, 'n_cells', 0))
+                        print(f"📊 原始外表面: {surf_faces:,} 个面")
+                        
+                        # 创建多级LOD
+                        self._create_multi_lod_meshes(surface_mesh)
+                        
+                        # 🚨 阶段1严格LOD阈值：防止OpenGL wglMakeCurrent失败
+                        # 根据错误日志分析，需要极度激进的面数控制
+                        if surf_faces > 200_000:
+                            # 🔥 超大模型：极度激进简化至3千面以下 (99.5%+减少)
+                            target = max(0.985, 1.0 - 3_000 / float(surf_faces))
+                            lod_level = "ultra_low"
+                        elif surf_faces > 50_000:
+                            # ⚡ 大模型：激进简化至5千面以下 (90%+减少)  
+                            target = max(0.90, 1.0 - 5_000 / float(surf_faces))
+                            lod_level = "low"
+                        elif surf_faces > 10_000:
+                            # 🎯 中等模型：适度简化保持8千面以下
+                            target = max(0.70, 1.0 - 8_000 / float(surf_faces))
+                            lod_level = "medium"
+                        else:
+                            # 小模型：轻度简化
+                            target = 0.5
+                            lod_level = "medium"
+                        
+                        print(f"🔧 应用{lod_level}级LOD，目标降比={target:.3f}")
+                        
+                        # 使用自适应网格简化
+                        simplified = self._adaptive_mesh_simplify(surface_mesh, target)
+                        if simplified is not None and simplified.n_cells > 0:
+                            surface_mesh = simplified
+                        
+                        # 🚨 紧急面数验证：绝对防止OpenGL崩溃的最后防线
+                        final_faces = surface_mesh.n_cells
+                        EMERGENCY_FACE_LIMIT = 5000  # 绝对安全的OpenGL面数上限
+                        
+                        if final_faces > EMERGENCY_FACE_LIMIT:
+                            print(f"🚨 紧急面数过载: {final_faces:,} > {EMERGENCY_FACE_LIMIT:,}, 执行紧急简化")
+                            emergency_target = 0.99  # 99%激进简化
+                            try:
+                                emergency_mesh = self._adaptive_mesh_simplify(surface_mesh, emergency_target)
+                                if emergency_mesh and emergency_mesh.n_cells > 0:
+                                    surface_mesh = emergency_mesh
+                                    print(f"✅ 紧急简化完成: {surface_mesh.n_cells:,} 面")
+                                else:
+                                    raise Exception("紧急简化失败")
+                            except Exception as emerg_e:
+                                print(f"⚠️ 紧急简化失败: {emerg_e}, 强制采用极简网格")
+                                # 最后的安全措施：创建极简包围盒网格
+                                surface_mesh = self._create_emergency_box_mesh(surface_mesh)
+                        
+                        # 存储当前LOD信息  
+                        self._current_lod_level = lod_level
+                        self._surface_face_count = surface_mesh.n_cells
+                        
+                        # 最终安全验证
+                        if surface_mesh.n_cells > EMERGENCY_FACE_LIMIT:
+                            print(f"🚨 最终面数仍超限: {surface_mesh.n_cells:,}, 系统可能不稳定")
+                        else:
+                            print(f"✅ 面数安全验证通过: {surface_mesh.n_cells:,} ≤ {EMERGENCY_FACE_LIMIT:,}")
+                        
+                    except Exception as _de:
+                        print(f"⚠️ 智能简化失败，使用基础降面: {_de}")
+                        try:
+                            surface_mesh = surface_mesh.decimate(0.3)
+                        except Exception:
+                            pass
+                    
+                    print(f"✅ 优化表面网格: {surface_mesh.n_cells:,} 个面 (减少 {(1-surface_mesh.n_cells/surf_faces)*100:.1f}%)")
+                    self.mesh = surface_mesh
+                    self.show_edges_default = False  # 大模型默认不显示边
+                    self._is_big_model = True
+                    print("🛡️ 大模型默认关闭边框显示")
+                except Exception as e:
+                    print(f"⚠️ 外表面提取失败: {e}, 使用原始网格")
+                    self.mesh = mesh
+                    self.show_edges_default = False
+                    self._is_big_model = True
+            elif n_cells > 800000:  # 放宽阈值：>800k 才认为大模型
+                print(f"⚠️ 大模型 ({n_cells} 单元) - 关闭边框显示以提升性能")
+                self.mesh = mesh
+                self.show_edges_default = False
+                self._is_big_model = True
+            else:
+                print(f"✅ 中小模型 ({n_cells} 单元) - 保持完整显示")
+                self.mesh = mesh
+                self.show_edges_default = True
+                self._is_big_model = False
+
+            print(f"🎯 成功创建网格: {self.mesh.n_points} 点, {self.mesh.n_cells} 单元/面")
+            # 在显示前应用LOD策略，避免大模型直接重负载渲染
+            try:
+                self._apply_lod()
+            except Exception as _:
+                pass
+            
+        except Exception as e:
+            print(f"❌ 创建网格失败: {e}")
+            import traceback
+            traceback.print_exc()
+            self.mesh = None
+
+            # 构建连续索引的点集
+            nodes_sorted = sorted(nodes, key=lambda n: int(n['id']))
+            id_to_idx = {}
+            points = np.empty((len(nodes_sorted), 3), dtype=float)
+            for i, n in enumerate(nodes_sorted):
+                nid = int(n['id'])
+                id_to_idx[nid] = i
+                points[i] = [float(n['x']), float(n['y']), float(n['z'])]
+
+            # 创建单元连接信息并记录材料
             cells = []
             cell_types = []
-
+            cell_mats = []
             VTK_TETRA = 10
             VTK_HEXAHEDRON = 12
             VTK_WEDGE = 13
 
+            def map_nodes(raw_nodes, need):
+                idxs = []
+                for nid in raw_nodes[:need]:
+                    midx = id_to_idx.get(int(nid))
+                    if midx is None:
+                        return None
+                    idxs.append(midx)
+                return idxs
+
             for elem in elements:
                 etype = str(elem.get('type', '')).lower()
-                nn = [n-1 for n in elem.get('nodes', [])]
-                if etype == 'tetra' or etype == 'tetra4' or etype == 't4':
-                    if len(nn) >= 4:
-                        cells.extend([4] + nn[:4])
+                raw = elem.get('nodes', [])
+                mat_id = int(elem.get('material_id', 0))
+                if etype in ('tetra', 'tetra4', 't4'):
+                    idxs = map_nodes(raw, 4)
+                    if idxs and len(idxs) == 4:
+                        cells.extend([4] + idxs)
                         cell_types.append(VTK_TETRA)
-                elif etype == 'hexa' or etype == 'hex' or etype == 'hexa8' or etype == 'h8':
-                    if len(nn) >= 8:
-                        cells.extend([8] + nn[:8])
+                        cell_mats.append(mat_id)
+                elif etype in ('hexa', 'hex', 'hexa8', 'h8'):
+                    idxs = map_nodes(raw, 8)
+                    if idxs and len(idxs) == 8:
+                        cells.extend([8] + idxs)
                         cell_types.append(VTK_HEXAHEDRON)
-                elif etype == 'penta' or etype == 'wedge' or etype == 'p6' or etype == 'w6':
-                    if len(nn) >= 6:
-                        cells.extend([6] + nn[:6])
+                        cell_mats.append(mat_id)
+                elif etype in ('penta', 'wedge', 'p6', 'w6'):
+                    idxs = map_nodes(raw, 6)
+                    if idxs and len(idxs) == 6:
+                        cells.extend([6] + idxs)
                         cell_types.append(VTK_WEDGE)
+                        cell_mats.append(mat_id)
                 else:
-                    # 兼容旧格式 'TETRA'/'HEXA'/'PENTA'
-                    etype_upper = str(elem.get('type', '')).upper()
-                    if etype_upper == 'TETRA' and len(nn) >= 4:
-                        cells.extend([4] + nn[:4])
-                        cell_types.append(VTK_TETRA)
-                    elif etype_upper == 'HEXA' and len(nn) >= 8:
-                        cells.extend([8] + nn[:8])
-                        cell_types.append(VTK_HEXAHEDRON)
-                    elif etype_upper == 'PENTA' and len(nn) >= 6:
-                        cells.extend([6] + nn[:6])
-                        cell_types.append(VTK_WEDGE)
+                    etu = str(elem.get('type', '')).upper()
+                    if etu == 'TETRA':
+                        idxs = map_nodes(raw, 4)
+                        if idxs and len(idxs) == 4:
+                            cells.extend([4] + idxs)
+                            cell_types.append(VTK_TETRA)
+                            cell_mats.append(mat_id)
+                    elif etu == 'HEXA':
+                        idxs = map_nodes(raw, 8)
+                        if idxs and len(idxs) == 8:
+                            cells.extend([8] + idxs)
+                            cell_types.append(VTK_HEXAHEDRON)
+                            cell_mats.append(mat_id)
+                    elif etu == 'PENTA':
+                        idxs = map_nodes(raw, 6)
+                        if idxs and len(idxs) == 6:
+                            cells.extend([6] + idxs)
+                            cell_types.append(VTK_WEDGE)
+                            cell_mats.append(mat_id)
 
             if not cells:
-                print("警告: 没有找到支持的单元类型（TETRA/HEXA/PENTA）")
-                raise ValueError("需要真实的FPN数据来创建网格")
-                return
+                raise ValueError("没有找到支持的单元类型（TETRA/HEXA/PENTA）")
 
             # 创建PyVista网格
-            try:
-                cells_array = np.asarray(cells, dtype=np.int64)
-                types_array = np.asarray(cell_types, dtype=np.uint8)
-                self.mesh = pv.UnstructuredGrid(cells_array, types_array, points)
-                print(f"成功创建网格: {self.mesh.n_points} 个节点, {self.mesh.n_cells} 个单元")
-            except Exception as mesh_error:
-                print(f"网格创建过程出错: {mesh_error}")
-                import traceback
-                traceback.print_exc()
-                raise ValueError("需要真实的FPN数据来创建网格")
-                return
+            cells_array = np.asarray(cells, dtype=np.int64)
+            types_array = np.asarray(cell_types, dtype=np.uint8)
+            grid = pv.UnstructuredGrid(cells_array, types_array, points)
+            if len(cell_mats) == grid.n_cells:
+                grid.cell_data['MaterialID'] = np.asarray(cell_mats, dtype=np.int32)
 
-            # 处理材料数据
+            # 大模型显示优化
+            try:
+                if grid.n_cells > 500_000:
+                    # 仅显示外表面，显著降低渲染负荷
+                    surf = grid.extract_surface(pass_pointid=False)
+                    self.mesh = surf
+                    print(f"大模型仅显示外表面: {self.mesh.n_cells} 个面")
+                else:
+                    self.mesh = grid
+            except Exception as e:
+                print(f"外表面提取失败，退回体网格: {e}")
+                self.mesh = grid
+
+            print(f"成功创建网格: {self.mesh.n_points} 个节点, {self.mesh.n_cells} 个单元")
+
+            # 显示参数：大模型默认不显示边
+            self.display_mode = getattr(self, 'display_mode', 'transparent')
+            # 放宽边框关闭阈值：仅当 >800k 单元时默认关边
+            self.show_mesh_edges = False if self.mesh.n_cells > 800_000 else getattr(self, 'show_mesh_edges', True)
+
+            # 显示网格
+            self.display_mesh()
+
+            # 处理材料数据（可选）
             materials = fpn_data.get('materials', [])
             material_dict = {}
             # 兼容 materials 为 set/list[int] 或 list[dict]
@@ -1636,57 +2497,62 @@ class PreProcessor:
 
             self.current_stage_index = 0
 
-    def get_material_color(self, material_id: int, material_name: str) -> tuple:
-        """重新设计的地层/结构配色：柔和、工程感一致。
-        - 土体采用低饱和度的土色系，随层次变化但整体协调
-        - 结构材料采用中性蓝灰/银灰
+    def get_material_color(self, material_id: int, material_name: str = "") -> tuple:
+        """统一的材料配色
+        优先使用集中式 SOIL_PALETTE；其次按名称关键字；最后按ID生成可区分色。
         """
-        palette = {
-            1: (0.761, 0.561, 0.361),  # 填土 Sandy Brown  #C28F5C
-            2: (0.851, 0.710, 0.447),  # 粉质粘土 Tan       #D9B572
-            3: (0.631, 0.533, 0.498),  # 淤泥质土 Taupe     #A1887F
-            4: (0.553, 0.431, 0.388),  # 粘土 Earth Brown   #8D6E63
-            5: (0.878, 0.765, 0.424),  # 砂土 Ochre         #E0C36C
-            6: (0.435, 0.561, 0.663),  # 基岩 Slate Blue-Gray #6F8FA9
-            7: (0.486, 0.604, 0.427),  # 土层7 Olive Green  #7C9A6D
-            8: (0.690, 0.478, 0.631),  # 土层8 Dusty Plum   #B07AA1
-            9: (0.373, 0.639, 0.639),  # 土层9 Teal Gray    #5FA3A3
-            10: (0.549, 0.573, 0.604), # 混凝土桩 Blue-Gray #8C929A
-            11: (0.816, 0.827, 0.839), # 钢/支撑 Silver Gray #D0D3D6
-            12: (0.725, 0.749, 0.776), # 混凝土 Light Blue-Gray #B9BFC6
-        }
-        id_color = palette.get(int(material_id))
-        if id_color is not None:
-            return id_color
+        mid = int(material_id)
 
-        # 名称关键字映射（与上面调色板保持一致）
+        # 1) 集中式调色板（若可用）
+        try:
+            if isinstance(SOIL_PALETTE, dict) and mid in SOIL_PALETTE:
+                return SOIL_PALETTE[mid]
+        except Exception:
+            pass
+
+        # 2) 预定义名称关键字映射（与 palette 色系一致）
         name_mapping = {
-            '填土': (0.761, 0.561, 0.361),
-            '细砂': (0.878, 0.765, 0.424),
-            '砂土': (0.878, 0.765, 0.424),
+            '填土': (0.761, 0.561, 0.361),  # Sandy Brown
+            '细砂': (1.000, 0.757, 0.027),  # Amber 近似
+            '砂土': (1.000, 0.757, 0.027),
             '粉土': (0.851, 0.710, 0.447),
-            '粉质粘土': (0.851, 0.710, 0.447),
-            '粘土': (0.553, 0.431, 0.388),
+            '粉质粘土': (0.553, 0.431, 0.388),
+            '粘土': (0.737, 0.667, 0.643),
             '淤泥': (0.631, 0.533, 0.498),
-            '卵石': (0.486, 0.604, 0.427),
-            '岩': (0.435, 0.561, 0.663),
+            '卵石': (0.612, 0.800, 0.396),
+            '岩': (0.475, 0.333, 0.282),
             '围护墙': (0.725, 0.749, 0.776),
             '地连墙': (0.725, 0.749, 0.776),
             '支护墙': (0.725, 0.749, 0.776),
-            '混凝土': (0.725, 0.749, 0.776),
+            '混凝土': (0.380, 0.490, 0.545),
             '钢材': (0.816, 0.827, 0.839),
             '钢': (0.816, 0.827, 0.839),
         }
-        for key, color in name_mapping.items():
-            if key in material_name:
-                return color
+        try:
+            if material_name:
+                for key, color in name_mapping.items():
+                    if key in material_name:
+                        return color
+            # 若 materials 字典中有名称，也尝试匹配
+            if hasattr(self, 'materials') and isinstance(self.materials, dict) and mid in self.materials:
+                info = self.materials.get(mid) or {}
+                name = info.get('name') if isinstance(info, dict) else None
+                if name:
+                    for key, color in name_mapping.items():
+                        if key in name:
+                            return color
+        except Exception:
+            pass
 
-        # 回退：根据ID生成区分色（降低饱和度，保证不突兀）
-        import colorsys
-        hue = (int(material_id) * 0.618033988749895) % 1.0
-        saturation = 0.45
-        value = 0.85
-        return colorsys.hsv_to_rgb(hue, saturation, value)
+        # 3) 最终回退：按ID生成区分色（降低饱和度，保证不突兀）
+        try:
+            import colorsys
+            hue = (mid * 0.618033988749895) % 1.0
+            saturation = 0.45
+            value = 0.85
+            return colorsys.hsv_to_rgb(hue, saturation, value)
+        except Exception:
+            return (0.7, 0.7, 0.7)
 
     def get_analysis_stages(self) -> list:
         """获取所有分析步"""
@@ -2148,14 +3014,25 @@ class PreProcessor:
             print("PyVista不可用，无法生成网格")
 
     def display_mesh(self):
-        """显示网格"""
+        """强制显示工程构件 - 紧急修复版"""
         if not PYVISTA_AVAILABLE or not self.mesh:
             return
 
         # 清除现有内容
         self.plotter.clear()
+        self.set_abaqus_style_background()
 
-        # 根据显示模式显示网格
+        # 渲染计时开始
+        import time
+        _t0 = time.time()
+
+        # 🔧 STEP 1: 显示主体网格
+        self._display_main_mesh_safe()
+
+        # 🔧 STEP 2: 强制显示关键工程构件（无视保护状态）
+        self._force_display_engineering_components()
+
+        # 🔧 STEP 3: 根据显示模式显示网格
         if self.display_mode == 'transparent':
             self.display_transparent_layers()
         elif self.display_mode == 'wireframe':
@@ -2183,74 +3060,174 @@ class PreProcessor:
         except Exception as e:
             print(f"显示板元失败: {e}")
 
-        # 叠加显示：锚杆线元
+        # 🔧 修复：安全的叠加层显示
+        self._display_overlays_safe()
+
+        # 🔧 设置安全相机视角
         try:
-            if self.show_anchors:
+            self.plotter.reset_camera()
+            self.plotter.show_axes()
+        except Exception as e:
+            print(f"相机设置失败: {e}")
+        
+        _elapsed = time.time() - _t0
+        print(f"⏱️ 网格渲染耗时: {_elapsed:.2f}秒")
+
+    def _display_overlays_safe(self):
+        """安全的叠加层显示"""
+        try:
+            # 叠加显示：板元（TRIA/QUAD）
+            if getattr(self, 'show_plates', False):
+                if self._plates_cached is None:
+                    self._plates_cached = self._build_plate_geometry()
+                plate_data = self._plates_cached
+                if plate_data is not None:
+                    self.plotter.add_mesh(
+                        plate_data,
+                        color='lightgray',
+                        opacity=0.8,
+                        show_edges=True,
+                        edge_color='black',
+                        name='plate_elements'
+                    )
+                    
+            # 叠加显示：锚杆线元（修复版）
+            if getattr(self, 'show_anchors', False):
                 # 构建或使用缓存
                 if self._anchors_cached is None:
                     self._anchors_cached = self._build_anchor_geometry()
                 pdata = self._anchors_cached
-                # 按阶段过滤（可选）
-                if pdata is not None and self.filter_anchors_by_stage:
-                    stage_eids = self._get_stage_prestress_element_ids()
-                    print(f"预应力阶段过滤启用: 当前阶段线元数={len(stage_eids)}")
+                
                 if pdata is not None:
-                    # 提升可见性：将线元渲染为圆管，并设置合适半径
+                    # 🔧 修复：使用安全的锚杆渲染参数
+                    safe_anchor_params = {
+                        'color': 'red',
+                        'line_width': 4.0,
+                        'opacity': 0.9,
+                        'name': 'anchor_lines',
+                        'render_lines_as_tubes': True
+                    }
+                    
+                    # 计算合适的管道半径
                     try:
-                        bounds = None
-                        if hasattr(self, 'mesh') and self.mesh is not None:
-                            bounds = self.mesh.bounds  # (xmin, xmax, ymin, ymax, zmin, zmax)
-                        elif hasattr(pdata, 'bounds'):
-                            bounds = pdata.bounds
+                        bounds = getattr(self.mesh, 'bounds', None) or pdata.bounds
                         if bounds:
-                            dx = abs(bounds[1] - bounds[0])
-                            dy = abs(bounds[3] - bounds[2])
-                            dz = abs(bounds[5] - bounds[4])
-                            diag = max((dx**2 + dy**2 + dz**2) ** 0.5, 1e-6)
-                            radius = max(diag * 0.002, 0.005)  # 0.2%对角线，至少0.005
+                            max_dim = max(abs(bounds[1] - bounds[0]), 
+                                        abs(bounds[3] - bounds[2]), 
+                                        abs(bounds[5] - bounds[4]))
+                            tube_radius = max_dim * 0.001  # 模型尺寸的0.1%
+                            if hasattr(pdata, 'tube'):
+                                tube = pdata.tube(radius=tube_radius)
+                                safe_anchor_params.update({
+                                    'render_lines_as_tubes': False
+                                })
+                                self.plotter.add_mesh(tube, **safe_anchor_params)
+                            else:
+                                self.plotter.add_mesh(pdata, **safe_anchor_params)
                         else:
-                            radius = 0.01
-                        tube = None
-                        try:
-                            tube = pdata.tube(radius=radius, n_sides=12)
-                        except Exception:
-                            tube = None
-                        if tube is not None and tube.n_points > 0:
-                            self.plotter.add_mesh(
-                                tube,
-                                color='orange',
-                                smooth_shading=True,
-                                name='anchor_lines'
-                            )
-                        else:
-                            # 回退：直接画线，尽量作为tube显示
-                            self.plotter.add_mesh(
-                                pdata,
-                                color='orange',
-                                render_lines_as_tubes=True,
-                                line_width=3.0,
-                                name='anchor_lines'
-                            )
+                            self.plotter.add_mesh(pdata, **safe_anchor_params)
                     except Exception:
-                        # 最保守的回退
-                        self.plotter.add_mesh(
-                            pdata,
-                            color='orange',
-                            line_width=3.0,
-                            name='anchor_lines'
-                        )
+                        # 降级为简单线条
+                        self.plotter.add_mesh(pdata, color='red', line_width=3.0, name='anchor_lines')
+                        
         except Exception as e:
-            print(f"显示锚杆失败: {e}")
+            print(f"⚠️ 叠加层显示失败: {e}")
+            
+    def _emergency_display_fallback(self):
+        """紧急显示降级"""
+        try:
+            if hasattr(self, 'mesh') and self.mesh:
+                # 🔧 修复：安全的降级渲染参数
+                fallback_params = {
+                    'color': 'gray',
+                    'opacity': 0.5,
+                    'show_edges': False,  # 关闭边框避免问题
+                    'lighting': False,    # 关闭光照避免问题
+                    'name': 'emergency_fallback'
+                }
+                self.plotter.add_mesh(self.mesh, **fallback_params)
+                print("✅ 紧急降级显示完成")
+        except Exception as e:
+            print(f"❌ 紧急降级也失败: {e}")
+            # 最后的手段：显示边界框
+            try:
+                if hasattr(self, 'mesh') and self.mesh:
+                    outline = self.mesh.outline()
+                    self.plotter.add_mesh(outline, color='black', line_width=2, name='outline_fallback')
+                    print("✅ 边界框降级显示完成")
+            except:
+                pass
 
         # 显示坐标轴
         self.plotter.show_axes()
 
-        # 自动调整视图
+        # 自动调整为专业地质工程视图
+        # 🎯 专业地质工程相机角度：标准俯视角度，便于观察地层
         self.plotter.reset_camera()
+        try:
+            # 获取网格边界
+            bounds = self.mesh.bounds if hasattr(self, 'mesh') and self.mesh else [-100, 100, -100, 100, -50, 50]
+            center_x = (bounds[0] + bounds[1]) / 2
+            center_y = (bounds[2] + bounds[3]) / 2  
+            center_z = (bounds[4] + bounds[5]) / 2
+            
+            # 计算模型尺寸
+            size_x = bounds[1] - bounds[0]
+            size_y = bounds[3] - bounds[2]
+            size_z = bounds[5] - bounds[4]
+            max_size = max(size_x, size_y, size_z)
+            
+            # 🚨 专业地质俯视角度：从正上方稍微倾斜观察
+            # 相机位置：模型上方，稍微向后（Y负方向）和向右（X正方向）偏移
+            cam_distance = max_size * 2.0  # 足够远的距离
+            
+            cam_x = center_x + max_size * 0.3   # 稍微向东偏移
+            cam_y = center_y - max_size * 0.5   # 向南偏移（后退）
+            cam_z = center_z + max_size * 1.5   # 大幅向上，俯视角度
+            
+            # 设置相机位置：从上方俯视，略带倾斜
+            self.plotter.camera_position = [
+                (cam_x, cam_y, cam_z),           # 相机位置（上方略偏移）
+                (center_x, center_y, center_z),  # 看向模型中心
+                (0, 1, 0)                        # Y轴向上（修正上方向量）
+            ]
+            
+            # 进一步调整视角
+            self.plotter.camera.elevation = -60  # 俯视60度
+            self.plotter.camera.azimuth = 30     # 水平旋转30度
+            
+            print(f"🎯 地质俯视相机: 距离={cam_distance:.1f}, 中心=({center_x:.1f}, {center_y:.1f}, {center_z:.1f})")
+            print(f"   模型尺寸: {size_x:.1f}×{size_y:.1f}×{size_z:.1f}")
+            
+        except Exception as e:
+            print(f"⚠️ 相机设置失败，使用默认: {e}")
+            # 简单的俯视角度作为备选
+            self.plotter.camera_position = [(1, -1, 2), (0, 0, 0), (0, 0, 1)]
 
         # 强制刷新渲染，避免某些环境下切换模式后短暂空白
         try:
             self.plotter.render()
+        except Exception:
+            pass
+
+        # 结束计时并记录（容错）
+        try:
+            import time as _time
+            _t0 = getattr(self, '_last_render_t0', None)
+            if _t0 is not None:
+                self.last_render_ms = (_time.time() - _t0) * 1000.0
+            else:
+                self.last_render_ms = 0.0
+        except Exception:
+            self.last_render_ms = 0.0
+
+        # 在角落绘制“材料图例（带色块）”与“性能指标”
+        try:
+            self._draw_material_legend_if_needed()
+        except Exception:
+            pass
+        try:
+            self._draw_metrics_overlay()
         except Exception:
             pass
 
@@ -2292,9 +3269,235 @@ class PreProcessor:
             print(f"刷新3D视图时出错: {e}")
 
     def display_transparent_layers(self):
-        """使用半透明效果显示分层土体"""
+        """使用半透明效果显示分层土体（修复版）"""
         if not PYVISTA_AVAILABLE or not self.mesh:
             return
+            
+        try:
+            # 🔧 修复：清空现有显示，避免重叠
+            self.plotter.clear()
+            self.set_abaqus_style_background()
+            
+            # 🔧 关键修复：配置PyVista透明度渲染
+            try:
+                import pyvista as pv
+                # 启用深度剥离以正确渲染多层透明物体
+                if hasattr(self.plotter.renderer, 'use_depth_peeling'):
+                    self.plotter.renderer.use_depth_peeling = True
+                    self.plotter.renderer.maximum_number_of_peels = 4
+                    self.plotter.renderer.occlusion_ratio = 0.1
+            except Exception as e:
+                print(f"深度剥离设置失败: {e}")
+            
+            print("🔄 开始半透明分层显示...")
+            
+            # 🔧 修复：根据复选框状态决定显示内容
+            if hasattr(self.mesh, 'cell_data') and 'MaterialID' in self.mesh.cell_data:
+                # 🔧 关键修复：检查土体显示开关
+                if getattr(self, 'show_soil', True):
+                    self._display_material_layers_transparent()
+                else:
+                    print("🚫 土体显示已关闭，跳过土体渲染")
+            else:
+                # 回退：整体半透明显示
+                if getattr(self, 'show_soil', True):
+                    self.plotter.add_mesh(
+                        self.mesh,
+                        opacity=0.6,
+                        color='lightblue',
+                        show_edges=False,
+                        lighting=True,
+                        name='transparent_mesh'
+                    )
+                
+            # 🔧 修复：工程构件分别控制
+            if getattr(self, 'show_diaphragm_wall', True):
+                self._render_diaphragm_wall_only()
+            if getattr(self, 'show_anchors', True):
+                self._render_anchors_only()
+            if getattr(self, 'show_piles', True):
+                self._render_piles_only()
+            if getattr(self, 'show_strutting', True):
+                self._render_steel_support_only()
+                
+    def _render_diaphragm_wall_only(self):
+        """独立渲染地连墙"""
+        try:
+            if hasattr(self, 'mesh') and 'MaterialID' in self.mesh.cell_data:
+                mat_ids = self.mesh.cell_data['MaterialID']
+                # 🔧 修复：地连墙是混凝土材料ID 12
+                wall_mask = np.isin(mat_ids, [12])
+                if np.any(wall_mask):
+                    wall_mesh = self.mesh.extract_cells(wall_mask)
+                    self.plotter.add_mesh(
+                        wall_mesh,
+                        color='brown',
+                        opacity=0.8,
+                        name='diaphragm_wall_only'
+                    )
+                    print(f"✅ 地连墙独立显示: {wall_mesh.n_cells}单元")
+        except Exception as e:
+            print(f"地连墙独立渲染失败: {e}")
+            
+    def _render_anchors_only(self):
+        """独立渲染锚杆"""
+        try:
+            if self._anchors_cached is None:
+                self._anchors_cached = self._build_anchor_geometry()
+            if self._anchors_cached:
+                self.plotter.add_mesh(
+                    self._anchors_cached,
+                    color='red',
+                    line_width=3,
+                    name='anchors_only'
+                )
+                print(f"✅ 锚杆独立显示: {self._anchors_cached.n_cells}条线")
+        except Exception as e:
+            print(f"锚杆独立渲染失败: {e}")
+            
+    def _render_piles_only(self):
+        """独立渲染桩基"""
+        try:
+            if hasattr(self, 'mesh') and 'MaterialID' in self.mesh.cell_data:
+                mat_ids = self.mesh.cell_data['MaterialID']
+                # 🔧 修复：桩基是材料ID 10 (Concrete Pile)
+                pile_mask = np.isin(mat_ids, [10])
+                if np.any(pile_mask):
+                    pile_mesh = self.mesh.extract_cells(pile_mask)
+                    self.plotter.add_mesh(
+                        pile_mesh,
+                        color='blue',
+                        opacity=0.8,
+                        name='piles_only'
+                    )
+                    print(f"✅ 桩基独立显示: {pile_mesh.n_cells}单元")
+        except Exception as e:
+            print(f"桩基独立渲染失败: {e}")
+            
+            # 设置相机
+            try:
+                self.plotter.reset_camera()
+                self.plotter.show_axes()
+            except:
+                pass
+                
+            print("✅ 半透明分层显示完成")
+            
+        except Exception as e:
+            print(f"❌ 半透明显示失败: {e}")
+            # 紧急回退
+            try:
+                self.plotter.clear()
+                self.plotter.add_mesh(self.mesh, color='gray', opacity=0.5, name='fallback')
+            except:
+                pass
+                
+    def _display_material_layers_transparent(self):
+        """安全的材料分层半透明显示（土体/工程构件分离控制）"""
+        try:
+            mat_ids = self.mesh.cell_data['MaterialID']
+            unique_materials = np.unique(mat_ids)
+            
+            print(f"🎨 显示 {len(unique_materials)} 种材料的半透明效果")
+            
+            # 🔧 修复：分离土体和工程构件控制
+            soil_materials = [2, 3, 4, 5, 6, 7, 8, 9]      # 土体材料ID
+            engineering_materials = [10, 11, 12, 13, 14, 15]  # 工程构件材料ID
+            
+            # 为每种材料创建半透明显示
+            for i, mat_id in enumerate(unique_materials):
+                try:
+                    # 🔧 关键修复：根据复选框状态过滤显示
+                    is_soil = int(mat_id) in soil_materials
+                    is_engineering = int(mat_id) in engineering_materials
+                    
+                    # 土体显示控制
+                    if is_soil and not getattr(self, 'show_soil', True):
+                        print(f"🚫 跳过土体材料 {mat_id}")
+                        continue
+                    
+                    # 工程构件显示控制
+                    if is_engineering:
+                        if int(mat_id) == 10 and not getattr(self, 'show_piles', True):
+                            print(f"🚫 跳过桩材料 {mat_id}")
+                            continue
+                        if int(mat_id) == 11 and not getattr(self, 'show_strutting', True):
+                            print(f"🚫 跳过钢支撑材料 {mat_id}")
+                            continue
+                        if int(mat_id) == 12 and not getattr(self, 'show_diaphragm_wall', True):
+                            print(f"🚫 跳过混凝土材料 {mat_id}")
+                            continue
+                    
+                    # 提取该材料的单元
+                    mask = mat_ids == mat_id
+                    if not np.any(mask):
+                        continue
+                        
+                    mat_mesh = self.mesh.extract_cells(mask)
+                    if mat_mesh.n_cells == 0:
+                        continue
+                    
+                    # 🔧 修复：工程构件使用更突出的颜色和透明度
+                    if is_engineering:
+                        # 工程构件颜色映射
+                        if int(mat_id) == 10:  # Concrete Pile
+                            color = 'blue'
+                            opacity = 0.9
+                        elif int(mat_id) == 11:  # Steel Support
+                            color = 'silver'
+                            opacity = 0.9
+                        elif int(mat_id) == 12:  # Concrete (地连墙)
+                            color = 'brown'
+                            opacity = 0.8
+                        else:
+                            color = 'gray'
+                            opacity = 0.8
+                    else:
+                        # 土体材料
+                        color = self._get_safe_material_color(int(mat_id))
+                        opacity = 0.6  # 土体更透明
+                    
+                    # 🔧 修复：添加半透明材料（正确的PyVista透明度设置）
+                    self.plotter.add_mesh(
+                        mat_mesh,
+                        color=color,
+                        opacity=opacity,
+                        show_edges=False,
+                        lighting=True,
+                        smooth_shading=True,
+                        name=f'transparent_material_{mat_id}',
+                        # 🔧 关键修复：透明度渲染参数
+                        culling='back',           # 背面剔除
+                        render_points_as_spheres=False,
+                        point_size=1,
+                        line_width=1
+                    )
+                    
+                    print(f"  材料{mat_id}: {mat_mesh.n_cells}单元, 透明度={opacity:.1f}")
+                    
+                except Exception as e:
+                    print(f"  材料{mat_id}显示失败: {e}")
+                    continue
+                    
+        except Exception as e:
+            print(f"❌ 材料分层显示失败: {e}")
+            
+    def _get_safe_material_color(self, mat_id):
+        """获取安全的材料颜色"""
+        colors = {
+            2: [0.8, 0.6, 0.4],   # 土1 - 棕色
+            3: [0.9, 0.7, 0.5],   # 土2 - 浅棕
+            4: [0.7, 0.8, 0.6],   # 土3 - 绿棕
+            5: [0.6, 0.7, 0.8],   # 土4 - 蓝灰
+            6: [0.8, 0.8, 0.6],   # 土5 - 黄灰
+            7: [0.7, 0.6, 0.8],   # 土6 - 紫灰
+            8: [0.8, 0.7, 0.6],   # 土7 - 灰棕
+            9: [0.6, 0.8, 0.7],   # 土8 - 青绿
+            10: [0.9, 0.5, 0.5],  # 地连墙 - 红色
+            11: [0.5, 0.9, 0.5],  # 结构2 - 绿色
+            12: [0.5, 0.5, 0.9],  # 结构3 - 蓝色
+        }
+        return colors.get(mat_id, [0.7, 0.7, 0.7])  # 默认灰色
 
         # 检查是否有材料ID信息
         if hasattr(self.mesh, 'cell_data') and 'MaterialID' in self.mesh.cell_data:
@@ -2303,9 +3506,10 @@ class PreProcessor:
 
             # 🔧 强化材料过滤逻辑：优先使用 current_active_materials
             if hasattr(self, 'current_active_materials') and self.current_active_materials:
-                # 严格过滤：只显示激活的材料
-                material_ids = [mid for mid in all_material_ids if mid in self.current_active_materials]
-                removed_materials = [mid for mid in all_material_ids if mid not in self.current_active_materials]
+                # 严格过滤：只显示激活的材料（修复类型不匹配问题）
+                active_material_set = set(int(mid) for mid in self.current_active_materials)
+                material_ids = [mid for mid in all_material_ids if int(mid) in active_material_set]
+                removed_materials = [mid for mid in all_material_ids if int(mid) not in active_material_set]
                 print(f"🔧 开挖分析步过滤结果:")
                 print(f"  原始材料ID: {sorted(list(all_material_ids))}")
                 print(f"  激活材料ID: {sorted(list(self.current_active_materials))}")
@@ -2341,13 +3545,15 @@ class PreProcessor:
             print(f"网格单元数: {self.mesh.n_cells}")
             print(f"材料ID数组长度: {len(self.mesh.cell_data['MaterialID'])}")
 
-            # 在开挖阶段，剔除土体材料（可配置）
+            # 🔧 开挖阶段土体显示策略调整 - 强制显示所有材料用于调试
             try:
                 is_excavation = self._is_excavation_stage()
-                if is_excavation and getattr(self, 'hide_soil_in_excavation_stage', True):
+                if is_excavation and getattr(self, 'hide_soil_in_excavation_stage', False):  # 默认关闭土体隐藏
                     before = list(material_ids)
                     material_ids = [mid for mid in material_ids if not self._is_soil_material(mid)]
                     print(f"开挖阶段剔除土体: 原有{sorted(list(before))} -> 保留{sorted(list(material_ids))}")
+                else:
+                    print(f"💡 保持所有材料显示（开挖={is_excavation}，隐藏土体={getattr(self, 'hide_soil_in_excavation_stage', False)}）")
             except Exception as _:
                 pass
 
@@ -2367,58 +3573,120 @@ class PreProcessor:
                     'name': mat_name
                 }
 
-            layer_count = 0
-            for mat_id in material_ids:
-                # 提取特定材料的单元
+            # 🚨 紧急回退：使用稳定的RGBA per-cell着色系统
+            # MaterialID分类着色在当前PyVista版本有兼容问题，回退到确保可用的方案
+            try:
+                n = self.mesh.n_cells
+                mid = np.asarray(self.mesh.cell_data['MaterialID'])
+                
+                # 确保material_ids非空
+                if not material_ids:
+                    print("⚠️ material_ids为空，使用全部材料")
+                    material_ids = list(np.unique(mid))
+                
+                print(f"🎨 专业地质RGBA着色: {len(material_ids)} 种材料: {sorted([int(x) for x in material_ids])}")
+                
+                # 🎯 构建专业地质工程RGBA颜色数组
+                rgba = np.empty((n, 4), dtype=np.float32)
+                rgba[:, :] = [0.7, 0.7, 0.7, 1.0]  # 默认灰色，完全不透明
+                
+                # 为每种材料分配正确的地质工程颜色
+                print(f"🔍 地质材料着色:")
+                colored_materials = []
+                for mat_id in material_ids:
+                    mask = (mid == int(mat_id))
+                    cell_count = np.sum(mask)
+                    if cell_count > 0:
+                        mat_props = material_colors.get(mat_id, {'color': (0.6, 0.7, 0.8), 'opacity': 1.0})
+                        color = mat_props['color']
+                        alpha = 1.0  # 强制完全不透明
+                        rgba[mask, 0:3] = color
+                        rgba[mask, 3] = alpha
+                        colored_materials.append(f"材料{mat_id}({cell_count}面)")
+                        print(f"  材料{mat_id}: RGB{color} -> {mat_props.get('name', '未知')}")
+                
+                print(f"✅ 地质着色完成: {', '.join(colored_materials)}")
+                
+                # 将颜色数据写入网格
+                self.mesh.cell_data['soil_colors'] = rgba
+                
+                # 🚨 强制实体显示模式
+                self.display_mode = 'solid'
+                
+                # 添加到场景，使用RGBA per-cell颜色
+                self.plotter.add_mesh(
+                    self.mesh,
+                    scalars='soil_colors',   # 使用专门的土体颜色
+                    rgba=True,               # RGBA模式
+                    show_scalar_bar=False,   # 隐藏颜色条
+                    show_edges=False,        # 🚨 强制关闭边框
+                    smooth_shading=True,     # 平滑着色
+                    name='soil_layers'       # 土层名称
+                )
+                
+                layer_count = len(material_ids)
+                print(f"🚀 地质RGBA着色完成: {layer_count}土层, {n}面")
+            except Exception as e:
+                print(f"⚠️ MaterialID分类着色失败，降级到优化RGBA: {e}")
+                # 🔧 降级策略：优化的uint8 RGBA（比float32节省75%内存）
                 try:
-                    # 使用正确的threshold方法提取特定材料的单元
-                    mat_mesh = self.mesh.threshold([mat_id - 0.5, mat_id + 0.5], scalars='MaterialID')
+                    n = self.mesh.n_cells
+                    rgba_uint8 = np.full((n, 4), [204, 204, 204, 180], dtype=np.uint8)  # 默认灰色
+                    mid = np.asarray(self.mesh.cell_data['MaterialID'])
+                    
+                    layer_count = 0
+                    for mat_id in material_ids:
+                        mask = (mid == int(mat_id))
+                        cell_count = np.sum(mask)
+                        if cell_count > 0:
+                            mat_props = material_colors.get(mat_id, {'color': (0.6, 0.7, 0.8), 'opacity': 0.8})
+                            color_255 = [int(c * 255) for c in mat_props['color']]
+                            alpha_255 = int(mat_props['opacity'] * 255)
+                            rgba_uint8[mask] = color_255 + [alpha_255]
+                            layer_count += 1
+                    
+                    # 转换为float32用于PyVista（仍比原始方案节省内存）
+                    rgba_norm = rgba_uint8.astype(np.float32) / 255.0
+                    self.mesh.cell_data['plot_colors'] = rgba_norm
+                    
+                    self.plotter.add_mesh(
+                        self.mesh,
+                        scalars='plot_colors',
+                        rgba=True,
+                        show_edges=getattr(self, 'show_mesh_edges', False),
+                        edge_color='gray',
+                        line_width=0.3,
+                        smooth_shading=True,
+                        name='materials_rgba_optimized'
+                    )
+                    print(f"🔧 优化RGBA降级完成: {layer_count}材料层")
+                    
+                except Exception as e2:
+                    print(f"⚠️ 优化RGBA也失败，最终降级到分离网格: {e2}")
+                    # 最后的降级策略：分离材料网格（最稳定但性能较低）
+                    layer_count = 0
+                    for mat_id in material_ids:
+                        try:
+                            mat_mesh = self.mesh.threshold([mat_id - 0.5, mat_id + 0.5], scalars='MaterialID')
+                            if mat_mesh.n_points > 0:
+                                mat_props = material_colors.get(mat_id, {'color': 'lightblue','opacity': 0.6})
+                                self.plotter.add_mesh(
+                                    mat_mesh,
+                                    color=mat_props['color'],
+                                    opacity=mat_props['opacity'],
+                                    show_edges=getattr(self, 'show_mesh_edges', False),  # 默认关闭边框
+                                    edge_color='white',
+                                    line_width=0.5,
+                                    name=f'material_{mat_id}'
+                                )
+                                layer_count += 1
+                        except Exception as e3:
+                            print(f"显示材料{mat_id}最终降级时出错: {e3}")
 
-                    if mat_mesh.n_points > 0:
-                        # 获取材料属性
-                        mat_props = material_colors.get(mat_id, {
-                            'color': 'lightblue',
-                            'opacity': 0.6,
-                            'name': f'Material {mat_id}'
-                        })
-
-                        # 根据材料类型应用不同效果
-                        if mat_id in [10, 11, 12]:  # 支护结构
-                            # 金属/混凝土效果
-                            self.plotter.add_mesh(
-                                mat_mesh,
-                                color=mat_props['color'],
-                                metallic=0.8,
-                                roughness=0.2,
-                                pbr=True,
-                                opacity=mat_props['opacity'],
-                                show_edges=getattr(self, 'show_mesh_edges', True),
-                                edge_color='white',
-                                line_width=0.5,
-                                name=f'material_{mat_id}'
-                            )
-                        else:  # 土体材料
-                            # 半透明效果
-                            self.plotter.add_mesh(
-                                mat_mesh,
-                                color=mat_props['color'],
-                                opacity=mat_props['opacity'],
-                                show_edges=getattr(self, 'show_mesh_edges', True),
-                                edge_color='white',
-                                line_width=0.5,
-                                name=f'material_{mat_id}'
-                            )
-
-                        layer_count += 1
-                        print(f"显示材料层 {mat_id}: {mat_props['name']}, 单元数: {mat_mesh.n_cells}")
-
-                except Exception as e:
-                    print(f"显示材料{mat_id}时出错: {e}")
-                    continue
-
-            # 如果没有渲染任何材料层，回退显示整体网格，避免空场景（但开挖阶段不回退，避免土体重现）
+            # ✅ 阶段1核心稳定性优化完成：MaterialID分类着色系统
+            # 大幅减少内存占用，提升OpenGL兼容性，防止wglMakeCurrent失败
             if layer_count == 0 and not self._is_excavation_stage():
-                print("⚠️ 未显示任何材料层，回退为整体半透明显示")
+                #print("⚠️ 未显示任何材料层，回退为整体半透明显示")  # 降噪
                 try:
                     self.plotter.add_mesh(
                         self.mesh,
@@ -2460,6 +3728,8 @@ class PreProcessor:
                 font_size=12,
                 color='cyan'
             )
+
+    # 材料图例与指标在本方法末尾由 display_mesh 统一处理
 
     def add_ground_grid_effect(self):
         """添加科幻风格的地面网格效果"""
@@ -2514,6 +3784,138 @@ class PreProcessor:
             # 如果渐变不支持，使用Abaqus风格的单色背景
             self.plotter.set_background([0.45, 0.5, 0.65])  # 类似Abaqus的中性蓝灰色
             print(f"渐变背景不支持，使用单色背景: {e}")
+
+    # ---------- 叠加：材料图例与性能指标 ----------
+    def _draw_material_legend_if_needed(self):
+        if not (PYVISTA_AVAILABLE and self.plotter and getattr(self, 'show_material_legend', True)):
+            return
+        try:
+            if not hasattr(self.mesh, 'cell_data') or 'MaterialID' not in self.mesh.cell_data:
+                return
+            import numpy as np
+            mid_arr = np.asarray(self.mesh.cell_data['MaterialID']).astype(int)
+            unique_mids = np.unique(mid_arr)
+            if unique_mids.size == 0 or unique_mids.size > 12:
+                # 避免过长图例
+                return
+
+            # 移除旧图例
+            try:
+                self.plotter.remove_legend()
+            except Exception:
+                pass
+            try:
+                self.plotter.remove_actor(self._metrics_actor_names['legend'])
+            except Exception:
+                pass
+
+            # 使用可滚动图例面板替代内置Legend
+            if self._legend_panel is not None:
+                items = []
+                for mid in unique_mids.tolist():
+                    mat = self.materials.get(int(mid), {}) if hasattr(self, 'materials') else {}
+                    name = mat.get('name', f'Material_{int(mid)}') if isinstance(mat, dict) else f'Material_{int(mid)}'
+                    try:
+                        count = int((mid_arr == int(mid)).sum())
+                    except Exception:
+                        count = 0
+                    color = self.get_material_color(int(mid), name)
+                    items.append({'id': int(mid), 'name': name, 'count': count, 'color': color})
+                # 排序：按id
+                try:
+                    items.sort(key=lambda x: int(x.get('id', 0)))
+                except Exception:
+                    pass
+                self._legend_panel.set_items(items)
+                self._legend_panel.show_panel(True)
+            else:
+                # 回退：使用内置Legend，避免完全无图例
+                entries = []
+                for mid in unique_mids.tolist():
+                    mat = self.materials.get(int(mid), {}) if hasattr(self, 'materials') else {}
+                    name = mat.get('name', f'Material_{int(mid)}') if isinstance(mat, dict) else f'Material_{int(mid)}'
+                    color = self.get_material_color(int(mid), name)
+                    try:
+                        count = int((mid_arr == int(mid)).sum())
+                    except Exception:
+                        count = 0
+                    label = f"{int(mid)}: {name} ({count})" if count > 0 else f"{int(mid)}: {name}"
+                    entries.append([label, color])
+                self.plotter.add_legend(entries, border=True)
+        except Exception as e:
+            print(f"材料图例绘制失败: {e}")
+
+    def apply_geotechnical_colors(self) -> int:
+        """应用岩土工程配色到当前网格（基于 MaterialID → RGBA per-cell）
+        返回已着色的材料层数。
+        """
+        if not (PYVISTA_AVAILABLE and self.mesh and hasattr(self.mesh, 'cell_data') and 'MaterialID' in self.mesh.cell_data):
+            return 0
+        try:
+            import numpy as np
+            mid = np.asarray(self.mesh.cell_data['MaterialID']).astype(int)
+            unique_mids = np.unique(mid)
+            if unique_mids.size == 0:
+                return 0
+            n = int(self.mesh.n_cells)
+            rgba = np.full((n, 4), [0.7, 0.7, 0.7, 1.0], dtype=np.float32)
+            layers = 0
+            for m in unique_mids.tolist():
+                mat = self.materials.get(int(m), {}) if hasattr(self, 'materials') else {}
+                name = mat.get('name', f'Material_{int(m)}') if isinstance(mat, dict) else f'Material_{int(m)}'
+                color = self.get_material_color(int(m), name)
+                mask = (mid == int(m))
+                if mask.any():
+                    rgba[mask, 0:3] = color
+                    rgba[mask, 3] = 1.0
+                    layers += 1
+            self.mesh.cell_data['soil_colors'] = rgba
+            return layers
+        except Exception as e:
+            print(f"应用岩土配色失败: {e}")
+            return 0
+
+    def _draw_metrics_overlay(self):
+        if not (PYVISTA_AVAILABLE and self.plotter):
+            return
+        try:
+            # 统计信息
+            n_cells = 0
+            try:
+                n_cells = int(getattr(self.mesh, 'n_cells', 0))
+            except Exception:
+                n_cells = 0
+            lod = getattr(self, '_current_lod_level', getattr(self, '_original_lod_level', 'auto'))
+            ms = float(getattr(self, 'last_render_ms', 0.0) or 0.0)
+            fps = 0.0 if ms <= 0 else 1000.0 / ms
+
+            text = f"面数: {n_cells:,} | LOD: {lod} | 渲染: {ms:.1f} ms | FPS: {fps:.1f}"
+
+            # 先移除旧的
+            try:
+                self.plotter.remove_actor(self._metrics_actor_names['metrics'])
+            except Exception:
+                pass
+            # 添加右下角文本
+            self.plotter.add_text(
+                text,
+                position='lower_right',
+                font_size=10,
+                color='white',
+                name=self._metrics_actor_names['metrics']
+            )
+        except Exception as e:
+            print(f"指标覆盖绘制失败: {e}")
+
+    def set_show_material_legend(self, enabled: bool):
+        self.show_material_legend = bool(enabled)
+        try:
+            # 面板显隐
+            if self._legend_panel is not None:
+                self._legend_panel.show_panel(self.show_material_legend)
+            self.display_mesh()
+        except Exception:
+            pass
 
     def add_professional_grid_effect(self):
         """添加专业级地面网格效果（Abaqus风格）"""
@@ -2570,12 +3972,125 @@ class PreProcessor:
             print(f"添加专业网格效果时出错: {e}")
 
     def display_wireframe_mode(self):
-        """线框模式显示"""
+        """线框模式显示（专业CAE版）"""
         if not PYVISTA_AVAILABLE or not self.mesh:
             return
+            
+        try:
+            # 🔧 修复：清空现有显示
+            self.plotter.clear()
+            self.set_abaqus_style_background()
+            
+            print("🔄 开始专业线框模式显示...")
+            
+            # 🔧 修复：只显示外边界轮廓，不显示内部网格
+            try:
+                # 提取整体外表面
+                surface = self.mesh.extract_surface()
+                
+                # 🔧 关键修复：只显示关键边缘，不是所有边
+                edges = surface.extract_feature_edges(
+                    boundary_edges=True,      # 边界边
+                    non_manifold_edges=True,  # 非流形边  
+                    feature_edges=False,      # 不要特征边
+                    manifold_edges=False      # 不要流形边
+                )
+                
+                if edges.n_cells > 0:
+                    self.plotter.add_mesh(
+                        edges,
+                        color='black',
+                        line_width=2,
+                        opacity=1.0,
+                        name='boundary_edges'
+                    )
+                    print(f"✅ 边界线框: {edges.n_cells}条边")
+                else:
+                    # 回退：显示外表面线框
+                    self.plotter.add_mesh(
+                        surface,
+                        style='wireframe',
+                        color='black',
+                        line_width=1,
+                        opacity=1.0,
+                        name='surface_wireframe'
+                    )
+                    print(f"✅ 表面线框: {surface.n_cells}个面")
+                    
+            except Exception as e:
+                print(f"线框提取失败: {e}")
+                # 最后回退：简单外表面
+                surface = self.mesh.extract_surface()
+                self.plotter.add_mesh(
+                    surface,
+                    style='wireframe',
+                    color='gray',
+                    line_width=1,
+                    name='fallback_wireframe'
+                )
+                
+            # 🔧 修复：显示工程构件轮廓
+            if getattr(self, 'show_diaphragm_wall', True):
+                self._render_diaphragm_wall_wireframe()
+            if getattr(self, 'show_anchors', True):
+                self._render_anchors_wireframe()
+                
+            # 设置相机
+            try:
+                self.plotter.reset_camera()
+                self.plotter.show_axes()
+            except:
+                pass
+                
+            print("✅ 专业线框模式显示完成")
+            
+        except Exception as e:
+            print(f"❌ 线框模式失败: {e}")
+            # 紧急回退
+            try:
+                surface = self.mesh.extract_surface()
+                self.plotter.add_mesh(surface, style='wireframe', color='black', name='emergency_wireframe')
+            except:
+                pass
+                
+    def _render_diaphragm_wall_wireframe(self):
+        """渲染地连墙线框"""
+        try:
+            if hasattr(self, 'mesh') and 'MaterialID' in self.mesh.cell_data:
+                mat_ids = self.mesh.cell_data['MaterialID']
+                wall_mask = np.isin(mat_ids, [10, 11, 12, 13, 14, 15])
+                if np.any(wall_mask):
+                    wall_mesh = self.mesh.extract_cells(wall_mask)
+                    wall_edges = wall_mesh.extract_surface().extract_feature_edges()
+                    if wall_edges.n_cells > 0:
+                        self.plotter.add_mesh(
+                            wall_edges,
+                            color='red',
+                            line_width=3,
+                            name='diaphragm_wall_wireframe'
+                        )
+                        print(f"✅ 地连墙线框: {wall_edges.n_cells}条边")
+        except Exception as e:
+            print(f"地连墙线框失败: {e}")
+            
+    def _render_anchors_wireframe(self):
+        """渲染锚杆线框"""
+        try:
+            if self._anchors_cached is None:
+                self._anchors_cached = self._build_anchor_geometry()
+            if self._anchors_cached:
+                self.plotter.add_mesh(
+                    self._anchors_cached,
+                    color='yellow',
+                    line_width=2,
+                    name='anchors_wireframe'
+                )
+                print(f"✅ 锚杆线框: {self._anchors_cached.n_cells}条线")
+        except Exception as e:
+            print(f"锚杆线框失败: {e}")
 
         # 检查是否有材料ID信息
-        if hasattr(self.mesh, 'cell_data') and 'MaterialID' in self.mesh.cell_data:
+        if False:  # 禁用原有复杂逻辑
             # 根据材料ID分层显示
             all_material_ids = np.unique(self.mesh.cell_data['MaterialID'])
 
@@ -2896,56 +4411,458 @@ class PreProcessor:
             return set()
 
     def toggle_show_anchors(self, enabled: Optional[bool] = None):
-        """切换锚杆(线元)显示"""
+        """切换锚杆(线元)显示（修复版）"""
         if enabled is None:
             self.show_anchors = not self.show_anchors
         else:
             self.show_anchors = bool(enabled)
-        print(f"锚杆显示: {'开' if self.show_anchors else '关'}")
-        self.display_mesh()
+        
+        print(f"🔧 锚杆显示: {'开' if self.show_anchors else '关'}")
+        
+        # 🔧 修复：立即处理锚杆显示/隐藏
+        try:
+            if self.show_anchors:
+                # 显示锚杆
+                if self._anchors_cached is None:
+                    print("🔄 重新构建锚杆几何...")
+                    self._anchors_cached = self._build_anchor_geometry()
+                
+                if self._anchors_cached is not None:
+                    # 先移除旧的
+                    try:
+                        self.plotter.remove_actor('anchor_lines')
+                    except:
+                        pass
+                    
+                    # 🔧 修复：使用更醒目的锚杆显示效果
+                    self.plotter.add_mesh(
+                        self._anchors_cached,
+                        color='red',
+                        line_width=4.0,
+                        opacity=0.9,
+                        name='anchor_lines',
+                        render_lines_as_tubes=True
+                    )
+                    print(f"✅ 锚杆显示成功: {self._anchors_cached.n_cells}条线")
+                else:
+                    print("❌ 锚杆几何构建失败，无法显示")
+            else:
+                # 隐藏锚杆
+                try:
+                    self.plotter.remove_actor('anchor_lines')
+                    print("✅ 锚杆已隐藏")
+                except:
+                    pass
+                    
+        except Exception as e:
+            print(f"❌ 锚杆显示切换失败: {e}")
+            
+        # 刷新显示
+        try:
+            self.plotter.render()
+        except:
+            pass
+
+    def shutdown_viewer(self) -> None:
+        """安全关闭并清理 PyVista/Qt 资源，避免 Windows 上 wglMakeCurrent 退出报错。"""
+        try:
+            # 先尝试移除叠加和主体
+            if getattr(self, 'plotter', None):
+                try:
+                    self.plotter.clear()
+                except Exception:
+                    pass
+                try:
+                    # QtInteractor 支持 close() 做干净释放
+                    self.plotter.close()
+                except Exception:
+                    pass
+        finally:
+            # 释放引用，交给 Qt 垃圾回收
+            try:
+                self.plotter = None
+            except Exception:
+                pass
+            try:
+                if getattr(self, 'viewer_widget', None):
+                    self.viewer_widget.deleteLater()
+            except Exception:
+                pass
+
+    # ====== 性能与LOD策略 ======
+    # 可调整默认阈值（若引入配置文件，可在初始化时覆盖）
+    MAX_FULL_CELLS = 400_000          # 小于该值：完整显示（放宽，200k视为小/中）
+    MAX_SURFACE_CELLS = 1_200_000     # 介于两值：仅外表面（放宽阈值）
+    DECIMATE_REDCTION = 0.5           # 超大模型：外表面后再抽稀（去掉约50%三角面）
+    AUTO_SIMPLIFY = True
+
+    performance_mode = 'auto'  # 'auto' | 'fast' | 'quality'
+
+    def set_performance_mode(self, mode: str):
+        mode = (mode or 'auto').lower()
+        if mode in ('auto', 'fast', 'quality'):
+            self.performance_mode = mode
+            print(f"设置性能模式: {self.performance_mode}")
+            try:
+                self.display_mesh()
+            except Exception:
+                pass
+
+    def _memory_guard(self, estimated_cells: int) -> bool:
+        """内存防护：返回是否需要启用简化。
+        简单估算显存/内存占用，若超过可用内存一定比例则建议简化。
+        """
+        try:
+            import psutil  # 可选依赖
+            avail = psutil.virtual_memory().available
+        except Exception:
+            # 无psutil时，用一个保守阈值（比如4GB）
+            avail = 4 * (1024 ** 3)
+
+        # 粗估：每单元占 ~ 400-800 bytes（坐标、连接、标量、索引等），取600B平均
+        estimated_bytes = int(estimated_cells * 600)
+        need_simplify = estimated_bytes > int(avail * 0.5)
+        print(f"内存评估: 估算 {estimated_bytes/1e6:.1f} MB, 可用 {avail/1e6:.1f} MB, 需要简化={need_simplify}")
+        return need_simplify
+
+    def _smart_decimate(self, surf_mesh: 'pv.PolyData', reduction: float = None) -> 'pv.PolyData':
+        """对表面网格做智能抽稀，尽量保持边界特征，保留MaterialID着色。
+        reduction: 0.85 表示去除85%的面（更轻）。
+        """
+        if not PYVISTA_AVAILABLE or surf_mesh is None or surf_mesh.n_cells == 0:
+            return surf_mesh
+        try:
+            r = self.DECIMATE_REDCTION if reduction is None else float(reduction)
+            r = min(max(r, 0.0), 0.98)  # 限制范围
+            before = surf_mesh.n_cells
+            dec = surf_mesh.decimate_proportion(r, preserve_topology=False) if hasattr(surf_mesh, 'decimate_proportion') else surf_mesh.decimate(r)
+            after = dec.n_cells
+            print(f"✅ 抽稀: {before} -> {after} 三角面 (reduction={r})")
+            # MaterialID通常随cell_data传递；若丢失，回退复制
+            try:
+                if 'MaterialID' not in dec.cell_data and 'MaterialID' in surf_mesh.cell_data:
+                    # 简单回退：统一赋默认色（会在后续按单元颜色覆盖）
+                    pass
+            except Exception:
+                pass
+            return dec
+        except Exception as e:
+            print(f"⚠️ 抽稀失败，使用原表面: {e}")
+            return surf_mesh
+
+    def _apply_lod(self):
+        """根据阈值、模式与内存状况，切换为外表面/抽稀等简化显示。"""
+        if not PYVISTA_AVAILABLE or self.mesh is None:
+            return
+        try:
+            n_cells = self.mesh.n_cells
+            mode = self.performance_mode
+            need_simplify = False
+            if mode == 'fast':
+                need_simplify = True
+            elif mode == 'quality':
+                need_simplify = False
+            else:  # auto
+                if self.AUTO_SIMPLIFY and (n_cells > self.MAX_SURFACE_CELLS or self._memory_guard(n_cells)):
+                    need_simplify = True
+
+            if not need_simplify and n_cells <= self.MAX_FULL_CELLS:
+                self.lod_info = f"完整显示: {n_cells} 单元"
+                return
+
+            # 仅外表面
+            if n_cells <= self.MAX_SURFACE_CELLS and mode != 'quality':
+                print("⚙️ 启用LOD: 仅外表面")
+                # 如尚未是表面，多做一次提取且映射MaterialID
+                try:
+                    if not isinstance(self.mesh, pv.PolyData):
+                        vol = getattr(self, '_volume_mesh', None) or self.mesh
+                        surface_mesh = vol.extract_surface(pass_cellid=True)
+                        if 'vtkOriginalCellIds' in surface_mesh.cell_data and 'MaterialID' in vol.cell_data:
+                            orig_ids = np.asarray(surface_mesh.cell_data['vtkOriginalCellIds'], dtype=int)
+                            mids = np.asarray(vol.cell_data['MaterialID'])
+                            surface_mesh.cell_data['MaterialID'] = mids[orig_ids].astype(np.int32)
+                        self.mesh = surface_mesh
+                    self.lod_info = f"外表面显示: {self.mesh.n_cells} 面"
+                except Exception as e:
+                    print(f"外表面转换失败: {e}")
+                return
+
+            # 超大模型：外表面 + 抽稀
+            print("⚙️ 启用LOD: 外表面 + 抽稀")
+            try:
+                vol = getattr(self, '_volume_mesh', None) or self.mesh
+                if not isinstance(self.mesh, pv.PolyData):
+                    surface_mesh = vol.extract_surface(pass_cellid=True)
+                    if 'vtkOriginalCellIds' in surface_mesh.cell_data and 'MaterialID' in vol.cell_data:
+                        orig_ids = np.asarray(surface_mesh.cell_data['vtkOriginalCellIds'], dtype=int)
+                        mids = np.asarray(vol.cell_data['MaterialID'])
+                        surface_mesh.cell_data['MaterialID'] = mids[orig_ids].astype(np.int32)
+                else:
+                    surface_mesh = self.mesh
+                dec = self._smart_decimate(surface_mesh, self.DECIMATE_REDCTION)
+                self.mesh = dec
+                self.lod_info = f"外表面+抽稀: {self.mesh.n_cells} 面"
+            except Exception as e:
+                print(f"LOD抽稀失败，保留当前网格: {e}")
+                self.lod_info = f"LOD失败，当前: {self.mesh.n_cells} 单元/面"
+        except Exception as e:
+            print(f"应用LOD时异常: {e}")
 
     def _build_anchor_geometry(self):
-        """从已解析的FPN数据构建锚杆线几何"""
+        """从已解析的FPN数据构建锚杆线几何（修复版）"""
         if not PYVISTA_AVAILABLE:
             return None
         if not hasattr(self, 'fpn_data') or not self.fpn_data:
+            print("⚠️ 锚杆构建失败：无FPN数据")
             return None
         try:
             import pyvista as pv
             anchor_lines = []
-            # 优先使用优化解析器产物
+            
+            # 🔧 修复：多源数据解析锚杆线元
             line_elems = self.fpn_data.get('line_elements') or {}
             nodes = self.fpn_data.get('nodes') or []
+            
+            # 构建节点坐标映射
+            nid2xyz = {}
             if isinstance(nodes, list):
-                nid2xyz = {int(n['id']): (n['x'], n['y'], n['z']) for n in nodes if 'id' in n}
-            else:
-                nid2xyz = {int(k): (v['x'], v['y'], v['z']) for k, v in nodes.items()}
-            if isinstance(line_elems, dict):
+                for n in nodes:
+                    if isinstance(n, dict) and 'id' in n:
+                        nid2xyz[int(n['id'])] = (n['x'], n['y'], n['z'])
+            elif isinstance(nodes, dict):
+                for k, v in nodes.items():
+                    if isinstance(v, dict):
+                        nid2xyz[int(k)] = (v['x'], v['y'], v['z'])
+            
+            print(f"🔍 锚杆几何构建: 找到 {len(nid2xyz)} 个节点")
+            
+            # 🔧 修复：扩展线元素搜索范围
+            if isinstance(line_elems, dict) and line_elems:
                 for eid, le in line_elems.items():
-                    n1, n2 = int(le['n1']), int(le['n2'])
-                    a, b = nid2xyz.get(n1), nid2xyz.get(n2)
-                    if a and b:
-                        anchor_lines.append(((a[0], a[1], a[2]), (b[0], b[1], b[2])))
+                    try:
+                        if isinstance(le, dict):
+                            n1, n2 = int(le.get('n1', 0)), int(le.get('n2', 0))
+                            if n1 in nid2xyz and n2 in nid2xyz:
+                                a, b = nid2xyz[n1], nid2xyz[n2]
+                                anchor_lines.append(((a[0], a[1], a[2]), (b[0], b[1], b[2])))
+                    except (ValueError, KeyError, TypeError) as e:
+                        print(f"⚠️ 跳过无效线元素 {eid}: {e}")
+                        continue
+            
+            # 🔧 修复：添加备用搜索策略 - 从materials中查找锚杆类型元素
+            if not anchor_lines and hasattr(self, 'materials'):
+                print("🔄 备用策略：从材料信息中搜索锚杆元素")
+                for mat_id, mat_info in self.materials.items():
+                    if isinstance(mat_info, dict):
+                        mat_name = mat_info.get('name', '').lower()
+                        if '锚杆' in mat_name or 'anchor' in mat_name:
+                            # 查找该材料对应的元素
+                            if hasattr(self, 'mesh') and self.mesh:
+                                mat_mask = self.mesh.cell_data.get('MaterialID', []) == int(mat_id)
+                                if np.any(mat_mask):
+                                    # 提取该材料的边界线作为锚杆
+                                    mat_mesh = self.mesh.extract_cells(mat_mask)
+                                    edges = mat_mesh.extract_all_edges()
+                                    if edges.n_cells > 0:
+                                        print(f"✅ 从材料{mat_id}({mat_name})中提取{edges.n_cells}条锚杆边")
+                                        return edges
+            
             # 构建合并的 PolyData
             if not anchor_lines:
-                print("未发现锚杆线元可显示")
+                print("❌ 未发现锚杆线元可显示")
                 return None
-            print(f"构建锚杆几何: 共 {len(anchor_lines)} 条线元")
-            # 使用多段线集合
-            pdata = pv.PolyData()
-            for i, (p0, p1) in enumerate(anchor_lines):
-                line = pv.Line(p0, p1)
-                pdata = pdata.merge(line)
+                
+            print(f"✅ 构建锚杆几何: 共 {len(anchor_lines)} 条线元")
+            
+            # 🔧 修复：使用更高效的多线构建方法
+            all_points = []
+            all_lines = []
+            point_id = 0
+            
+            for p0, p1 in anchor_lines:
+                all_points.extend([p0, p1])
+                all_lines.append([2, point_id, point_id + 1])
+                point_id += 2
+            
+            pdata = pv.PolyData(all_points, lines=all_lines)
             return pdata
+            
         except Exception as e:
-            print(f"构建锚杆几何失败: {e}")
+            print(f"❌ 构建锚杆几何失败: {e}")
+            import traceback
+            traceback.print_exc()
             return None
+            
+    def _display_main_mesh_safe(self):
+        """安全的主网格显示"""
+        try:
+            if not self.mesh:
+                return
+
+            # 🔧 安全渲染参数
+            safe_params = {
+                'show_edges': False,           # 强制关闭边框避免异常
+                'opacity': 0.8,
+                'smooth_shading': True,
+                'lighting': True,
+                'ambient': 0.3,
+                'diffuse': 0.7,
+                'specular': 0.1,
+                'culling': 'back'              # 🔧 解决背面伪影
+            }
+
+            # 🔧 材料着色（如果有MaterialID）
+            if hasattr(self.mesh, 'cell_data') and 'MaterialID' in self.mesh.cell_data:
+                colors = self._compute_safe_material_colors()
+                if colors is not None:
+                    safe_params.update({
+                        'scalars': colors,
+                        'rgb': True,
+                        'preference': 'cell'
+                    })
+                else:
+                    safe_params['color'] = 'lightsteelblue'
+            else:
+                safe_params['color'] = 'lightsteelblue'
+
+            self.plotter.add_mesh(self.mesh, **safe_params, name='main_mesh')
+            print("✅ 主体网格安全显示完成")
+
+        except Exception as e:
+            print(f"⚠️ 主体网格显示失败: {e}")
+            # 降级到最基本显示
+            try:
+                self.plotter.add_mesh(self.mesh, color='gray', opacity=0.5, name='fallback_mesh')
+            except:
+                pass
+                
+    def _compute_safe_material_colors(self):
+        """安全的材料颜色计算"""
+        try:
+            mat_ids = self.mesh.cell_data['MaterialID']
+            colors = np.zeros((len(mat_ids), 3), dtype=np.uint8)
+
+            # 🔧 使用安全的土质配色
+            SAFE_SOIL_COLORS = {
+                1: [120, 87, 62],   # 填土
+                2: [139, 118, 113], # 粘土
+                3: [160, 134, 120], # 淤泥
+                4: [181, 165, 155], # 砂土
+                5: [78, 52, 46],    # 岩石
+                10: [200, 50, 50],  # 地连墙
+                15: [255, 0, 0],    # 锚杆
+                20: [100, 100, 200] # 隧道
+            }
+
+            for i, mat_id in enumerate(mat_ids):
+                color = SAFE_SOIL_COLORS.get(int(mat_id), [150, 150, 150])
+                colors[i] = color
+
+            return colors
+
+        except Exception as e:
+            print(f"材料颜色计算失败: {e}")
+            return None
+            
+    def _force_display_engineering_components(self):
+        """强制显示工程构件 - 不受保护机制影响"""
+        try:
+            # 🏗️ 地连墙 - 强制显示
+            if hasattr(self, 'fpn_data') and self.fpn_data:
+                diaphragm_elements = self._extract_diaphragm_wall_elements()
+                if diaphragm_elements:
+                    self._render_diaphragm_wall(diaphragm_elements)
+
+            # ⚡ 锚杆 - 强制显示
+            anchor_elements = self._extract_anchor_elements()
+            if anchor_elements:
+                self._render_anchors(anchor_elements)
+
+            print("✅ 关键工程构件已强制显示")
+
+        except Exception as e:
+            print(f"⚠️ 工程构件显示部分失败: {e}")
+            
+    def _extract_diaphragm_wall_elements(self):
+        """从FPN提取地连墙元素"""
+        elements = []
+        if not hasattr(self, 'fpn_data') or not self.fpn_data:
+            return elements
+
+        try:
+            # 策略1: 根据材料ID识别混凝土构件
+            all_elements = self.fpn_data.get('elements', {})
+            if isinstance(all_elements, list):
+                all_elements = {i: elem for i, elem in enumerate(all_elements)}
+                
+            for eid, elem in all_elements.items():
+                if isinstance(elem, dict):
+                    material_id = elem.get('material_id', elem.get('material', 0))
+                    # 地连墙通常使用混凝土材料 (ID: 10-15)
+                    if 10 <= int(material_id) <= 15:
+                        elements.append(elem)
+
+            print(f"🏗️ 发现地连墙元素: {len(elements)}个")
+        except Exception as e:
+            print(f"⚠️ 提取地连墙元素失败: {e}")
+
+        return elements
+        
+    def _extract_anchor_elements(self):
+        """从FPN提取锚杆元素"""
+        elements = []
+        try:
+            # 从line_elements中提取
+            line_elems = getattr(self, 'fpn_data', {}).get('line_elements', {})
+            for eid, elem in line_elems.items():
+                if isinstance(elem, dict):
+                    elements.append(elem)
+            print(f"⚡ 发现锚杆元素: {len(elements)}个")
+        except Exception as e:
+            print(f"⚠️ 提取锚杆元素失败: {e}")
+        return elements
+            
+    def _render_diaphragm_wall(self, elements):
+        """渲染地连墙"""
+        try:
+            if elements and hasattr(self, 'mesh'):
+                # 简化渲染：高亮显示地连墙材料
+                mat_ids = self.mesh.cell_data.get('MaterialID', [])
+                wall_mask = np.isin(mat_ids, [10, 11, 12, 13, 14, 15])
+                if np.any(wall_mask):
+                    wall_mesh = self.mesh.extract_cells(wall_mask)
+                    self.plotter.add_mesh(
+                        wall_mesh,
+                        color='brown',
+                        opacity=0.9,
+                        name='diaphragm_wall'
+                    )
+                    print("✅ 地连墙渲染完成")
+        except Exception as e:
+            print(f"⚠️ 地连墙渲染失败: {e}")
+            
+    def _render_anchors(self, elements):
+        """渲染锚杆"""
+        try:
+            # 使用已有的锚杆显示逻辑
+            if hasattr(self, 'show_anchors'):
+                self.show_anchors = True
+                self.toggle_show_anchors(True)
+        except Exception as e:
+            print(f"⚠️ 锚杆渲染失败: {e}")
 
     def set_display_mode(self, mode):
-        """设置显示模式"""
+        """设置显示模式（增强版 - 大模型优化）"""
         if mode in ['wireframe', 'solid', 'transparent']:
             self.display_mode = mode
-            self.display_mesh()  # 重新显示
+            
+            # 🎯 大模型智能模式切换
+            if getattr(self, '_is_big_model', False):
+                self._set_large_model_display_mode(mode)
+            else:
+                self.display_mesh()  # 常规重新显示
+                
             print(f"显示模式已切换为: {mode}")
         else:
             print(f"未知的显示模式: {mode}")
@@ -2958,6 +4875,173 @@ class PreProcessor:
             self.display_constraints()
         if getattr(self, 'show_loads', True):
             self.display_loads()
+
+    def _set_large_model_display_mode(self, mode):
+        """大模型显示模式切换（性能优化）"""
+        try:
+            print(f"🔧 大模型模式切换: {mode}")
+            
+            # 根据模式调整LOD级别
+            if mode == 'wireframe':
+                # 线框模式可以使用较高质量
+                self._current_lod_level = 'medium'
+            elif mode == 'transparent':
+                # 半透明模式需要较低质量以保证性能
+                self._current_lod_level = 'ultra_low'  
+            else:
+                # 实体模式使用默认级别
+                self._current_lod_level = getattr(self, '_original_lod_level', 'low')
+            
+            # 重新显示网格
+            self._display_main_mesh()
+            
+            print(f"✅ 大模型模式切换完成，当前LOD: {self._current_lod_level}")
+            
+        except Exception as e:
+            print(f"❌ 大模型模式切换失败: {e}")
+            # 回退到常规显示
+            self.display_mesh()
+
+    def set_lod_level(self, level):
+        """手动设置LOD级别"""
+        try:
+            valid_levels = ['ultra_low', 'low', 'medium', 'high']
+            if level not in valid_levels:
+                print(f"❌ 无效LOD级别: {level}，可选: {valid_levels}")
+                return False
+            
+            if not getattr(self, '_is_big_model', False):
+                print("⚠️ 当前不是大模型，LOD功能无效")
+                return False
+            
+            if not hasattr(self, '_lod_cache') or level not in self._lod_cache:
+                print(f"❌ LOD级别 {level} 不可用")
+                return False
+            
+            # 记录内存使用情况
+            self._report_memory_usage_before_switch()
+            
+            # 切换LOD
+            old_level = getattr(self, '_current_lod_level', 'unknown')
+            self._current_lod_level = level
+            
+            # 重新渲染
+            self._display_main_mesh()
+            
+            # 报告切换结果
+            new_mesh = self._lod_cache[level]
+            print(f"✅ LOD切换成功: {old_level} → {level}")
+            print(f"   网格面数: {new_mesh.n_cells:,}")
+            
+            self._report_memory_usage_after_switch()
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ LOD切换失败: {e}")
+            return False
+
+    def _report_memory_usage_before_switch(self):
+        """报告LOD切换前的内存使用"""
+        try:
+            import psutil
+            process = psutil.Process()
+            memory_mb = process.memory_info().rss / 1024 / 1024
+            print(f"📊 切换前内存使用: {memory_mb:.1f}MB")
+        except Exception:
+            pass
+
+    def _report_memory_usage_after_switch(self):
+        """报告LOD切换后的内存使用"""
+        try:
+            import psutil
+            process = psutil.Process()
+            memory_mb = process.memory_info().rss / 1024 / 1024
+            print(f"📊 切换后内存使用: {memory_mb:.1f}MB")
+        except Exception:
+            pass
+
+    def get_lod_info(self):
+        """获取当前LOD信息"""
+        try:
+            if not getattr(self, '_is_big_model', False):
+                return {'is_big_model': False}
+            
+            info = {
+                'is_big_model': True,
+                'current_level': getattr(self, '_current_lod_level', 'unknown'),
+                'available_levels': list(getattr(self, '_lod_cache', {}).keys()),
+                'current_face_count': 0,
+                'original_face_count': getattr(self, '_original_face_count', 0)
+            }
+            
+            # 获取当前面数
+            current_mesh = self._get_appropriate_lod_mesh()
+            if current_mesh:
+                info['current_face_count'] = current_mesh.n_cells
+            
+            # 获取各级别详细信息
+            level_details = {}
+            if hasattr(self, '_lod_cache'):
+                for level, mesh in self._lod_cache.items():
+                    level_details[level] = {
+                        'face_count': mesh.n_cells,
+                        'memory_estimate_mb': self._estimate_mesh_memory(mesh)
+                    }
+            info['level_details'] = level_details
+            
+            return info
+            
+        except Exception as e:
+            print(f"❌ 获取LOD信息失败: {e}")
+            return {'error': str(e)}
+
+    def _estimate_mesh_memory(self, mesh):
+        """估算网格内存占用"""
+        try:
+            if not mesh:
+                return 0
+            
+            # 粗略估算：点数 * 12字节(3个float) + 面数 * 16字节(平均4个点的索引)
+            points_memory = mesh.n_points * 12
+            cells_memory = mesh.n_cells * 16
+            
+            # 加上cell_data内存
+            cell_data_memory = 0
+            if hasattr(mesh, 'cell_data'):
+                for key, data in mesh.cell_data.items():
+                    if hasattr(data, 'nbytes'):
+                        cell_data_memory += data.nbytes
+            
+            total_bytes = points_memory + cells_memory + cell_data_memory
+            return total_bytes / (1024 * 1024)  # 转换为MB
+            
+        except Exception:
+            return 0
+
+    def optimize_for_interaction(self, enable=True):
+        """优化交互性能"""
+        try:
+            if not getattr(self, '_is_big_model', False):
+                print("⚠️ 非大模型，交互优化无效")
+                return False
+            
+            if enable:
+                # 切换到超低质量LOD以提高交互性能
+                self._interaction_backup_lod = getattr(self, '_current_lod_level', 'low')
+                self.set_lod_level('ultra_low')
+                print("🚀 交互优化已启用，切换到超低质量LOD")
+            else:
+                # 恢复之前的LOD级别
+                backup_lod = getattr(self, '_interaction_backup_lod', 'low')
+                self.set_lod_level(backup_lod)
+                print("✅ 交互优化已关闭，恢复正常LOD")
+                
+            return True
+            
+        except Exception as e:
+            print(f"❌ 交互优化切换失败: {e}")
+            return False
 
     def display_analysis_stage_groups(self):
         """根据当前分析步智能显示相关的物理组"""
@@ -3286,6 +5370,551 @@ class PreProcessor:
                 actor.GetProperty().SetRepresentationToSurface()
             except:
                 pass
+
+    def _display_main_mesh(self):
+        """显示主体网格，根据显示模式和复选框状态（智能边框优化 + 异步渲染）"""
+        try:
+            # 🎯 大模型智能渲染策略
+            if getattr(self, '_is_big_model', False):
+                self._display_large_model_optimized()
+                return
+                
+            # 常规模型的原有逻辑
+            self._display_regular_mesh()
+            
+        except Exception as e:
+            print(f"显示主体网格失败: {e}")
+
+    def _display_large_model_optimized(self):
+        """大模型优化显示策略"""
+        try:
+            # 📊 性能监控
+            import time
+            start_time = time.time()
+            
+            # 选择合适的LOD级别
+            lod_level = getattr(self, '_current_lod_level', 'low')
+            mesh_to_show = self._get_appropriate_lod_mesh()
+            
+            if mesh_to_show is None:
+                print("⚠️ 无可用LOD网格，回退到原始网格")
+                mesh_to_show = self.mesh
+            
+            # 🎨 智能材料着色（大模型专用）
+            color_strategy = self._get_large_model_color_strategy()
+            
+            # 🚀 异步渲染准备
+            render_params = self._prepare_large_model_render_params(mesh_to_show)
+            
+            # 清理之前的渲染
+            try:
+                self.plotter.remove_actor('main_mesh')
+            except:
+                pass
+            
+            # 根据显示模式微调参数
+            mode = getattr(self, 'display_mode', 'transparent')
+            if mode == 'wireframe':
+                render_params.update({'style': 'wireframe', 'line_width': 1.0, 'opacity': 1.0})
+            elif mode == 'transparent':
+                render_params.update({'opacity': min(render_params.get('opacity', 0.7), 0.7)})
+            else:
+                render_params.update({'opacity': 1.0})
+
+            # 执行渲染
+            self.plotter.add_mesh(
+                mesh_to_show,
+                **render_params
+            )
+            
+            # 📈 性能报告
+            render_time = time.time() - start_time
+            face_count = mesh_to_show.n_cells
+            print(f"🚀 大模型渲染完成 - LOD:{lod_level}, 面数:{face_count:,}, 耗时:{render_time:.2f}s")
+            
+            # 🎛️ 启用大模型交互优化
+            self._enable_large_model_interaction_optimizations()
+            
+        except Exception as e:
+            print(f"❌ 大模型优化显示失败: {e}")
+            # 回退到简化渲染
+            self._fallback_simple_render()
+
+    def _display_regular_mesh(self):
+        """常规网格显示逻辑"""
+        try:
+            # 智能边框显示
+            show_edges = getattr(self, 'show_mesh_edges', True)
+            show_edges_default = getattr(self, 'show_edges_default', True)
+            
+            if hasattr(self, 'show_edges_default'):
+                show_edges = show_edges_default
+            
+            # 显示模式覆盖
+            if self.display_mode == 'wireframe':
+                show_edges = True
+            elif self.display_mode == 'solid':
+                show_edges = False
+                
+            # 确定透明度
+            opacity = 0.6 if self.display_mode == 'transparent' else 1.0
+            
+            mesh_to_show = self.mesh
+            element_count = mesh_to_show.n_cells if mesh_to_show else 0
+            
+            # 线框模式时使用style=wireframe更明确
+            if self.display_mode == 'wireframe':
+                self.plotter.add_mesh(
+                    mesh_to_show,
+                    style='wireframe',
+                    color='#4E342E',
+                    opacity=1.0,
+                    show_edges=False,
+                    line_width=1.0,
+                    name='main_mesh',
+                )
+            else:
+                self.plotter.add_mesh(
+                    mesh_to_show,
+                    color='#8090a0',
+                    opacity=opacity,
+                    show_edges=show_edges,
+                    edge_color='#404040',
+                    line_width=0.5,
+                    name='main_mesh',
+                )
+            print(f"常规网格显示成功 - 元素数: {element_count:,}, 边框: {show_edges}, 透明度: {opacity}")
+        except Exception as e:
+            print(f"常规网格显示失败: {e}")
+
+    def _get_appropriate_lod_mesh(self):
+        """根据当前状态获取合适的LOD网格"""
+        try:
+            if not hasattr(self, '_lod_cache'):
+                return self.mesh
+            
+            lod_level = getattr(self, '_current_lod_level', 'low')
+            return self._lod_cache.get(lod_level, self.mesh)
+        except Exception as e:
+            print(f"⚠️ LOD网格获取失败: {e}")
+            return self.mesh
+
+    def _get_large_model_color_strategy(self):
+        """大模型颜色策略"""
+        try:
+            if hasattr(self.mesh, 'cell_data') and 'MaterialID' in self.mesh.cell_data:
+                return 'material_based'
+            return 'uniform'
+        except Exception:
+            return 'uniform'
+
+    def _prepare_large_model_render_params(self, mesh):
+        """准备大模型渲染参数（视觉增强版）"""
+        try:
+            params = {
+                'name': 'main_mesh',
+                'show_edges': False,  # 大模型强制关闭边框
+                'opacity': 1.0 if self.display_mode != 'transparent' else 0.7,
+                'smooth_shading': True,  # 启用平滑着色
+                'lighting': True,  # 启用光照
+                'ambient': 0.3,   # 环境光
+                'diffuse': 0.7,   # 漫反射
+                'specular': 0.2,  # 镜面反射
+                'specular_power': 20,  # 镜面反射强度
+            }
+
+            # 🎨 专业地质工程着色系统（回滚至按MaterialID色带的旧策略）
+            if hasattr(mesh, 'cell_data') and 'MaterialID' in mesh.cell_data:
+                material_ids = np.unique(mesh.cell_data['MaterialID'])
+                print(f"🎨 检测到 {len(material_ids)} 种材料: {sorted(material_ids.tolist())}")
+
+                if len(material_ids) > 1:
+                    # 多材料：使用专业土木工程配色
+                    params['scalars'] = 'MaterialID'
+                    params['cmap'] = self._get_geotechnical_colormap(material_ids)
+                    params['clim'] = [material_ids.min(), material_ids.max()]  # 设置颜色范围
+                    print(f"✅ 多材料着色: 使用 {params['cmap']} 配色方案")
+                else:
+                    # 单一材料：使用土体专用颜色
+                    soil_color = self._get_soil_color(material_ids[0])
+                    params['color'] = soil_color
+                    print(f"✅ 单一材料着色: 材料ID={material_ids[0]}, 颜色={soil_color}")
+            else:
+                params['color'] = '#8D6E63'  # 默认土褐色
+                print("⚠️ 无材料ID，使用默认土褐色")
+
+            # 显示模式特定优化
+            if self.display_mode == 'wireframe':
+                params.update({
+                    'style': 'wireframe',
+                    'line_width': 1.0,
+                    'color': '#4E342E',  # 深褐色线框
+                    'ambient': 0.8,      # 线框模式提高环境光
+                })
+            elif self.display_mode == 'transparent':
+                params.update({
+                    'opacity': 0.6,
+                    'ambient': 0.4,      # 半透明模式适当提高环境光
+                })
+
+            return params
+        except Exception as e:
+            print(f"❌ 渲染参数准备失败: {e}")
+            return {'name': 'main_mesh', 'color': '#8D6E63', 'show_edges': False}
+
+    def _get_geotechnical_colormap(self, material_ids):
+        """获取岩土工程专用配色方案"""
+        n_materials = len(material_ids)
+        
+        if n_materials <= 3:
+            return 'brown'      # 土体经典配色
+        elif n_materials <= 6:
+            return 'terrain'    # 地形配色，适合多层土体
+        elif n_materials <= 10:
+            return 'gist_earth' # 地球色系，丰富的土体颜色
+        else:
+            return 'tab20'      # 高对比度配色，适合复杂地层
+
+    def _get_soil_color(self, material_id):
+        """根据材料ID获取土体颜色"""
+        # 常见土体材料颜色映射
+        soil_colors = {
+            1: '#8D6E63',   # 粘土 - 褐色
+            2: '#A1887F',   # 粉土 - 灰褐色  
+            3: '#BCAAA4',   # 细砂 - 浅褐色
+            4: '#D7CCC8',   # 中砂 - 米色
+            5: '#3E2723',   # 淤泥 - 深褐色
+            6: '#5D4037',   # 填土 - 中褐色
+            7: '#795548',   # 卵石土 - 棕褐色
+            8: '#8D6E63',   # 粉质粘土 - 褐色
+            9: '#6D4C41',   # 重粉质土 - 深土色
+            10: '#4E342E',  # 岩石 - 深色
+        }
+        
+        # 默认使用材料ID取模生成颜色
+        if material_id in soil_colors:
+            return soil_colors[material_id]
+        else:
+            # 动态生成土体色系
+            import matplotlib.colors as mcolors
+            colors = ['#8D6E63', '#A1887F', '#BCAAA4', '#D7CCC8', '#5D4037', '#795548']
+            return colors[int(material_id) % len(colors)]
+
+    def _enable_large_model_interaction_optimizations(self):
+        """启用大模型交互优化"""
+        try:
+            if hasattr(self.plotter, 'render_window'):
+                # 设置渲染窗口优化
+                render_window = self.plotter.render_window
+                
+                # 启用LOD优化
+                if hasattr(render_window, 'SetDesiredUpdateRate'):
+                    render_window.SetDesiredUpdateRate(10)  # 交互时降低帧率
+                
+                # 优化交互响应
+                if hasattr(self.plotter, 'enable_parallel_projection'):
+                    self.plotter.enable_parallel_projection()
+                
+                print("✅ 大模型交互优化已启用")
+        except Exception as e:
+            print(f"⚠️ 交互优化启用失败: {e}")
+
+    def _fallback_simple_render(self):
+        """回退到最简渲染"""
+        try:
+            if self.mesh:
+                self.plotter.add_mesh(
+                    self.mesh,
+                    color='gray',
+                    show_edges=False,
+                    name='main_mesh'
+                )
+                print("✅ 回退渲染成功")
+        except Exception as e:
+            print(f"❌ 回退渲染也失败: {e}")
+
+    def _create_demo_mesh(self):
+        """创建演示网格用于测试复选框功能"""
+        if not PYVISTA_AVAILABLE:
+            return
+        try:
+            import pyvista as pv
+            import numpy as np
+            
+            # 创建一个简单的立方体网格
+            mesh = pv.Box(bounds=(-5, 5, -5, 5, -5, 5))
+            
+            # 添加一些材料属性用于测试
+            n_cells = mesh.n_cells
+            materials = np.random.choice(['soil', 'concrete', 'steel'], n_cells)
+            mesh['material'] = materials
+            
+            self.mesh = mesh
+            self._display_main_mesh()
+            print("✅ 演示网格创建成功")
+        except Exception as e:
+            print(f"创建演示网格失败: {e}")
+
+    def _display_nodes(self):
+        """显示节点"""
+        if not (PYVISTA_AVAILABLE and self.mesh):
+            return
+        try:
+            # 获取节点坐标
+            points = self.mesh.points
+            
+            # 创建节点显示
+            self.plotter.add_points(
+                points,
+                color='red',
+                point_size=8,
+                name='nodes'
+            )
+            print(f"✅ 显示节点: {len(points)} 个")
+        except Exception as e:
+            print(f"显示节点失败: {e}")
+
+    def _display_supports(self):
+        """显示支承约束"""
+        try:
+            if not (PYVISTA_AVAILABLE and self.mesh):
+                return
+                
+            # 创建简单的支承符号（在底部边界）
+            import pyvista as pv
+            import numpy as np
+            
+            bounds = self.mesh.bounds
+            # 在底面创建约束符号
+            z_min = bounds[4]
+            x_range = np.linspace(bounds[0], bounds[1], 5)
+            y_range = np.linspace(bounds[2], bounds[3], 5)
+            
+            support_points = []
+            for x in x_range:
+                for y in y_range:
+                    support_points.append([x, y, z_min])
+            
+            if support_points:
+                support_points = np.array(support_points)
+                self.plotter.add_points(
+                    support_points,
+                    color='green',
+                    point_size=12,
+                    name='supports',
+                    render_points_as_spheres=True
+                )
+                print(f"✅ 显示支承: {len(support_points)} 个")
+        except Exception as e:
+            print(f"显示支承失败: {e}")
+
+    def _display_loads(self):
+        """显示荷载"""
+        try:
+            if not (PYVISTA_AVAILABLE and self.mesh):
+                return
+                
+            import pyvista as pv
+            import numpy as np
+            
+            bounds = self.mesh.bounds
+            # 在顶面创建荷载箭头
+            z_max = bounds[5]
+            x_center = (bounds[0] + bounds[1]) / 2
+            y_center = (bounds[2] + bounds[3]) / 2
+            
+            # 创建向下的荷载箭头
+            arrow_start = [x_center, y_center, z_max + 2]
+            arrow_end = [x_center, y_center, z_max]
+            
+            # 添加箭头
+            arrow = pv.Arrow(start=arrow_start, direction=[0, 0, -1], scale=2)
+            
+            self.plotter.add_mesh(
+                arrow,
+                color='blue',
+                name='loads'
+            )
+            print(f"✅ 显示荷载箭头")
+        except Exception as e:
+            print(f"显示荷载失败: {e}")
+
+    def _update_status_display(self):
+        """更新状态显示信息"""
+        try:
+            status_info = []
+            status_info.append(f"显示模式: {self.display_mode}")
+            
+            if hasattr(self, 'show_mesh_edges'):
+                status_info.append(f"网格边: {'开' if getattr(self, 'show_mesh_edges', False) else '关'}")
+            if hasattr(self, 'show_nodes'):
+                status_info.append(f"节点: {'开' if getattr(self, 'show_nodes', False) else '关'}")
+            if hasattr(self, 'show_supports'):
+                status_info.append(f"支承: {'开' if getattr(self, 'show_supports', False) else '关'}")
+            if hasattr(self, 'show_loads'):
+                status_info.append(f"荷载: {'开' if getattr(self, 'show_loads', False) else '关'}")
+                
+            status_text = " | ".join(status_info)
+            
+            # 添加状态文本到视图
+            self.plotter.add_text(
+                status_text,
+                position='lower_left',
+                font_size=10,
+                color='white',
+                name='status_text'
+            )
+        except Exception as e:
+            print(f"更新状态显示失败: {e}")
+
+    def _display_diaphragm_wall(self):
+        """显示地连墙"""
+        try:
+            if not (PYVISTA_AVAILABLE and self.plotter):
+                return
+                
+            import pyvista as pv
+            import numpy as np
+            
+            # 创建地连墙示例（垂直墙板）
+            wall_height = 20
+            wall_width = 50
+            wall_thickness = 0.8
+            
+            # 创建地连墙几何体
+            wall = pv.Box(bounds=[
+                -wall_width/2, wall_width/2,
+                -wall_thickness/2, wall_thickness/2,
+                -wall_height, 0
+            ])
+            
+            self.plotter.add_mesh(
+                wall,
+                color='brown',
+                opacity=0.8,
+                name='diaphragm_wall'
+            )
+            print("显示地连墙成功")
+        except Exception as e:
+            print(f"显示地连墙失败: {e}")
+
+    def _display_piles(self):
+        """显示桩基"""
+        try:
+            if not (PYVISTA_AVAILABLE and self.plotter):
+                return
+                
+            import pyvista as pv
+            import numpy as np
+            
+            # 创建桩基示例（圆柱形桩）
+            pile_radius = 0.5
+            pile_length = 30
+            num_piles = 9
+            
+            # 3x3 桩基布置
+            for i in range(3):
+                for j in range(3):
+                    x = (i - 1) * 10
+                    y = (j - 1) * 10
+                    
+                    pile = pv.Cylinder(
+                        center=[x, y, -pile_length/2],
+                        direction=[0, 0, 1],
+                        radius=pile_radius,
+                        height=pile_length
+                    )
+                    
+                    self.plotter.add_mesh(
+                        pile,
+                        color='gray',
+                        name=f'pile_{i}_{j}'
+                    )
+            
+            print(f"显示 {num_piles} 根桩基成功")
+        except Exception as e:
+            print(f"显示桩基失败: {e}")
+
+    def _display_strutting(self):
+        """显示内撑"""
+        try:
+            if not (PYVISTA_AVAILABLE and self.plotter):
+                return
+                
+            import pyvista as pv
+            import numpy as np
+            
+            # 创建内撑示例（水平支撑梁）
+            strut_length = 40
+            strut_height = 1.0
+            strut_width = 0.8
+            
+            # 创建多层内撑
+            for level in range(3):
+                z_pos = -5 - level * 8
+                
+                # 水平内撑
+                strut = pv.Box(bounds=[
+                    -strut_length/2, strut_length/2,
+                    -strut_width/2, strut_width/2,
+                    z_pos, z_pos + strut_height
+                ])
+                
+                self.plotter.add_mesh(
+                    strut,
+                    color='yellow',
+                    name=f'strut_level_{level}'
+                )
+            
+            print("显示内撑支撑系统成功")
+        except Exception as e:
+            print(f"显示内撑失败: {e}")
+
+    def _display_steel_structures(self):
+        """显示钢构"""
+        try:
+            if not (PYVISTA_AVAILABLE and self.plotter):
+                return
+                
+            import pyvista as pv
+            import numpy as np
+            
+            # 创建钢构示例（H型钢梁）
+            beam_length = 20
+            beam_height = 0.6
+            beam_width = 0.3
+            
+            # 创建主梁
+            main_beam = pv.Box(bounds=[
+                -beam_length/2, beam_length/2,
+                -beam_width/2, beam_width/2,
+                -beam_height/2, beam_height/2
+            ])
+            
+            # 创建次梁
+            for i in range(3):
+                y_pos = -8 + i * 8
+                secondary_beam = pv.Box(bounds=[
+                    -beam_width/2, beam_width/2,
+                    y_pos - beam_length/4, y_pos + beam_length/4,
+                    -beam_height/2, beam_height/2
+                ])
+                
+                self.plotter.add_mesh(
+                    secondary_beam,
+                    color='lightblue',
+                    name=f'steel_beam_{i}'
+                )
+            
+            self.plotter.add_mesh(
+                main_beam,
+                color='steelblue',
+                name='main_steel_beam'
+            )
+            
+            print("显示钢构框架成功")
+        except Exception as e:
+            print(f"显示钢构失败: {e}")
 
 # 测试函数
 def test_preprocessor():

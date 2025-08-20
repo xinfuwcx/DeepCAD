@@ -227,12 +227,29 @@ class OptimizedFPNParser:
         """解析网格集合行"""
         try:
             parts = [p.strip() for p in line.split(',')]
-            if len(parts) >= 3:
-                return {
-                    'id': int(parts[1]),
-                    'name': parts[2].strip() if parts[2] else f"MeshSet_{parts[1]}",
-                    'type': 'mesh_set'
-                }
+            if len(parts) >= 2:
+                # 兼容格式: MSET , <id> , name ...（中间可能有空白字段）
+                mset_id = None
+                for tok in parts[1:]:
+                    if tok and tok.isdigit():
+                        mset_id = int(tok)
+                        break
+                if mset_id is not None:
+                    name = None
+                    # 尝试取紧随其后的非空字符串作为名称
+                    seen_id = False
+                    for tok in parts[1:]:
+                        if tok and tok.isdigit() and int(tok) == mset_id and not seen_id:
+                            seen_id = True
+                            continue
+                        if seen_id and tok:
+                            name = tok
+                            break
+                    return {
+                        'id': mset_id,
+                        'name': name.strip() if name else f"MeshSet_{mset_id}",
+                        'type': 'mesh_set'
+                    }
         except (ValueError, IndexError) as e:
             logger.debug(f"解析网格集合行失败: {line[:50]}... - {e}")
         return None
@@ -308,62 +325,63 @@ class OptimizedFPNParser:
         return None
 
     def parse_madd_line(self, line: str) -> Optional[Dict[str, Any]]:
-        """解析MADD（材料添加）行"""
+        """解析MADD（网格集合添加）行：MADD, stage_id, count, gid1, gid2, ..."""
         try:
             parts = [p.strip() for p in line.split(',')]
             if len(parts) >= 3:
                 stage_id = int(parts[1]) if parts[1] else None
-                material_count = int(parts[2]) if parts[2] else 0
+                count = int(parts[2]) if parts[2] else 0
 
-                # 解析材料ID列表（从第4个参数开始）
-                materials = []
+                group_ids = []
                 for i in range(3, len(parts)):
                     if parts[i] and parts[i].isdigit():
-                        materials.append(int(parts[i]))
+                        group_ids.append(int(parts[i]))
 
                 return {
                     'stage_id': stage_id,
-                    'material_count': material_count,
-                    'materials': materials,
-                    'type': 'material_add'
+                    'count': count,
+                    'group_ids': group_ids,
+                    'type': 'mesh_add'
                 }
         except (ValueError, IndexError) as e:
             logger.debug(f"解析MADD行失败: {line[:50]}... - {e}")
         return None
 
     def parse_mdel_line(self, line: str) -> Optional[Dict[str, Any]]:
-        """解析MDEL（材料删除）行"""
+        """解析MDEL（网格集合删除）行：MDEL, stage_id, gid1, gid2, ..."""
         try:
             parts = [p.strip() for p in line.split(',')]
-            if len(parts) >= 3:
+            if len(parts) >= 2:
                 stage_id = int(parts[1]) if parts[1] else None
 
-                # 解析要删除的材料ID列表
-                materials = []
-                for i in range(3, len(parts)):
-                    if parts[i] and parts[i].isdigit():
-                        materials.append(int(parts[i]))
+                group_ids = []
+                for p in parts[2:]:
+                    if p and p.isdigit():
+                        group_ids.append(int(p))
 
                 return {
                     'stage_id': stage_id,
-                    'materials': materials,
-                    'type': 'material_delete'
+                    'group_ids': group_ids,
+                    'type': 'mesh_delete'
                 }
         except (ValueError, IndexError) as e:
             logger.debug(f"解析MDEL行失败: {line[:50]}... - {e}")
         return None
 
     def parse_ladd_line(self, line: str) -> Optional[Dict[str, Any]]:
-        """解析LADD（荷载添加）行"""
+        """解析LADD（荷载添加）行：LADD, stage, count, gid1, gid2, ..."""
         try:
             parts = [p.strip() for p in line.split(',')]
             if len(parts) >= 4:
                 stage_id = int(parts[1]) if parts[1] else None
-                load_group = int(parts[2]) if parts[2] else None
-
+                # 第3列为数量count，真正的组号从第4列开始
+                group_ids = []
+                for p in parts[3:]:
+                    if p and p.isdigit():
+                        group_ids.append(int(p))
                 return {
                     'stage_id': stage_id,
-                    'loads': [load_group] if load_group else [],
+                    'loads': group_ids,
                     'type': 'load_add'
                 }
         except (ValueError, IndexError) as e:
@@ -371,16 +389,18 @@ class OptimizedFPNParser:
         return None
 
     def parse_badd_line(self, line: str) -> Optional[Dict[str, Any]]:
-        """解析BADD（边界添加）行"""
+        """解析BADD（边界添加）行：BADD, stage, count, gid1, gid2, ..."""
         try:
             parts = [p.strip() for p in line.split(',')]
             if len(parts) >= 4:
                 stage_id = int(parts[1]) if parts[1] else None
-                boundary_group = int(parts[2]) if parts[2] else None
-
+                group_ids = []
+                for p in parts[3:]:
+                    if p and p.isdigit():
+                        group_ids.append(int(p))
                 return {
                     'stage_id': stage_id,
-                    'boundaries': [boundary_group] if boundary_group else [],
+                    'boundaries': group_ids,
                     'type': 'boundary_add'
                 }
         except (ValueError, IndexError) as e:
@@ -388,14 +408,14 @@ class OptimizedFPNParser:
         return None
 
     def parse_continuation_line(self, line: str) -> List[int]:
-        """解析跨行的材料ID列表"""
+        """解析跨行的ID列表（集合/荷载/边界等）"""
         try:
             parts = [p.strip() for p in line.split(',')]
-            materials = []
+            ids = []
             for part in parts:
                 if part and part.isdigit():
-                    materials.append(int(part))
-            return materials
+                    ids.append(int(part))
+            return ids
         except (ValueError, IndexError) as e:
             logger.debug(f"解析跨行数据失败: {line[:50]}... - {e}")
         return []
@@ -408,6 +428,13 @@ class OptimizedFPNParser:
         # 检测编码
         encoding = self.detect_file_encoding(file_path)
         self.encoding_used = encoding
+
+        # 预备：阶段命令的暂存（当 LADD/BADD 在 STAGE 之前出现时使用）
+        self._pending_stage_cmds = {}
+        self.current_badd_stage_id_pending = None
+        self.current_ladd_stage_id_pending = None
+        self.current_madd_stage_id_pending = None
+        self.current_mdel_stage_id_pending = None
 
         # 统计总行数
         total_lines = self.count_file_lines(file_path, encoding)
@@ -454,19 +481,125 @@ class OptimizedFPNParser:
                     progress.processed_lines = line_num
                     progress.current_section = current_section
 
-                    # 处理 MSETE/MSETN 的续行（逗号开头）
-                    if line.startswith(',') and getattr(self, 'current_mset_id', None) is not None:
-                        try:
-                            nums = [int(x) for x in line.split(',') if x.strip().isdigit()]
-                            if nums:
-                                kind = getattr(self, 'current_mset_kind', None)
-                                if kind == 'elements':
-                                    result['mesh_sets'][self.current_mset_id]['elements'].extend(nums)
-                                elif kind == 'nodes':
-                                    result['mesh_sets'][self.current_mset_id]['nodes'].extend(nums)
-                                continue
-                        except Exception:
-                            pass
+                    # 处理 MSETE/MSETN、LSETE/LSETN、BSETE/BSETN 的续行（逗号开头）
+                    if line.startswith(','):
+                        # 先处理阶段命令(MADD/MDEL/LADD/BADD)的续行（因为这是行首逗号的通用续行形式）
+                        if current_section in ["madd_operation", "mdel_operation", "ladd_operation", "badd_operation"]:
+                            ids_more = self.parse_continuation_line(line)
+                            if ids_more:
+                                # 复用下面已实现的追加逻辑：直接人工调用一遍对应分支
+                                if current_section == "madd_operation":
+                                    if hasattr(self, 'current_madd_stage') and result['analysis_stages']:
+                                        stage_idx = self.current_madd_stage
+                                        try:
+                                            stage_obj = result['analysis_stages'][stage_idx]
+                                            sid = stage_obj.get('id')
+                                            stage_obj.setdefault('group_commands', []).append({'stage_id': int(sid) if sid is not None else 0,'command': 'MADD','group_ids': list(ids_more)})
+                                        except Exception:
+                                            pass
+                                    elif hasattr(self, 'current_madd_stage_id_pending') and self.current_madd_stage_id_pending is not None:
+                                        try:
+                                            sid = int(self.current_madd_stage_id_pending)
+                                            pend_list = self._pending_stage_cmds.setdefault(sid, [])
+                                            if not pend_list or pend_list[-1].get('command') != 'MADD':
+                                                pend_list.append({'stage_id': sid, 'command': 'MADD', 'group_ids': list(ids_more)})
+                                            else:
+                                                pend_list[-1].setdefault('group_ids', []).extend(ids_more)
+                                        except Exception:
+                                            pass
+                                elif current_section == "mdel_operation":
+                                    if hasattr(self, 'current_mdel_stage') and result['analysis_stages']:
+                                        stage_idx = self.current_mdel_stage
+                                        try:
+                                            stage_obj = result['analysis_stages'][stage_idx]
+                                            sid = stage_obj.get('id')
+                                            stage_obj.setdefault('group_commands', []).append({'stage_id': int(sid) if sid is not None else 0,'command': 'MDEL','group_ids': list(ids_more)})
+                                        except Exception:
+                                            pass
+                                    elif hasattr(self, 'current_mdel_stage_id_pending') and self.current_mdel_stage_id_pending is not None:
+                                        try:
+                                            sid = int(self.current_mdel_stage_id_pending)
+                                            pend_list = self._pending_stage_cmds.setdefault(sid, [])
+                                            if not pend_list or pend_list[-1].get('command') != 'MDEL':
+                                                pend_list.append({'stage_id': sid, 'command': 'MDEL', 'group_ids': list(ids_more)})
+                                            else:
+                                                pend_list[-1].setdefault('group_ids', []).extend(ids_more)
+                                        except Exception:
+                                            pass
+                                elif current_section == "ladd_operation":
+                                    if hasattr(self, 'current_ladd_stage') and result['analysis_stages']:
+                                        stage_idx = self.current_ladd_stage
+                                        result['analysis_stages'][stage_idx]['active_loads'].extend(ids_more)
+                                        try:
+                                            stage_obj = result['analysis_stages'][stage_idx]
+                                            sid = stage_obj.get('id')
+                                            stage_obj.setdefault('group_commands', []).append({'stage_id': int(sid) if sid is not None else 0,'command': 'LADD','group_ids': list(ids_more)})
+                                        except Exception:
+                                            pass
+                                elif current_section == "badd_operation":
+                                    if hasattr(self, 'current_badd_stage') and result['analysis_stages']:
+                                        stage_idx = self.current_badd_stage
+                                        result['analysis_stages'][stage_idx]['active_boundaries'].extend(ids_more)
+                                        try:
+                                            stage_obj = result['analysis_stages'][stage_idx]
+                                            sid = stage_obj.get('id')
+                                            stage_obj.setdefault('group_commands', []).append({'stage_id': int(sid) if sid is not None else 0,'command': 'BADD','group_ids': list(ids_more)})
+                                        except Exception:
+                                            pass
+                        # MSET 续行
+                        if getattr(self, 'current_mset_id', None) is not None:
+                            try:
+                                nums = []
+                                for x in line.split(','):
+                                    t = x.strip()
+                                    if not t:
+                                        continue
+                                    try:
+                                        nums.append(int(t))
+                                    except Exception:
+                                        pass
+                                if nums:
+                                    kind = getattr(self, 'current_mset_kind', None)
+                                    if kind == 'elements':
+                                        result['mesh_sets'][self.current_mset_id]['elements'].extend(nums)
+                                        if self.current_mset_id in {46,47,48,49,50,51,52,53,57,58,61,62,83,89,91,602,611,1702,1703}:
+                                            print(f"[DEBUG] Append to MSET {self.current_mset_id} elements += {len(nums)} (total={len(result['mesh_sets'][self.current_mset_id]['elements'])})")
+                                    elif kind == 'nodes':
+                                        result['mesh_sets'][self.current_mset_id]['nodes'].extend(nums)
+                                        if self.current_mset_id in {46,47,48,49,50,51,52,53,57,58,61,62,83,89,91,602,611,1702,1703}:
+                                            print(f"[DEBUG] Append to MSET {self.current_mset_id} nodes += {len(nums)} (total={len(result['mesh_sets'][self.current_mset_id]['nodes'])})")
+                                    continue
+                            except Exception as e:
+                                print(f"[DEBUG] Error in MSET continuation: {e}")
+                                pass
+                        # LSET 续行
+                        if getattr(self, 'current_lset_id', None) is not None:
+                            try:
+                                nums = [int(x) for x in line.split(',') if x.strip().isdigit()]
+                                if nums:
+                                    kind = getattr(self, 'current_lset_kind', None)
+                                    lg = result['load_groups'].setdefault(self.current_lset_id, {'id': self.current_lset_id, 'name': f'LoadGroup_{self.current_lset_id}', 'type': 'load_group'})
+                                    if kind == 'elements':
+                                        lg.setdefault('elements', []).extend(nums)
+                                    elif kind == 'nodes':
+                                        lg.setdefault('nodes', []).extend(nums)
+                                    continue
+                            except Exception:
+                                pass
+                        # BSET 续行
+                        if getattr(self, 'current_bset_id', None) is not None:
+                            try:
+                                nums = [int(x) for x in line.split(',') if x.strip().isdigit()]
+                                if nums:
+                                    kind = getattr(self, 'current_bset_kind', None)
+                                    bg = result['boundary_groups'].setdefault(self.current_bset_id, {'id': self.current_bset_id, 'name': f'BoundaryGroup_{self.current_bset_id}', 'type': 'boundary_group'})
+                                    if kind == 'elements':
+                                        bg.setdefault('elements', []).extend(nums)
+                                    elif kind == 'nodes':
+                                        bg.setdefault('nodes', []).extend(nums)
+                                    continue
+                            except Exception:
+                                pass
 
                     # 跳过空行和注释
                     if not line or line.startswith('$$'):
@@ -552,7 +685,8 @@ class OptimizedFPNParser:
                                         'properties': {'type': 'soil'}
                                     })
                             elif line.startswith('MATGEN') and len(parts) >= 6:
-                                # 经验映射：MATGEN, mid, E(MPa), ?, ?, nu, gamma(kN/m3), ...
+                                # 经验映射：MATGEN, mid, E(kPa), ?, ?, nu, gamma(kN/m3), ...
+                                # 注意：本FPN中E字段为kPa（例如 30000000 = 30,000 MPa = 3e10 Pa）
                                 mid = int(parts[1]) if parts[1] else None
                                 if mid is not None:
                                     mat = result['materials'].setdefault(mid, {
@@ -561,11 +695,11 @@ class OptimizedFPNParser:
                                         'properties': {'type': 'soil'}
                                     })
                                     try:
-                                        E_MPa = float(parts[2]) if parts[2] else None
+                                        E_kPa = float(parts[2]) if parts[2] else None
                                         nu = float(parts[5]) if len(parts) > 5 and parts[5] else None
                                         gamma = float(parts[6]) if len(parts) > 6 and parts[6] else None
-                                        if E_MPa is not None:
-                                            mat['properties']['E'] = E_MPa * 1e6  # MPa->Pa
+                                        if E_kPa is not None:
+                                            mat['properties']['E'] = E_kPa * 1e3  # kPa->Pa
                                         if nu is not None:
                                             mat['properties']['NU'] = nu
                                         if gamma is not None:
@@ -608,7 +742,8 @@ class OptimizedFPNParser:
                         except Exception:
                             pass
 
-                    elif line.startswith('MSET'):
+                    elif line.startswith('MSET ') or line.startswith('MSET\t'):
+                        # 注意：必须与 MSETE/MSETN 区分，否则会误匹配
                         current_section = "mesh_sets"
                         mesh_set_data = self.parse_mesh_set_line(line)
                         if mesh_set_data:
@@ -629,14 +764,15 @@ class OptimizedFPNParser:
                                 result['mesh_sets'].setdefault(mset_id, {'id': mset_id, 'name': f"MeshSet_{mset_id}", 'type': 'mesh_set', 'elements': [], 'nodes': []})
                                 self.current_mset_id = mset_id
                                 self.current_mset_kind = 'elements'
+                                # 调试：记录开始
+                                if mset_id in {46,47,48,49,50,51,52,53,57,58,61,62,83,89,91,602,611,1702,1703}:
+                                    print(f"[DEBUG] Start MSETE for set {mset_id}")
                         except Exception:
                             pass
                         current_section = "mesh_set_elements"
-                        # 本行可能也带有首批元素，解析之
+                        # 本行可能也带有首批元素（通常为计数，不当作元素ID），因此此处不追加，等待续行','追加
                         try:
-                            nums = [int(x) for x in parts[2:] if x and x.isdigit()]
-                            if nums:
-                                result['mesh_sets'][mset_id]['elements'].extend(nums)
+                            pass
                         except Exception:
                             pass
 
@@ -652,10 +788,9 @@ class OptimizedFPNParser:
                         except Exception:
                             pass
                         current_section = "mesh_set_nodes"
+                        # 同理：首行多为计数，不在此处追加，等待续行','
                         try:
-                            nums = [int(x) for x in parts[2:] if x and x.isdigit()]
-                            if nums:
-                                result['mesh_sets'][mset_id]['nodes'].extend(nums)
+                            pass
                         except Exception:
                             pass
 
@@ -667,120 +802,256 @@ class OptimizedFPNParser:
                         stage_data = self.parse_stage_line(line)
                         if stage_data:
                             result['analysis_stages'].append(stage_data)
+                            # 将任何挂起的组命令附加到这个阶段（按 id 匹配）
+                            try:
+                                sid = stage_data.get('id')
+                                if sid in self._pending_stage_cmds:
+                                    stage_data.setdefault('group_commands', []).extend(self._pending_stage_cmds.pop(sid) or [])
+                            except Exception:
+                                pass
 
                     elif line.startswith('MADD'):
-                        # 材料添加操作 - 可能跨多行
+                        # 集合添加操作 - 可能跨多行
                         current_section = "madd_operation"
                         madd_data = self.parse_madd_line(line)
-                        if madd_data and result['analysis_stages']:
-                            # 添加到最近的分析步
-                            result['analysis_stages'][-1]['active_materials'].extend(madd_data['materials'])
-                            # 存储当前操作以处理后续行
-                            self.current_madd_stage = len(result['analysis_stages']) - 1
-                            # 记录到group_commands，使用行内stage_id（若缺省则使用最近STAGE的id）
+                        if madd_data:
+                            # 过滤无效ID（例如0）
+                            gids = [g for g in (madd_data.get('group_ids') or []) if g != 0]
                             try:
-                                stage_obj = result['analysis_stages'][-1]
-                                sid = madd_data.get('stage_id') or stage_obj.get('id')
-                                stage_obj.setdefault('group_commands', []).append({
-                                    'stage_id': int(sid) if sid is not None else stage_obj.get('id', 0),
-                                    'command': 'MADD',
-                                    'group_ids': list(madd_data.get('materials') or [])
-                                })
+                                if result['analysis_stages']:
+                                    stage_obj = result['analysis_stages'][-1]
+                                    sid = madd_data.get('stage_id') or stage_obj.get('id')
+                                    stage_obj.setdefault('group_commands', []).append({
+                                        'stage_id': int(sid) if sid is not None else stage_obj.get('id', 0),
+                                        'command': 'MADD',
+                                        'group_ids': list(gids)
+                                    })
+                                    # 存储当前操作以处理后续行
+                                    self.current_madd_stage = len(result['analysis_stages']) - 1
+                                else:
+                                    # STAGE 尚未出现：暂存到待附加列表
+                                    sid = madd_data.get('stage_id')
+                                    if sid is not None:
+                                        self._pending_stage_cmds.setdefault(int(sid), []).append({
+                                            'stage_id': int(sid),
+                                            'command': 'MADD',
+                                            'group_ids': list(gids)
+                                        })
+                                        self.current_madd_stage_id_pending = int(sid)
                             except Exception:
                                 pass
 
                     elif line.startswith('MDEL'):
-                        # 材料删除操作 - 可能跨多行
+                        # 集合删除操作 - 可能跨多行
                         current_section = "mdel_operation"
                         mdel_data = self.parse_mdel_line(line)
-                        if mdel_data and result['analysis_stages']:
-                            # 从最近的分析步删除
-                            stage = result['analysis_stages'][-1]
-                            for mat_id in mdel_data['materials']:
-                                if mat_id in stage['active_materials']:
-                                    stage['active_materials'].remove(mat_id)
-                            # 存储当前操作以处理后续行
-                            self.current_mdel_stage = len(result['analysis_stages']) - 1
-                            # 记录到group_commands
+                        if mdel_data:
+                            gids = [g for g in (mdel_data.get('group_ids') or []) if g != 0]
                             try:
-                                stage_obj = result['analysis_stages'][-1]
-                                sid = mdel_data.get('stage_id') or stage_obj.get('id')
-                                stage_obj.setdefault('group_commands', []).append({
-                                    'stage_id': int(sid) if sid is not None else stage_obj.get('id', 0),
-                                    'command': 'MDEL',
-                                    'group_ids': list(mdel_data.get('materials') or [])
-                                })
+                                if result['analysis_stages']:
+                                    stage_obj = result['analysis_stages'][-1]
+                                    sid = mdel_data.get('stage_id') or stage_obj.get('id')
+                                    stage_obj.setdefault('group_commands', []).append({
+                                        'stage_id': int(sid) if sid is not None else stage_obj.get('id', 0),
+                                        'command': 'MDEL',
+                                        'group_ids': list(gids)
+                                    })
+                                    self.current_mdel_stage = len(result['analysis_stages']) - 1
+                                else:
+                                    sid = mdel_data.get('stage_id')
+                                    if sid is not None:
+                                        self._pending_stage_cmds.setdefault(int(sid), []).append({
+                                            'stage_id': int(sid),
+                                            'command': 'MDEL',
+                                            'group_ids': list(gids)
+                                        })
+                                        self.current_mdel_stage_id_pending = int(sid)
                             except Exception:
                                 pass
 
                     elif line.startswith('LADD'):
-                        # 荷载添加操作
+                        # 荷载添加操作（支持续行）
+                        current_section = "ladd_operation"
                         ladd_data = self.parse_ladd_line(line)
                         if ladd_data and result['analysis_stages']:
-                            result['analysis_stages'][-1]['active_loads'].extend(ladd_data['loads'])
-                            # 记录到group_commands
+                            # 根据行内的stage_id定向到对应阶段；若无则使用最后一个阶段
                             try:
-                                stage_obj = result['analysis_stages'][-1]
-                                sid = ladd_data.get('stage_id') or stage_obj.get('id')
+                                target_idx = None
+                                sid = ladd_data.get('stage_id')
+                                if sid is not None:
+                                    for i, st in enumerate(result['analysis_stages']):
+                                        if st.get('id') == int(sid):
+                                            target_idx = i
+                                            break
+                                if target_idx is None:
+                                    target_idx = len(result['analysis_stages']) - 1
+                                # 过滤无效ID（如0）
+                                loads = [g for g in (ladd_data.get('loads') or []) if g != 0]
+                                result['analysis_stages'][target_idx].setdefault('active_loads', []).extend(loads)
+                                stage_obj = result['analysis_stages'][target_idx]
                                 stage_obj.setdefault('group_commands', []).append({
                                     'stage_id': int(sid) if sid is not None else stage_obj.get('id', 0),
                                     'command': 'LADD',
-                                    'group_ids': list(ladd_data.get('loads') or [])
+                                    'group_ids': list(loads)
                                 })
+                                # 存储当前操作以处理后续逗号续行
+                                self.current_ladd_stage = target_idx
+                            except Exception:
+                                pass
+                        elif ladd_data:
+                            # STAGE 尚未出现：暂存 LADD 到待附加列表，支持先 LADD 后 STAGE 的写法
+                            try:
+                                sid = ladd_data.get('stage_id')
+                                if sid is not None:
+                                    self._pending_stage_cmds.setdefault(int(sid), []).append({
+                                        'stage_id': int(sid),
+                                        'command': 'LADD',
+                                        'group_ids': list(ladd_data.get('loads') or [])
+                                    })
+                                    self.current_ladd_stage_id_pending = int(sid)
                             except Exception:
                                 pass
 
                     elif line.startswith('BADD'):
-                        # 边界添加操作
+                        # 边界添加操作（支持续行）
                         current_section = "badd_operation"
                         badd_data = self.parse_badd_line(line)
                         if badd_data and result['analysis_stages']:
-                            result['analysis_stages'][-1]['active_boundaries'].extend(badd_data['boundaries'])
-                            # 记录到group_commands
                             try:
-                                stage_obj = result['analysis_stages'][-1]
-                                sid = badd_data.get('stage_id') or stage_obj.get('id')
+                                target_idx = None
+                                sid = badd_data.get('stage_id')
+                                if sid is not None:
+                                    for i, st in enumerate(result['analysis_stages']):
+                                        if st.get('id') == int(sid):
+                                            target_idx = i
+                                            break
+                                if target_idx is None:
+                                    target_idx = len(result['analysis_stages']) - 1
+                                bounds = [g for g in (badd_data.get('boundaries') or []) if g != 0]
+                                result['analysis_stages'][target_idx].setdefault('active_boundaries', []).extend(bounds)
+                                stage_obj = result['analysis_stages'][target_idx]
                                 stage_obj.setdefault('group_commands', []).append({
                                     'stage_id': int(sid) if sid is not None else stage_obj.get('id', 0),
                                     'command': 'BADD',
-                                    'group_ids': list(badd_data.get('boundaries') or [])
+                                    'group_ids': list(bounds)
                                 })
+                                self.current_badd_stage = target_idx
+                            except Exception:
+                                pass
+                        elif badd_data:
+                            # STAGE 尚未出现：暂存 BADD 到待附加列表
+                            try:
+                                sid = badd_data.get('stage_id')
+                                if sid is not None:
+                                    self._pending_stage_cmds.setdefault(int(sid), []).append({
+                                        'stage_id': int(sid),
+                                        'command': 'BADD',
+                                        'group_ids': list(badd_data.get('boundaries') or [])
+                                    })
+                                    self.current_badd_stage_id_pending = int(sid)
                             except Exception:
                                 pass
 
-                    elif current_section in ["madd_operation", "mdel_operation"] and line.strip().startswith(','):
-                        # 处理跨行的材料ID列表
-                        additional_materials = self.parse_continuation_line(line)
-                        if additional_materials and result['analysis_stages']:
-                            if current_section == "madd_operation" and hasattr(self, 'current_madd_stage'):
-                                stage_idx = self.current_madd_stage
-                                result['analysis_stages'][stage_idx]['active_materials'].extend(additional_materials)
-                                # 同时追加一条等效的group_commands记录，确保累计逻辑正确
+                    elif current_section in ["madd_operation", "mdel_operation", "ladd_operation", "badd_operation"] and line.strip().startswith(','):
+                        # 处理跨行的ID列表（材料/荷载/边界）
+                        ids_more = self.parse_continuation_line(line)
+                        if ids_more:
+                            if current_section == "madd_operation":
+                                if hasattr(self, 'current_madd_stage') and result['analysis_stages']:
+                                    stage_idx = self.current_madd_stage
+                                    # 记录 MADD 追加（集合）到当前阶段
+                                    try:
+                                        stage_obj = result['analysis_stages'][stage_idx]
+                                        sid = stage_obj.get('id')
+                                        stage_obj.setdefault('group_commands', []).append({
+                                            'stage_id': int(sid) if sid is not None else 0,
+                                            'command': 'MADD',
+                                            'group_ids': list(ids_more)
+                                        })
+                                    except Exception:
+                                        pass
+                                elif hasattr(self, 'current_madd_stage_id_pending') and self.current_madd_stage_id_pending is not None:
+                                    # STAGE 尚未出现：把续行的ID追加到 pending 中最近一条 MADD
+                                    try:
+                                        sid = int(self.current_madd_stage_id_pending)
+                                        pend_list = self._pending_stage_cmds.setdefault(sid, [])
+                                        # 若最后一条不是 MADD，则新建；否则追加其 group_ids
+                                        if not pend_list or pend_list[-1].get('command') != 'MADD':
+                                            pend_list.append({'stage_id': sid, 'command': 'MADD', 'group_ids': list(ids_more)})
+                                        else:
+                                            pend_list[-1].setdefault('group_ids', []).extend(ids_more)
+                                    except Exception:
+                                        pass
+                            elif current_section == "mdel_operation":
+                                if hasattr(self, 'current_mdel_stage') and result['analysis_stages']:
+                                    stage_idx = self.current_mdel_stage
+                                    # 记录 MDEL 追加（集合）
+                                    try:
+                                        stage_obj = result['analysis_stages'][stage_idx]
+                                        sid = stage_obj.get('id')
+                                        stage_obj.setdefault('group_commands', []).append({
+                                            'stage_id': int(sid) if sid is not None else 0,
+                                            'command': 'MDEL',
+                                            'group_ids': list(ids_more)
+                                        })
+                                    except Exception:
+                                        pass
+                                elif hasattr(self, 'current_mdel_stage_id_pending') and self.current_mdel_stage_id_pending is not None:
+                                    try:
+                                        sid = int(self.current_mdel_stage_id_pending)
+                                        pend_list = self._pending_stage_cmds.setdefault(sid, [])
+                                        if not pend_list or pend_list[-1].get('command') != 'MDEL':
+                                            pend_list.append({'stage_id': sid, 'command': 'MDEL', 'group_ids': list(ids_more)})
+                                        else:
+                                            pend_list[-1].setdefault('group_ids', []).extend(ids_more)
+                                    except Exception:
+                                        pass
+                            elif current_section == "ladd_operation" and hasattr(self, 'current_ladd_stage') and result['analysis_stages']:
+                                stage_idx = self.current_ladd_stage
+                                result['analysis_stages'][stage_idx]['active_loads'].extend(ids_more)
                                 try:
                                     stage_obj = result['analysis_stages'][stage_idx]
                                     sid = stage_obj.get('id')
                                     stage_obj.setdefault('group_commands', []).append({
                                         'stage_id': int(sid) if sid is not None else 0,
-                                        'command': 'MADD',
-                                        'group_ids': list(additional_materials)
+                                        'command': 'LADD',
+                                        'group_ids': list(ids_more)
                                     })
                                 except Exception:
                                     pass
-                            elif current_section == "mdel_operation" and hasattr(self, 'current_mdel_stage'):
-                                stage_idx = self.current_mdel_stage
-                                stage = result['analysis_stages'][stage_idx]
-                                for mat_id in additional_materials:
-                                    if mat_id in stage['active_materials']:
-                                        stage['active_materials'].remove(mat_id)
-                                # 同步记录MDEL命令
+                            elif current_section == "ladd_operation" and hasattr(self, 'current_ladd_stage_id_pending') and self.current_ladd_stage_id_pending is not None:
+                                # STAGE 尚未出现：把续行 ID 追加到 pending 中最近一条 LADD
+                                try:
+                                    sid = int(self.current_ladd_stage_id_pending)
+                                    pend_list = self._pending_stage_cmds.setdefault(sid, [])
+                                    if not pend_list or pend_list[-1].get('command') != 'LADD':
+                                        pend_list.append({'stage_id': sid, 'command': 'LADD', 'group_ids': list(ids_more)})
+                                    else:
+                                        pend_list[-1].setdefault('group_ids', []).extend(ids_more)
+                                except Exception:
+                                    pass
+                            elif current_section == "badd_operation" and hasattr(self, 'current_badd_stage'):
+                                stage_idx = self.current_badd_stage
+                                result['analysis_stages'][stage_idx]['active_boundaries'].extend(ids_more)
                                 try:
                                     stage_obj = result['analysis_stages'][stage_idx]
                                     sid = stage_obj.get('id')
                                     stage_obj.setdefault('group_commands', []).append({
                                         'stage_id': int(sid) if sid is not None else 0,
-                                        'command': 'MDEL',
-                                        'group_ids': list(additional_materials)
+                                        'command': 'BADD',
+                                        'group_ids': list(ids_more)
                                     })
+                                except Exception:
+                                    pass
+                            elif current_section == "badd_operation" and hasattr(self, 'current_badd_stage_id_pending') and self.current_badd_stage_id_pending is not None:
+                                # STAGE 未出现：把续行 ID 追加到 pending 中最近一条 BADD
+                                try:
+                                    sid = int(self.current_badd_stage_id_pending)
+                                    pend_list = self._pending_stage_cmds.setdefault(sid, [])
+                                    if not pend_list or pend_list[-1].get('command') != 'BADD':
+                                        pend_list.append({'stage_id': sid, 'command': 'BADD', 'group_ids': list(ids_more)})
+                                    else:
+                                        pend_list[-1].setdefault('group_ids', []).extend(ids_more)
                                 except Exception:
                                     pass
 
@@ -789,16 +1060,65 @@ class OptimizedFPNParser:
                         load_group_data = self.parse_load_group_line(line)
                         if load_group_data:
                             result['load_groups'][load_group_data['id']] = load_group_data
+                        # 初始化 LSET 续行状态
+                        try:
+                            parts = [p.strip() for p in line.split(',')]
+                            self.current_lset_id = int(parts[1]) if parts[1] else None
+                            # 如果本行就带有成员，尝试解析（不严谨但高容错）
+                            nums = [int(x) for x in parts[3:] if x and x.isdigit()]
+                            if nums:
+                                lg = result['load_groups'].setdefault(self.current_lset_id, {'id': self.current_lset_id, 'name': f'LoadGroup_{self.current_lset_id}', 'type': 'load_group'})
+                                lg.setdefault('nodes', []).extend(nums)
+                        except Exception:
+                            self.current_lset_id = None
+                            self.current_lset_kind = None
+                    elif line.startswith('GRAV'):
+                        # 重力加载：GRAV, group_id, 0/1, gx, gy, gz
+                        try:
+                            parts = [p.strip() for p in line.split(',')]
+                            if len(parts) >= 6:
+                                gid = int(parts[1]) if parts[1] else None
+                                if gid is not None:
+                                    gx = float(parts[3] or 0.0)
+                                    gy = float(parts[4] or 0.0)
+                                    gz = float(parts[5] or -9.80665)
+                                    lg = result['load_groups'].setdefault(gid, {'id': gid, 'name': f'LoadGroup_{gid}', 'type': 'load_group'})
+                                    lg['gravity'] = [gx, gy, gz]
+                        except Exception:
+                            pass
 
                     elif line.startswith('PETRUSS'):
-                        # TRUSS截面/属性定义: PETRUSS, PropId, Name, ...
+                        # TRUSS截面/属性定义: PETRUSS, PropId, Name, ..., area?, ..., 1, diam?, ...
                         current_section = "truss_sections"
                         try:
                             parts = [p.strip() for p in line.split(',')]
                             if len(parts) >= 3:
                                 pid = int(parts[1])
                                 name = parts[2]
-                                result.setdefault('truss_sections', {})[pid] = {'id': pid, 'name': name}
+                                # 提取数值字段用于猜测 area 与 diameter
+                                floats = []
+                                for p in parts[3:]:
+                                    try:
+                                        if p:
+                                            floats.append(float(p))
+                                    except Exception:
+                                        continue
+                                area = None
+                                diam = None
+                                # 经验：常见 area 在(1e-6, 1.0) m^2 范围内；直径在(0.005, 2.0) m
+                                for v in floats:
+                                    if area is None and 1e-6 <= v <= 1.0:
+                                        area = v
+                                    if diam is None and 0.005 <= v <= 2.0:
+                                        # 优先取出现的0.05~1.0范围值作为直径
+                                        if 0.02 <= v <= 1.0:
+                                            diam = v
+                                sec = {'id': pid, 'name': name}
+                                if area is not None:
+                                    sec['area'] = area
+                                if diam is not None:
+                                    sec['diameter'] = diam
+                                result.setdefault('truss_sections', {})[pid] = sec
                         except Exception:
                             pass
 
@@ -821,6 +1141,18 @@ class OptimizedFPNParser:
                         bset = self.parse_boundary_set_line(line)
                         if bset:
                             result['boundary_groups'][bset['id']] = bset
+                        # 初始化 BSET 续行状态
+                        try:
+                            parts = [p.strip() for p in line.split(',')]
+                            self.current_bset_id = int(parts[1]) if parts[1] else None
+                            # 本行附带的成员（可能有）
+                            nums = [int(x) for x in parts[3:] if x and x.isdigit()]
+                            if nums:
+                                bg = result['boundary_groups'].setdefault(self.current_bset_id, {'id': self.current_bset_id, 'name': f'BoundaryGroup_{self.current_bset_id}', 'type': 'boundary_group'})
+                                bg.setdefault('nodes', []).extend(nums)
+                        except Exception:
+                            self.current_bset_id = None
+                            self.current_bset_kind = None
 
                     elif line.startswith('CONST'):
                         current_section = "constraints"
