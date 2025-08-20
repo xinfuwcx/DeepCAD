@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 // Define the types for our domain data.
 // These would be expanded with actual types for geometry, mesh, results, etc.
@@ -40,33 +41,47 @@ interface DomainState {
  * Zustand store for managing core application domain data.
  * This includes geometry, meshing, analysis results, and tasks.
  */
-export const useDomainStore = create<DomainState>((set) => ({
-  // Initial State
-  projectName: 'New Project',
-  geometry: null,
-  tasks: [],
+export const useDomainStore = create<DomainState>()(
+  persist(
+    (set) => ({
+      // Initial State
+      projectName: 'New Project',
+      geometry: null,
+      tasks: [],
 
-  // Actions
-  setProjectName: (name) => set({ projectName: name }),
-  setGeometry: (data) => set({ geometry: data }),
-  clearGeometry: () => set({ geometry: null }),
+      // Actions
+      setProjectName: (name) => set({ projectName: name }),
+      setGeometry: (data) => set({ geometry: data }),
+      clearGeometry: () => set({ geometry: null }),
 
-  // Task management
-  addTask: (task) => set((state) => ({
-    tasks: [...state.tasks, { ...task, createdAt: Date.now() }],
-  })),
+      // Task management
+      addTask: (task) => set((state) => ({
+        tasks: [...state.tasks, { ...task, createdAt: Date.now() }],
+      })),
 
-  updateTask: (taskId, updates) => set((state) => ({
-    tasks: state.tasks.map((task) =>
-      task.id === taskId ? { ...task, ...updates } : task
-    ),
-  })),
+      updateTask: (taskId, updates) => set((state) => ({
+        tasks: state.tasks.map((task) =>
+          task.id === taskId ? { ...task, ...updates } : task
+        ),
+      })),
 
-  removeTask: (taskId) => set((state) => ({
-    tasks: state.tasks.filter((task) => task.id !== taskId),
-  })),
+      removeTask: (taskId) => set((state) => ({
+        tasks: state.tasks.filter((task) => task.id !== taskId),
+      })),
 
-  clearCompletedTasks: () => set((state) => ({
-    tasks: state.tasks.filter((task) => task.status === 'running'),
-  })),
-})); 
+      clearCompletedTasks: () => set((state) => ({
+        tasks: state.tasks.filter((task) => task.status === 'running'),
+      })),
+    }),
+    {
+      name: 'deepcad-domain-v1',
+      // Persist only serializable user data
+      partialize: (state) => ({
+        projectName: state.projectName,
+        geometry: state.geometry,
+        tasks: state.tasks,
+      }),
+      version: 1,
+    }
+  )
+);

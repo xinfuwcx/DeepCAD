@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 interface AIState {
   isPanelOpen: boolean;
@@ -7,9 +8,14 @@ interface AIState {
   togglePanel: () => void;
 }
 
-export const useAIStore = create<AIState>((set) => ({
-  isPanelOpen: false,
-  openPanel: () => set({ isPanelOpen: true }),
-  closePanel: () => set({ isPanelOpen: false }),
-  togglePanel: () => set((state) => ({ isPanelOpen: !state.isPanelOpen })),
-})); 
+export const useAIStore = create<AIState>()(
+  persist(
+    (set) => ({
+      isPanelOpen: false,
+      openPanel: () => set({ isPanelOpen: true }),
+      closePanel: () => set({ isPanelOpen: false }),
+      togglePanel: () => set((state) => ({ isPanelOpen: !state.isPanelOpen })),
+    }),
+    { name: 'deepcad-ai-panel-v1' }
+  )
+);

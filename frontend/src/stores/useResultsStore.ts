@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import axios from 'axios';
 import { immer } from 'zustand/middleware/immer';
 
@@ -128,7 +129,8 @@ const initialAnimationSettings: AnimationSettings = {
 };
 
 export const useResultsStore = create<ResultsState>()(
-  immer((set, get) => ({
+  persist(
+    immer((set, get) => ({
     loading: false,
     error: null,
     currentResult: null,
@@ -230,5 +232,21 @@ export const useResultsStore = create<ResultsState>()(
         animation: initialAnimationSettings,
       });
     },
-  }))
+  })),
+  {
+    name: 'deepcad-results-v1',
+    partialize: (state) => ({
+      currentResult: state.currentResult,
+      contour: state.contour,
+      vector: state.vector,
+      slice: state.slice,
+      deformation: state.deformation,
+      animation: state.animation,
+      // avoid persisting large raw arrays
+      visualizationData: null,
+      rendererData: null,
+    }),
+    version: 1,
+  }
+)
 ); 

@@ -4,6 +4,7 @@
  */
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { MapLayerType, iTownsMapController } from '../components/control/iTownsMapController';
 import { unifiedMapService, MapStyleType, initLazyMap } from '../services/UnifiedMapService';
 
@@ -110,7 +111,7 @@ const initialState = {
 };
 
 // 创建 Zustand store
-export const useControlCenterStore = create<ControlCenterState>()((set, get) => ({
+export const useControlCenterStore = create<ControlCenterState>()(persist((set, get) => ({
     ...initialState,
 
     // === 基础 Actions ===
@@ -261,8 +262,20 @@ export const useControlCenterStore = create<ControlCenterState>()((set, get) => 
 
     // === 重置状态 ===
     reset: () => set(initialState),
+  }), {
+  name: 'deepcad-control-center-v1',
+  partialize: (state) => ({
+    activeMapMode: state.activeMapMode,
+    currentLocation: state.currentLocation,
+    darkMode: state.darkMode,
+    fullscreenMode: state.fullscreenMode,
+    epicMode: state.epicMode,
+    showWeatherPanel: state.showWeatherPanel,
+    weatherState: state.weatherState,
+    weatherIntensity: state.weatherIntensity,
+    cloudDensity: state.cloudDensity,
   })
-);
+}));
 
 // === 选择器 Hooks ===
 export const useMapState = () => useControlCenterStore((state) => ({

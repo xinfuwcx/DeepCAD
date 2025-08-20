@@ -1273,6 +1273,9 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
   // 地质域/钻孔渲染相关引用
   const domainBoundsRef = useRef<{ xmin:number;xmax:number;ymin:number;ymax:number;zmin:number;zmax:number }|null>(null);
   const boreholesGroupRef = useRef<THREE.Group | null>(null);
+  const soilLayersGroupRef = useRef<THREE.Group | null>(null);
+  const soilLayersVisibleRef = useRef<boolean>(true);
+  const soilLayersOpacityRef = useRef<number>(0.35);
   const boreholesDataRef = useRef<{ holes:any[]; options?:{ show?:boolean; opacity?:number } }|null>(null);
   // 基坑遮罩体（模板缓冲）
   const excavationMaskRef = useRef<THREE.Group | null>(null);
@@ -2688,7 +2691,7 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
           } catch {}
         }
 
-        // 若钻孔已存在，随域变化重建一次，保证始终处于土体内
+  // 若钻孔已存在，随域变化重建一次，保证始终处于土体内
         if (boreholesDataRef.current) {
           try {
             // 触发一次重建：复用同一事件逻辑
@@ -2742,32 +2745,282 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
           boreholesGroupRef.current = null;
         }
 
-        const show = payload?.options?.show !== false;
-        const holes:any[] = payload?.holes || [];
-        if (!show || !holes.length || !bounds) return; // 无域或隐藏则不渲染
+  const show = payload?.options?.show !== false;
+  const holes:any[] = payload?.holes || [];
+  if (!holes.length) return; // 无孔不渲染
+  // 允许在缺少域信息时按数据自推边界（保证上传后立即可见）
+  let b = bounds as any;
+  if (!b) {
+    try {
+      const xs:number[] = []; const ys:number[] = []; const zsTop:number[] = []; const zsBot:number[] = [];
+      for (const h of holes) {
+        const x = Number(h.x); const y = Number(h.y); if (!isFinite(x) || !isFinite(y)) continue;
+        xs.push(x); ys.push(y);
+        const elev = Number(h.elevation ?? 0);
+        const L = h.layers || [];
+        if (L.length) {
+          for (const l of L){ const t=Number(l.topDepth??0), bt=Number(l.bottomDepth??t+1); zsTop.push(elev - t); zsBot.push(elev - bt); }
+        } else {
+          zsTop.push(elev); zsBot.push(elev - 10);
+        }
+      }
+      if (xs.length) {
+        const min = (a:number[])=> Math.min(...a); const max = (a:number[])=> Math.max(...a);
+        b = {
+          xmin: min(xs), xmax: max(xs),
+          ymin: min(ys), ymax: max(ys),
+          zmin: Math.min(min(zsTop), min(zsBot)) - 1,
+          zmax: Math.max(max(zsTop), max(zsBot)) + 1,
+        };
+      }
+    } catch {}
+  }
+  if (!b) return;
 
-        // 仅渲染位于水平范围内的孔，竖向范围裁剪到 [zmin, zmax]
-        const { xmin,xmax,ymin,ymax,zmin,zmax } = bounds;
-        const positions: number[] = []; // 每孔两个点（线段）
+        // 渲染每孔的“分层彩色线段”——按孔的 layers 拼接为多段线，支持顶/底深度
+  const { xmin,xmax,ymin,ymax,zmin,zmax } = b;
+        const positions: number[] = [];
+        const colors: number[] = [];
+        const palette = [0x6e7074,0xffa502,0xffd666,0x52c41a,0x40a9ff,0x9254de,0xeb2f96,0x13c2c2,0xfa8c16,0xa0d911];
+        const norm = (s:any)=> String(s||'').trim().toLowerCase();
+        const colorFor = (name:string, idx:number)=>{
+          const key = norm(name)||`l${idx+1}`;
+          // 简易哈希到调色板
+          let h=0; for(let i=0;i<key.length;i++){ h=(h*131 + key.charCodeAt(i))>>>0; }
+          return palette[h % palette.length];
+        };
+        const ignoreDomain = !!payload?.options?.ignoreDomain;
+        const fullColumn = !!payload?.options?.fullColumn;
         for (const h of holes) {
           const x = Number(h.x), y = Number(h.y);
           if (!isFinite(x) || !isFinite(y)) continue;
-          if (x < xmin || x > xmax || y < ymin || y > ymax) continue; // 超出水平土体则忽略
-          // 垂直：从 zmin 到 zmax（absolute 高程），映射为 Three 的 Y
-          const topY = Math.max(zmin, Math.min(zmax, zmax));
-          const botY = Math.min(zmax, Math.max(zmin, zmin));
-          // 实际就是 [zmin, zmax]，这里保留 clamp 模式方便后续扩展到分层
-          positions.push(x, topY, y, x, botY, y);
+          if (!ignoreDomain && (x < xmin || x > xmax || y < ymin || y > ymax)) continue;
+          if (fullColumn) {
+            // 强制整根显示：从域顶到域底
+            const topY = zmax; const botY = zmin;
+            positions.push(x, topY, y, x, botY, y);
+            const c = new THREE.Color(0x00b3ff); colors.push(c.r,c.g,c.b,c.r,c.g,c.b);
+          } else {
+            const elev = Number(h.elevation ?? 0);
+            const L = h.layers || [];
+            let segCount = 0;
+            if (!L.length) {
+              // 无分层：整根
+              const topY = zmax; const botY = zmin;
+              positions.push(x, topY, y, x, botY, y);
+              const c = new THREE.Color(0x1890ff); colors.push(c.r,c.g,c.b,c.r,c.g,c.b);
+              segCount++;
+            } else {
+              for (let i=0;i<L.length;i++){
+                const name = L[i].name || `L${i+1}`;
+                const t = Number(L[i].topDepth ?? 0); const bdep = Number(L[i].bottomDepth ?? (t+1));
+                let topY = elev - t; let botY = elev - bdep;
+                if (!isFinite(topY) || !isFinite(botY)) continue;
+                // 限制到域范围
+                topY = Math.max(zmin, Math.min(zmax, topY));
+                botY = Math.max(zmin, Math.min(zmax, botY));
+                if (topY < botY) { const tmp = topY; topY = botY; botY = tmp; }
+                if (Math.abs(topY - botY) < 1e-6) continue;
+                positions.push(x, topY, y, x, botY, y);
+                const hex = colorFor(name, i); const c = new THREE.Color(hex);
+                colors.push(c.r,c.g,c.b,c.r,c.g,c.b);
+                segCount++;
+              }
+            }
+            // 若没有有效分段，回退整根，确保“从上到下”可见
+            if (segCount === 0) {
+              const topY = zmax; const botY = zmin;
+              positions.push(x, topY, y, x, botY, y);
+              const c = new THREE.Color(0x1890ff); colors.push(c.r,c.g,c.b,c.r,c.g,c.b);
+            }
+          }
         }
 
-        if (positions.length === 0) return;
-        const geom = new THREE.BufferGeometry();
-        geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        const mat = new THREE.LineBasicMaterial({ color: 0x1890ff, transparent: true, opacity: Math.max(0.1, Math.min(1, payload?.options?.opacity ?? 0.85)), depthTest: true, depthWrite: false });
-        const lines = new THREE.LineSegments(geom, mat);
-        const group = new THREE.Group(); group.name = 'GEOLOGY_BOREHOLES_GROUP'; group.add(lines);
-        scene.add(group);
-        boreholesGroupRef.current = group;
+        if (show && positions.length > 0) {
+          const geom = new THREE.BufferGeometry();
+          geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+          geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+          // 可选的“总在最上层”渲染：当 alwaysOnTop=true 时禁用深度测试，保证在域盒上可见
+          const alwaysOnTop = !!payload?.options?.alwaysOnTop;
+          const opacity = Math.max(0.1, Math.min(1, payload?.options?.opacity ?? 0.85));
+          const mat = new THREE.LineBasicMaterial({
+            vertexColors: true,
+            transparent: opacity < 1,
+            opacity,
+            depthTest: !alwaysOnTop,
+            depthWrite: false
+          });
+          const lines = new THREE.LineSegments(geom, mat);
+          // 提高渲染顺序，确保在域盒之后、土层之前可见；若 alwaysOnTop 再抬高
+          lines.renderOrder = alwaysOnTop ? 1000 : 200;
+          const group = new THREE.Group(); group.name = 'GEOLOGY_BOREHOLES_GROUP'; group.add(lines);
+          // 组整体提高渲染顺序
+          group.renderOrder = alwaysOnTop ? 1000 : 200;
+          scene.add(group);
+          boreholesGroupRef.current = group;
+
+          // 可选：首次导入时自动对焦到钻孔
+          if (payload?.options?.autoFit) {
+            try {
+              const box = new THREE.Box3().setFromObject(group);
+              const center = new THREE.Vector3(); box.getCenter(center);
+              const sphere = new THREE.Sphere(); box.getBoundingSphere(sphere);
+              const cam = eng.camera; const controls = eng.orbitControls;
+              const dir = cam.position.clone().sub(controls.target).normalize();
+              const fov = cam.fov * Math.PI / 180;
+              const dist = (sphere.radius / Math.tan(fov/2)) * 1.2;
+              controls.target.copy(center); cam.position.copy(center.clone().add(dir.multiplyScalar(dist))); cam.lookAt(center); controls.update();
+            } catch {}
+          }
+        }
+
+        // 同步重建“土层填充”（基于钻孔的层面 IDW 插值，生成每层的顶部/底部曲面）
+        try {
+          const soilOpt = payload?.options?.soilLayers;
+          soilLayersVisibleRef.current = !!soilOpt?.enabled;
+          if (typeof soilOpt?.opacity === 'number') soilLayersOpacityRef.current = Math.max(0.05, Math.min(1, Number(soilOpt.opacity)));
+          // 先清理旧土层
+          if (soilLayersGroupRef.current) {
+            scene.remove(soilLayersGroupRef.current);
+            soilLayersGroupRef.current.traverse((child:any)=>{
+              try { child.geometry?.dispose?.(); } catch {}
+              try { const m=child.material; if(Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.(); } catch {}
+            });
+            soilLayersGroupRef.current = null;
+          }
+          if (soilLayersVisibleRef.current && holes.length && bounds) {
+            const { xmin,xmax,ymin,ymax,zmin,zmax } = bounds;
+            const palette = [0x6e7074,0xffa502,0xffd666,0x52c41a,0x40a9ff,0x9254de,0xeb2f96,0x13c2c2,0xfa8c16,0xa0d911];
+            // 1) 按层名归并（无名则退化为索引）
+            const norm = (s:any)=> String(s||'').trim().toLowerCase();
+            interface Sample { x:number; y:number; topY:number; botY:number; name:string; idx:number }
+            const byKey: Record<string, Sample[]> = {};
+            let maxLayers=0;
+            for (const h of holes){ maxLayers = Math.max(maxLayers, (h.layers?.length||0)); }
+            for (const h of holes){
+              const elev = Number(h.elevation ?? 0);
+              const L = h.layers||[];
+              for (let k=0;k<L.length;k++){
+                const name = L[k].name!=null && String(L[k].name).trim()? String(L[k].name): `L${k+1}`;
+                const key = norm(name) || `l${k+1}`;
+                const t = Number(L[k].topDepth ?? 0); const b = Number(L[k].bottomDepth ?? (t+1));
+                const topY = elev - t; const botY = elev - b;
+                if (!isFinite(topY) || !isFinite(botY)) continue;
+                (byKey[key] ||= []).push({ x:Number(h.x), y:Number(h.y), topY, botY, name, idx:k });
+              }
+            }
+
+            // 2) IDW 插值函数
+            const idw = (x:number, y:number, arr: Sample[], pick: 'topY'|'botY', k=6, p=2)=>{
+              if (!arr.length) return (zmin+zmax)/2;
+              // 零距离命中
+              for (const s of arr){ const dx=s.x-x, dy=s.y-y; const d2=dx*dx+dy*dy; if (d2===0) return s[pick]; }
+              // 取最近 k 个
+              const withDist = arr.map(s=>{ const dx=s.x-x, dy=s.y-y; const d=Math.sqrt(dx*dx+dy*dy); return { s, d }; });
+              withDist.sort((a,b)=> a.d-b.d);
+              const take = withDist.slice(0, Math.min(k, withDist.length));
+              let num=0, den=0; for (const it of take){ const w = 1/Math.pow(it.d+1e-6, p); num += w * (it.s as any)[pick]; den += w; }
+              const val = den>0? num/den : (zmin+zmax)/2;
+              return Math.min(zmax, Math.max(zmin, val));
+            };
+
+            // 3) 网格化生成每层的“顶部/底部高度场”并构建曲面网格
+            const gx = 48, gy = 48; // 栅格分辨率（可调）
+            const dx = (xmax - xmin) / (gx - 1);
+            const dy = (ymax - ymin) / (gy - 1);
+            const mkHeightfield = (samples: Sample[], pick:'topY'|'botY')=>{
+              const positions = new Float32Array(gx*gy*3);
+              let ptr=0;
+              for (let j=0;j<gy;j++){
+                const yy = ymin + j*dy;
+                for (let i=0;i<gx;i++){
+                  const xx = xmin + i*dx;
+                  const yyTop = idw(xx, yy, samples, pick);
+                  positions[ptr++] = xx;
+                  positions[ptr++] = yyTop; // Three 的 Y = 地质 z
+                  positions[ptr++] = yy;
+                }
+              }
+              const indices:number[] = [];
+              for (let j=0;j<gy-1;j++){
+                for (let i=0;i<gx-1;i++){
+                  const a = j*gx + i;
+                  const b = a + 1;
+                  const c = (j+1)*gx + i;
+                  const d = c + 1;
+                  indices.push(a,b,d, a,d,c); // 两个三角形
+                }
+              }
+              const geom = new THREE.BufferGeometry();
+              geom.setAttribute('position', new THREE.BufferAttribute(positions,3));
+              geom.setIndex(indices);
+              geom.computeVertexNormals();
+              return geom;
+            };
+
+            const g = new THREE.Group(); g.name = 'GEOLOGY_SOIL_LAYERS_GROUP';
+            let layerOrder=0;
+            for (const [key, samples] of Object.entries(byKey)){
+              if (!samples.length) continue;
+              const color = palette[layerOrder % palette.length];
+              // 体块：将顶/底高度场与四周边界连成封闭体
+              const geomTop = mkHeightfield(samples, 'topY');
+              const geomBot = mkHeightfield(samples, 'botY');
+              const posTop = geomTop.getAttribute('position') as THREE.BufferAttribute;
+              const posBot = geomBot.getAttribute('position') as THREE.BufferAttribute;
+              const nVerts = posTop.count;
+              // 合并顶/底顶点
+              const positionsTB = new Float32Array(nVerts*2*3);
+              positionsTB.set(posTop.array as Float32Array, 0);
+              positionsTB.set(posBot.array as Float32Array, nVerts*3);
+              const indices:number[] = [];
+              // 顶面（保持几何 winding）
+              const idxTop = (geomTop.getIndex()?.array as any) as ArrayLike<number> | null;
+              if (idxTop){ for (let i=0;i<idxTop.length;i+=3){ indices.push(idxTop[i]!, idxTop[i+1]!, idxTop[i+2]!); } }
+              // 底面（反向）
+              const idxBot = (geomBot.getIndex()?.array as any) as ArrayLike<number> | null;
+              if (idxBot){ for (let i=0;i<idxBot.length;i+=3){ indices.push(nVerts + idxBot[i+2]!, nVerts + idxBot[i+1]!, nVerts + idxBot[i]!); } }
+              // 四周侧壁（围绕网格外圈）
+              // 通过上下顶点坐标推断网格尺寸：此处直接与 mkHeightfield 的分辨率保持一致
+              const GX = 48, GY = 48;
+              const vTop = (i:number,j:number)=> j*GX + i;
+              const vBot = (i:number,j:number)=> nVerts + j*GX + i;
+              // 下边缘 j=0
+              for (let i=0;i<GX-1;i++){
+                const a=vTop(i,0), b=vTop(i+1,0), a2=vBot(i,0), b2=vBot(i+1,0);
+                indices.push(a,b,b2, a,b2,a2);
+              }
+              // 上边缘 j=GY-1
+              for (let i=0;i<GX-1;i++){
+                const j=GY-1; const a=vTop(i,j), b=vTop(i+1,j), a2=vBot(i,j), b2=vBot(i+1,j);
+                indices.push(a2,b2,b, a2,b,a);
+              }
+              // 左边缘 i=0
+              for (let j=0;j<GY-1;j++){
+                const a=vTop(0,j), b=vTop(0,j+1), a2=vBot(0,j), b2=vBot(0,j+1);
+                indices.push(a,b,b2, a,b2,a2);
+              }
+              // 右边缘 i=GX-1
+              for (let j=0;j<GY-1;j++){
+                const i=GX-1; const a=vTop(i,j), b=vTop(i,j+1), a2=vBot(i,j), b2=vBot(i,j+1);
+                indices.push(a2,b2,b, a2,b,a);
+              }
+              const geom = new THREE.BufferGeometry();
+              geom.setAttribute('position', new THREE.BufferAttribute(positionsTB,3));
+              geom.setIndex(indices);
+              geom.computeVertexNormals();
+              const mat = new THREE.MeshStandardMaterial({ color, transparent: true, opacity: soilLayersOpacityRef.current, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide, depthWrite: false });
+              const slab = new THREE.Mesh(geom, mat); slab.name = `soil-${key}-slab`; slab.renderOrder = 150; g.add(slab);
+              try {
+                const edges = new THREE.EdgesGeometry(geom);
+                const lineMat = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.15 });
+                const line = new THREE.LineSegments(edges, lineMat); line.renderOrder = 998; g.add(line);
+              } catch {}
+              layerOrder++;
+            }
+            if (g.children.length){ scene.add(g); soilLayersGroupRef.current = g; g.visible = soilLayersVisibleRef.current; }
+          }
+        } catch {}
       } catch {}
     });
     return () => { try { off?.(); } catch {} };

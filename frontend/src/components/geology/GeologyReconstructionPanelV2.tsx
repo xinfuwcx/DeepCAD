@@ -9,11 +9,10 @@
  *  - 估算: memory≈ N * 32 bytes; time≈ 基础系数 0.00008 * N 秒 (经验值，可后续校准)
  * 后续阶段将补齐: 质量评估(RMSEz/H)、回退、缓存、水头参数细节、预览/commit API 对接、钻孔数据联动等。
  */
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, Tabs, Radio, Slider, InputNumber, Row, Col, Space, Switch, Tag, Button, Typography, Alert, Tooltip, Divider, Segmented, message, Upload, Table, Statistic, Popconfirm, Form, Input, Select } from 'antd';
 import { ExperimentOutlined, DeploymentUnitOutlined, DatabaseOutlined, ThunderboltOutlined, AimOutlined, CheckCircleTwoTone, WarningTwoTone, CloseCircleTwoTone, CloudUploadOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons';
-// Stage E: 3D 视口
-import GeologyReconstructionViewport3D from './GeologyReconstructionViewport3D';
+// Stage E: 3D 视口 (已移除内嵌预览)
 import { previewGeology, commitGeology } from '../../services/geologyReconstructionApi';
 import { geologyReconCache } from '../../services/geologyReconCache';
 import { eventBus } from '../../core/eventBus';
@@ -23,6 +22,8 @@ import * as XLSX from 'xlsx';
 const { Text, Title } = Typography;
 
 // ---------- 常量配置 ----------
+const STORAGE_KEY_BH = 'deepcad.geology.boreholes.v1';
+const STORAGE_KEY_BH_FN = 'deepcad.geology.boreholes.file.v1';
 const RESOLUTION_PRESETS = {
   preview: { label: '预览', nx: 60, ny: 60, nz: 60 },
   standard: { label: '标准', nx: 80, ny: 80, nz: 80 },
@@ -99,12 +100,9 @@ const GeologyReconstructionPanelV2: React.FC = () => {
   const [boreholeFileName, setBoreholeFileName] = useState<string | null>(null);
   const [boreholes, setBoreholes] = useState<any[]>([]); // {id,x,y,elevation?,layers:[{name,topDepth,bottomDepth,soilType?}]}[]
   const [parsing, setParsing] = useState(false);
-  // Stage E: 3D 预览开关
-  const [show3D, setShow3D] = useState(false);
+  // Stage E: 3D 预览开关 (已移除)
   const [roiAdjusted, setRoiAdjusted] = useState(false);
-  const [showDomainBox, setShowDomainBox] = useState(true);
-  const [show3DBoreholes, setShow3DBoreholes] = useState(true);
-  const [boreholeOpacity3D, setBoreholeOpacity3D] = useState(0.85);
+  // 3D 相关 UI 状态已删除：showDomainBox/show3DBoreholes/boreholeOpacity3D/showSoilFill/soilFillOpacity
   // 质量历史 (E3.1)
   interface QualityHistItem { ts:number; hash:string; N:number; rmseZ:number; rmseH:number; grade:string; fallback:boolean; roiAdjusted:boolean }
   const [qualityHistory, setQualityHistory] = useState<QualityHistItem[]>([]);
@@ -273,33 +271,7 @@ const GeologyReconstructionPanelV2: React.FC = () => {
       </div>
     );
   };
-  // 预计算 3D 视口需要的数据结构
-  const borehole3DData = useMemo(()=> boreholes.map((h:any)=> ({
-    id: h.id,
-    name: h.id,
-    x: h.x,
-    y: h.y,
-    z: h.elevation ?? 0,
-    depth: (h.layers||[]).reduce((mx:number,l:any)=> Math.max(mx, l.bottomDepth||0), 0),
-    layers: (h.layers||[]).map((l:any,idx:number)=> ({
-      id: `${h.id}_${idx}`,
-      name: l.name || `Layer${idx+1}`,
-      topDepth: l.topDepth ?? 0,
-      bottomDepth: l.bottomDepth ?? ((l.topDepth||0)+1),
-      soilType: l.soilType || l.name || 'unknown',
-      color: hashColor(l.name || `L${idx}`),
-      visible: true,
-      opacity: 0.85
-    }))
-  })), [boreholes]);
-
-  // Esc 关闭 3D 预览
-  React.useEffect(()=>{
-    if (!show3D) return;
-    const onKey = (e: KeyboardEvent)=> { if (e.key === 'Escape') setShow3D(false); };
-    window.addEventListener('keydown', onKey);
-    return ()=> window.removeEventListener('keydown', onKey);
-  }, [show3D]);
+  // 3D 预览已移除
 
   // 初次加载尝试恢复缓存 (仅一次)
   React.useEffect(()=>{ try { geologyReconCache.loadFromStorage(); setCacheVersion(v=>v+1);} catch {} },[]);
@@ -557,9 +529,40 @@ const GeologyReconstructionPanelV2: React.FC = () => {
       const normalized = normalizeHoles(raw);
       setBoreholes(normalized);
       setBoreholeFileName(file.name);
+      // 持久化到本地，避免切换路由/标签后丢失
+      try {
+        localStorage.setItem(STORAGE_KEY_BH, JSON.stringify(normalized));
+        localStorage.setItem(STORAGE_KEY_BH_FN, file.name);
+      } catch {}
       message.success(`已加载钻孔 ${normalized.length} 个 (layers=${normalized.reduce((s,h)=>s+(h.layers?.length||0),0)})`);
-      // 新增：通知 3D 引擎更新钻孔，显示在当前计算域内
-      try { eventBus.emit('geology:boreholes:update', { holes: normalized, options: { show: true, opacity: boreholeOpacity3D } }); } catch {}
+      // 新增：若当前处于“自动域”，则根据数据重算并广播；手动域不会被改动
+      try {
+        if (normalized.length > 0 && domain.mode === 'auto') {
+          const xs = normalized.map(h=> Number(h.x)||0);
+          const ys = normalized.map(h=> Number(h.y)||0);
+          const zs = normalized.map(h=> Number(h.elevation ?? 0));
+          const min = (a:number[])=> Math.min(...a);
+          const max = (a:number[])=> Math.max(...a);
+          const base = { xmin:min(xs), xmax:max(xs), ymin:min(ys), ymax:max(ys), zmin:min(zs)-(max(zs)-min(zs))*0.6, zmax:max(zs) };
+          const expand = (domain.autoExpansion ?? 30) / 100;
+          const expandRange = (lo:number, hi:number)=> { const r=hi-lo; return { lo: lo - r*expand, hi: hi + r*expand }; };
+          eventBus.emit('geology:domain:update', { bounds: {
+            xmin: expandRange(base.xmin, base.xmax).lo,
+            xmax: expandRange(base.xmin, base.xmax).hi,
+            ymin: expandRange(base.ymin, base.ymax).lo,
+            ymax: expandRange(base.ymin, base.ymax).hi,
+            zmin: expandRange(base.zmin, base.zmax).lo,
+            zmax: expandRange(base.zmin, base.zmax).hi,
+          }});
+        }
+      } catch {}
+      // 向主视口发送“仅钻孔”渲染事件（首次上传自动对焦），土层填充关闭
+      try {
+  eventBus.emit('geology:boreholes:update', {
+          holes: normalized,
+          options: { show: true, opacity: 1.0, autoFit: true, alwaysOnTop: true, ignoreDomain: true, fullColumn: true, soilLayers: { enabled: false } }
+        });
+      } catch {}
     } catch (err:any) {
       console.error(err);
       message.error('解析失败: ' + err.message);
@@ -569,10 +572,49 @@ const GeologyReconstructionPanelV2: React.FC = () => {
     return false; // 阻止自动上传
   };
 
-  // 当钻孔集合或透明度开关变化时，通知 3D 引擎刷新
-  useEffect(()=>{
-    try { eventBus.emit('geology:boreholes:update', { holes: boreholes, options: { show: show3DBoreholes, opacity: boreholeOpacity3D } }); } catch {}
-  }, [boreholes, show3DBoreholes, boreholeOpacity3D]);
+  // 当钻孔集合变化时，保持主视口“仅钻孔”显示/隐藏（不自动对焦，不启用土层）
+  React.useEffect(() => {
+    try {
+      if (boreholes.length > 0) {
+        eventBus.emit('geology:boreholes:update', {
+          holes: boreholes,
+          options: { show: true, opacity: 1.0, alwaysOnTop: true, ignoreDomain: true, fullColumn: true, soilLayers: { enabled: false } }
+        });
+      } else {
+        eventBus.emit('geology:boreholes:update', { holes: [], options: { show: false } });
+      }
+    } catch {}
+  }, [boreholes]);
+
+  // 启动时尝试恢复已缓存的钻孔数据
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_BH);
+      if (saved) {
+        const arr = JSON.parse(saved);
+        if (Array.isArray(arr)) {
+          setBoreholes(arr);
+          const fn = localStorage.getItem(STORAGE_KEY_BH_FN);
+          if (fn) setBoreholeFileName(fn);
+        }
+      }
+    } catch {}
+    // 仅首次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 变化时同步更新持久化
+  React.useEffect(() => {
+    try {
+      if (boreholes.length > 0) {
+        localStorage.setItem(STORAGE_KEY_BH, JSON.stringify(boreholes));
+        if (boreholeFileName) localStorage.setItem(STORAGE_KEY_BH_FN, boreholeFileName);
+      } else {
+        localStorage.removeItem(STORAGE_KEY_BH);
+        localStorage.removeItem(STORAGE_KEY_BH_FN);
+      }
+    } catch {}
+  }, [boreholes, boreholeFileName]);
 
   const holeCount = boreholes.length;
   const layerCount = useMemo(()=> boreholes.reduce((s,h)=> s + (h.layers?.length||0), 0), [boreholes]);
@@ -764,17 +806,13 @@ const GeologyReconstructionPanelV2: React.FC = () => {
           <p style={{ fontSize:11, color:'#888' }}>表头示例: id/钻孔编号, x/X坐标, y/Y坐标, elevation/地面标高, layer/地层名称, top/顶深度, bottom/底深度</p>
         </Upload.Dragger>
         <Space wrap style={{ marginTop:8 }}>
-          {boreholes.length>0 && <Popconfirm title="清除已加载数据?" onConfirm={()=>{setBoreholes([]); setBoreholeFileName(null);}}><Button size="small" icon={<DeleteOutlined />}>清除</Button></Popconfirm>}
+          {boreholes.length>0 && <Popconfirm title="清除已加载数据?" onConfirm={()=>{ setBoreholes([]); setBoreholeFileName(null); try{ localStorage.removeItem(STORAGE_KEY_BH); localStorage.removeItem(STORAGE_KEY_BH_FN);}catch{} }}><Button size="small" icon={<DeleteOutlined />}>清除</Button></Popconfirm>}
           {boreholes.length>0 && <Button size="small" icon={<DownloadOutlined />} onClick={()=>{ try { const blob=new Blob([JSON.stringify({holes:boreholes},null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='boreholes_export.json'; a.click(); URL.revokeObjectURL(a.href);} catch(e){ message.error('导出失败'); } }}>导出JSON</Button>}
         </Space>
         {parsing && <Alert type="info" showIcon style={{ marginTop:8 }} message="解析中..." />}
         {holeLimitWarn && <Alert type="warning" showIcon style={{ marginTop:8 }} message={`钻孔数量 ${holeCount} 接近或超过软上限 ${HOLE_SOFT_LIMIT}`} />}
         {layerLimitWarn && <Alert type="warning" showIcon style={{ marginTop:8 }} message={`总层数 ${layerCount} 接近上限 (${LAYER_SOFT_LIMIT})`} />}
-        {boreholes.length>0 && (
-          <div style={{ marginTop:8 }}>
-            <Button size="small" type="primary" onClick={()=> setShow3D(true)}>打开 3D 预览</Button>
-          </div>
-        )}
+  {/* 3D 预览按钮已移除 */}
       </Card>
 
       <Row gutter={12}>
@@ -1266,6 +1304,7 @@ const GeologyReconstructionPanelV2: React.FC = () => {
         <Tabs
           size="small"
           tabPosition="top"
+          destroyInactiveTabPane={false}
           items={[
             { key: 'domain', label: '土体计算域', children: domainTab },
             { key: 'boreholes', label: '钻孔数据', children: boreholeTab },
@@ -1439,33 +1478,7 @@ const GeologyReconstructionPanelV2: React.FC = () => {
         )}
       </div>
   </div>
-  {show3D && (
-      <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', zIndex: 9999, display:'flex', flexDirection:'column' }}>
-        <div style={{ padding:'6px 12px', display:'flex', alignItems:'center', borderBottom:'1px solid #222', background:'#0d1117' }}>
-          <Space wrap>
-            <Title level={5} style={{ color:'#fff', margin:0 }}>钻孔 3D 预览</Title>
-            <Tag color="blue">{boreholes.length} 孔</Tag>
-            <Button size="small" onClick={()=> setShow3D(false)}>关闭 (Esc)</Button>
-          </Space>
-        </div>
-        <div style={{ flex:1, position:'relative' }}>
-          <div style={{ position:'absolute', top:8, left:8, zIndex:10, background:'rgba(0,0,0,0.55)', padding:8, border:'1px solid #333', borderRadius:4, display:'flex', gap:8, alignItems:'center' }}>
-            <Space size={4} wrap>
-              <Switch size="small" checked={showDomainBox} onChange={v=>setShowDomainBox(v)} />
-              <span style={{ color:'#ddd', fontSize:12 }}>域盒</span>
-              <Switch size="small" checked={show3DBoreholes} onChange={v=>setShow3DBoreholes(v)} />
-              <span style={{ color:'#ddd', fontSize:12 }}>钻孔</span>
-              <span style={{ color:'#999', fontSize:12 }}>不透明度</span>
-              <InputNumber size="small" min={0.1} max={1} step={0.05} value={boreholeOpacity3D} onChange={v=> setBoreholeOpacity3D(v||0.85)} style={{ width:70 }} />
-            </Space>
-          </div>
-          <GeologyReconstructionViewport3D
-            boreholeData={borehole3DData}
-            style={{ width:'100%', height:'100%' }}
-          />
-        </div>
-      </div>
-    )}
+  {/* 3D 预览层已移除 */}
     {showHotkeyHelp && (
       <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.55)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center' }} onClick={()=> setShowHotkeyHelp(false)}>
         <div style={{ background:'#0d1117', padding:24, border:'1px solid #222', borderRadius:8, width:420 }} onClick={e=> e.stopPropagation()}>
@@ -1478,7 +1491,7 @@ const GeologyReconstructionPanelV2: React.FC = () => {
               <tr><td style={{padding:'4px 6px'}}>Alt+R</td><td style={{padding:'4px 6px'}}>回放最新缓存配置</td></tr>
               <tr><td style={{padding:'4px 6px'}}>Alt+K</td><td style={{padding:'4px 6px'}}>切换最新缓存基线</td></tr>
               <tr><td style={{padding:'4px 6px'}}>Alt+H</td><td style={{padding:'4px 6px'}}>显示/隐藏此帮助</td></tr>
-              <tr><td style={{padding:'4px 6px'}}>Esc (3D)</td><td style={{padding:'4px 6px'}}>关闭 3D 预览</td></tr>
+              {/* 3D 相关快捷键已移除 */}
             </tbody>
           </table>
           <Divider style={{ margin:'8px 0' }} />
@@ -1514,11 +1527,6 @@ function renderCacheRow(it:any, onSelectA:(h:string)=>void, onSelectB:(h:string)
   );
 }
 // 简易稳定颜色哈希 (0xRRGGBB)
-function hashColor(key: string): number {
-  let h=0; for (let i=0;i<key.length;i++){ h=(h*131 + key.charCodeAt(i))>>>0; }
-  // 取中间 24bit。
-  const color = (h & 0x00ffffff) | 0x303030; // 加一点亮度基底
-  return color & 0xffffff;
-}
+// hashColor 已移除
 
 export default GeologyReconstructionPanelV2;

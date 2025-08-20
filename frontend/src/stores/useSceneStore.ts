@@ -1,4 +1,5 @@
 import { createWithEqualityFn } from 'zustand/traditional';
+import { persist } from 'zustand/middleware';
 import { shallow } from 'zustand/shallow';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
@@ -271,7 +272,10 @@ export interface SceneState {
   removeDomainFragment: (id: string) => void;
 }
 
-export const useSceneStore = createWithEqualityFn<SceneState>((set, get) => ({
+export const useSceneStore = createWithEqualityFn<
+  SceneState,
+  [["zustand/persist", unknown]]
+>(persist((set, get) => ({
   scene: null,
   layers: [
     { id: 'terrain', name: 'Terrain', visible: true, color: '#8B4513' },
@@ -630,4 +634,17 @@ export const useSceneStore = createWithEqualityFn<SceneState>((set, get) => ({
       } : null
     }));
   },
-}), shallow); 
+}), {
+  name: 'deepcad-scene-v1',
+  // Only persist serializable, lightweight fields
+  partialize: (state) => ({
+    scene: state.scene ? { id: state.scene.id, name: state.scene.name, domain: state.scene.domain } : null,
+    layers: state.layers,
+    selectedComponentId: state.selectedComponentId,
+    selectedComponentIds: state.selectedComponentIds,
+    isMultiSelectMode: state.isMultiSelectMode,
+    soilDomain: state.soilDomain,
+    meshConfig: state.meshConfig,
+    viewSettings: state.viewSettings,
+  })
+}), shallow);

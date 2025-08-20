@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { subscribeWithSelector } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import { 
   GeometryData, 
   MaterialZone, 
@@ -100,8 +101,9 @@ const initialState: GeometryState = {
 
 // 创建几何状态管理器
 export const useGeometryStore = create<GeometryStore>()(
-  subscribeWithSelector(
-    immer((set, get) => ({
+  persist(
+    subscribeWithSelector(
+      immer((set, get) => ({
       ...initialState,
 
       // 添加几何体
@@ -506,7 +508,45 @@ export const useGeometryStore = create<GeometryStore>()(
         set(() => ({ ...initialState }));
         ComponentDevHelper.logDevTip('几何状态已重置');
       },
-    }))
+      }))
+    ),
+    {
+      name: 'deepcad-geometry-v2',
+      version: 2,
+      // 将 Map 序列化为数组进行持久化
+      partialize: (state) => ({
+        geometries: Array.from(state.geometries.values()),
+        materialZones: Array.from(state.materialZones.values()),
+        selectedGeometryIds: state.selectedGeometryIds,
+        activeMaterialZone: state.activeMaterialZone,
+        meshData: state.meshData,
+        lastMeshQuality: state.lastMeshQuality,
+      }),
+      // 反序列化：将数组还原为 Map，并合并回现有状态
+      merge: (persisted: any, current) => {
+        if (!persisted) return current;
+        const next = { ...current } as GeometryStore as any;
+        if (persisted.geometries) {
+          next.geometries = new Map(persisted.geometries.map((g: any) => [g.id, g]));
+        }
+        if (persisted.materialZones) {
+          next.materialZones = new Map(persisted.materialZones.map((z: any) => [z.id, z]));
+        }
+        if (Array.isArray(persisted.selectedGeometryIds)) {
+          next.selectedGeometryIds = persisted.selectedGeometryIds;
+        }
+        if (persisted.activeMaterialZone !== undefined) {
+          next.activeMaterialZone = persisted.activeMaterialZone;
+        }
+        if (persisted.meshData !== undefined) {
+          next.meshData = persisted.meshData;
+        }
+        if (persisted.lastMeshQuality !== undefined) {
+          next.lastMeshQuality = persisted.lastMeshQuality;
+        }
+        return next as typeof current;
+      }
+    }
   )
 );
 
