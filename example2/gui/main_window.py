@@ -373,21 +373,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(8, 8, 8, 8)
 
-        # 标题
-        title_label = QLabel("🔧 前处理 - 网格、约束、荷载")
-        title_label.setFont(QFont("Microsoft YaHei", 12, QFont.Bold))
-        title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("""
-            QLabel {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #FF6B35, stop:1 #F7931E);
-                color: white;
-                padding: 10px;
-                border-radius: 8px;
-                margin-bottom: 5px;
-            }
-        """)
-        layout.addWidget(title_label)
+        # 标题已移除 - 用户要求去掉橙色横幅
 
         # 3D视图容器
         self.preprocessor_viewer = self.preprocessor.get_viewer_widget()

@@ -213,8 +213,8 @@ class CompactedSoilMaterialHandler:
                 "YOUNG_MODULUS": properties.youngs_modulus,
                 "POISSON_RATIO": properties.poissons_ratio,
                 "COHESION": properties.improved_cohesion / 1000,  # 转换为MPa
-                "FRICTION_ANGLE": np.radians(properties.improved_friction_angle),
-                "DILATANCY_ANGLE": np.radians(properties.improved_friction_angle * 0.7)
+                "INTERNAL_FRICTION_ANGLE": np.radians(properties.improved_friction_angle),
+                "INTERNAL_DILATANCY_ANGLE": np.radians(max(0.0, properties.improved_friction_angle - 30.0))
             }
         }
         

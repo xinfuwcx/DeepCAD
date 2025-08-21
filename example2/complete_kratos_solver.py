@@ -161,8 +161,8 @@ class CompleteKratosSolver:
                         "POISSON_RATIO": mat['nu'],
                         "YIELD_STRESS_TENSION": mat['c'] * 1000,  # Pa
                         "YIELD_STRESS_COMPRESSION": mat['c'] * 1000 * 20,  # Pa
-                        "FRICTION_ANGLE": mat['phi'],  # degrees
-                        "DILATANCY_ANGLE": dilatancy,  # degrees
+                        "INTERNAL_FRICTION_ANGLE": phi_rad,  # 弧度
+                        "INTERNAL_DILATANCY_ANGLE": dilatancy,  # 弧度
                         "COHESION": mat['c'] * 1000,  # Pa
                         "K0": 1 - np.sin(phi_rad)  # Jaky公式
                     }

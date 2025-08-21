@@ -172,13 +172,15 @@ class MaterialParameterValidator:
             elif nu < 0.1:
                 warnings.append(f"泊松比 {nu:.3f} 较小，请确认是否为脆性材料")
         
-        # 剪胀角建议
+        # 剪胀角建议 (ψ ≤ φ)
         if 'FRICTION_ANGLE' in props and 'DILATANCY_ANGLE' in props:
             phi = math.degrees(props['FRICTION_ANGLE']) if props['FRICTION_ANGLE'] < 1 else props['FRICTION_ANGLE']
             psi = math.degrees(props['DILATANCY_ANGLE']) if props['DILATANCY_ANGLE'] < 1 else props['DILATANCY_ANGLE']
-            
+
             if psi > phi:
-                warnings.append(f"剪胀角 {psi:.1f}° 大于内摩擦角 {phi:.1f}°，违反塑性理论")
+                warnings.append(f"剪胀角 {psi:.1f}° 大于内摩擦角 {phi:.1f}°，违反塑性理论 (ψ ≤ φ)")
+            elif psi < 0:
+                warnings.append(f"剪胀角 {psi:.1f}° 小于0°，建议设为0°或正值")
             elif psi > phi * 0.8:
                 warnings.append(f"剪胀角 {psi:.1f}° 接近内摩擦角 {phi:.1f}°，建议使用 ψ ≤ φ - 10°")
         
@@ -488,8 +490,8 @@ class OptimizedMohrCoulombSolver:
                 "Variables": {
                     "YIELD_STRESS_TENSION": material_properties.get('YIELD_STRESS_TENSION', 0.1e6),
                     "YIELD_STRESS_COMPRESSION": material_properties.get('YIELD_STRESS_COMPRESSION', 10e6),
-                    "FRICTION_ANGLE": material_properties.get('FRICTION_ANGLE', 30.0),
-                    "DILATANCY_ANGLE": self._compute_dilatancy_angle(material_properties),
+                    "FRICTION_ANGLE": material_properties.get('FRICTION_ANGLE', 30.0),  # degrees
+                    # Note: this law does NOT take DILATANCY_ANGLE
                     "DAMAGE_THRESHOLD": 0.99,
                     "STRENGTH_RATIO": 10.0,
                     "FRACTURE_ENERGY": 100.0
@@ -502,7 +504,7 @@ class OptimizedMohrCoulombSolver:
                 "Variables": {
                     "COHESION": material_properties.get('COHESION', 50000),
                     "INTERNAL_FRICTION_ANGLE": np.radians(material_properties.get('FRICTION_ANGLE', 30.0)),
-                    "DILATANCY_ANGLE": np.radians(self._compute_dilatancy_angle(material_properties)),
+                    "INTERNAL_DILATANCY_ANGLE": np.radians(self._compute_dilatancy_angle(material_properties)),
                     "YIELD_STRESS": material_properties.get('COHESION', 50000),
                     "ISOTROPIC_HARDENING_MODULUS": material_properties.get('YOUNG_MODULUS', 30e9) * 0.01,
                     "EXPONENTIAL_SATURATION_YIELD_STRESS": material_properties.get('COHESION', 50000) * 2.0,
@@ -514,18 +516,18 @@ class OptimizedMohrCoulombSolver:
         return {"constitutive_law": constitutive_law}
     
     def _compute_dilatancy_angle(self, material_properties: Dict[str, Any]) -> float:
-        """计算剪胀角"""
+        """计算剪胀角 (ψ ≤ φ)"""
         friction_angle = material_properties.get('FRICTION_ANGLE', 30.0)
-        
+
         # 使用经验关系：ψ = φ - 30° (Bolton, 1986)
-        # 但不小于0度
-        dilatancy_angle = max(0.0, friction_angle - 30.0)
-        
+        # 但不小于0度，且不大于摩擦角
+        dilatancy_angle = max(0.0, min(friction_angle, friction_angle - 30.0))
+
         # 对于松散土，剪胀角更小
         density = material_properties.get('DENSITY', 2500)
         if density < 1800:  # 松散土
             dilatancy_angle *= 0.5
-        
+
         return dilatancy_angle
 
 

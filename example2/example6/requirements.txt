@@ -1,0 +1,56 @@
+# DeepCAD-SCOUR 桥墩浅蚀模拟系统依赖包
+# Bridge Pier Scour Simulation System Dependencies
+
+# GUI框架
+PyQt6>=6.4.0
+qtawesome>=1.2.0
+
+# 科学计算核心库
+numpy>=1.24.0
+scipy>=1.10.0
+pandas>=1.5.0
+
+# 3D可视化
+pyvista>=0.40.0
+pyvistaqt>=0.10.0
+vtk>=9.2.0
+
+# 有限元求解器 (可选)
+# fenics>=2019.1.0  # 需要conda安装: conda install -c conda-forge fenics
+
+# 网格处理
+meshio>=5.3.0
+# gmsh>=4.11.0  # 可选的高级网格生成
+
+# 图像处理
+Pillow>=9.0.0
+
+# 数据处理
+matplotlib>=3.6.0
+seaborn>=0.12.0  # 可选的统计图表
+
+# 文件格式支持
+h5py>=3.7.0
+openpyxl>=3.1.0
+
+# 数值算法增强
+scikit-learn>=1.2.0  # 机器学习算法
+numba>=0.56.0        # JIT编译加速
+
+# 系统工具
+psutil>=5.9.0        # 系统监控
+tqdm>=4.64.0         # 进度条
+
+# 开发和测试工具
+pytest>=7.2.0
+black>=22.0.0        # 代码格式化
+flake8>=5.0.0        # 代码质量检查
+
+# 文档生成 (可选)
+# sphinx>=5.0.0
+# sphinx-rtd-theme>=1.2.0
+
+# 安装说明:
+# 1. 基础安装: pip install -r requirements.txt
+# 2. FEniCS安装 (推荐conda): conda install -c conda-forge fenics
+# 3. 完整开发环境: pip install -r requirements.txt && conda install -c conda-forge fenics

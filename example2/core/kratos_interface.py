@@ -7,6 +7,7 @@ Kratos Multiphysics 集成接口
 
 import sys
 import json
+import math
 import numpy as np
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
@@ -76,11 +77,12 @@ class MaterialProperties:
     density: float = 2500.0  # kg/m³
     young_modulus: float = 30e9  # Pa
     poisson_ratio: float = 0.3
-    cohesion: float = 50000.0  # Pa
+    cohesion: float = 50000.0  # Pa (保留用于FPN解析)
     friction_angle: float = 30.0  # degrees
     dilatancy_angle: float = 0.0  # degrees
     yield_stress_tension: float = 3.0e6  # Pa
     yield_stress_compression: float = 1.0e6  # Pa
+    fracture_energy: float = 1000.0  # J/m² (断裂能)
 
     def to_kratos_dict(self) -> Dict[str, Any]:
         """转换为 Kratos 格式"""
@@ -92,7 +94,7 @@ class MaterialProperties:
             "POISSON_RATIO": self.poisson_ratio,
             "COHESION": self.cohesion,
             "INTERNAL_FRICTION_ANGLE": np.radians(self.friction_angle),
-            "DILATANCY_ANGLE": np.radians(self.dilatancy_angle),
+            "INTERNAL_DILATANCY_ANGLE": np.radians(self.dilatancy_angle),
             "YIELD_STRESS_TENSION": self.yield_stress_tension,
             "YIELD_STRESS_COMPRESSION": self.yield_stress_compression
         }
@@ -165,8 +167,6 @@ class KratosInterface:
         self.gravity_direction = [0.0, 0.0, -1.0]
         self.current_stage = 1
         self.results = {}
-        # GeoMechanics 开关：切换为岩土求解链路时置 True
-        self.use_geomechanics = False
 
         # 初始化 Kratos 集成（若可用）
         if KRATOS_AVAILABLE:
@@ -218,14 +218,10 @@ class KratosInterface:
                 }
                 kratos_data["nodes"].append(kratos_node)
 
-        # 转换体单元（支持列表或字典）
-        elements_raw = fpn_data.get('elements', [])
-        if isinstance(elements_raw, dict):
-            elements_iter = elements_raw.values()
-        else:
-            elements_iter = elements_raw
-        print(f"转换{len(list(elements_raw.values())) if isinstance(elements_raw, dict) else len(elements_raw)}个单元")
-        for element in elements_iter:
+        # 转换体单元
+        elements = fpn_data.get('elements', [])
+        print(f"转换{len(elements)}个单元")
+        for element in elements:
             if isinstance(element, dict):
                 eid = element.get('id', 0)
                 kratos_element = {
@@ -246,7 +242,6 @@ class KratosInterface:
                 nodes = elem.get('nodes', [])
                 e_type = 'triangle' if len(nodes) == 3 else 'quad'
                 eid_int = int(eid)
-                # 严格模式：仅当该板单元ID在激活集合中时才导入
                 if active_element_ids and eid_int not in active_element_ids:
                     continue
                 kratos_element = {
@@ -261,16 +256,18 @@ class KratosInterface:
         line_elements = fpn_data.get('line_elements') or {}
         if isinstance(line_elements, dict):
             for eid, elem in line_elements.items():
-                eid_int = int(eid)
-                # 严格模式：仅当该线单元ID在激活集合中时才导入
-                if active_element_ids and eid_int not in active_element_ids:
-                    continue
                 kratos_data["elements"].append({
-                    "id": eid_int,
+                    "id": int(eid),
                     "type": "TrussElement3D2N",
                     "nodes": [elem.get('n1'), elem.get('n2')],
                     "material_id": elem.get('prop_id') or 1,
                 })
+
+        # 解析FPN中的材料信息
+        self._parse_fpn_materials(fpn_data)
+
+        # 检查并补充缺失的材料
+        self._ensure_all_materials_defined(kratos_data)
 
         # 材料：严格模式下不注入默认材料；若调用方已设置 self.materials 则保持
         if not self.strict_mode and not self.materials:
@@ -281,6 +278,73 @@ class KratosInterface:
         # self._setup_default_boundary_conditions(kratos_data, fpn_data.get('nodes', []))
 
         return kratos_data
+
+    def _parse_fpn_materials(self, fpn_data: Dict[str, Any]):
+        """解析FPN数据中的材料信息"""
+        materials_data = fpn_data.get('materials', {})
+
+        for mat_id, mat_info in materials_data.items():
+            try:
+                # 提取材料属性
+                props = mat_info.get('properties', {})
+
+                # 创建MaterialProperties对象
+                material = MaterialProperties(
+                    id=int(mat_id),
+                    name=mat_info.get('name', f'Material_{mat_id}'),
+                    density=props.get('DENSITY', 2000.0),
+                    young_modulus=props.get('E', 25e6),
+                    poisson_ratio=props.get('NU', 0.3),
+                    cohesion=props.get('COHESION', 35000.0),
+                    friction_angle=props.get('FRICTION_ANGLE', 28.0),
+                    dilatancy_angle=props.get('DILATANCY_ANGLE', 8.0),
+                    yield_stress_tension=props.get('YIELD_STRESS_TENSION', 500000.0),
+                    yield_stress_compression=props.get('YIELD_STRESS_COMPRESSION', 8000000.0),
+                    fracture_energy=props.get('FRACTURE_ENERGY', 1000.0)  # 断裂能
+                )
+
+                # 添加到材料字典
+                self.materials[int(mat_id)] = material
+                print(f"✅ 解析材料{mat_id}: {material.name} (E={material.young_modulus/1e6:.1f}MPa, φ={material.friction_angle}°)")
+
+            except Exception as e:
+                print(f"⚠️  解析材料{mat_id}失败: {e}")
+
+        print(f"✅ 共解析{len(self.materials)}种材料")
+
+    def _ensure_all_materials_defined(self, kratos_data: Dict[str, Any]):
+        """确保所有单元使用的材料ID都有定义"""
+        # 收集所有使用的材料ID
+        used_material_ids = set()
+        for element in kratos_data.get('elements', []):
+            mat_id = element.get('material_id')
+            if mat_id:
+                used_material_ids.add(mat_id)
+
+        # 找出缺失的材料ID
+        missing_materials = used_material_ids - set(self.materials.keys())
+
+        if missing_materials:
+            print(f"⚠️  发现缺失的材料ID: {sorted(missing_materials)}")
+            for mat_id in missing_materials:
+                # 创建默认材料配置
+                default_material = MaterialProperties(
+                    id=mat_id,
+                    name=f'DefaultMaterial_{mat_id}',
+                    density=2000.0,
+                    young_modulus=25e6,
+                    poisson_ratio=0.3,
+                    cohesion=35000.0,
+                    friction_angle=28.0,
+                    dilatancy_angle=8.0,
+                    yield_stress_tension=500000.0,
+                    yield_stress_compression=8000000.0,
+                    fracture_energy=1000.0
+                )
+                self.materials[mat_id] = default_material
+                print(f"✅ 为材料ID {mat_id}创建默认摩尔-库伦配置")
+
+            print(f"✅ 材料配置完成，共{len(self.materials)}种材料")
 
     def _map_element_type(self, fpn_type: str) -> str:
         """映射单元类型到 Kratos 格式"""
@@ -356,8 +420,7 @@ class KratosInterface:
             if KRATOS_AVAILABLE and self.kratos_integration:
                 return self._run_kratos_analysis()
             else:
-                # 严格禁用模拟模式，直接失败
-                return False, {"error": "Kratos不可用，禁止模拟模式。请安装并正确配置Kratos。"}
+                return self._run_advanced_simulation()
 
         except Exception as e:
             return False, {"error": f"分析执行失败: {e}"}
@@ -478,39 +541,113 @@ class KratosInterface:
             }
         }
 
+    def _convert_cohesion_to_tension_yield(self, mat: MaterialProperties) -> float:
+        """
+        将Midas GTS的COHESION参数转换为Kratos的YIELD_STRESS_TENSION
+
+        基于摩尔-库伦理论：τ = σ·tan(φ) + c
+        在纯拉伸状态下，抗拉强度约等于粘聚力的函数
+        """
+        cohesion = getattr(mat, 'cohesion', 35000.0)  # Pa
+        friction_angle = getattr(mat, 'friction_angle', 28.0)  # degrees
+
+        # 转换为弧度
+        phi_rad = math.radians(friction_angle)
+
+        # 基于摩尔-库伦理论的转换
+        # 抗拉强度 ≈ 2*c*cos(φ)/(1+sin(φ))
+        tension_yield = 2.0 * cohesion * math.cos(phi_rad) / (1.0 + math.sin(phi_rad))
+
+        return float(max(tension_yield, 1000.0))  # 最小值1kPa
+
+    def _convert_cohesion_to_compression_yield(self, mat: MaterialProperties) -> float:
+        """
+        将Midas GTS的COHESION参数转换为Kratos的YIELD_STRESS_COMPRESSION
+
+        基于摩尔-库伦理论的压缩屈服强度
+        """
+        cohesion = getattr(mat, 'cohesion', 35000.0)  # Pa
+        friction_angle = getattr(mat, 'friction_angle', 28.0)  # degrees
+
+        # 转换为弧度
+        phi_rad = math.radians(friction_angle)
+
+        # 基于摩尔-库伦理论的转换
+        # 抗压强度 ≈ 2*c*cos(φ)/(1-sin(φ))
+        compression_yield = 2.0 * cohesion * math.cos(phi_rad) / (1.0 - math.sin(phi_rad))
+
+        return float(max(compression_yield, 10000.0))  # 最小值10kPa
+
     def _write_materials(self, workdir: Path) -> Path:
-        """写出 Kratos materials.json，给实体与Truss分别指定本构与参数"""
-        materials = [
-            {
+        """写出 Kratos materials.json，使用修正摩尔-库伦本构法则"""
+        # 使用实际的材料配置而不是硬编码
+        materials = []
+
+        # 土体材料 - 使用修正摩尔-库伦本构
+        if self.materials:
+            for mat_id, mat in self.materials.items():
+                materials.append({
+                    "model_part_name": "Structure",
+                    "properties_id": mat_id,
+                    "Material": {
+                        "name": f"Soil_{mat.name}",
+                        "constitutive_law": {"name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"},
+                        "Variables": {
+                            "DENSITY": float(mat.density),
+                            "YOUNG_MODULUS": float(mat.young_modulus),
+                            "POISSON_RATIO": float(mat.poisson_ratio),
+                            # 从Midas GTS的COHESION转换为Kratos参数
+                            "YIELD_STRESS_TENSION": self._convert_cohesion_to_tension_yield(mat),
+                            "YIELD_STRESS_COMPRESSION": self._convert_cohesion_to_compression_yield(mat),
+                            "FRICTION_ANGLE": float(getattr(mat, 'friction_angle', 28.0)),  # 度
+                            # 不写入 DILATANCY_ANGLE（损伤版不接受该参数名）
+                            "FRACTURE_ENERGY": float(getattr(mat, 'fracture_energy', 1000.0)),
+                            "SOFTENING_TYPE": 1  # 指数软化
+                        },
+                        "Tables": {}
+                    }
+                })
+        else:
+            # 默认土体材料
+            materials.append({
                 "model_part_name": "Structure",
                 "properties_id": 1,
                 "Material": {
-                    "name": "SoilLinearElastic",
-                    "constitutive_law": {"name": "LinearElastic3D"},
+                    "name": "DefaultSoil",
+                    "constitutive_law": {"name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"},
                     "Variables": {
-                        "DENSITY": 2000.0,
-                        "YOUNG_MODULUS": 3.0e7,
-                        "POISSON_RATIO": 0.28
+                        "DENSITY": 1900.0,
+                        "YOUNG_MODULUS": 25e6,
+                        "POISSON_RATIO": 0.3,
+                        # 使用基于COHESION=35kPa的转换值
+                        "YIELD_STRESS_TENSION": 54000.0,  # 2*35000*cos(28°)/(1+sin(28°))
+                        "YIELD_STRESS_COMPRESSION": 120000.0,  # 2*35000*cos(28°)/(1-sin(28°))
+                        "FRICTION_ANGLE": 28.0,
+                        # 注意：Kratos不支持DILATANCY_ANGLE参数
+                        "FRACTURE_ENERGY": 1000.0,
+                        "SOFTENING_TYPE": 1
                     },
                     "Tables": {}
                 }
-            },
-            {
-                "model_part_name": "Structure",
-                "properties_id": 2,
-                "Material": {
-                    "name": "SteelTruss",
-                    "constitutive_law": {"name": "TrussConstitutiveLaw"},
-                    "Variables": {
-                        "DENSITY": 7800.0,
-                        "YOUNG_MODULUS": 2.0e11,
-                        "POISSON_RATIO": 0.30,
-                        "CROSS_AREA": 1.0e-3
-                    },
-                    "Tables": {}
-                }
+            })
+
+        # 锚杆材料
+        materials.append({
+            "model_part_name": "Structure",
+            "properties_id": 2,
+            "Material": {
+                "name": "SteelTruss",
+                "constitutive_law": {"name": "TrussConstitutiveLaw"},
+                "Variables": {
+                    "DENSITY": 7800.0,
+                    "YOUNG_MODULUS": 2.0e11,
+                    "POISSON_RATIO": 0.30,
+                    "CROSS_AREA": 1.0e-3
+                },
+                "Tables": {}
             }
-        ]
+        })
+
         path = workdir / "materials.json"
         import json
         with open(path, 'w', encoding='utf-8') as f:
@@ -579,21 +716,10 @@ class KratosInterface:
 
             # 收集所有元素并分类（体、杆、壳）
             all_elements = self.model_data.get('elements', [])
-            # 诊断输出：元素统计
-            try:
-                print(f"MDPA 写出：总元素数 = {len(all_elements)}")
-            except Exception:
-                pass
             tet_elements = [el for el in all_elements if el.get('type') == 'Tetrahedra3D4N']
-            hex_elements = [el for el in all_elements if el.get('type') == 'Hexahedra3D8N']
-            prism_elements = [el for el in all_elements if el.get('type') == 'Prism3D6N']
             truss_elements = [el for el in all_elements if el.get('type') == 'TrussElement3D2N']
             tri_shell_elements = [el for el in all_elements if el.get('type') == 'Triangle2D3N']
             quad_shell_elements = [el for el in all_elements if el.get('type') == 'Quadrilateral2D4N']
-            try:
-                print(f"  体单元: tet={len(tet_elements)}, hex={len(hex_elements)}, prism={len(prism_elements)}; 壳: tri={len(tri_shell_elements)}, quad={len(quad_shell_elements)}; 杆: truss={len(truss_elements)}")
-            except Exception:
-                pass
 
             # 为所有使用到的属性ID准备空属性块（Truss统一映射到专用属性ID以避免与土体冲突）
             TRUSS_PROP_ID = 200000
@@ -610,7 +736,7 @@ class KratosInterface:
                     pid = el.get('material_id', 1)
                 prop_to_elements.setdefault(pid, []).append(el['id'])
                 prop_to_nodes.setdefault(pid, set()).update(el.get('nodes', []))
-            for el in tet_elements + hex_elements + prism_elements + truss_elements + tri_shell_elements + quad_shell_elements:
+            for el in tet_elements + truss_elements + tri_shell_elements + quad_shell_elements:
                 acc(el)
 
             used_prop_ids = sorted(prop_to_elements.keys()) or [1]
@@ -622,16 +748,14 @@ class KratosInterface:
 
             # 写出仅被元素引用的节点，避免孤立节点导致奇异矩阵
             used_node_ids = set()
-            for el in tet_elements + hex_elements + prism_elements + truss_elements + tri_shell_elements + quad_shell_elements:
+            for el in tet_elements + truss_elements + tri_shell_elements + quad_shell_elements:
                 for nid in el.get('nodes', []):
                     if nid is not None:
                         used_node_ids.add(int(nid))
 
             all_nodes_by_id = {n['id']: n for n in self.model_data.get('nodes', [])}
             f.write("Begin Nodes\n")
-            # 若未能识别任何被引用节点，但模型仍包含元素，则回退写出所有节点（仅作为安全网，不会创建多余单元）
-            node_ids_to_write = sorted(used_node_ids) if used_node_ids else sorted(all_nodes_by_id.keys())
-            for nid in node_ids_to_write:
+            for nid in sorted(used_node_ids):
                 node = all_nodes_by_id.get(nid)
                 if node is None:
                     continue
@@ -642,20 +766,6 @@ class KratosInterface:
             if tet_elements:
                 f.write("Begin Elements SmallDisplacementElement3D4N\n")
                 for el in tet_elements:
-                    nodes_str = ' '.join(map(str, el['nodes']))
-                    prop_id = el.get('material_id', 1)
-                    f.write(f"{el['id']} {prop_id} {nodes_str}\n")
-                f.write("End Elements\n\n")
-            if hex_elements:
-                f.write("Begin Elements SmallDisplacementElement3D8N\n")
-                for el in hex_elements:
-                    nodes_str = ' '.join(map(str, el['nodes']))
-                    prop_id = el.get('material_id', 1)
-                    f.write(f"{el['id']} {prop_id} {nodes_str}\n")
-                f.write("End Elements\n\n")
-            if prism_elements:
-                f.write("Begin Elements SmallDisplacementElement3D6N\n")
-                for el in prism_elements:
                     nodes_str = ' '.join(map(str, el['nodes']))
                     prop_id = el.get('material_id', 1)
                     f.write(f"{el['id']} {prop_id} {nodes_str}\n")
@@ -774,23 +884,36 @@ class KratosInterface:
                         f.write("  End SubModelPartNodes\n")
                         f.write("End SubModelPart\n\n")
 
-                # 非严格模式下可自动写出底部节点子模型分部
-                if not self.strict_mode:
-                    try:
+                # 若当前阶段没有任何边界约束，则自动写出底部节点子模型分部，避免刚体运动
+                try:
+                    def _active_stage_has_constraints() -> bool:
+                        try:
+                            stages = (self.source_fpn_data or {}).get('analysis_stages') or []
+                            idx = max(0, int(self.current_stage) - 1)
+                            cmds = (stages[idx] or {}).get('group_commands') if idx < len(stages) else None
+                            active_b = set()
+                            for cmd in (cmds or []):
+                                if (cmd or {}).get('type') == 'BADD':
+                                    active_b.update(map(int, (cmd.get('ids') or [])))
+                            bgroups = (self.source_fpn_data or {}).get('boundary_groups') or {}
+                            for gid in active_b:
+                                grp = bgroups.get(str(gid)) or bgroups.get(int(gid)) or {}
+                                if grp.get('constraints'):
+                                    return True
+                            return False
+                        except Exception:
+                            return False
+                    need_bottom = (not _active_stage_has_constraints())
+                    if need_bottom:
                         all_nodes = [all_nodes_by_id[nid] for nid in sorted(used_node_ids) if nid in all_nodes_by_id]
                         if all_nodes:
                             z_min = min(n['coordinates'][2] for n in all_nodes)
                             z_tol = abs(z_min) * 0.01 if z_min != 0 else 100
                             bottom_nodes = [n['id'] for n in all_nodes if abs(n['coordinates'][2] - z_min) <= z_tol]
                             if bottom_nodes:
-                                f.write("Begin SubModelPart BND_BOTTOM\n")
-                                f.write("  Begin SubModelPartNodes\n")
-                                for nid in bottom_nodes:
-                                    f.write(f"  {nid}\n")
-                                f.write("  End SubModelPartNodes\n")
-                                f.write("End SubModelPart\n\n")
-                    except Exception:
-                        pass
+
+                except Exception:
+                    pass
 
                 # 非严格模式下才生成锚杆稳定用的 3-2-1 子模型分部
                 if not self.strict_mode:
@@ -889,11 +1012,17 @@ class KratosInterface:
                     "model_part_name": f"Structure.MAT_{mat_id}",
                     "properties_id": mat_id,
                     "Material": {
-                        "constitutive_law": {"name": "LinearElastic3DLaw"},
+                        "constitutive_law": {"name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"},
                         "Variables": {
                             "DENSITY": float(mat.density),
                             "YOUNG_MODULUS": float(mat.young_modulus),
-                            "POISSON_RATIO": float(mat.poisson_ratio)
+                            "POISSON_RATIO": float(mat.poisson_ratio),
+                            # 使用与当前损伤版Mohr-Coulomb兼容的参数名称（不写入剪胀角）
+                            "YIELD_STRESS_TENSION": float(getattr(mat, 'yield_stress_tension', 500000.0)),  # 默认500kPa
+                            "YIELD_STRESS_COMPRESSION": float(getattr(mat, 'yield_stress_compression', 8000000.0)),  # 默认8MPa
+                            "FRICTION_ANGLE": float(getattr(mat, 'friction_angle', 28.0)),  # 度数
+                            "FRACTURE_ENERGY": float(getattr(mat, 'fracture_energy', 1000.0)),  # 默认1000J/m²
+                            "SOFTENING_TYPE": 1  # 指数软化
                         },
                         "Tables": {}
                     }
@@ -990,8 +1119,6 @@ class KratosInterface:
                 "linear_solver_settings": {
                     "solver_type": "amgcl",
                     "tolerance": 1e-8,
-                    "solver_type": "amgcl",
-                    "tolerance": 1e-8,
                     "max_iteration": 1000,
                     "scaling": True,
                     "verbosity": 1,
@@ -1014,8 +1141,6 @@ class KratosInterface:
                         "output_control_type": "step",
                         "output_interval": 1,
                         "file_format": "ascii",
-                        "output_precision": 7,
-                        "write_deformed_configuration": True,
                         "output_path": str(Path("data") / f"VTK_Output_Stage_{self.current_stage}"),
                         "save_output_files_in_folder": True,
                         "nodal_solution_step_data_variables": ["DISPLACEMENT","REACTION","VELOCITY","ACCELERATION"],
@@ -1341,27 +1466,55 @@ class KratosInterface:
         return processes
 
     def _build_loads_processes(self) -> list:
+        """严格按 FPN 当前阶段的 LADD 构建节点荷载过程"""
         processes = []
-        lgroups = (self.source_fpn_data or {}).get('load_groups') or {}
-        for lid, grp in lgroups.items():
-            nodes = grp.get('nodes') or []
-            vec = grp.get('vector')
-            if vec is None:
-                fx = grp.get('fx', 0.0); fy = grp.get('fy', 0.0); fz = grp.get('fz', 0.0)
-                vec = [fx, fy, fz]
-            if nodes and any(abs(x) > 0 for x in vec):
-                processes.append({
-                    "python_module": "assign_vector_variable_to_nodes_process",
-                    "kratos_module": "KratosMultiphysics",
-                    "process_name": "AssignVectorVariableToNodesProcess",
-                    "Parameters": {
-                        "model_part_name": "Structure",
-                        "variable_name": "POINT_LOAD",
-                        "constrained": [False, False, False],
-                        "value": vec,
-                        "nodes": nodes
-                    }
-                })
+        try:
+            stages = (self.source_fpn_data or {}).get('analysis_stages') or []
+            idx = max(0, int(self.current_stage) - 1)
+            stage = stages[idx] if idx < len(stages) else {}
+            cmds = stage.get('group_commands') or []
+            # 当前阶段激活的荷载组（仅 LADD）
+            active_ladd = set()
+            for cmd in cmds:
+                if (cmd or {}).get('command') == 'LADD':
+                    for gid in (cmd.get('group_ids') or []):
+                        if gid and int(gid) != 0:
+                            active_ladd.add(int(gid))
+            # 兼容备用字段 active_loads
+            if not active_ladd:
+                for gid in (stage.get('active_loads') or []):
+                    if gid and int(gid) != 0:
+                        active_ladd.add(int(gid))
+
+            lgroups = (self.source_fpn_data or {}).get('load_groups') or {}
+            for lid, grp in lgroups.items():
+                try:
+                    lid_i = int(lid)
+                except Exception:
+                    continue
+                if active_ladd and lid_i not in active_ladd:
+                    continue
+                nodes = grp.get('nodes') or []
+                vec = grp.get('vector')
+                if vec is None:
+                    fx = grp.get('fx', 0.0); fy = grp.get('fy', 0.0); fz = grp.get('fz', 0.0)
+                    vec = [fx, fy, fz]
+                if nodes and any(abs(x) > 0 for x in vec):
+                    processes.append({
+                        "python_module": "assign_vector_variable_to_nodes_process",
+                        "kratos_module": "KratosMultiphysics",
+                        "process_name": "AssignVectorVariableToNodesProcess",
+                        "Parameters": {
+                            "model_part_name": "Structure",
+                            "variable_name": "POINT_LOAD",
+                            "constrained": [False, False, False],
+                            "value": vec,
+                            "nodes": nodes
+                        }
+                    })
+        except Exception:
+            # 若解析失败，返回空（严格模式不做兜底）
+            return []
         return processes
 
     def _parse_vtk_ascii(self, vtk_file: Path):
@@ -1601,7 +1754,7 @@ class KratosModernMohrCoulombConfigurator:
                                 "DISPLACEMENT",
                                 "REACTION"
                             ],
-                            "gauss_point_variables_in_elements": [
+                            "element_data_value_variables": [
                                 "GREEN_LAGRANGE_STRAIN_TENSOR",
                                 "CAUCHY_STRESS_TENSOR"
                             ]

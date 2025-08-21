@@ -124,7 +124,7 @@ class EnhancedKratosInterface(KratosInterface):
                 poisson_ratio=material_props.get('POISSON_RATIO', material.poisson_ratio),
                 cohesion=material_props.get('COHESION', material.cohesion),
                 friction_angle=material_props.get('INTERNAL_FRICTION_ANGLE', material.friction_angle),
-                dilatancy_angle=constitutive_config['constitutive_law']['Variables'].get('DILATANCY_ANGLE', 0.0),
+                dilatancy_angle=material_props.get('INTERNAL_DILATANCY_ANGLE', 0.0),
                 yield_stress_tension=material_props.get('YIELD_STRESS_TENSION', material.yield_stress_tension),
                 yield_stress_compression=material_props.get('YIELD_STRESS_COMPRESSION', material.yield_stress_compression)
             )

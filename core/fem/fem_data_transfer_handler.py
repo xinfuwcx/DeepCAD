@@ -472,8 +472,8 @@ class FEMDataTransferHandler:
             if material.compactionZone and material.cohesion:
                 materials_data[f"material_{mat_id}"]["parameters"].update({
                     "COHESION": material.cohesion / 1000,  # 转换为MPa
-                    "FRICTION_ANGLE": np.radians(material.friction_angle),
-                    "DILATANCY_ANGLE": np.radians(material.friction_angle * 0.7)
+                    "INTERNAL_FRICTION_ANGLE": np.radians(material.friction_angle),
+                    "INTERNAL_DILATANCY_ANGLE": np.radians(max(0.0, material.friction_angle - 30.0))
                 })
         
         with open(materials_file, 'w', encoding='utf-8') as f:
