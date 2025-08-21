@@ -1,0 +1,21 @@
+.mt16 {
+  margin-top: 16px;
+}
+
+.mt24 {
+  margin-top: 24px;
+}
+
+.centerEmpty {
+  text-align: center;
+  padding: 48px;
+}
+
+.emptyText {
+  margin-top: 16px;
+  color: #999;
+}
+
+.viewportTab {
+  height: 600px;
+}

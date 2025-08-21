@@ -725,13 +725,26 @@ class PreProcessor:
                 try:
                     tube = pdata.tube(radius=radius, n_sides=12)
                     if tube is not None and tube.n_points > 0:
+                        # 🎨 专业锚杆管状显示
                         self.plotter.add_mesh(
-                            tube, color='orange', smooth_shading=True, name='anchor_lines'
+                            tube,
+                            color=[255, 140, 0],  # 专业橙色
+                            opacity=0.95,
+                            smooth_shading=True,
+                            lighting=True,
+                            name='anchor_lines'
                         )
                         return
                 except Exception:
                     pass
-                self.plotter.add_mesh(pdata, color='red', line_width=3.0, name='anchor_lines')
+                # 🎨 降级为专业线条显示
+                self.plotter.add_mesh(
+                    pdata,
+                    color=[255, 140, 0],  # 专业橙色
+                    line_width=4.0,
+                    opacity=0.9,
+                    name='anchor_lines'
+                )
         except Exception as e:
             print(f"显示锚杆失败: {e}")
 
@@ -2510,23 +2523,41 @@ class PreProcessor:
         except Exception:
             pass
 
-        # 2) 预定义名称关键字映射（与 palette 色系一致）
+        # 2) 🎨 专业岩土工程名称关键字映射 (基于地质勘察标准色系)
         name_mapping = {
-            '填土': (0.761, 0.561, 0.361),  # Sandy Brown
-            '细砂': (1.000, 0.757, 0.027),  # Amber 近似
-            '砂土': (1.000, 0.757, 0.027),
-            '粉土': (0.851, 0.710, 0.447),
-            '粉质粘土': (0.553, 0.431, 0.388),
-            '粘土': (0.737, 0.667, 0.643),
-            '淤泥': (0.631, 0.533, 0.498),
-            '卵石': (0.612, 0.800, 0.396),
-            '岩': (0.475, 0.333, 0.282),
-            '围护墙': (0.725, 0.749, 0.776),
-            '地连墙': (0.725, 0.749, 0.776),
-            '支护墙': (0.725, 0.749, 0.776),
-            '混凝土': (0.380, 0.490, 0.545),
-            '钢材': (0.816, 0.827, 0.839),
-            '钢': (0.816, 0.827, 0.839),
+            # === 土体材料 (自然地质色系) ===
+            '填土': (0.545, 0.451, 0.333),      # 深土褐色
+            '细砂': (0.710, 0.580, 0.455),      # 浅土褐色
+            '中砂': (0.804, 0.667, 0.490),      # 沙土色
+            '粗砂': (0.855, 0.725, 0.549),      # 浅沙色
+            '砂土': (0.804, 0.667, 0.490),      # 沙土色
+            '粉土': (0.545, 0.490, 0.420),      # 灰褐色
+            '粉质粘土': (0.627, 0.510, 0.384),  # 中土褐色
+            '粘土': (0.471, 0.412, 0.345),      # 深灰褐色
+            '淤泥': (0.384, 0.333, 0.275),      # 深褐色
+            '淤泥质土': (0.384, 0.333, 0.275),  # 深褐色
+            '强风化': (0.294, 0.235, 0.188),    # 深岩色
+            '岩': (0.294, 0.235, 0.188),        # 深岩色
+            '卵石': (0.612, 0.800, 0.396),      # 保持绿色
+
+            # === 工程材料 (专业工程色系) ===
+            '围护墙': (0.545, 0.353, 0.169),    # 混凝土褐色
+            '地连墙': (0.545, 0.353, 0.169),    # 混凝土褐色
+            '支护墙': (0.545, 0.353, 0.169),    # 混凝土褐色
+            '混凝土': (0.275, 0.510, 0.706),    # 钢蓝色
+            '桩': (0.275, 0.510, 0.706),        # 钢蓝色
+
+            # === 金属材料 (金属色系) ===
+            '钢材': (0.663, 0.663, 0.663),      # 银灰色
+            '钢': (0.663, 0.663, 0.663),        # 银灰色
+            '钢支撑': (0.663, 0.663, 0.663),    # 银灰色
+
+            # === 支护材料 (醒目安全色系) ===
+            '锚杆': (1.000, 0.549, 0.000),      # 橙色
+            '预应力': (1.000, 0.549, 0.000),    # 橙色
+            '土钉': (1.000, 0.271, 0.000),      # 橙红色
+            '注浆': (1.000, 0.388, 0.278),      # 番茄色
+            '加固': (1.000, 0.498, 0.314),      # 珊瑚色
         }
         try:
             if material_name:
@@ -3319,7 +3350,17 @@ class PreProcessor:
                 self._render_piles_only()
             if getattr(self, 'show_strutting', True):
                 self._render_steel_support_only()
-                
+
+        except Exception as e:
+            print(f"半透明分层显示失败: {e}")
+
+    def _render_steel_support_only(self):
+        """渲染钢支撑"""
+        try:
+            print("✅ 钢支撑独立显示: 功能待实现")
+        except Exception as e:
+            print(f"钢支撑显示失败: {e}")
+
     def _render_diaphragm_wall_only(self):
         """独立渲染地连墙"""
         try:
@@ -3329,10 +3370,18 @@ class PreProcessor:
                 wall_mask = np.isin(mat_ids, [12])
                 if np.any(wall_mask):
                     wall_mesh = self.mesh.extract_cells(wall_mask)
+                    # 🎨 专业地连墙外观
                     self.plotter.add_mesh(
                         wall_mesh,
-                        color='brown',
-                        opacity=0.8,
+                        color=[139, 90, 43],  # 混凝土褐色 (RGB 0-255)
+                        opacity=0.85,
+                        show_edges=True,
+                        edge_color='saddlebrown',
+                        line_width=0.6,
+                        metallic=0.1,
+                        roughness=0.6,
+                        lighting=True,
+                        smooth_shading=True,
                         name='diaphragm_wall_only'
                     )
                     print(f"✅ 地连墙独立显示: {wall_mesh.n_cells}单元")
@@ -3345,10 +3394,13 @@ class PreProcessor:
             if self._anchors_cached is None:
                 self._anchors_cached = self._build_anchor_geometry()
             if self._anchors_cached:
+                # 🎨 专业锚杆外观
                 self.plotter.add_mesh(
                     self._anchors_cached,
-                    color='red',
-                    line_width=3,
+                    color=[255, 140, 0],  # 预应力锚杆橙色
+                    line_width=4,
+                    opacity=0.95,
+                    render_lines_as_tubes=True,
                     name='anchors_only'
                 )
                 print(f"✅ 锚杆独立显示: {self._anchors_cached.n_cells}条线")
@@ -3364,10 +3416,18 @@ class PreProcessor:
                 pile_mask = np.isin(mat_ids, [10])
                 if np.any(pile_mask):
                     pile_mesh = self.mesh.extract_cells(pile_mask)
+                    # 🎨 专业桩基外观
                     self.plotter.add_mesh(
                         pile_mesh,
-                        color='blue',
-                        opacity=0.8,
+                        color=[70, 130, 180],  # 钢蓝色
+                        opacity=0.90,
+                        show_edges=True,
+                        edge_color='navy',
+                        line_width=0.5,
+                        metallic=0.1,
+                        roughness=0.7,
+                        lighting=True,
+                        smooth_shading=True,
                         name='piles_only'
                     )
                     print(f"✅ 桩基独立显示: {pile_mesh.n_cells}单元")
@@ -3437,41 +3497,25 @@ class PreProcessor:
                     if mat_mesh.n_cells == 0:
                         continue
                     
-                    # 🔧 修复：工程构件使用更突出的颜色和透明度
-                    if is_engineering:
-                        # 工程构件颜色映射
-                        if int(mat_id) == 10:  # Concrete Pile
-                            color = 'blue'
-                            opacity = 0.9
-                        elif int(mat_id) == 11:  # Steel Support
-                            color = 'silver'
-                            opacity = 0.9
-                        elif int(mat_id) == 12:  # Concrete (地连墙)
-                            color = 'brown'
-                            opacity = 0.8
-                        else:
-                            color = 'gray'
-                            opacity = 0.8
-                    else:
-                        # 土体材料
-                        color = self._get_safe_material_color(int(mat_id))
-                        opacity = 0.6  # 土体更透明
+                    # 🎨 获取专业材料外观
+                    color, opacity, material_props = self._get_professional_material_appearance(int(mat_id))
                     
-                    # 🔧 修复：添加半透明材料（正确的PyVista透明度设置）
-                    self.plotter.add_mesh(
-                        mat_mesh,
-                        color=color,
-                        opacity=opacity,
-                        show_edges=False,
-                        lighting=True,
-                        smooth_shading=True,
-                        name=f'transparent_material_{mat_id}',
-                        # 🔧 关键修复：透明度渲染参数
-                        culling='back',           # 背面剔除
-                        render_points_as_spheres=False,
-                        point_size=1,
-                        line_width=1
-                    )
+                    # 🎨 专业材料渲染（使用增强的材料属性）
+                    render_params = {
+                        'color': color,
+                        'opacity': opacity,
+                        'show_edges': material_props.get('show_edges', False),
+                        'edge_color': material_props.get('edge_color', 'white'),
+                        'line_width': material_props.get('line_width', 0.3),
+                        'lighting': True,
+                        'smooth_shading': True,
+                        'name': f'transparent_material_{mat_id}',
+                        'metallic': material_props.get('metallic', 0.0),
+                        'roughness': material_props.get('roughness', 0.8),
+                        'culling': 'back'
+                    }
+
+                    self.plotter.add_mesh(mat_mesh, **render_params)
                     
                     print(f"  材料{mat_id}: {mat_mesh.n_cells}单元, 透明度={opacity:.1f}")
                     
@@ -3774,11 +3818,35 @@ class PreProcessor:
 
         try:
             # 使用正确的PyVista渐变语法
-            # Abaqus经典渐变: 底部银灰色，顶部深蓝色
+            # 🎨 专业岩土工程背景渐变
             self.plotter.set_background(
-                color=[0.85, 0.85, 0.9],    # 底部银灰色
-                top=[0.1, 0.2, 0.4]         # 顶部深蓝色
+                color=[0.92, 0.92, 0.95],   # 底部浅灰蓝色 (更柔和)
+                top=[0.15, 0.25, 0.45]      # 顶部深蓝色 (更深邃)
             )
+
+            # 🔆 增强光照效果
+            try:
+                # 设置环境光
+                self.plotter.add_light(pv.Light(
+                    position=(0, 0, 1000),
+                    focal_point=(0, 0, 0),
+                    color='white',
+                    intensity=0.8,
+                    light_type='scenelight'
+                ))
+
+                # 添加方向光增强立体感
+                self.plotter.add_light(pv.Light(
+                    position=(500, 500, 800),
+                    focal_point=(0, 0, 0),
+                    color='white',
+                    intensity=0.6,
+                    light_type='scenelight'
+                ))
+
+                print("✅ 专业光照系统设置完成")
+            except Exception as e:
+                print(f"光照设置失败: {e}")
             print("✅ Abaqus风格渐变背景设置成功")
         except Exception as e:
             # 如果渐变不支持，使用Abaqus风格的单色背景
@@ -4297,31 +4365,29 @@ class PreProcessor:
                         name = mat_info['name']
                         mat_type = mat_info['type']
 
-                        if mat_type == 'concrete':  # 结构材料
-                            # 金属/混凝土效果
-                            actor = self.plotter.add_mesh(
-                                use_mesh,
-                                color=color,
-                                metallic=0.8,
-                                roughness=0.2,
-                                pbr=True,
-                                opacity=1.0,
-                                show_edges=False,
-                                name=f'solid_material_{mat_id}',
-                                label=name
-                            )
-                        else:  # 土体材料
-                            # 普通实体效果
-                            actor = self.plotter.add_mesh(
-                                use_mesh,
-                                color=color,
-                                opacity=1.0,
-                                show_edges=True,
-                                edge_color='black',
-                                line_width=0.5,
-                                name=f'solid_material_{mat_id}',
-                                label=name
-                            )
+                        # 🎨 使用专业材料外观配置
+                        color_rgb, opacity, material_props = self._get_professional_material_appearance(int(mat_id))
+
+                        # 实体模式：完全不透明，增强材质效果
+                        render_params = {
+                            'color': color_rgb,
+                            'opacity': 1.0,  # 实体模式强制不透明
+                            'show_edges': material_props.get('show_edges', True),
+                            'edge_color': material_props.get('edge_color', 'black'),
+                            'line_width': material_props.get('line_width', 0.3),
+                            'lighting': True,
+                            'smooth_shading': True,
+                            'name': f'solid_material_{mat_id}',
+                            'label': name,
+                            'metallic': material_props.get('metallic', 0.0),
+                            'roughness': material_props.get('roughness', 0.8)
+                        }
+
+                        # 金属材料使用PBR渲染
+                        if material_props.get('metallic', 0.0) > 0.3:
+                            render_params['pbr'] = True
+
+                        actor = self.plotter.add_mesh(use_mesh, **render_params)
                         # 关闭正/背面剔除，避免视点在模型内部时看不到表面
                         try:
                             prop = actor.GetProperty()
@@ -4343,12 +4409,16 @@ class PreProcessor:
                         use_mesh = surf if surf is not None and surf.n_points > 0 else self.mesh
                     except Exception:
                         use_mesh = self.mesh
+                    # 🎨 专业默认外观
                     actor = self.plotter.add_mesh(
                         use_mesh,
-                        color='#8CA3B5',
+                        color=[140, 163, 181],  # 专业蓝灰色
                         opacity=1.0,
                         show_edges=True,
-                        edge_color='black'
+                        edge_color='darkslategray',
+                        line_width=0.3,
+                        lighting=True,
+                        smooth_shading=True
                     )
                     try:
                         prop = actor.GetProperty()
@@ -4367,12 +4437,16 @@ class PreProcessor:
                 use_mesh = surf if surf is not None and surf.n_points > 0 else self.mesh
             except Exception:
                 use_mesh = self.mesh
+            # 🎨 专业默认外观
             actor = self.plotter.add_mesh(
                 use_mesh,
-                color='#8CA3B5',
+                color=[140, 163, 181],  # 专业蓝灰色
                 opacity=1.0,
                 show_edges=True,
-                edge_color='black'
+                edge_color='darkslategray',
+                line_width=0.3,
+                lighting=True,
+                smooth_shading=True
             )
             try:
                 prop = actor.GetProperty()
@@ -4435,13 +4509,14 @@ class PreProcessor:
                         pass
                     
                     # 🔧 修复：使用更醒目的锚杆显示效果
+                    # 🎨 专业锚杆管状显示
                     self.plotter.add_mesh(
                         self._anchors_cached,
-                        color='red',
-                        line_width=4.0,
-                        opacity=0.9,
-                        name='anchor_lines',
-                        render_lines_as_tubes=True
+                        color=[255, 140, 0],  # 专业橙色 (RGB 0-255)
+                        line_width=5.0,
+                        opacity=0.95,
+                        render_lines_as_tubes=True,
+                        name='anchor_lines'
                     )
                     print(f"✅ 锚杆显示成功: {self._anchors_cached.n_cells}条线")
                 else:
@@ -4738,25 +4813,72 @@ class PreProcessor:
                 pass
                 
     def _compute_safe_material_colors(self):
-        """安全的材料颜色计算"""
+        """专业岩土工程材料配色计算"""
         try:
             mat_ids = self.mesh.cell_data['MaterialID']
             colors = np.zeros((len(mat_ids), 3), dtype=np.uint8)
 
-            # 🔧 使用安全的土质配色
-            SAFE_SOIL_COLORS = {
-                1: [120, 87, 62],   # 填土
-                2: [139, 118, 113], # 粘土
-                3: [160, 134, 120], # 淤泥
-                4: [181, 165, 155], # 砂土
-                5: [78, 52, 46],    # 岩石
-                10: [200, 50, 50],  # 地连墙
-                15: [255, 0, 0],    # 锚杆
-                20: [100, 100, 200] # 隧道
+            # 🎨 专业岩土工程配色方案 (基于地质勘察标准)
+            PROFESSIONAL_GEOTECHNICAL_COLORS = {
+                # === 土体材料 (自然地质色系) ===
+                1: [139, 115, 85],    # 填土 - 深土褐色
+                2: [160, 130, 98],    # 粉质粘土 - 中土褐色
+                3: [181, 148, 116],   # 细砂 - 浅土褐色
+                4: [205, 170, 125],   # 中砂 - 沙土色
+                5: [218, 185, 140],   # 粗砂 - 浅沙色
+                6: [139, 125, 107],   # 粉土 - 灰褐色
+                7: [120, 105, 88],    # 粘土 - 深灰褐色
+                8: [98, 85, 70],      # 淤泥质土 - 深褐色
+                9: [75, 60, 48],      # 强风化岩 - 深岩色
+
+                # === 工程材料 (专业工程色系) ===
+                10: [70, 130, 180],   # 混凝土桩 - 钢蓝色
+                11: [169, 169, 169],  # 钢支撑 - 银灰色
+                12: [139, 90, 43],    # 地连墙 - 混凝土褐色
+
+                # === 支护材料 (安全标识色系) ===
+                46: [255, 140, 0],    # 预应力锚杆 - 橙色
+                47: [255, 165, 0],    # 锚杆 - 橙黄色
+                48: [255, 69, 0],     # 土钉 - 橙红色
+                49: [255, 99, 71],    # 注浆体 - 番茄色
+                50: [255, 127, 80],   # 加固体 - 珊瑚色
+
+                # === 特殊材料 ===
+                80: [128, 128, 128],  # 临时材料 - 中灰色
+                81: [105, 105, 105],  # 失效材料 - 深灰色
+                82: [192, 192, 192],  # 备用材料 - 浅灰色
+                83: [211, 211, 211],  # 辅助材料 - 亮灰色
+
+                # === 高ID材料 (渐变色系) ===
+                602: [72, 61, 139],   # 深紫色
+                611: [123, 104, 238], # 中紫色
+                649: [147, 112, 219], # 浅紫色
+                695: [186, 85, 211],  # 兰花紫
+                706: [138, 43, 226],  # 蓝紫色
+                735: [148, 0, 211],   # 深紫罗兰
+                803: [75, 0, 130],    # 靛青色
+                818: [102, 51, 153],  # 深紫色
+                833: [127, 0, 255],   # 紫色
+                847: [153, 50, 204],  # 深兰花紫
+                857: [186, 85, 211],  # 兰花紫
+                890: [221, 160, 221], # 梅红色
+                906: [238, 130, 238], # 紫罗兰
+                979: [255, 192, 203], # 粉红色
+                989: [255, 182, 193], # 浅粉红
+                1011: [255, 105, 180],# 热粉红
+                1025: [255, 20, 147], # 深粉红
+                1052: [199, 21, 133], # 中紫红
+                1065: [219, 112, 147],# 古紫红
+                1081: [255, 240, 245],# 薰衣草红
+                1092: [250, 240, 230],# 亚麻色
+                1394: [245, 245, 220],# 米色
+                1710: [255, 228, 196],# 饼干色
+                1711: [255, 218, 185],# 桃仁色
+                1712: [255, 222, 173],# 纳瓦霍白
             }
 
             for i, mat_id in enumerate(mat_ids):
-                color = SAFE_SOIL_COLORS.get(int(mat_id), [150, 150, 150])
+                color = PROFESSIONAL_GEOTECHNICAL_COLORS.get(int(mat_id), [150, 150, 150])
                 colors[i] = color
 
             return colors
@@ -4764,7 +4886,178 @@ class PreProcessor:
         except Exception as e:
             print(f"材料颜色计算失败: {e}")
             return None
-            
+
+    def _get_professional_material_appearance(self, material_id: int):
+        """获取专业材料外观配置 (颜色+透明度+渲染属性)"""
+        try:
+            # 🎨 专业岩土工程材料外观配置
+            PROFESSIONAL_MATERIAL_APPEARANCE = {
+                # === 土体材料 (自然地质外观) ===
+                1: {  # 填土
+                    'color': [139, 115, 85],
+                    'opacity': 0.75,
+                    'metallic': 0.0,
+                    'roughness': 0.9,
+                    'show_edges': False,
+                    'edge_color': 'darkbrown',
+                    'line_width': 0.2
+                },
+                2: {  # 粉质粘土
+                    'color': [160, 130, 98],
+                    'opacity': 0.70,
+                    'metallic': 0.0,
+                    'roughness': 0.85,
+                    'show_edges': False,
+                    'edge_color': 'brown',
+                    'line_width': 0.2
+                },
+                3: {  # 细砂
+                    'color': [181, 148, 116],
+                    'opacity': 0.65,
+                    'metallic': 0.1,
+                    'roughness': 0.8,
+                    'show_edges': False,
+                    'edge_color': 'tan',
+                    'line_width': 0.2
+                },
+                4: {  # 中砂
+                    'color': [205, 170, 125],
+                    'opacity': 0.65,
+                    'metallic': 0.1,
+                    'roughness': 0.75,
+                    'show_edges': False,
+                    'edge_color': 'sandybrown',
+                    'line_width': 0.2
+                },
+                5: {  # 粗砂
+                    'color': [218, 185, 140],
+                    'opacity': 0.60,
+                    'metallic': 0.15,
+                    'roughness': 0.7,
+                    'show_edges': False,
+                    'edge_color': 'wheat',
+                    'line_width': 0.2
+                },
+                6: {  # 粉土
+                    'color': [139, 125, 107],
+                    'opacity': 0.70,
+                    'metallic': 0.0,
+                    'roughness': 0.9,
+                    'show_edges': False,
+                    'edge_color': 'gray',
+                    'line_width': 0.2
+                },
+                7: {  # 粘土
+                    'color': [120, 105, 88],
+                    'opacity': 0.75,
+                    'metallic': 0.0,
+                    'roughness': 0.95,
+                    'show_edges': False,
+                    'edge_color': 'darkgray',
+                    'line_width': 0.2
+                },
+                8: {  # 淤泥质土
+                    'color': [98, 85, 70],
+                    'opacity': 0.80,
+                    'metallic': 0.0,
+                    'roughness': 1.0,
+                    'show_edges': False,
+                    'edge_color': 'black',
+                    'line_width': 0.2
+                },
+                9: {  # 强风化岩
+                    'color': [75, 60, 48],
+                    'opacity': 0.85,
+                    'metallic': 0.2,
+                    'roughness': 0.6,
+                    'show_edges': True,
+                    'edge_color': 'darkslategray',
+                    'line_width': 0.3
+                },
+
+                # === 工程材料 (专业工程外观) ===
+                10: {  # 混凝土桩
+                    'color': [70, 130, 180],
+                    'opacity': 0.90,
+                    'metallic': 0.1,
+                    'roughness': 0.7,
+                    'show_edges': True,
+                    'edge_color': 'navy',
+                    'line_width': 0.5
+                },
+                11: {  # 钢支撑
+                    'color': [169, 169, 169],
+                    'opacity': 0.95,
+                    'metallic': 0.8,
+                    'roughness': 0.2,
+                    'show_edges': True,
+                    'edge_color': 'darkgray',
+                    'line_width': 0.8
+                },
+                12: {  # 地连墙
+                    'color': [139, 90, 43],
+                    'opacity': 0.85,
+                    'metallic': 0.1,
+                    'roughness': 0.6,
+                    'show_edges': True,
+                    'edge_color': 'saddlebrown',
+                    'line_width': 0.6
+                },
+
+                # === 支护材料 (醒目安全色系) ===
+                46: {  # 预应力锚杆
+                    'color': [255, 140, 0],
+                    'opacity': 0.95,
+                    'metallic': 0.6,
+                    'roughness': 0.3,
+                    'show_edges': True,
+                    'edge_color': 'darkorange',
+                    'line_width': 1.0
+                },
+                47: {  # 锚杆
+                    'color': [255, 165, 0],
+                    'opacity': 0.90,
+                    'metallic': 0.5,
+                    'roughness': 0.4,
+                    'show_edges': True,
+                    'edge_color': 'orange',
+                    'line_width': 0.8
+                }
+            }
+
+            # 获取材料配置
+            config = PROFESSIONAL_MATERIAL_APPEARANCE.get(material_id)
+
+            if config:
+                # 转换RGB到0-1范围
+                color_rgb = [c/255.0 for c in config['color']]
+                opacity = config['opacity']
+                material_props = {
+                    'metallic': config['metallic'],
+                    'roughness': config['roughness'],
+                    'show_edges': config['show_edges'],
+                    'edge_color': config['edge_color'],
+                    'line_width': config['line_width']
+                }
+            else:
+                # 默认土体外观
+                color_rgb = self.get_material_color(material_id)
+                opacity = 0.70
+                material_props = {
+                    'metallic': 0.0,
+                    'roughness': 0.8,
+                    'show_edges': False,
+                    'edge_color': 'gray',
+                    'line_width': 0.2
+                }
+
+            return color_rgb, opacity, material_props
+
+        except Exception as e:
+            print(f"材料外观配置失败: {e}")
+            # 安全回退
+            return [0.7, 0.7, 0.7], 0.7, {'metallic': 0.0, 'roughness': 0.8, 'show_edges': False, 'edge_color': 'gray', 'line_width': 0.2}
+
     def _force_display_engineering_components(self):
         """强制显示工程构件 - 不受保护机制影响"""
         try:
@@ -5464,13 +5757,15 @@ class PreProcessor:
             
             # 线框模式时使用style=wireframe更明确
             if self.display_mode == 'wireframe':
+                # 🎨 专业线框显示
                 self.plotter.add_mesh(
                     mesh_to_show,
                     style='wireframe',
-                    color='#4E342E',
+                    color=[78, 52, 46],  # 深褐色线框
                     opacity=1.0,
                     show_edges=False,
-                    line_width=1.0,
+                    line_width=1.2,
+                    lighting=True,
                     name='main_mesh',
                 )
             else:
@@ -5547,8 +5842,9 @@ class PreProcessor:
             if self.display_mode == 'wireframe':
                 params.update({
                     'style': 'wireframe',
-                    'line_width': 1.0,
-                    'color': '#4E342E',  # 深褐色线框
+                    'line_width': 1.2,
+                    'color': [78, 52, 46],  # 专业深褐色线框
+                    'lighting': True,
                     'ambient': 0.8,      # 线框模式提高环境光
                 })
             elif self.display_mode == 'transparent':
@@ -5577,18 +5873,20 @@ class PreProcessor:
 
     def _get_soil_color(self, material_id):
         """根据材料ID获取土体颜色"""
-        # 常见土体材料颜色映射
+        # 🎨 专业岩土工程颜色映射 (基于地质勘察标准)
         soil_colors = {
-            1: '#8D6E63',   # 粘土 - 褐色
-            2: '#A1887F',   # 粉土 - 灰褐色  
-            3: '#BCAAA4',   # 细砂 - 浅褐色
-            4: '#D7CCC8',   # 中砂 - 米色
-            5: '#3E2723',   # 淤泥 - 深褐色
-            6: '#5D4037',   # 填土 - 中褐色
-            7: '#795548',   # 卵石土 - 棕褐色
-            8: '#8D6E63',   # 粉质粘土 - 褐色
-            9: '#6D4C41',   # 重粉质土 - 深土色
-            10: '#4E342E',  # 岩石 - 深色
+            1: '#8B7355',   # 填土 - 深土褐色
+            2: '#A08262',   # 粉质粘土 - 中土褐色
+            3: '#B59474',   # 细砂 - 浅土褐色
+            4: '#CDA67D',   # 中砂 - 沙土色
+            5: '#DAB98C',   # 粗砂 - 浅沙色
+            6: '#8B7D6B',   # 粉土 - 灰褐色
+            7: '#786958',   # 粘土 - 深灰褐色
+            8: '#625546',   # 淤泥质土 - 深褐色
+            9: '#4B3C30',   # 强风化岩 - 深岩色
+            10: '#4682B4',  # 混凝土桩 - 钢蓝色
+            11: '#A9A9A9',  # 钢支撑 - 银灰色
+            12: '#8B5A2B',  # 地连墙 - 混凝土褐色
         }
         
         # 默认使用材料ID取模生成颜色

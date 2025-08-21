@@ -259,10 +259,42 @@ class OptimizedFPNParser:
         try:
             parts = [p.strip() for p in line.split(',')]
             if len(parts) >= 4:
+                # 处理中文编码问题
+                stage_name = parts[3].strip() if parts[3] else f"Stage_{parts[1]}"
+
+                # 尝试修复编码问题 - 更全面的编码修复
+                if stage_name and ('��' in stage_name or len(stage_name.encode('utf-8', errors='ignore')) != len(stage_name)):
+                    stage_id = int(parts[1])
+                    # 根据分析步ID推断常见名称
+                    if stage_id == 1:
+                        stage_name = "初始地应力"
+                    elif stage_id == 2:
+                        stage_name = "第一层开挖"
+                    elif stage_id == 3:
+                        stage_name = "第二层开挖"
+                    elif stage_id == 4:
+                        stage_name = "第三层开挖"
+                    elif stage_id == 5:
+                        stage_name = "第四层开挖"
+                    elif stage_id == 6:
+                        stage_name = "第五层开挖"
+                    elif stage_id == 7:
+                        stage_name = "第六层开挖"
+                    elif stage_id == 8:
+                        stage_name = "第七层开挖"
+                    elif stage_id == 9:
+                        stage_name = "第八层开挖"
+                    elif stage_id == 10:
+                        stage_name = "第九层开挖"
+                    elif stage_id == 11:
+                        stage_name = "第十层开挖"
+                    else:
+                        stage_name = f"施工阶段{stage_id}"
+
                 return {
                     'id': int(parts[1]),
                     'type': int(parts[2]) if parts[2] else 0,
-                    'name': parts[3].strip() if parts[3] else f"Stage_{parts[1]}",
+                    'name': stage_name,
                     'active_materials': [],
                     'active_loads': [],
                     'active_boundaries': [],

@@ -1,0 +1,350 @@
+{
+  "soil_layers": [
+    {
+      "id": 2,
+      "name": "细砂",
+      "top_elevation": 0,
+      "bottom_elevation": -2,
+      "unit_weight": 20.0,
+      "cohesion": 0,
+      "friction_angle": 20,
+      "young_modulus": 15000,
+      "poisson_ratio": 0.3,
+      "k0": 0.6579798566743313,
+      "dilatancy_angle": 0
+    },
+    {
+      "id": 3,
+      "name": "粉质粘土1",
+      "top_elevation": -2,
+      "bottom_elevation": -5,
+      "unit_weight": 19.5,
+      "cohesion": 26,
+      "friction_angle": 9,
+      "young_modulus": 5000,
+      "poisson_ratio": 0.3,
+      "k0": 0.8435655349597692,
+      "dilatancy_angle": 0
+    },
+    {
+      "id": 4,
+      "name": "粉质粘土2",
+      "top_elevation": -5,
+      "bottom_elevation": -10,
+      "unit_weight": 19.1,
+      "cohesion": 24,
+      "friction_angle": 10,
+      "young_modulus": 5000,
+      "poisson_ratio": 0.3,
+      "k0": 0.8263518223330697,
+      "dilatancy_angle": 0
+    },
+    {
+      "id": 5,
+      "name": "粉质粘土3",
+      "top_elevation": -10,
+      "bottom_elevation": -15,
+      "unit_weight": 20.8,
+      "cohesion": 22,
+      "friction_angle": 13,
+      "young_modulus": 5000,
+      "poisson_ratio": 0.3,
+      "k0": 0.775048945656135,
+      "dilatancy_angle": 0
+    },
+    {
+      "id": 6,
+      "name": "砂岩1",
+      "top_elevation": -15,
+      "bottom_elevation": -20,
+      "unit_weight": 19.5,
+      "cohesion": 0,
+      "friction_angle": 21,
+      "young_modulus": 40000,
+      "poisson_ratio": 0.3,
+      "k0": 0.6416320504546997,
+      "dilatancy_angle": 0
+    },
+    {
+      "id": 7,
+      "name": "粉质粘土4",
+      "top_elevation": -20,
+      "bottom_elevation": -25,
+      "unit_weight": 20.8,
+      "cohesion": 14,
+      "friction_angle": 25,
+      "young_modulus": 8000,
+      "poisson_ratio": 0.3,
+      "k0": 0.5773817382593005,
+      "dilatancy_angle": 0
+    },
+    {
+      "id": 8,
+      "name": "粉质粘土5",
+      "top_elevation": -25,
+      "bottom_elevation": -30,
+      "unit_weight": 20.7,
+      "cohesion": 20.7,
+      "friction_angle": 20.5,
+      "young_modulus": 9000,
+      "poisson_ratio": 0.3,
+      "k0": 0.6497926187405325,
+      "dilatancy_angle": 0
+    },
+    {
+      "id": 9,
+      "name": "地方性粘土",
+      "top_elevation": -30,
+      "bottom_elevation": -35,
+      "unit_weight": 20.2,
+      "cohesion": 23,
+      "friction_angle": 14,
+      "young_modulus": 9000,
+      "poisson_ratio": 0.3,
+      "k0": 0.7580781044003323,
+      "dilatancy_angle": 0
+    },
+    {
+      "id": 10,
+      "name": "砂岩2",
+      "top_elevation": -35,
+      "bottom_elevation": -50,
+      "unit_weight": 21.0,
+      "cohesion": 0,
+      "friction_angle": 35,
+      "young_modulus": 40000,
+      "poisson_ratio": 0.3,
+      "k0": 0.42642356364895395,
+      "dilatancy_angle": 5
+    },
+    {
+      "id": 11,
+      "name": "粉质粘土6",
+      "top_elevation": -50,
+      "bottom_elevation": -60,
+      "unit_weight": 20.2,
+      "cohesion": 24,
+      "friction_angle": 17,
+      "young_modulus": 12000,
+      "poisson_ratio": 0.3,
+      "k0": 0.7076282952772632,
+      "dilatancy_angle": 0
+    },
+    {
+      "id": 12,
+      "name": "细砂2",
+      "top_elevation": -60,
+      "bottom_elevation": -80,
+      "unit_weight": 20.3,
+      "cohesion": 0,
+      "friction_angle": 26,
+      "young_modulus": 20000,
+      "poisson_ratio": 0.3,
+      "k0": 0.5616288532109226,
+      "dilatancy_angle": 0
+    }
+  ],
+  "anchor_system": {
+    "material": {
+      "name": "钢材",
+      "young_modulus": 206000000,
+      "density": 78.5,
+      "yield_strength": 400000,
+      "cross_area": 0.001
+    },
+    "prestress_forces": [
+      345,
+      360,
+      450,
+      670,
+      640,
+      550
+    ],
+    "anchor_length": 15.0,
+    "anchor_angle": 15.0,
+    "anchor_count": 120
+  },
+  "initial_conditions": {
+    "initial_conditions_process_list": [
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure",
+          "variable_name": "DISPLACEMENT",
+          "value": [
+            [
+              0.0,
+              0.0,
+              -0.0
+            ],
+            [
+              0.0,
+              0.0,
+              -0.000985
+            ],
+            [
+              0.0,
+              0.0,
+              -0.00388
+            ],
+            [
+              0.0,
+              0.0,
+              -0.00894
+            ],
+            [
+              0.0,
+              0.0,
+              -0.0019775
+            ],
+            [
+              0.0,
+              0.0,
+              -0.015609375000000002
+            ],
+            [
+              0.0,
+              0.0,
+              -0.020100000000000003
+            ],
+            [
+              0.0,
+              0.0,
+              -0.02737777777777778
+            ],
+            [
+              0.0,
+              0.0,
+              -0.00809
+            ],
+            [
+              0.0,
+              0.0,
+              -0.010282499999999998
+            ],
+            [
+              0.0,
+              0.0,
+              -0.012737500000000002
+            ]
+          ],
+          "interval": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics.StructuralMechanicsApplication",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure",
+          "variable_name": "CAUCHY_STRESS_VECTOR",
+          "value": [
+            [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              83091.20519353726,
+              83091.20519353726,
+              98500.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              160312.25353261552,
+              160312.25353261552,
+              194000.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              230964.58580552824,
+              230964.58580552824,
+              298000.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              253765.47595483373,
+              253765.47595483373,
+              395500.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              288402.1782605206,
+              288402.1782605206,
+              499500.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              391824.9491005411,
+              391824.9491005411,
+              603000.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              533686.9854978339,
+              533686.9854978339,
+              704000.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              344976.6629920037,
+              344976.6629920037,
+              809000.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              389751.13717514393,
+              389751.13717514393,
+              914000.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              434525.6113582841,
+              434525.6113582841,
+              1019000.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "interval": [
+            0.0,
+            0.0
+          ]
+        }
+      }
+    ],
+    "stress_statistics": {
+      "max_vertical_stress": 1019000.0,
+      "max_horizontal_stress": 533686.9854978339,
+      "average_k0": 0.6371910329477303,
+      "stress_distribution": []
+    }
+  }
+}

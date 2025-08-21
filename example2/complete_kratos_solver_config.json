@@ -1,0 +1,711 @@
+{
+  "project_metadata": {
+    "name": "两阶段全锚杆摩尔库伦基坑",
+    "source_file": "data/两阶段-全锚杆-摩尔库伦.fpn",
+    "analysis_type": "STAGED_EXCAVATION_WITH_PRESTRESSED_ANCHORS",
+    "constitutive_model": "MOHR_COULOMB",
+    "solver": "KRATOS_MULTIPHYSICS_10.3"
+  },
+  "kratos_solver_settings": {
+    "problem_data": {
+      "problem_name": "两阶段全锚杆摩尔库伦基坑",
+      "parallel_type": "OpenMP",
+      "echo_level": 1,
+      "start_time": 0.0,
+      "end_time": 2.0
+    },
+    "solver_settings": {
+      "solver_type": "Static",
+      "model_part_name": "Structure",
+      "domain_size": 3,
+      "echo_level": 1,
+      "analysis_type": "non_linear",
+      "model_import_settings": {
+        "input_type": "mdpa",
+        "input_filename": "complex_excavation"
+      },
+      "material_import_settings": {
+        "materials_filename": "StructuralMaterials.json"
+      },
+      "time_stepping": {
+        "time_step": 0.1,
+        "reduction_factor": 0.5,
+        "increase_factor": 1.5,
+        "max_time_step": 1.0,
+        "min_time_step": 0.01
+      },
+      "line_search": true,
+      "convergence_criterion": "mixed_criterion",
+      "displacement_relative_tolerance": 1e-06,
+      "displacement_absolute_tolerance": 1e-09,
+      "residual_relative_tolerance": 1e-06,
+      "residual_absolute_tolerance": 1e-09,
+      "max_iteration": 50,
+      "linear_solver_settings": {
+        "solver_type": "amgcl",
+        "max_iteration": 1000,
+        "tolerance": 1e-09,
+        "provide_coordinates": false,
+        "smoother_type": "ilu0",
+        "krylov_type": "gmres",
+        "coarsening_type": "aggregation",
+        "scaling": false
+      },
+      "problem_domain_sub_model_part_list": [
+        "Structure"
+      ],
+      "processes_sub_model_part_list": [
+        "DISPLACEMENT_Boundary",
+        "SelfWeight_Structure",
+        "Anchors_Structure",
+        "ExcavationZone"
+      ],
+      "rotation_dofs": false
+    },
+    "output_processes": {
+      "vtk_output": [
+        {
+          "python_module": "vtk_output_process",
+          "kratos_module": "KratosMultiphysics",
+          "process_name": "VtkOutputProcess",
+          "Parameters": {
+            "model_part_name": "Structure",
+            "output_control_type": "step",
+            "output_interval": 1,
+            "file_format": "ascii",
+            "output_precision": 7,
+            "output_sub_model_parts": false,
+            "folder_name": "vtk_output",
+            "save_output_files_in_folder": true,
+            "nodal_solution_step_data_variables": [
+              "DISPLACEMENT",
+              "REACTION",
+              "CAUCHY_STRESS_VECTOR"
+            ],
+            "element_data_value_variables": [
+              "VON_MISES_STRESS",
+              "PLASTIC_STRAIN"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "materials_configuration": {
+    "properties": [
+      {
+        "model_part_name": "Material_2",
+        "properties_id": 2,
+        "Material": {
+          "constitutive_law": {
+            "name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"
+          },
+          "Variables": {
+            "DENSITY": 20000.0,
+            "YOUNG_MODULUS": 15000000,
+            "POISSON_RATIO": 0.3,
+            "YIELD_STRESS_TENSION": 0,
+            "YIELD_STRESS_COMPRESSION": 0,
+            "FRICTION_ANGLE": 20,
+            "DILATANCY_ANGLE": 0,
+            "COHESION": 0,
+            "K0": 0.6579798566743313
+          }
+        }
+      },
+      {
+        "model_part_name": "Material_3",
+        "properties_id": 3,
+        "Material": {
+          "constitutive_law": {
+            "name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"
+          },
+          "Variables": {
+            "DENSITY": 19500.0,
+            "YOUNG_MODULUS": 5000000,
+            "POISSON_RATIO": 0.3,
+            "YIELD_STRESS_TENSION": 26000,
+            "YIELD_STRESS_COMPRESSION": 520000,
+            "FRICTION_ANGLE": 9,
+            "DILATANCY_ANGLE": 0,
+            "COHESION": 26000,
+            "K0": 0.8435655349597692
+          }
+        }
+      },
+      {
+        "model_part_name": "Material_4",
+        "properties_id": 4,
+        "Material": {
+          "constitutive_law": {
+            "name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"
+          },
+          "Variables": {
+            "DENSITY": 19100.0,
+            "YOUNG_MODULUS": 5000000,
+            "POISSON_RATIO": 0.3,
+            "YIELD_STRESS_TENSION": 24000,
+            "YIELD_STRESS_COMPRESSION": 480000,
+            "FRICTION_ANGLE": 10,
+            "DILATANCY_ANGLE": 0,
+            "COHESION": 24000,
+            "K0": 0.8263518223330697
+          }
+        }
+      },
+      {
+        "model_part_name": "Material_5",
+        "properties_id": 5,
+        "Material": {
+          "constitutive_law": {
+            "name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"
+          },
+          "Variables": {
+            "DENSITY": 20800.0,
+            "YOUNG_MODULUS": 5000000,
+            "POISSON_RATIO": 0.3,
+            "YIELD_STRESS_TENSION": 22000,
+            "YIELD_STRESS_COMPRESSION": 440000,
+            "FRICTION_ANGLE": 13,
+            "DILATANCY_ANGLE": 0,
+            "COHESION": 22000,
+            "K0": 0.775048945656135
+          }
+        }
+      },
+      {
+        "model_part_name": "Material_6",
+        "properties_id": 6,
+        "Material": {
+          "constitutive_law": {
+            "name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"
+          },
+          "Variables": {
+            "DENSITY": 19500.0,
+            "YOUNG_MODULUS": 40000000,
+            "POISSON_RATIO": 0.3,
+            "YIELD_STRESS_TENSION": 0,
+            "YIELD_STRESS_COMPRESSION": 0,
+            "FRICTION_ANGLE": 21,
+            "DILATANCY_ANGLE": 0,
+            "COHESION": 0,
+            "K0": 0.6416320504546997
+          }
+        }
+      },
+      {
+        "model_part_name": "Material_7",
+        "properties_id": 7,
+        "Material": {
+          "constitutive_law": {
+            "name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"
+          },
+          "Variables": {
+            "DENSITY": 20800.0,
+            "YOUNG_MODULUS": 8000000,
+            "POISSON_RATIO": 0.3,
+            "YIELD_STRESS_TENSION": 14000,
+            "YIELD_STRESS_COMPRESSION": 280000,
+            "FRICTION_ANGLE": 25,
+            "DILATANCY_ANGLE": 0,
+            "COHESION": 14000,
+            "K0": 0.5773817382593005
+          }
+        }
+      },
+      {
+        "model_part_name": "Material_8",
+        "properties_id": 8,
+        "Material": {
+          "constitutive_law": {
+            "name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"
+          },
+          "Variables": {
+            "DENSITY": 20700.0,
+            "YOUNG_MODULUS": 9000000,
+            "POISSON_RATIO": 0.3,
+            "YIELD_STRESS_TENSION": 20700.0,
+            "YIELD_STRESS_COMPRESSION": 414000.0,
+            "FRICTION_ANGLE": 20.5,
+            "DILATANCY_ANGLE": 0,
+            "COHESION": 20700.0,
+            "K0": 0.6497926187405325
+          }
+        }
+      },
+      {
+        "model_part_name": "Material_9",
+        "properties_id": 9,
+        "Material": {
+          "constitutive_law": {
+            "name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"
+          },
+          "Variables": {
+            "DENSITY": 20200.0,
+            "YOUNG_MODULUS": 9000000,
+            "POISSON_RATIO": 0.3,
+            "YIELD_STRESS_TENSION": 23000,
+            "YIELD_STRESS_COMPRESSION": 460000,
+            "FRICTION_ANGLE": 14,
+            "DILATANCY_ANGLE": 0,
+            "COHESION": 23000,
+            "K0": 0.7580781044003323
+          }
+        }
+      },
+      {
+        "model_part_name": "Material_10",
+        "properties_id": 10,
+        "Material": {
+          "constitutive_law": {
+            "name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"
+          },
+          "Variables": {
+            "DENSITY": 21000.0,
+            "YOUNG_MODULUS": 40000000,
+            "POISSON_RATIO": 0.3,
+            "YIELD_STRESS_TENSION": 0,
+            "YIELD_STRESS_COMPRESSION": 0,
+            "FRICTION_ANGLE": 35,
+            "DILATANCY_ANGLE": 5,
+            "COHESION": 0,
+            "K0": 0.42642356364895395
+          }
+        }
+      },
+      {
+        "model_part_name": "Material_11",
+        "properties_id": 11,
+        "Material": {
+          "constitutive_law": {
+            "name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"
+          },
+          "Variables": {
+            "DENSITY": 20200.0,
+            "YOUNG_MODULUS": 12000000,
+            "POISSON_RATIO": 0.3,
+            "YIELD_STRESS_TENSION": 24000,
+            "YIELD_STRESS_COMPRESSION": 480000,
+            "FRICTION_ANGLE": 17,
+            "DILATANCY_ANGLE": 0,
+            "COHESION": 24000,
+            "K0": 0.7076282952772632
+          }
+        }
+      },
+      {
+        "model_part_name": "Material_12",
+        "properties_id": 12,
+        "Material": {
+          "constitutive_law": {
+            "name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"
+          },
+          "Variables": {
+            "DENSITY": 20300.0,
+            "YOUNG_MODULUS": 20000000,
+            "POISSON_RATIO": 0.3,
+            "YIELD_STRESS_TENSION": 0,
+            "YIELD_STRESS_COMPRESSION": 0,
+            "FRICTION_ANGLE": 26,
+            "DILATANCY_ANGLE": 0,
+            "COHESION": 0,
+            "K0": 0.5616288532109226
+          }
+        }
+      },
+      {
+        "model_part_name": "Material_13",
+        "properties_id": 13,
+        "Material": {
+          "constitutive_law": {
+            "name": "LinearElastic3DLaw"
+          },
+          "Variables": {
+            "DENSITY": 78500,
+            "YOUNG_MODULUS": 206000000000,
+            "POISSON_RATIO": 0.3,
+            "YIELD_STRESS": 400000000
+          }
+        }
+      },
+      {
+        "model_part_name": "Material_1",
+        "properties_id": 1,
+        "Material": {
+          "constitutive_law": {
+            "name": "LinearElastic3DLaw"
+          },
+          "Variables": {
+            "DENSITY": 25000,
+            "YOUNG_MODULUS": 30000000000,
+            "POISSON_RATIO": 0.2
+          }
+        }
+      }
+    ]
+  },
+  "processes_configuration": {
+    "constraints_process_list": [
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "DISPLACEMENT_Boundary",
+          "variable_name": "DISPLACEMENT",
+          "constrained": [
+            true,
+            true,
+            true
+          ],
+          "value": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interval": [
+            0.0,
+            "End"
+          ]
+        }
+      }
+    ],
+    "loads_process_list": [
+      {
+        "python_module": "assign_vector_by_direction_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorByDirectionProcess",
+        "Parameters": {
+          "model_part_name": "Structure",
+          "variable_name": "VOLUME_ACCELERATION",
+          "modulus": 9.80665,
+          "direction": [
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "interval": [
+            0.0,
+            "End"
+          ],
+          "constrained": false
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Anchors_Structure",
+          "variable_name": "POINT_LOAD",
+          "value": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interval": [
+            1.0,
+            "End"
+          ]
+        }
+      }
+    ],
+    "initial_conditions_process_list": [
+      {
+        "python_module": "assign_scalar_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure",
+          "variable_name": "ACTIVATION_LEVEL",
+          "value": 1.0,
+          "interval": [
+            0.0,
+            0.0
+          ]
+        }
+      }
+    ],
+    "stage_control_process_list": [
+      {
+        "python_module": "assign_scalar_variable_process",
+        "process_name": "InitialStressEquilibrium",
+        "Parameters": {
+          "description": "地应力平衡阶段",
+          "time_interval": [
+            0.0,
+            1.0
+          ],
+          "stress_initialization": "K0_METHOD",
+          "gravity_equilibrium": true
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_process",
+        "process_name": "ExcavationWithSupport",
+        "Parameters": {
+          "description": "基坑开挖并安装预应力锚杆",
+          "time_interval": [
+            1.0,
+            2.0
+          ],
+          "excavation_elements": "AUTO_DETECT_FROM_FPN",
+          "anchor_activation": true,
+          "prestress_application": true
+        }
+      }
+    ]
+  },
+  "anchor_system": {
+    "anchor_prestress_system": {
+      "description": "预应力锚杆系统配置",
+      "anchor_material_id": 13,
+      "prestress_forces": [
+        345000,
+        360000,
+        450000,
+        670000,
+        640000,
+        550000
+      ],
+      "anchor_properties": {
+        "cross_sectional_area": 0.001,
+        "anchor_length": 15.0,
+        "inclination_angle": 15.0,
+        "bond_strength": 150,
+        "free_length": 5.0
+      },
+      "prestress_application": {
+        "method": "INITIAL_STRESS_METHOD",
+        "application_time": 1.0,
+        "stress_calculation": {
+          "formula": "F_prestress / A_cross",
+          "stress_values": [
+            345000000.0,
+            360000000.0,
+            450000000.0,
+            670000000.0,
+            640000000.0,
+            550000000.0
+          ]
+        }
+      },
+      "kratos_implementation": {
+        "element_type": "TrussElement3D2N",
+        "constitutive_law": "TrussConstitutiveLaw",
+        "initial_stress_variable": "PRESTRESS_CAUCHY",
+        "activation_process": "ElementActivationProcess"
+      }
+    }
+  },
+  "geostress_equilibrium": {
+    "geostress_equilibrium": {
+      "description": "地应力平衡实现方案",
+      "method_1_gravity_equilibrium": {
+        "description": "重力荷载平衡法",
+        "implementation": "Kratos内置VOLUME_ACCELERATION",
+        "parameters": {
+          "gravity_vector": [
+            0.0,
+            0.0,
+            -9.80665
+          ],
+          "application_time": [
+            0.0,
+            1.0
+          ],
+          "equilibrium_tolerance": 1e-06
+        }
+      },
+      "method_2_k0_stress_field": {
+        "description": "K0法初始应力场",
+        "implementation": "自定义初始应力设置",
+        "soil_layers": [
+          {
+            "depth_range": [
+              0,
+              2
+            ],
+            "material_id": 2,
+            "gamma": 20.0,
+            "K0": 0.658
+          },
+          {
+            "depth_range": [
+              2,
+              5
+            ],
+            "material_id": 3,
+            "gamma": 19.5,
+            "K0": 0.844
+          },
+          {
+            "depth_range": [
+              5,
+              10
+            ],
+            "material_id": 4,
+            "gamma": 19.1,
+            "K0": 0.826
+          },
+          {
+            "depth_range": [
+              10,
+              15
+            ],
+            "material_id": 5,
+            "gamma": 20.8,
+            "K0": 0.775
+          },
+          {
+            "depth_range": [
+              15,
+              20
+            ],
+            "material_id": 6,
+            "gamma": 19.5,
+            "K0": 0.642
+          },
+          {
+            "depth_range": [
+              20,
+              25
+            ],
+            "material_id": 7,
+            "gamma": 20.8,
+            "K0": 0.577
+          },
+          {
+            "depth_range": [
+              25,
+              30
+            ],
+            "material_id": 8,
+            "gamma": 20.7,
+            "K0": 0.65
+          },
+          {
+            "depth_range": [
+              30,
+              35
+            ],
+            "material_id": 9,
+            "gamma": 20.2,
+            "K0": 0.758
+          },
+          {
+            "depth_range": [
+              35,
+              50
+            ],
+            "material_id": 10,
+            "gamma": 21.0,
+            "K0": 0.426
+          }
+        ],
+        "stress_calculation": {
+          "vertical_stress": "σv = Σ(γi × hi)",
+          "horizontal_stress": "σh = K0 × σv",
+          "shear_stress": "τ = 0 (初始状态)"
+        }
+      },
+      "method_3_equilibrium_iteration": {
+        "description": "平衡迭代求解",
+        "solver_settings": {
+          "convergence_criterion": "displacement_and_residual",
+          "max_iterations": 100,
+          "tolerance": 1e-08,
+          "line_search": true
+        }
+      }
+    }
+  },
+  "staged_analysis": {
+    "staged_analysis": {
+      "description": "两阶段施工分析",
+      "stage_1_initial_stress": {
+        "name": "初始应力平衡",
+        "time_interval": [
+          0.0,
+          1.0
+        ],
+        "analysis_type": "linear_static",
+        "active_materials": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "active_loads": [
+          "gravity"
+        ],
+        "active_boundaries": [
+          "bottom_fixed",
+          "side_constraints"
+        ],
+        "objectives": [
+          "建立初始应力场",
+          "重力荷载平衡",
+          "K0应力状态"
+        ]
+      },
+      "stage_2_excavation_support": {
+        "name": "支护开挖",
+        "time_interval": [
+          1.0,
+          2.0
+        ],
+        "analysis_type": "nonlinear_static",
+        "element_operations": {
+          "deactivate_elements": "excavation_zone",
+          "activate_elements": "anchor_elements"
+        },
+        "active_materials": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13
+        ],
+        "active_loads": [
+          "gravity",
+          "anchor_prestress"
+        ],
+        "active_boundaries": [
+          "bottom_fixed",
+          "side_constraints"
+        ],
+        "objectives": [
+          "基坑开挖模拟",
+          "预应力锚杆支护",
+          "变形和应力分析"
+        ]
+      }
+    }
+  },
+  "implementation_guide": {
+    "step_1": "使用FPN解析器读取几何和材料数据",
+    "step_2": "生成Kratos MDPA几何文件",
+    "step_3": "配置材料属性JSON文件",
+    "step_4": "设置初始应力场（K0法）",
+    "step_5": "执行阶段1：地应力平衡",
+    "step_6": "执行阶段2：开挖支护分析",
+    "step_7": "后处理：应力、位移、塑性区分析"
+  }
+}

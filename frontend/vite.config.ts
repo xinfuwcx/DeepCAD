@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import devPerfMock from './plugins/devPerfMock'
 
 export default defineConfig(({ mode }) => {
   // Load all env vars (not just VITE_ client ones) for config-time usage
@@ -8,7 +9,7 @@ export default defineConfig(({ mode }) => {
   const proxyTarget = env.VITE_PROXY_TARGET;
 
   return {
-    plugins: [react()],
+  plugins: [react(), devPerfMock()],
     resolve: {
       alias: [
         { find: '@', replacement: path.resolve(__dirname, './src') },

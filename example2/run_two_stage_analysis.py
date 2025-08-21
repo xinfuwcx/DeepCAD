@@ -172,7 +172,7 @@ class TwoStageAnalysis:
                     "time_step": 1.0
                 },
                 # Newton-Raphson非线性求解器设置
-                "max_iteration": 100,
+                "max_iteration": 200,
                 "reform_dofs_at_each_step": True,
                 "compute_reactions": True,
                 "line_search": True,  # 启用线搜索

@@ -1471,25 +1471,45 @@ class MainWindow(QMainWindow):
     def start_real_analysis(self):
         """启动真实的Kratos分析"""
         try:
-            # 导入DeepCAD的Kratos集成模块
-            from core.kratos_integration import KratosIntegration
-
-            self.kratos_solver = KratosIntegration()
-
             # 检查前处理数据
             if not hasattr(self.preprocessor, 'fpn_data') or not self.preprocessor.fpn_data:
                 raise ValueError("缺少前处理数据，请先导入FPN文件")
 
-            # 启动真实计算
+            # 设置FPN数据并加载分析步骤
             self.analyzer.set_fpn_data(self.preprocessor.fpn_data)
-            self.analyzer.set_kratos_interface(self.kratos_solver)
+            self.analyzer.load_fpn_analysis_steps(self.preprocessor.fpn_data)
+
+            # 检查是否有分析步骤
+            if not self.analyzer.analysis_steps:
+                if hasattr(self, 'analysis_log'):
+                    self.analysis_log.append("没有找到分析步骤，创建默认步骤...")
+                self.analyzer.create_excavation_default_steps()
 
             if hasattr(self, 'analysis_log'):
-                self.analysis_log.append("正在启动Kratos计算引擎...")
+                self.analysis_log.append(f"准备执行 {len(self.analyzer.analysis_steps)} 个分析步骤")
+                for i, step in enumerate(self.analyzer.analysis_steps):
+                    self.analysis_log.append(f"  步骤{i+1}: {step.name}")
+
+            # 设置Kratos接口
+            try:
+                from core.kratos_interface import KratosInterface
+                self.kratos_solver = KratosInterface()
+                self.analyzer.set_kratos_interface(self.kratos_solver)
+                if hasattr(self, 'analysis_log'):
+                    self.analysis_log.append("✅ Kratos计算引擎已连接")
+            except ImportError as e:
+                if hasattr(self, 'analysis_log'):
+                    self.analysis_log.append(f"❌ Kratos不可用: {e}")
+                    self.analysis_log.append("❌ 无法进行分析，请安装Kratos Multiphysics")
+                return
+            except Exception as e:
+                if hasattr(self, 'analysis_log'):
+                    self.analysis_log.append(f"❌ Kratos初始化失败: {e}")
+                return
 
             # 连接分析器信号
             self.analyzer.progress_updated.connect(self.on_analysis_progress)
-            self.analyzer.step_finished.connect(self.on_analysis_step_finished)
+            self.analyzer.step_completed.connect(self.on_analysis_step_finished)
             self.analyzer.analysis_finished.connect(self.analysis_finished)
 
             # 开始计算
@@ -1508,55 +1528,60 @@ class MainWindow(QMainWindow):
             self.pause_analysis_btn.setEnabled(False)
             self.stop_analysis_btn.setEnabled(False)
 
-    def on_analysis_progress(self, progress_data):
+    def on_analysis_progress(self, progress, message):
         """真实分析进度回调"""
         try:
-            overall_progress = progress_data.get('overall_progress', 0)
-            step_progress = progress_data.get('step_progress', 0)
-            iteration_progress = progress_data.get('iteration_progress', 0)
-
-            self.overall_progress.setValue(int(overall_progress))
-            self.step_progress.setValue(int(step_progress))
-            self.iteration_progress.setValue(int(iteration_progress))
+            # 分析器发射的是 (int, str) 格式
+            self.overall_progress.setValue(int(progress))
+            self.step_progress.setValue(int(progress))
 
             # 更新状态标签
-            current_step = progress_data.get('current_step', 'Unknown')
-            current_iteration = progress_data.get('current_iteration', '0/0')
-            convergence_status = progress_data.get('convergence_status', 'N/A')
+            self.status_label.setText(f"分析中: {message}")
 
-            self.current_step_label.setText(str(current_step))
-            self.current_iteration_label.setText(str(current_iteration))
-            self.convergence_label.setText(str(convergence_status))
-
-            # 添加日志
-            log_message = progress_data.get('log_message', '')
-            if log_message and hasattr(self, 'analysis_log'):
-                self.analysis_log.append(log_message)
+            # 更新分析日志
+            if hasattr(self, 'analysis_log'):
+                self.analysis_log.append(f"进度: {progress}% - {message}")
 
         except Exception as e:
             if hasattr(self, 'analysis_log'):
                 self.analysis_log.append(f"进度更新失败: {e}")
 
-    def on_analysis_step_finished(self, step_data):
+    def on_analysis_step_finished(self, step_index, results):
         """分析步完成回调"""
         try:
-            step_name = step_data.get('step_name', 'Unknown')
+            # 分析器发射的是 (int, dict) 格式
+            step_name = results.get('step_name', f'步骤{step_index+1}')
             if hasattr(self, 'analysis_log'):
                 self.analysis_log.append(f"✅ 分析步完成: {step_name}")
+
+                # 显示结果摘要
+                if 'displacement' in results:
+                    max_disp = results['displacement'].get('max_displacement', 0)
+                    self.analysis_log.append(f"   最大位移: {max_disp:.2f} mm")
+
+                if 'stress' in results:
+                    max_stress = results['stress'].get('max_stress', 0)
+                    self.analysis_log.append(f"   最大应力: {max_stress:.1f} kPa")
+
         except Exception as e:
             if hasattr(self, 'analysis_log'):
                 self.analysis_log.append(f"步骤完成处理失败: {e}")
 
-    def analysis_finished(self):
+    def analysis_finished(self, success, message):
         """分析完成"""
         try:
             self.run_analysis_btn.setEnabled(True)
             self.pause_analysis_btn.setEnabled(False)
             self.stop_analysis_btn.setEnabled(False)
 
-            self.status_label.setText("分析完成")
-            if hasattr(self, 'analysis_log'):
-                self.analysis_log.append("分析成功完成！")
+            if success:
+                self.status_label.setText("分析完成")
+                if hasattr(self, 'analysis_log'):
+                    self.analysis_log.append(f"✅ 分析成功完成！{message}")
+            else:
+                self.status_label.setText("分析失败")
+                if hasattr(self, 'analysis_log'):
+                    self.analysis_log.append(f"❌ 分析失败：{message}")
 
             # 获取真实计算结果
             model_data = getattr(self.preprocessor, 'fpn_data', None)

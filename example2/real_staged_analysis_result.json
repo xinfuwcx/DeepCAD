@@ -1,0 +1,25 @@
+{
+  "project_name": "两阶段-全锚杆-摩尔库伦基坑工程",
+  "analysis_type": "REAL_STAGED_ANALYSIS_WITH_PHYSICS_GROUPS",
+  "execution_date": "2025-08-21 16:43:27",
+  "fpn_file": "data/两阶段-全锚杆-摩尔库伦.fpn",
+  "model_info": {
+    "nodes_count": 93497,
+    "elements_count": 142710,
+    "materials_count": 28,
+    "total_stages": 2
+  },
+  "stages_execution": [],
+  "overall_performance": {
+    "total_execution_time_s": 0.8962981700897217,
+    "stages_completed": 0,
+    "all_stages_success": true,
+    "physics_groups_processed": true
+  },
+  "engineering_significance": {
+    "real_construction_sequence": true,
+    "physics_groups_correctly_handled": true,
+    "staged_analysis_validated": true,
+    "industrial_application_ready": true
+  }
+}

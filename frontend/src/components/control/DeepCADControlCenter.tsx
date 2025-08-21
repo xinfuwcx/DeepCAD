@@ -1,3 +1,4 @@
+/* eslint-disable react/jsx-no-inline-styles, @deepcad/no-inline-styles */
 /**
  * DeepCAD控制中心 v3.0 - 大屏项目管理中心
  * 🚀 高德地图 + Deck.gl 炫酷可视化 + OpenMeteo天气集成
@@ -96,7 +97,8 @@ declare global {
   }
 }
 import { Deck } from '@deck.gl/core';
-import { ScatterplotLayer, ColumnLayer, LineLayer } from '@deck.gl/layers';
+import { ScatterplotLayer, ColumnLayer, BitmapLayer, TextLayer, PathLayer } from '@deck.gl/layers';
+import { PathStyleExtension } from '@deck.gl/extensions';
 import { HexagonLayer } from '@deck.gl/aggregation-layers';
 // Remove static HeatmapLayer import; will lazy load when building layers
 // Lazy deck layer loader (unifies HeatmapLayer access & reduces initial bundle)
@@ -191,6 +193,24 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
   const mapRef = useRef<any>(null); // 高德地图实例
   const deckRef = useRef<Deck | null>(null);
   const deckLayerAdapterRef = useRef<DeckGlLayerAdapter | null>(null);
+  // AMap Buildings 图层引用，便于动态高度倍率调整
+  const buildingsLayerRef = useRef<any | null>(null);
+  // AMap 3D 光柱与扫描圈资源
+  const beamsLayerRef = useRef<any | null>(null);
+  const beamPrismsRef = useRef<any[]>([]);
+  const beamCirclesRef = useRef<any[]>([]);
+  const beamAnimTimerRef = useRef<number | null>(null);
+  const glCustomLayerRef = useRef<any | null>(null);
+
+  // 清理 HUD 画布上的 ResizeObserver（避免内存泄漏）
+  useEffect(() => {
+    return () => {
+      const el = document.getElementById('map-hud-canvas') as any;
+      if (el && el._ro && typeof el._ro.disconnect === 'function') {
+        try { el._ro.disconnect(); } catch {}
+      }
+    };
+  }, []);
 
   // 状态管理
   const [isInitialized, setIsInitialized] = useState(false);
@@ -243,6 +263,20 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
   const minimalMode = useVisualSettingsStore(s=>s.minimalMode);
   const showColumns = useVisualSettingsStore(s=>s.showColumns);
   const showHex = useVisualSettingsStore(s=>s.showHex);
+  const showTechGrid = useVisualSettingsStore(s=> (s as any).showTechGrid);
+  const showCityGlow = useVisualSettingsStore(s=> (s as any).showCityGlow);
+  const showHorizonSky = useVisualSettingsStore(s=> (s as any).showHorizonSky);
+  const showScreenFog = useVisualSettingsStore(s=> (s as any).showScreenFog);
+  const showVignette = useVisualSettingsStore(s=> (s as any).showVignette);
+  const showWeatherOverlay = useVisualSettingsStore(s=> (s as any).showWeatherOverlay ?? true);
+  const showGlowPaths = useVisualSettingsStore(s=> (s as any).showGlowPaths ?? true);
+  const showLandmarkBeams = useVisualSettingsStore(s=> (s as any).showLandmarkBeams ?? true);
+  const buildingHeightFactor = useVisualSettingsStore(s=> (s as any).buildingHeightFactor ?? 3);
+  const scanRingSpeed = useVisualSettingsStore(s=> (s as any).scanRingSpeed ?? 1);
+  const flylineSpeed = useVisualSettingsStore(s=> (s as any).flylineSpeed ?? 1);
+  const flylineWidth = useVisualSettingsStore(s=> (s as any).flylineWidth ?? 2);
+  const flylineCount = useVisualSettingsStore(s=> (s as any).flylineCount ?? 10);
+  const beamGlowIntensity = useVisualSettingsStore(s=> (s as any).beamGlowIntensity ?? 1);
   const toggle = useVisualSettingsStore(s=>s.toggle);
   const setVisual = useVisualSettingsStore(s=>s.set);
   // 从服务加载真实或本地化项目 -> 转换为统一结构
@@ -484,16 +518,17 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         map.setZoom(17);
 
         // 添加3D建筑物图层
-        const buildings = new AMap.Buildings({
+  const buildings = new AMap.Buildings({
           zooms: [10, 20],
           zIndex: 10,
-          heightFactor: 3.0, // 建筑物高度放大3倍
+          heightFactor: Math.max(1, Number(buildingHeightFactor) || 3), // 建筑物高度放大
           visible: true,
           // 3D建筑物样式
           topColor: '#dfe7ff',
           sideColor: '#a8c1ff'
         });
         map.add(buildings);
+  buildingsLayerRef.current = buildings;
 
         // 强制显示建筑物
         buildings.show();
@@ -509,7 +544,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         }, 1000);
 
         // 再次确保3D效果
-        setTimeout(() => {
+  setTimeout(() => {
           map.setPitch(60); // 保持60度，不要降低到45度
           map.setZoom(17); // 提高缩放级别
           setCurrentPitch(60);
@@ -567,6 +602,28 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     }
   }, [filteredProjects]);
 
+  // 监听建筑高度倍率变化，重新应用 Buildings 图层
+  useEffect(() => {
+    const AMapNS: any = (window as any).AMap;
+    if (!mapRef.current || !AMapNS || !AMapNS.Buildings) return;
+    try {
+      if (buildingsLayerRef.current) {
+        try { mapRef.current.remove(buildingsLayerRef.current); } catch {}
+        buildingsLayerRef.current = null;
+      }
+      const buildings = new AMapNS.Buildings({
+        zooms: [10, 20],
+        zIndex: 10,
+        heightFactor: Math.max(1, Number(buildingHeightFactor) || 3),
+        visible: true,
+        topColor: '#dfe7ff',
+        sideColor: '#a8c1ff'
+      });
+      mapRef.current.add(buildings);
+      buildingsLayerRef.current = buildings;
+    } catch {}
+  }, [buildingHeightFactor]);
+
   /**
    * 获取项目状态颜色
    */
@@ -598,11 +655,11 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
   /**
    * 初始化Deck.gl可视化层 - 基坑项目专用
    */
-  const initializeDeck = async (options?: { controllerEnabled?: boolean }) => {
+  const initializeDeck = async (options?: { controllerEnabled?: boolean; forceStandalone?: boolean }) => {
     try {
       console.log('🎨 初始化基坑项目可视化层...');
 
-      // 创建Deck.gl实例，覆盖在高德地图上
+  // 创建Deck.gl实例，覆盖在高德地图上或独立运行
   const deck = new Deck({
         canvas: 'deck-canvas',
         width: '100%',
@@ -666,38 +723,107 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           // 🧊 六边形聚合层（热区）— 使用 HeatmapLayer 作为补充，Hex 聚合更具科技感
           // 注意：此 Hex 层通过 mapLayersUtil 懒加载 HeatmapLayer；为简洁此处先保留热力图，Hex 可在后续加入
 
-          // ⚡ 动感飞线（Arc 的轻量替代，控制更细）
-          new LineLayer({
+          // ⚡ 动感飞线（PathLayer + dash 动画 + 叠加混合）
+          new PathLayer({
             id: 'project-fly-lines',
-            data: filteredProjects.slice(0, minimalMode ? 4 : 10).map((project, index) => {
-              const nextIndex = (index + 1) % Math.min(10, filteredProjects.length);
+            data: filteredProjects.slice(0, minimalMode ? Math.min(4, flylineCount) : Math.min(flylineCount, 20)).map((project, index) => {
+              const maxCount = minimalMode ? Math.min(4, flylineCount) : Math.min(flylineCount, 20);
+              const nextIndex = (index + 1) % Math.min(maxCount, filteredProjects.length);
               const next = filteredProjects[nextIndex];
-              return {
-                sourcePosition: [project.location.lng, project.location.lat],
-                targetPosition: [next.location.lng, next.location.lat],
-                value: (project.progress + next.progress) / 2
-              };
+              // 生成简易弧线（在中点垂直方向偏移）
+              const src: [number, number] = [project.location.lng, project.location.lat];
+              const tgt: [number, number] = [next.location.lng, next.location.lat];
+              const mid: [number, number] = [(src[0] + tgt[0]) / 2, (src[1] + tgt[1]) / 2];
+              const dLng = tgt[0] - src[0];
+              const dLat = tgt[1] - src[1];
+              const len = Math.hypot(dLng, dLat) || 1;
+              const nx = -dLat / len; // 垂直法向
+              const ny = dLng / len;
+              const curvature = minimalMode ? 0.12 : 0.18; // 弧度强度
+              const ctrl: [number, number] = [mid[0] + nx * len * curvature, mid[1] + ny * len * curvature];
+              const steps = 16;
+              const path: [number, number][] = [];
+              for (let t = 0; t <= steps; t++) {
+                const u = t / steps;
+                // 二次贝塞尔插值
+                const x = (1 - u) * (1 - u) * src[0] + 2 * (1 - u) * u * ctrl[0] + u * u * tgt[0];
+                const y = (1 - u) * (1 - u) * src[1] + 2 * (1 - u) * u * ctrl[1] + u * u * tgt[1];
+                path.push([x, y]);
+              }
+              return { path, value: (project.progress + next.progress) / 2 };
             }),
-            getSourcePosition: (d:any) => d.sourcePosition,
-            getTargetPosition: (d:any) => d.targetPosition,
-            getColor: (d:any) => d.value > 66 ? [0,255,200,160] : d.value > 33 ? [0,180,255,140] : [0,120,255,120],
-            getWidth: (d:any) => Math.max(1.5, d.value / 30),
-            parameters: { depthTest: false }
-          })
+            getPath: (d: any) => d.path,
+            getColor: (d: any) => d.value > 66 ? [0,255,200,180] : d.value > 33 ? [0,180,255,160] : [0,120,255,140],
+            getWidth: (d: any) => Math.max(1, (d.value / 24) * Math.max(0.5, Math.min(4, Number(flylineWidth) || 2))),
+            widthUnits: 'pixels',
+            rounded: true,
+            capRounded: true,
+            jointRounded: true,
+            parameters: { depthTest: false, blend: true, blendFunc: [770, 1], blendEquation: 32774 },
+            extensions: [new PathStyleExtension({ dash: true })],
+            dashJustified: true,
+            getDashArray: () => [8, 6],
+            dashOffset: 0
+          } as any)
         ]
       });
 
       // 条件追加：Hex 聚合与 3D 柱体
-      const baseLayers = deck.props.layers ? [...deck.props.layers] : [];
+  const baseLayers = deck.props.layers ? [...deck.props.layers] : [];
+  // 独立模式判定：显式强制 或 已在独立模式状态 或 当前没有 AMap 实例
+  const useStandalone = !!(options?.forceStandalone || deckStandaloneMode || !mapRef.current);
   // 如果当前为 Deck 独立模式，插入 OSM 瓦片底图
-      if (deckStandaloneMode) {
+      if (useStandalone) {
         try {
           baseLayers.unshift(new (TileLayer as any)({
             id: 'osm-tiles',
             data: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             minZoom: 0,
             maxZoom: 19,
-    tileSize: 256
+            tileSize: 256,
+            // 将每个瓦片渲染为位图覆盖到对应经纬度边界
+            renderSubLayers: (props: any) => {
+              const {
+                bbox: { west, south, east, north }
+              } = props.tile;
+              return new BitmapLayer(props, {
+                id: `${props.id}-bitmap`,
+                image: props.data,
+                bounds: [west, south, east, north]
+              });
+            }
+          }));
+          // 次级回退：Carto 暗色底图（如 OSM 被墙/限流）
+          baseLayers.unshift(new (TileLayer as any)({
+            id: 'carto-dark-tiles',
+            data: 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+            minZoom: 0,
+            maxZoom: 19,
+            tileSize: 256,
+            renderSubLayers: (props: any) => {
+              const { bbox: { west, south, east, north } } = props.tile;
+              return new BitmapLayer(props, {
+                id: `${props.id}-bitmap`,
+                image: props.data,
+                bounds: [west, south, east, north]
+              });
+            }
+          }));
+          // 第三级回退：高德街道(暗色样式近似)，不依赖 AMap JS，仅拉瓦片
+          baseLayers.unshift(new (TileLayer as any)({
+            id: 'amap-dark-tiles',
+            data: 'https://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&style=7&x={x}&y={y}&z={z}',
+            minZoom: 0,
+            maxZoom: 19,
+            tileSize: 256,
+            renderSubLayers: (props: any) => {
+              const { bbox: { west, south, east, north } } = props.tile;
+              return new BitmapLayer(props, {
+                id: `${props.id}-bitmap`,
+                image: props.data,
+                bounds: [west, south, east, north]
+              });
+            }
           }));
         } catch (e) {
           console.warn('TileLayer unavailable:', e);
@@ -737,10 +863,30 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           visible: true
         } as any));
       }
+      // 天气表情覆盖（可选叠加）
+      if (showWeatherOverlay) {
+        try {
+          const weatherPoints = filteredProjects
+            .map(p => ({ p, w: weatherDataMap.get(p.id) }))
+            .filter(d => !!d.w) as Array<{p: ExcavationProject; w: WeatherData}>;
+          baseLayers.push(new TextLayer({
+            id: 'weather-emoji',
+            data: weatherPoints,
+            getPosition: (d: any) => [d.p.location.lng, d.p.location.lat],
+            getText: (d: any) => d.w.icon || '⛅',
+            getSize: () => (minimalMode ? 16 : 18),
+            getColor: () => [255, 255, 255, 220],
+            sizeUnits: 'pixels',
+            billboard: true,
+            parameters: { depthTest: false }
+          } as any));
+        } catch {}
+      }
+
       if (baseLayers.length) deck.setProps({ layers: baseLayers });
 
   // 异步懒加载 HeatmapLayer 并追加
-      (async () => {
+  (async () => {
         try {
           const { HeatmapLayer } = await getDeckLayers();
           const riskLayer = new HeatmapLayer({
@@ -878,6 +1024,170 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     }
   }, []);
 
+  // —— 小工具：基于米的便捷经纬度偏移（近似） ——
+  const metersToLngLatDelta = useCallback((meters: number, lat: number) => {
+    const dLat = meters / 111111; // 每米对应的纬度度数
+    const dLng = meters / (111111 * Math.cos((lat * Math.PI) / 180));
+    return { dLat, dLng };
+  }, []);
+
+  // —— AMap 真实光柱 + 扫描环：在启用 showLandmarkBeams 且存在 AMap 时生效 ——
+  useEffect(() => {
+    const AMapNS: any = (window as any).AMap;
+    // 条件：地图实例存在、未处于 Deck 独立模式、开关开启且 AMap 对象3D可用
+    const enableAMapBeams = !!(mapRef.current && !deckStandaloneMode && showLandmarkBeams && AMapNS && AMapNS.Object3DLayer);
+
+    // 清理函数（移除所有光柱与圈层）
+    const cleanup = () => {
+      try {
+        if (beamAnimTimerRef.current) {
+          window.clearInterval(beamAnimTimerRef.current);
+          beamAnimTimerRef.current = null;
+        }
+      } catch {}
+      try { if (glCustomLayerRef.current && mapRef.current) { mapRef.current.remove(glCustomLayerRef.current); } } catch {}
+      glCustomLayerRef.current = null;
+      try {
+        beamCirclesRef.current.forEach((c) => c && c.setMap && c.setMap(null));
+      } catch {}
+      beamCirclesRef.current = [];
+      try {
+        if (beamsLayerRef.current) {
+          // Prism 需从 layer 中移除
+          try { beamPrismsRef.current.forEach((p) => p && beamsLayerRef.current.remove(p)); } catch {}
+          if (mapRef.current) {
+            try { mapRef.current.remove(beamsLayerRef.current); } catch {}
+          }
+        }
+      } catch {}
+      beamsLayerRef.current = null;
+      beamPrismsRef.current = [];
+    };
+
+    cleanup();
+    if (!enableAMapBeams) return;
+
+    try {
+  const layer = new AMapNS.Object3DLayer({ zIndex: 120 });
+      mapRef.current.add(layer);
+      beamsLayerRef.current = layer;
+
+  const targets = filteredProjects.slice(0, Math.min(3, filteredProjects.length));
+      targets.forEach((p) => {
+        const { dLat, dLng } = metersToLngLatDelta(20, p.location.lat); // 约 20m 方形底座
+        const base: [number, number][] = [
+          [p.location.lng - dLng, p.location.lat - dLat],
+          [p.location.lng + dLng, p.location.lat - dLat],
+          [p.location.lng + dLng, p.location.lat + dLat],
+          [p.location.lng - dLng, p.location.lat + dLat]
+        ];
+        // 光柱：Prism（可见高度按主题/模式调整）
+        const height = minimalMode ? 800 : 1400; // 米
+        const prism = new AMapNS.Object3D.Prism({
+          path: base,
+          height,
+          color: 'rgba(0,255,255,0.28)'
+        });
+        prism.transparent = true;
+        layer.add(prism);
+        beamPrismsRef.current.push(prism);
+
+        // 扫描环：两个同心 Circle 循环扩散
+        const c1 = new AMapNS.Circle({
+          center: [p.location.lng, p.location.lat],
+          radius: 30,
+          strokeColor: '#00FFFF',
+          strokeOpacity: 0.6,
+          strokeWeight: 2,
+          fillOpacity: 0,
+          zIndex: 130
+        });
+        const c2 = new AMapNS.Circle({
+          center: [p.location.lng, p.location.lat],
+          radius: 60,
+          strokeColor: '#00BFFF',
+          strokeOpacity: 0.45,
+          strokeWeight: 2,
+          fillOpacity: 0,
+          zIndex: 130
+        });
+        c1.setMap(mapRef.current);
+        c2.setMap(mapRef.current);
+        beamCirclesRef.current.push(c1, c2);
+      });
+
+      // 半径动画
+      let t = 0;
+      beamAnimTimerRef.current = window.setInterval(() => {
+        const speed = Math.max(0.2, Math.min(4, Number(scanRingSpeed) || 1));
+        t = (t + 0.04 * speed) % (Math.PI * 2);
+        const baseR = minimalMode ? 180 : 260; // 最大半径
+        beamCirclesRef.current.forEach((circle, i) => {
+          try {
+            const phase = t + (i % 2 === 0 ? 0 : Math.PI / 2);
+            const r = 40 + (Math.sin(phase) + 1) * (baseR - 40) * 0.5;
+            const alpha = 0.25 + (Math.cos(phase) + 1) * 0.25;
+            circle.setOptions({ radius: r, strokeOpacity: alpha });
+          } catch {}
+        });
+      }, 50);
+
+      // 可选：GLCustomLayer 做屏幕空间发光加成（简版）
+      try {
+        const centers = targets.map(p => [p.location.lng, p.location.lat]);
+        const custom = new AMapNS.GLCustomLayer({
+          zIndex: 140,
+          init: (_gl: WebGLRenderingContext) => {
+            // 使用 2D canvas 叠加到 map container 顶部（简版实现），不直接绘 GL shader
+            const c = document.createElement('canvas');
+            c.id = 'amap-scan-glow';
+            Object.assign(c.style, { position:'absolute', inset:'0', pointerEvents:'none' });
+            (mapContainerRef.current as HTMLElement).appendChild(c);
+            (custom as any)._c = c;
+          },
+          render: () => {
+            const c: HTMLCanvasElement | null = (custom as any)._c || null;
+            if (!c) return;
+            const container = mapContainerRef.current as HTMLElement;
+            const w = container.clientWidth, h = container.clientHeight;
+            if (w <= 0 || h <= 0) return;
+            if (c.width !== w) c.width = w;
+            if (c.height !== h) c.height = h;
+            const ctx = c.getContext('2d');
+            if (!ctx) return;
+            ctx.clearRect(0,0,w,h);
+      const speed = Math.max(0.2, Math.min(4, Number(scanRingSpeed) || 1));
+      const time = performance.now() * 0.001 * speed;
+            centers.forEach(lnglat => {
+              try {
+                const px = mapRef.current.lngLatToContainer(lnglat);
+        const intensity = Math.max(0.5, Number(beamGlowIntensity) || 1);
+        const r = 40 + (Math.sin(time) + 1) * 20 * intensity;
+        const core = Math.min(0.5, 0.25 * intensity);
+        const g = ctx.createRadialGradient(px.x, px.y, r*core, px.x, px.y, r);
+        g.addColorStop(0, `rgba(0,255,255,${0.2 * intensity})`);
+                g.addColorStop(1, 'rgba(0,255,255,0)');
+                ctx.fillStyle = g;
+                ctx.beginPath(); ctx.arc(px.x, px.y, r, 0, Math.PI*2); ctx.fill();
+              } catch {}
+            });
+          },
+          destroy: () => {
+            const c: HTMLCanvasElement | null = (custom as any)._c || null;
+            if (c && c.parentElement) c.parentElement.removeChild(c);
+          }
+        });
+        mapRef.current.add(custom);
+        glCustomLayerRef.current = custom;
+      } catch {}
+    } catch (e) {
+      console.warn('AMap beams init failed, fallback will rely on Deck ColumnLayer:', e);
+      cleanup();
+    }
+
+    return cleanup;
+  }, [showLandmarkBeams, filteredProjects, metersToLngLatDelta, minimalMode, deckStandaloneMode, scanRingSpeed, beamGlowIntensity]);
+
   /**
    * 重置地图视图到全国范围
    */
@@ -995,11 +1305,23 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     };
   };
 
+  const stopCinematicTour = useCallback(() => {
+    setIsCinematic(false);
+    if (cinematicTimerRef.current) {
+      clearTimeout(cinematicTimerRef.current);
+      cinematicTimerRef.current = null;
+    }
+  }, []);
+
   /**
    * 飞行到指定项目 - 带炫酷动画
    */
   const flyToProject = useCallback((project: ExcavationProject) => {
-    if (!mapRef.current || isFlying) return;
+    const map = mapRef.current;
+    if (!map || isFlying) return;
+
+    // 如果正在影院模式，先停止，避免相互打断造成“卡住”感
+    try { if (isCinematic) stopCinematicTour(); } catch {}
 
     console.log(`✈️ 飞行到项目: ${project.name}`);
     setIsFlying(true);
@@ -1007,31 +1329,54 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     // 计算合适的缩放级别
     const zoomLevel = project.area > 1000 ? 14 : 16;
 
-    // 使用高德地图的平滑飞行动画
-    mapRef.current.setZoomAndCenter(
-      zoomLevel,
-      [project.location.lng, project.location.lat],
-      false,
-      2500 // 2.5秒动画
-    );
-
-    // 更新选中项目
-  setSelectedProjectId(project.id);
-    setShowProjectDetails(true);
-
-    // 飞行完成后的回调
-    setTimeout(() => {
+    // 监听飞行结束事件（更可靠），并设置超时兜底
+    let finished = false;
+    let timeoutId: number | null = null;
+    const onEnd = () => {
+      if (finished) return;
+      finished = true;
+      try {
+        map.off('moveend', onEnd as any);
+        map.off('zoomend', onEnd as any);
+      } catch {}
+      if (timeoutId !== null) {
+        try { window.clearTimeout(timeoutId); } catch {}
+        timeoutId = null;
+      }
       setIsFlying(false);
       console.log(`🎯 已到达项目: ${project.name}`);
-    }, 2500);
+      // 如需轻量刷新，可在此进行（避免飞行中重建Deck导致卡顿）
+      // initializeDeck(); // 若验证需要再开启
+    };
 
-    // 更新Deck.gl图层以高亮选中项目
-    if (deckRef.current) {
-      // 重新创建图层以触发更新
-      initializeDeck();
+    try {
+      map.on('moveend', onEnd as any);
+      map.on('zoomend', onEnd as any);
+    } catch {}
+
+  timeoutId = window.setTimeout(() => onEnd(), 3500); // 兜底
+
+    // 使用高德地图的平滑飞行动画
+    try {
+      map.setZoomAndCenter(
+        zoomLevel,
+        [project.location.lng, project.location.lat],
+        false,
+        2500 // 2.5秒动画
+      );
+    } catch (e) {
+      console.warn('setZoomAndCenter 调用失败，直接落位:', e);
+      try { map.setZoom(zoomLevel); map.setCenter([project.location.lng, project.location.lat]); } catch {}
+  // 直接触发完成
+  if (timeoutId !== null) { try { window.clearTimeout(timeoutId); } catch {} }
+      onEnd();
     }
 
-  }, [isFlying, initializeDeck]);
+    // 更新选中项目（Deck 的高亮依赖此状态，无需立刻重建图层）
+    setSelectedProjectId(project.id);
+    setShowProjectDetails(true);
+
+  }, [isFlying, isCinematic, stopCinematicTour, setSelectedProjectId, setShowProjectDetails]);
 
   // —— 影院模式：自动巡航浏览重点项目 ——
   const startCinematicTour = useCallback(() => {
@@ -1060,13 +1405,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     step();
   }, [filteredProjects, projects, minimalMode, isCinematic, setSelectedProjectId, setShowProjectDetails]);
 
-  const stopCinematicTour = useCallback(() => {
-    setIsCinematic(false);
-    if (cinematicTimerRef.current) {
-      clearTimeout(cinematicTimerRef.current);
-      cinematicTimerRef.current = null;
-    }
-  }, []);
+  
 
   // ==== 将全局项目数据映射为浮动项目管理面板的数据结构 ====
   const panelProjects = useMemo(() => {
@@ -1188,41 +1527,88 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         pickable: true,
         onClick: info => { if (info.object) setSelectedProjectId((info.object as any).id); }
       }) : null;
-      const newArcs = new LineLayer({
-        id: 'project-fly-lines',
-        data: filteredProjects.slice(0, minimalMode ? 4 : 10).map((project, index) => {
-          const nextIndex = (index + 1) % Math.min(10, filteredProjects.length);
-          const next = filteredProjects[nextIndex];
-          return { sourcePosition:[project.location.lng, project.location.lat], targetPosition:[next.location.lng, next.location.lat], value: (project.progress + next.progress)/2 };
-        }),
-        getSourcePosition: (d: any) => d.sourcePosition,
-        getTargetPosition: (d: any) => d.targetPosition,
-        getColor: (d:any) => d.value > 66 ? [0,255,200,160] : d.value > 33 ? [0,180,255,140] : [0,120,255,120],
-        getWidth: (d: any) => Math.max(1.5, d.value/30),
-        parameters: { depthTest: false }
+      // 预计算飞线数据（曲线路径）
+      const linesData = filteredProjects.slice(0, minimalMode ? Math.min(4, flylineCount) : Math.min(flylineCount, 20)).map((project, index) => {
+        const maxCount = minimalMode ? Math.min(4, flylineCount) : Math.min(flylineCount, 20);
+        const nextIndex = (index + 1) % Math.min(maxCount, filteredProjects.length);
+        const next = filteredProjects[nextIndex];
+        const src: [number, number] = [project.location.lng, project.location.lat];
+        const tgt: [number, number] = [next.location.lng, next.location.lat];
+        const mid: [number, number] = [(src[0] + tgt[0]) / 2, (src[1] + tgt[1]) / 2];
+        const dLng = tgt[0] - src[0];
+        const dLat = tgt[1] - src[1];
+        const len = Math.hypot(dLng, dLat) || 1;
+        const nx = -dLat / len; const ny = dLng / len;
+        const curvature = minimalMode ? 0.12 : 0.18;
+        const ctrl: [number, number] = [mid[0] + nx * len * curvature, mid[1] + ny * len * curvature];
+        const steps = 16; const path: [number, number][] = [];
+        for (let t = 0; t <= steps; t++) {
+          const u = t / steps;
+          const x = (1 - u) * (1 - u) * src[0] + 2 * (1 - u) * u * ctrl[0] + u * u * tgt[0];
+          const y = (1 - u) * (1 - u) * src[1] + 2 * (1 - u) * u * ctrl[1] + u * u * tgt[1];
+          path.push([x, y]);
+        }
+        return { path, value: (project.progress + next.progress) / 2 };
       });
+      const newArcs = showGlowPaths ? new PathLayer({
+        id: 'project-fly-lines',
+        data: linesData,
+        getPath: (d: any) => d.path,
+        getColor: (d:any) => d.value > 66 ? [0,255,200,200] : d.value > 33 ? [0,200,255,180] : [0,150,255,160],
+  getWidth: (d: any) => Math.max(1, (d.value / 24) * Math.max(0.5, Math.min(4, Number(flylineWidth) || 2))),
+        widthUnits: 'pixels',
+        rounded: true,
+        capRounded: true,
+        jointRounded: true,
+        parameters: { depthTest: false, blend: true, blendFunc: [770, 1], blendEquation: 32774 },
+        extensions: [new PathStyleExtension({ dash: true })],
+        dashJustified: true,
+        getDashArray: () => [8, 6],
+  dashOffset: flyPhase * 20 * Math.max(0.3, Math.min(4, Number(flylineSpeed) || 1)),
+  updateTriggers: { dashOffset: [flyPhase, flylineSpeed], getWidth: [flylineWidth] },
+        opacity: 0.95
+      } as any) : null;
       // 保留懒加载 heatmap (如果已存在则在其 setProps 时会被替换)
       const existing = deckRef.current.props.layers || [];
       const heatmaps = existing.filter((l:any)=> l && (l.id==='risk-heatmap'|| l.id==='weather-temperature'));
 
       // 飞线尾迹粒子
-      const flyLines = (newArcs.props.data as any[]) || [];
-      const particleData = flyLines.map((ln:any) => ({ source: ln.sourcePosition, target: ln.targetPosition, value: ln.value }));
-      const flyParticles = new ScatterplotLayer({
+  const flyLines: any[] = showGlowPaths ? linesData : [];
+      // 计算路径长度表以便按相位插值
+      const particleData = flyLines.map((ln:any) => {
+        const path: [number, number][] = ln.path || [];
+        const segLens: number[] = [];
+        let total = 0;
+        for (let i=1;i<path.length;i++){ const dx=path[i][0]-path[i-1][0]; const dy=path[i][1]-path[i-1][1]; const l=Math.hypot(dx,dy); segLens.push(l); total+=l; }
+        return { path, segLens, total, value: ln.value };
+      });
+  const flyParticles = showGlowPaths ? new ScatterplotLayer({
         id: 'fly-particles',
         data: particleData,
         getPosition: (d:any) => {
-          const t = flyPhase; // 0..1
-          const x = d.source[0] + (d.target[0] - d.source[0]) * t;
-          const y = d.source[1] + (d.target[1] - d.source[1]) * t;
-          return [x, y];
+          const T = Math.max(0, Math.min(1, flyPhase));
+          if (!d.path || d.path.length < 2) return d.path?.[0] || [0,0];
+          const targetLen = d.total * T;
+          let acc = 0;
+          for (let i=0;i<d.segLens.length;i++){
+            const seg = d.segLens[i];
+            if (acc + seg >= targetLen){
+              const localT = (targetLen - acc) / (seg || 1);
+              const a = d.path[i]; const b = d.path[i+1];
+              const x = a[0] + (b[0]-a[0]) * localT;
+              const y = a[1] + (b[1]-a[1]) * localT;
+              return [x,y];
+            }
+            acc += seg;
+          }
+          return d.path[d.path.length-1];
         },
         getRadius: () => 40 + Math.sin(flyPhase * Math.PI * 2) * 10,
         getFillColor: (d:any) => d.value > 66 ? [0,255,200,220] : d.value > 33 ? [0,200,255,200] : [0,150,255,180],
         pickable: false,
         updateTriggers: { getPosition: [flyPhase], getRadius: [flyPhase] },
-        parameters: { depthTest: false }
-      });
+  parameters: { depthTest: false, blend: true, blendFunc: [770, 1], blendEquation: 32774 }
+  }) : null;
 
       // Hex 聚合热区
       const getHexColorRange = () => {
@@ -1245,7 +1631,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         parameters: { depthTest: false }
       }) : null;
 
-      const layers = [newScatter, haloLayer, ...heatmaps];
+  const layers = [newScatter, haloLayer, ...heatmaps];
       // 选中点扩散波纹（更强反馈）
       if (selectedProject) {
         const wave1 = new ScatterplotLayer({
@@ -1284,10 +1670,47 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       }
       if (hex) layers.push(hex);
       if (newColumns) layers.push(newColumns);
-      layers.push(newArcs, flyParticles);
+  // 地标光柱（Deck.gl 演示版，仅在 AMap 不可用或独立模式下启用，避免与 AMap 真正光柱重复）
+  const landmarkBeams = (showLandmarkBeams && (deckStandaloneMode || !(window as any).AMap)) ? new ColumnLayer({
+        id: 'landmark-beams',
+        data: filteredProjects.slice(0, Math.min(3, filteredProjects.length)),
+        getPosition: (d: ExcavationProject) => [d.location.lng, d.location.lat],
+        getElevation: () => (minimalMode ? 1200 : 1800),
+        getFillColor: () => [0, 255, 255, 120],
+        radius: minimalMode ? 120 : 160,
+        elevationScale: 1,
+        extruded: true,
+        wireframe: false,
+        pickable: false,
+        parameters: { depthTest: false }
+      }) : null;
+  if (newArcs) layers.push(newArcs);
+  if (flyParticles) layers.push(flyParticles);
+  if (landmarkBeams) layers.push(landmarkBeams);
+
+      // 天气表情覆盖（动态更新）
+      if (showWeatherOverlay) {
+        try {
+          const weatherPoints = filteredProjects
+            .map(p => ({ p, w: weatherDataMap.get(p.id) }))
+            .filter(d => !!d.w) as Array<{p: ExcavationProject; w: WeatherData}>;
+          const txt = new TextLayer({
+            id: 'weather-emoji',
+            data: weatherPoints,
+            getPosition: (d: any) => [d.p.location.lng, d.p.location.lat],
+            getText: (d: any) => d.w.icon || '⛅',
+            getSize: () => (minimalMode ? 16 : 18),
+            getColor: () => [255, 255, 255, 220],
+            sizeUnits: 'pixels',
+            billboard: true,
+            parameters: { depthTest: false }
+          } as any);
+          layers.push(txt);
+        } catch {}
+      }
       deckRef.current.setProps({ layers });
     }
-  }, [filteredProjects, isInitialized, getProjectStatusColor, selectedProject?.id, minimalMode, pulse, palette, showColumns, showHex, flyPhase, theme]);
+  }, [filteredProjects, isInitialized, getProjectStatusColor, selectedProject?.id, minimalMode, pulse, palette, showColumns, showHex, flyPhase, theme, showWeatherOverlay, weatherDataMap, flylineCount, flylineWidth, flylineSpeed]);
 
   // 启动项目数据轮询模拟 (增量更新)
   useEffect(()=>{
@@ -1682,6 +2105,109 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           minHeight: '400px' // 确保最小高度
         }}
       >
+        {/* 地图 HUD 画布：天空穹/城市辉光/科技网格（叠加在地图之上，Deck 之下） */}
+        {(showHorizonSky || showCityGlow || showTechGrid || showVignette || showScreenFog) && (
+          <canvas
+            id="map-hud-canvas"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 12,
+              pointerEvents: 'none',
+              opacity: theme === 'minimal' ? 0.35 : 0.5
+            }}
+            ref={(el) => {
+              if (!el) return;
+               // 如已有旧观察器，先断开，避免重复绑定
+               const prev = (el as any)._ro as ResizeObserver | undefined;
+               if (prev && typeof prev.disconnect === 'function') {
+                 try { prev.disconnect(); } catch {}
+               }
+               // 简易绘制：尺寸跟随容器，绘制天空穹渐变 + 城市辉光 + 细网格
+               const resize = () => {
+                 const container = (el.parentElement as HTMLElement | null) ?? el;
+                 if (!container) return;
+                 const w = container.clientWidth || el.clientWidth || el.width || 0;
+                 const h = container.clientHeight || el.clientHeight || el.height || 0;
+                if (w <= 0 || h <= 0) return;
+                el.width = w;
+                el.height = h;
+                const ctx = el.getContext('2d');
+                if (!ctx) return;
+                ctx.clearRect(0, 0, w, h);
+                // 天空穹：上深下浅
+                if (showHorizonSky) {
+                  const g = ctx.createLinearGradient(0, 0, 0, h);
+                  g.addColorStop(0, 'rgba(4,12,24,0.85)');
+                  g.addColorStop(0.6, 'rgba(6,20,38,0.35)');
+                  g.addColorStop(1, 'rgba(8,28,48,0.15)');
+                  ctx.fillStyle = g;
+                  ctx.fillRect(0, 0, w, h);
+                }
+                // 城市辉光：中心椭圆光晕
+                if (showCityGlow) {
+                  const cx = w * 0.5;
+                  const cy = h * 0.58;
+                  const rx = Math.max(240, w * 0.35);
+                  const ry = Math.max(160, h * 0.22);
+                  const grd = ctx.createRadialGradient(cx, cy, Math.min(rx, ry) * 0.2, cx, cy, Math.max(rx, ry));
+                  grd.addColorStop(0, 'rgba(0,180,255,0.10)');
+                  grd.addColorStop(0.4, 'rgba(0,160,240,0.06)');
+                  grd.addColorStop(1, 'rgba(0,0,0,0)');
+                  ctx.fillStyle = grd;
+                  ctx.beginPath();
+                  ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+                  ctx.fill();
+                }
+                // 科技网格：细线低透明
+                if (showTechGrid) {
+                  ctx.strokeStyle = 'rgba(0,200,255,0.07)';
+                  ctx.lineWidth = 1;
+                  const gap = Math.max(24, Math.floor(Math.min(w, h) / 30));
+                  for (let x = (w % gap); x < w; x += gap) {
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+                  }
+                  for (let y = (h % gap); y < h; y += gap) {
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+                  }
+                }
+                // 轻微暗角
+                if (showVignette) {
+                  const vg = ctx.createRadialGradient(w/2, h/2, Math.min(w,h)*0.35, w/2, h/2, Math.max(w,h)*0.7);
+                  vg.addColorStop(0, 'rgba(0,0,0,0)');
+                  vg.addColorStop(1, 'rgba(0,0,0,0.15)');
+                  ctx.fillStyle = vg;
+                  ctx.fillRect(0,0,w,h);
+                }
+                // 屏幕空间雾（顶部轻微）
+                if (showScreenFog) {
+                  const fg = ctx.createLinearGradient(0, 0, 0, h);
+                  fg.addColorStop(0, 'rgba(120,180,220,0.06)');
+                  fg.addColorStop(0.25, 'rgba(120,180,220,0.03)');
+                  fg.addColorStop(1, 'rgba(120,180,220,0)');
+                  ctx.fillStyle = fg;
+                  ctx.fillRect(0,0,w,h);
+                }
+              };
+              // 初次与 ResizeObserver（延后一帧，确保元素挂载到 DOM）
+              if (typeof (window as any).ResizeObserver !== 'function') {
+                // 环境不支持，至少先绘制一次
+                requestAnimationFrame(resize);
+                return;
+              }
+              const ro = new ResizeObserver(() => resize());
+              (el as any)._ro = ro;
+              // 观察目标：始终使用画布本身，避免 parent 异常导致类型不匹配
+              const target: Element = el as unknown as Element;
+              requestAnimationFrame(() => {
+                try {
+                  if (target && (target as any).nodeType === 1) ro.observe(target);
+                } catch {}
+                resize();
+              });
+            }}
+          />
+        )}
         {/* 地图错误状态显示 */}
   {mapError && !deckStandaloneMode && (
           <div style={{
@@ -2231,7 +2757,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           )}
         </div>
 
-        {/* 图层控制 */}
+  {/* 图层控制 */}
   <div style={{ padding: '16px', flex: 1 }}>
           <h4 style={{ color: '#00ffff', margin: '0 0 15px 0', fontSize: 16 }}>
             🎛️ 显示控制
@@ -2268,6 +2794,49 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
             <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
               <input type="checkbox" checked={showLayerDebugPanel} onChange={() => toggle('showLayerDebugPanel')} style={{ accentColor: '#00ffff' }} />
               <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '12px' }}>Layer调试面板</span>
+            </label>
+
+            {/* 地图特效（HUD） */}
+            <div style={{ marginTop: 6, borderTop: '1px dashed rgba(0,255,255,0.25)', paddingTop: 10 }}>
+              <div style={{ color: '#0ff', fontSize: 12, marginBottom: 6 }}>地图特效（HUD）</div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                <input type="checkbox" checked={showHorizonSky} onChange={() => toggle('showHorizonSky')} style={{ accentColor: '#00ffff' }} />
+                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>天空穹渐变</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                <input type="checkbox" checked={showCityGlow} onChange={() => toggle('showCityGlow')} style={{ accentColor: '#00ffff' }} />
+                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>城市辉光</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                <input type="checkbox" checked={showTechGrid} onChange={() => toggle('showTechGrid')} style={{ accentColor: '#00ffff' }} />
+                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>科技网格</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                <input type="checkbox" checked={showVignette} onChange={() => toggle('showVignette')} style={{ accentColor: '#00ffff' }} />
+                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>暗角</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                <input type="checkbox" checked={showScreenFog} onChange={() => toggle('showScreenFog')} style={{ accentColor: '#00ffff' }} />
+                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>屏幕空间雾</span>
+              </label>
+            </div>
+
+            {/* 动线与地标 */}
+            <div style={{ marginTop: 6, borderTop: '1px dashed rgba(0,255,255,0.25)', paddingTop: 10 }}>
+              <div style={{ color: '#0ff', fontSize: 12, marginBottom: 6 }}>动线与地标</div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                <input type="checkbox" checked={showGlowPaths} onChange={() => toggle('showGlowPaths' as any)} style={{ accentColor: '#00ffff' }} />
+                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>发光动线</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                <input type="checkbox" checked={showLandmarkBeams} onChange={() => toggle('showLandmarkBeams' as any)} style={{ accentColor: '#00ffff' }} />
+                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>地标光柱</span>
+              </label>
+            </div>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={showWeatherOverlay} onChange={() => toggle('showWeatherOverlay')} style={{ accentColor: '#00ffff' }} />
+              <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '12px' }}>地图天气表情</span>
             </label>
 
             <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
@@ -2317,6 +2886,49 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
               </div>
               <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '12px', marginBottom: '8px' }}>
                 地图缩放级别
+              </div>
+              {/* 引擎参数 */}
+              <div style={{ marginTop: 12, borderTop: '1px dashed rgba(0,255,255,0.25)', paddingTop: 10 }}>
+                <div style={{ color: '#0ff', fontSize: 12, marginBottom: 6 }}>引擎参数</div>
+                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
+                  <span style={{ width: 120, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>建筑高度倍率: {buildingHeightFactor}x</span>
+                  <input type="range" min={1} max={6} step={1} value={buildingHeightFactor}
+                    onChange={(e)=> setVisual({ buildingHeightFactor: Number(e.target.value) })} />
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <span style={{ width: 120, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>扫描环速度: {scanRingSpeed}x</span>
+                  <input type="range" min={0.5} max={3} step={0.5} value={scanRingSpeed}
+                    onChange={(e)=> setVisual({ scanRingSpeed: Number(e.target.value) })} />
+                </div>
+              </div>
+
+              {/* 动线参数 */}
+              <div style={{ marginTop: 12 }}>
+                <div style={{ color: '#0ff', fontSize: 12, marginBottom: 6 }}>动线参数</div>
+                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
+                  <span style={{ width: 120, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>飞线速度: {flylineSpeed}x</span>
+                  <input type="range" min={0.3} max={4} step={0.1} value={flylineSpeed}
+                    onChange={(e)=> setVisual({ flylineSpeed: Number(e.target.value) })} />
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <span style={{ width: 120, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>飞线线宽: {flylineWidth}px</span>
+                  <input type="range" min={1} max={6} step={1} value={flylineWidth}
+                    onChange={(e)=> setVisual({ flylineWidth: Number(e.target.value) })} />
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:8 }}>
+                  <span style={{ width: 120, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>飞线数量: {flylineCount}</span>
+                  <input type="range" min={2} max={20} step={1} value={flylineCount}
+                    onChange={(e)=> setVisual({ flylineCount: Number(e.target.value) })} />
+                </div>
+              </div>
+              {/* 光效参数 */}
+              <div style={{ marginTop: 12 }}>
+                <div style={{ color: '#0ff', fontSize: 12, marginBottom: 6 }}>光效参数</div>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <span style={{ width: 120, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>光柱辉光: {beamGlowIntensity}x</span>
+                  <input type="range" min={0.5} max={3} step={0.1} value={beamGlowIntensity}
+                    onChange={(e)=> setVisual({ beamGlowIntensity: Number(e.target.value) })} />
+                </div>
               </div>
               <div style={{
                 display: 'flex',

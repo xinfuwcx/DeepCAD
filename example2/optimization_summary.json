@@ -1,0 +1,20 @@
+{
+  "coordinate_optimization": {
+    "status": "COMPLETED",
+    "original_system": "UTM_ABSOLUTE",
+    "optimized_system": "RELATIVE_CARTESIAN",
+    "nodes_transformed": 93497
+  },
+  "unit_optimization": {
+    "status": "COMPLETED",
+    "target_system": "SI_UNITS",
+    "materials_converted": 28
+  },
+  "kratos_compatibility": {
+    "status": "ACHIEVED",
+    "coordinate_system": "COMPATIBLE",
+    "unit_system": "COMPATIBLE",
+    "model_format": "KRATOS_READY"
+  },
+  "overall_status": "OPTIMIZATION_COMPLETED"
+}

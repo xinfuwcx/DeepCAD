@@ -23,6 +23,9 @@
   },
   "scripts": {
   "test": "echo \"Error: no test specified\" && exit 1",
+  "dev": "npm run dev:safe",
+  "dev:safe": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& { ./frontend/scripts/free-port-5310.ps1 -Port 5310; npm run dev --prefix frontend }\"",
+  "port:free": "powershell -NoProfile -ExecutionPolicy Bypass -File ./frontend/scripts/free-port-5310.ps1 -Port 5310",
   "dev:frontend": "npm run dev --prefix frontend",
   "dev:pv3d": "npm run dev --prefix frontend"
   },

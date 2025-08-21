@@ -19,11 +19,15 @@ sys.path.insert(0, str(project_root))
 
 # 尝试导入Kratos相关模块
 try:
-    from core.kratos_integration import KratosIntegration
+    # 修复导入路径
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from core.kratos_interface import KratosInterface
     KRATOS_AVAILABLE = True
-except ImportError:
+    print("✅ Kratos interface 导入成功")
+except ImportError as e:
+    print(f"❌ Kratos interface 导入失败: {e}")
     KRATOS_AVAILABLE = False
-    raise ImportError("❌ Kratos Multiphysics is required for analysis functionality. Please install Kratos or check your installation.")
+    # 不要抛出异常，允许程序继续运行但禁用分析功能
 
 
 class AnalysisStep:
@@ -121,37 +125,37 @@ class AnalysisWorker(QThread):
 
     def execute_analysis_step(self, step: AnalysisStep) -> tuple:
         """执行单个分析步骤（委托给Analyzer，避免工作线程属性缺失）"""
+        analyzer = self.analyzer
+
+        # 在执行具体步骤前，按需要过滤模型数据
         try:
-            analyzer = self.analyzer
-            # 在执行具体步骤前，按需要过滤模型数据
-            try:
-                if getattr(analyzer, 'use_active_materials_only', False) and getattr(analyzer, 'fpn_data', None):
-                    analyzer._prepare_filtered_model_for_step(step)
-            except Exception:
-                pass
+            if getattr(analyzer, 'use_active_materials_only', False) and getattr(analyzer, 'fpn_data', None):
+                analyzer._prepare_filtered_model_for_step(step)
+        except Exception:
+            pass
 
-            if KRATOS_AVAILABLE:
-                return self.execute_kratos_step(step)
-            else:
-                raise RuntimeError("Kratos integration is required for analysis")
-
-        except Exception as e:
-            return False, {'error': str(e)}
+        if KRATOS_AVAILABLE and analyzer.kratos_interface:
+            return self.execute_kratos_step(step)
+        else:
+            raise RuntimeError("❌ Kratos Multiphysics is required for analysis. Please install Kratos or check your installation.")
 
     def execute_kratos_step(self, step: AnalysisStep) -> tuple:
         """执行Kratos分析步骤"""
         try:
-            from ..core.kratos_interface import (
-                KratosInterface, AnalysisSettings, AnalysisType, SolverType,
+            # 导入必要的类
+            from core.kratos_interface import (
+                AnalysisSettings, AnalysisType, SolverType,
                 MaterialProperties, KratosModernMohrCoulombConfigurator
             )
 
+            # 使用已经设置的Kratos接口（不重新创建，避免丢失状态）
+            kratos_interface = self.analyzer.kratos_interface
+            if not kratos_interface:
+                raise RuntimeError("Kratos接口未初始化")
+
             self.log_message.emit(f"🚀 启动Kratos分析: {step.step_type}")
 
-            # 创建 Kratos 接口
-            kratos_interface = KratosInterface()
-            
-            # 使用Kratos 10.3修正摩尔-库伦本构配置
+            # 使用Kratos 10.3修正摩尔-库伦本构配置（真实计算，不做任何模拟）
             self.log_message.emit("⚙️ 配置Kratos 10.3修正摩尔-库伦本构...")
             soil_material = MaterialProperties(
                 id=1,
@@ -184,14 +188,14 @@ class AnalysisWorker(QThread):
             )
             kratos_interface.set_analysis_settings(settings)
 
-            # 设置模型数据（优先使用过滤视图）
-            fpn_source = getattr(self, '_fpn_filtered_view', None) or (self.parent().fpn_data if hasattr(self.parent(), 'fpn_data') else None)
-            if fpn_source:
-                model_setup_success = kratos_interface.setup_model(fpn_source)
-                if not model_setup_success:
-                    return False, {'error': 'Kratos模型设置失败'}
-            else:
-                return False, {'error': '缺少模型数据'}
+            # 设置模型数据（优先使用过滤视图；否则使用Analyzer中的完整FPN数据）
+            fpn_source = getattr(self, '_fpn_filtered_view', None) or getattr(self.analyzer, 'fpn_data', None)
+            if not fpn_source:
+                return False, {'error': '缺少模型数据（未设置fpn_data）'}
+
+            model_setup_success = kratos_interface.setup_model(fpn_source)
+            if not model_setup_success:
+                return False, {'error': 'Kratos模型设置失败'}
 
             # 执行分析
             self.log_message.emit("⚙️ 执行Kratos计算...")
@@ -326,10 +330,21 @@ class Analyzer(QObject):
         self.kratos_interface = None
         if KRATOS_AVAILABLE:
             try:
-                self.kratos_interface = KratosIntegration()
+                self.kratos_interface = KratosInterface()
                 self.log_message.emit("Kratos集成模块加载成功")
             except Exception as e:
                 self.log_message.emit(f"Kratos集成失败: {e}")
+                raise RuntimeError(f"Kratos集成失败: {e}")
+
+    def set_kratos_interface(self, kratos_interface):
+        """设置Kratos接口"""
+        self.kratos_interface = kratos_interface
+        self.log_message.emit("Kratos接口已设置")
+
+    def set_fpn_data(self, fpn_data):
+        """设置FPN数据"""
+        self.fpn_data = fpn_data
+        self.log_message.emit("FPN数据已设置")
 
 
     def set_active_materials(self, mat_ids):

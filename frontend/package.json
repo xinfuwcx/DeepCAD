@@ -5,7 +5,9 @@
   "description": "DeepCAD震撼3D地球控制中心 - NASA级渲染 + 双AI助手系统",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 5310 --strictPort",
+  "dev": "vite --port 5310 --strictPort",
+  "port:free": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/free-port-5310.ps1 -Port 5310",
+  "dev:safe": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& { ./scripts/free-port-5310.ps1 -Port 5310; vite --port 5310 --strictPort }\"",
     "dev:5202": "vite --port 5202 --strictPort",
     "dev:5310": "vite --port 5310 --strictPort",
     "build": "vite build",

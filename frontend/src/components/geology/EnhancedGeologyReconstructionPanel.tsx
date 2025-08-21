@@ -3,36 +3,31 @@
  * 专业的地质建模界面，集成 GemPy 功能
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Card, Row, Col, Button, Space, Typography, Alert, Progress,
-  Tabs, Form, Select, InputNumber, Switch, Slider, Upload,
-  Table, Tag, Timeline, List, Modal, message, Spin,
-  Steps, Collapse, Radio, Checkbox, Tooltip, Input,
-  Statistic, Badge, Divider
+  Tabs, Form, Select, InputNumber, Slider, Upload,
+  Table, Tag, List, message,
+  Steps, Checkbox,
+  Statistic, Badge
 } from 'antd';
 import {
   ThunderboltOutlined, DatabaseOutlined, SettingOutlined,
-  PlayCircleOutlined, StopOutlined, EyeOutlined, DownloadOutlined,
-  UploadOutlined, ExperimentOutlined, CheckCircleOutlined,
+  PlayCircleOutlined, EyeOutlined,
+  ExperimentOutlined, CheckCircleOutlined,
   CloudUploadOutlined, FileSearchOutlined, ReloadOutlined,
-  BulbOutlined, DashboardOutlined, LineChartOutlined, BorderOutlined,
-  PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined,
-  RocketOutlined, MonitorOutlined, SafetyOutlined
+  BulbOutlined, DashboardOutlined, BorderOutlined,
+  RocketOutlined, MonitorOutlined
 } from '@ant-design/icons';
-import { motion, AnimatePresence } from 'framer-motion';
+// framer-motion 未使用，去除以通过类型检查
 
 // 导入新的3D视口组件
 import GeologyReconstructionViewport3D from './GeologyReconstructionViewport3D';
-import './GeologyReconstructionViewport3D.css';
+import styles from './EnhancedGeologyReconstructionPanel.module.css';
 
-const { Title, Text, Paragraph } = Typography;
-const { Panel } = Collapse;
-const { TabPane } = Tabs;
+const { Text } = Typography;
 const { Option } = Select;
-const { Step } = Steps;
 const { Dragger } = Upload;
-const { TextArea } = Input;
 
 // ==================== 接口定义 ====================
 
@@ -122,8 +117,7 @@ interface QualityIssue {
 
 const EnhancedGeologyReconstructionPanel: React.FC<GeologyReconstructionProps> = ({
   onModelGenerated,
-  onStatusChange,
-  onQualityReport
+  onStatusChange
 }) => {
   // ==================== 状态管理 ====================
   
@@ -133,7 +127,7 @@ const EnhancedGeologyReconstructionPanel: React.FC<GeologyReconstructionProps> =
   const [currentStep, setCurrentStep] = useState(0);
 
   // 数据状态
-  const [boreholeData, setBoreholeData] = useState<any[]>([]);
+  const [boreholeData] = useState<any[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [modelConfig, setModelConfig] = useState({
     interpolationMethod: 'kriging',
@@ -145,7 +139,7 @@ const EnhancedGeologyReconstructionPanel: React.FC<GeologyReconstructionProps> =
 
   // 结果状态
   const [modelResult, setModelResult] = useState<GeologyModelResult | null>(null);
-  const [qualityReport, setQualityReport] = useState<QualityReport | null>(null);
+  // 质量报告后续接入再启用
   const [realTimeStats, setRealTimeStats] = useState({
     dataPoints: 0,
     processingTime: 0,
@@ -160,9 +154,8 @@ const EnhancedGeologyReconstructionPanel: React.FC<GeologyReconstructionProps> =
     
     // 模拟文件解析
     const reader = new FileReader();
-    reader.onload = (e) => {
+  reader.onload = () => {
       try {
-        const content = e.target?.result as string;
         // 这里可以添加实际的文件解析逻辑
         message.success(`文件 ${file.name} 上传成功`);
       } catch (error) {
@@ -268,7 +261,7 @@ const EnhancedGeologyReconstructionPanel: React.FC<GeologyReconstructionProps> =
             </Dragger>
             
             {selectedFiles.length > 0 && (
-              <div style={{ marginTop: 16 }}>
+              <div className={styles.mt16}>
                 <Text strong>已上传文件:</Text>
                 <List
                   size="small"
@@ -457,7 +450,7 @@ const EnhancedGeologyReconstructionPanel: React.FC<GeologyReconstructionProps> =
           ]}
         />
         
-        <div style={{ marginTop: 24 }}>
+        <div className={styles.mt24}>
           <Progress
             percent={processingProgress}
             status={processingStatus === 'error' ? 'exception' : 'active'}
@@ -466,8 +459,7 @@ const EnhancedGeologyReconstructionPanel: React.FC<GeologyReconstructionProps> =
               '100%': '#87d068',
             }}
           />
-          
-          <div style={{ marginTop: 16 }}>
+          <div className={styles.mt16}>
             <Row gutter={16}>
               <Col span={6}>
                 <Statistic
@@ -549,9 +541,9 @@ const EnhancedGeologyReconstructionPanel: React.FC<GeologyReconstructionProps> =
           </Col>
         </Row>
       ) : (
-        <div style={{ textAlign: 'center', padding: 48 }}>
+        <div className={styles.centerEmpty}>
           <ExperimentOutlined style={{ fontSize: 48, color: '#d9d9d9' }} />
-          <p style={{ marginTop: 16, color: '#999' }}>暂无重建结果</p>
+          <p className={styles.emptyText}>暂无重建结果</p>
         </div>
       )}
     </div>
@@ -559,7 +551,7 @@ const EnhancedGeologyReconstructionPanel: React.FC<GeologyReconstructionProps> =
 
   // 渲染3D视口标签页
   const render3DViewportTab = () => (
-    <div className="geology-3d-viewport-tab" style={{ height: '600px' }}>
+  <div className={styles.viewportTab}>
       <GeologyReconstructionViewport3D
         geologicalData={modelResult ? {
           type: 'geological_model',
@@ -607,7 +599,7 @@ const EnhancedGeologyReconstructionPanel: React.FC<GeologyReconstructionProps> =
           y: hole.y || 0,
           z: hole.elevation || 0,
           depth: hole.depth || 10,
-          layers: hole.layers?.map(layer => ({
+      layers: (hole.layers || []).map((layer: any) => ({
             id: layer.id || `layer_${Math.random()}`,
             name: layer.name || '未命名地层',
             topDepth: layer.topDepth || 0,

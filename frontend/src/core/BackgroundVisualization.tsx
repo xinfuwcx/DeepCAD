@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 
 // Simple animated particle field (instanced) as background layer
@@ -27,6 +27,42 @@ const ParticleField: React.FC = () => {
 
 // enableEffects 通常由全局 visualSettingsStore.enablePostFX 控制
 export const BackgroundVisualization: React.FC<{ enableEffects?: boolean }> = ({ enableEffects }) => {
+  // Inner component to safely decide whether to enable postprocessing
+  const SafeComposer: React.FC = () => {
+    const renderer = useThree((s) => s.gl);
+    const [ready, setReady] = useState(false);
+
+    useEffect(() => {
+      let cancelled = false;
+      // Defer a tick so R3F fully mounts the WebGLRenderer before we probe it
+      const raf = requestAnimationFrame(() => {
+        try {
+          const ctx: any = (renderer as any)?.getContext?.();
+          const attrs = ctx?.getContextAttributes?.();
+          // Only enable when effects are requested and WebGL attributes are valid
+          if (!cancelled && enableEffects && ctx && attrs && typeof attrs.alpha === 'boolean') {
+            setReady(true);
+          } else if (!cancelled) {
+            setReady(false);
+          }
+        } catch {
+          if (!cancelled) setReady(false);
+        }
+      });
+      return () => {
+        cancelled = true;
+        cancelAnimationFrame(raf);
+      };
+    }, [renderer, enableEffects]);
+
+    if (!ready) return null;
+    return (
+      <EffectComposer>
+        <Bloom intensity={0.6} mipmapBlur luminanceThreshold={0.1} />
+      </EffectComposer>
+    );
+  };
+
   return (
     <Canvas
       style={{ position: 'absolute', inset: 0, zIndex: 1 }}
@@ -38,11 +74,7 @@ export const BackgroundVisualization: React.FC<{ enableEffects?: boolean }> = ({
       <ambientLight intensity={0.4} />
       <directionalLight position={[300, 500, 200]} intensity={1.2} />
       <ParticleField />
-      {enableEffects && (
-        <EffectComposer>
-          <Bloom intensity={0.6} mipmapBlur luminanceThreshold={0.1} />
-        </EffectComposer>
-      )}
+      <SafeComposer />
     </Canvas>
   );
 };

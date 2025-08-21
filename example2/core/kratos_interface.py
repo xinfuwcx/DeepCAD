@@ -356,7 +356,8 @@ class KratosInterface:
             if KRATOS_AVAILABLE and self.kratos_integration:
                 return self._run_kratos_analysis()
             else:
-                return self._run_advanced_simulation()
+                # 严格禁用模拟模式，直接失败
+                return False, {"error": "Kratos不可用，禁止模拟模式。请安装并正确配置Kratos。"}
 
         except Exception as e:
             return False, {"error": f"分析执行失败: {e}"}
@@ -987,6 +988,8 @@ class KratosInterface:
                 "displacement_absolute_tolerance": 1e-9,
                 "residual_absolute_tolerance": 1e-9,
                 "linear_solver_settings": {
+                    "solver_type": "amgcl",
+                    "tolerance": 1e-8,
                     "solver_type": "amgcl",
                     "tolerance": 1e-8,
                     "max_iteration": 1000,

@@ -6,6 +6,7 @@ MIDAS文件读取器
 """
 
 from typing import Optional
+from pathlib import Path
 
 # 可选编码探测
 try:

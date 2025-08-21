@@ -5,6 +5,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useShallow } from 'zustand/react/shallow';
 import { MapLayerType, iTownsMapController } from '../components/control/iTownsMapController';
 import { unifiedMapService, MapStyleType, initLazyMap } from '../services/UnifiedMapService';
 
@@ -20,6 +21,21 @@ export interface WeatherState {
 
 // 导航键类型
 export type NavigationKey = 'street' | 'satellite' | 'terrain' | 'dark' | 'weather' | 'weather-effects' | 'epic' | 'monitor' | 'ai' | 'project-management' | 'exit';
+
+// 统一：导航键到统一地图样式的映射（无样式返回 null）
+const NAV_TO_STYLE: Record<NavigationKey, MapStyleType | null> = {
+  street: 'street',
+  satellite: 'satellite',
+  terrain: 'terrain',
+  dark: 'dark-tech',
+  weather: null,
+  'weather-effects': null,
+  epic: null,
+  monitor: null,
+  ai: null,
+  'project-management': null,
+  exit: null,
+};
 
 // 位置信息接口
 export interface Location {
@@ -130,11 +146,16 @@ export const useControlCenterStore = create<ControlCenterState>()(persist((set, 
     // === 统一地图服务 ===
     initializeUnifiedMap: async (container: HTMLElement) => {
       try {
-  await initLazyMap(container!, {
+        if (!container) {
+          set({ mapStatus: 'error', errorMessage: '容器无效' });
+          return;
+        }
+        await initLazyMap(container, {
           style: 'dark-tech',
           center: [get().currentLocation.lng, get().currentLocation.lat],
           zoom: 5
         });
+        set({ mapStatus: 'ready', errorMessage: '' });
         console.log('✅ 统一地图服务初始化成功');
       } catch (error) {
         console.error('❌ 统一地图服务初始化失败:', error);
@@ -191,6 +212,12 @@ export const useControlCenterStore = create<ControlCenterState>()(persist((set, 
       // 设置活跃模式
       set({ activeMapMode: key });
 
+      // 优先：根据导航键切换统一地图样式（若有对应关系）
+      const style = NAV_TO_STYLE[key];
+      if (style) {
+        get().switchUnifiedMapStyle(style);
+      }
+
       // 根据不同按钮执行不同操作
       switch (key) {
         case 'weather':
@@ -203,6 +230,10 @@ export const useControlCenterStore = create<ControlCenterState>()(persist((set, 
           // 切换地图主题
           if (state.mapController) {
             state.mapController.setDarkMode(newDarkMode);
+          }
+          // 若外部未通过样式映射切换，这里保证样式与暗色保持一致
+          if (NAV_TO_STYLE.dark) {
+            get().switchUnifiedMapStyle(NAV_TO_STYLE.dark);
           }
           break;
           
@@ -239,16 +270,6 @@ export const useControlCenterStore = create<ControlCenterState>()(persist((set, 
           if (state.mapController) {
             state.mapController.switchLayer(key as MapLayerType);
           }
-          // 统一地图服务样式切换
-          const styleMap: { [key: string]: MapStyleType } = {
-            'street': 'street',
-            'satellite': 'satellite', 
-            'terrain': 'terrain',
-            'dark': 'dark-tech'
-          };
-          if (styleMap[key]) {
-            get().switchUnifiedMapStyle(styleMap[key]);
-          }
           set({ 
             showWeatherPanel: false,
             showAIAssistant: false 
@@ -278,27 +299,36 @@ export const useControlCenterStore = create<ControlCenterState>()(persist((set, 
 }));
 
 // === 选择器 Hooks ===
-export const useMapState = () => useControlCenterStore((state) => ({
-  activeMapMode: state.activeMapMode,
-  currentLocation: state.currentLocation,
-  mapStatus: state.mapStatus,
-  errorMessage: state.errorMessage,
-}));
+export const useMapState = () =>
+  useControlCenterStore(
+    useShallow((state) => ({
+      activeMapMode: state.activeMapMode,
+      currentLocation: state.currentLocation,
+      mapStatus: state.mapStatus,
+      errorMessage: state.errorMessage,
+    }))
+  );
 
-export const useUIState = () => useControlCenterStore((state) => ({
-  showWeatherPanel: state.showWeatherPanel,
-  darkMode: state.darkMode,
-  fullscreenMode: state.fullscreenMode,
-  epicMode: state.epicMode,
-  showAIAssistant: state.showAIAssistant,
-}));
+export const useUIState = () =>
+  useControlCenterStore(
+    useShallow((state) => ({
+      showWeatherPanel: state.showWeatherPanel,
+      darkMode: state.darkMode,
+      fullscreenMode: state.fullscreenMode,
+      epicMode: state.epicMode,
+      showAIAssistant: state.showAIAssistant,
+    }))
+  );
 
-export const useWeatherStateStore = () => useControlCenterStore((state) => ({
-  weatherState: state.weatherState,
-  weatherIntensity: state.weatherIntensity,
-  cloudDensity: state.cloudDensity,
-  currentWeatherData: state.currentWeatherData,
-}));
+export const useWeatherStateStore = () =>
+  useControlCenterStore(
+    useShallow((state) => ({
+      weatherState: state.weatherState,
+      weatherIntensity: state.weatherIntensity,
+      cloudDensity: state.cloudDensity,
+      currentWeatherData: state.currentWeatherData,
+    }))
+  );
 
 // === 订阅变化 ===
 // 暂时注释掉订阅，避免无限循环问题

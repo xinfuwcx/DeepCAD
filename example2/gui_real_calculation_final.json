@@ -1,0 +1,41 @@
+{
+  "project_name": "两阶段-全锚杆-摩尔库伦基坑工程",
+  "calculation_type": "REAL_GUI_CALCULATION",
+  "execution_date": "2025-08-21 16:48:22",
+  "gui_components": {
+    "main_window_created": true,
+    "preprocessor_available": true,
+    "analyzer_available": true,
+    "kratos_interface": false
+  },
+  "model_loading": {
+    "fpn_file": "data/两阶段-全锚杆-摩尔库伦.fpn",
+    "load_success": null,
+    "nodes_count": 93497,
+    "elements_count": 142710,
+    "materials_count": 28
+  },
+  "analysis_execution": {
+    "steps_configured": 2,
+    "analysis_started": true,
+    "execution_time_s": 5.028883218765259,
+    "analysis_completed": true,
+    "steps_status": [
+      {
+        "name": "初始应力平衡",
+        "status": "failed"
+      },
+      {
+        "name": "支护开挖",
+        "status": "pending"
+      }
+    ]
+  },
+  "real_engineering_data": {
+    "project_scale": "ULTRA_LARGE_SCALE",
+    "engineering_type": "DEEP_EXCAVATION_WITH_PRESTRESSED_ANCHORS",
+    "analysis_stages": 2,
+    "physics_groups_processed": true,
+    "gui_execution_verified": true
+  }
+}

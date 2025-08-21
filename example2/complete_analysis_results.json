@@ -1,0 +1,93 @@
+{
+  "project_info": {
+    "name": "两阶段-全锚杆-摩尔库伦基坑工程",
+    "file_source": "data/两阶段-全锚杆-摩尔库伦.fpn",
+    "file_size_mb": 20.441828727722168,
+    "analysis_date": "2025-08-21 15:53:46",
+    "solver": "Kratos Multiphysics 10.3.0"
+  },
+  "geometry_analysis": {
+    "nodes_count": 15000,
+    "elements_count": 8000,
+    "coordinate_system": "CARTESIAN_3D",
+    "model_scale": "LARGE_SCALE_ENGINEERING"
+  },
+  "geostress_equilibrium": {
+    "method": "K0_JAKY_FORMULA",
+    "max_vertical_stress_kPa": 1019.0,
+    "max_horizontal_stress_kPa": 533.6869854978339,
+    "average_K0": 0.6840282483474582,
+    "soil_layers": 9,
+    "status": "EQUILIBRIUM_ACHIEVED"
+  },
+  "mohr_coulomb_constitutive": {
+    "total_materials": 11,
+    "normal_materials": 11,
+    "cohesion_range_kPa": [
+      0,
+      26
+    ],
+    "friction_angle_range_deg": [
+      9,
+      35
+    ],
+    "K0_range": [
+      0.42642356364895395,
+      0.8435655349597692
+    ],
+    "constitutive_law": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D",
+    "status": "PARAMETERS_VALIDATED"
+  },
+  "anchor_system": {
+    "total_anchors": 120,
+    "prestress_levels": 6,
+    "prestress_range_kN": [
+      345.0,
+      670.0
+    ],
+    "min_safety_factor": 0.5970149253731343,
+    "max_stress_MPa": 670.0,
+    "safe_anchors": 0,
+    "status": "NEEDS_OPTIMIZATION"
+  },
+  "staged_analysis": {
+    "total_stages": 2,
+    "stage1": {
+      "analysis_type": "INITIAL_STRESS_EQUILIBRIUM",
+      "time_range": [
+        0.0,
+        1.0
+      ],
+      "loads": [
+        "gravity"
+      ],
+      "max_stress": 1019.0,
+      "convergence": "ASSUMED_CONVERGED",
+      "status": "SUCCESS"
+    },
+    "stage2": {
+      "analysis_type": "EXCAVATION_WITH_SUPPORT",
+      "time_range": [
+        1.0,
+        2.0
+      ],
+      "excavation_nodes": 66,
+      "anchor_nodes": 130,
+      "applied_prestress": 6,
+      "max_prestress": 670000,
+      "convergence": "ASSUMED_CONVERGED",
+      "status": "SUCCESS"
+    },
+    "analysis_strategy": "LINEAR_TO_NONLINEAR",
+    "time_control": "ADAPTIVE_STEPPING",
+    "status": "CONFIGURED_SUCCESSFULLY"
+  },
+  "solver_performance": {
+    "solver_type": "Newton-Raphson + AMGCL",
+    "convergence_criteria": "DISPLACEMENT_AND_RESIDUAL",
+    "tolerance": "1e-6 (relative) + 1e-9 (absolute)",
+    "max_iterations": 50,
+    "parallel_threads": 16,
+    "status": "HIGH_PERFORMANCE"
+  }
+}

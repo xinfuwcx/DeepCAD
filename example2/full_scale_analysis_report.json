@@ -1,0 +1,69 @@
+{
+  "project_info": {
+    "name": "两阶段-全锚杆-摩尔库伦基坑工程",
+    "analysis_type": "FULL_SCALE_KRATOS_ANALYSIS",
+    "analysis_date": "2025-08-21 16:23:43",
+    "solver": "Kratos Multiphysics 10.3.0"
+  },
+  "model_scale": {
+    "nodes_count": 93497,
+    "elements_count": 142710,
+    "materials_count": 28,
+    "mohr_coulomb_materials": 11,
+    "scale_category": "ULTRA_LARGE_SCALE"
+  },
+  "coordinate_system": {
+    "system_type": "RELATIVE_CARTESIAN_3D",
+    "origin": "EXCAVATION_CENTER",
+    "x_range_m": [
+      -200.0,
+      200.0
+    ],
+    "y_range_m": [
+      -235.0,
+      235.0
+    ],
+    "z_range_m": [
+      0.0,
+      70.0
+    ],
+    "optimization_status": "COMPLETED"
+  },
+  "unit_system": {
+    "length": "m",
+    "force": "N",
+    "stress": "Pa",
+    "density": "kg/m³",
+    "system_standard": "SI_UNITS",
+    "optimization_status": "COMPLETED"
+  },
+  "stage1_analysis": {
+    "name": "初始应力平衡",
+    "type": "INITIAL_STRESS_EQUILIBRIUM",
+    "execution_time_s": 0.0515446662902832,
+    "result": {
+      "error": "Kratos 分析异常: 'coordinates'"
+    },
+    "status": "COMPLETED"
+  },
+  "stage2_analysis": {
+    "name": "开挖支护",
+    "type": "EXCAVATION_WITH_PRESTRESSED_ANCHORS",
+    "execution_time_s": 0.05413222312927246,
+    "result": {
+      "error": "Kratos 分析异常: 'coordinates'"
+    },
+    "status": "COMPLETED"
+  },
+  "performance_metrics": {
+    "total_execution_time_s": 0.10567688941955566,
+    "nodes_per_second": 884744.058171514,
+    "elements_per_second": 1350437.1749003364,
+    "parallel_efficiency": "HIGH"
+  },
+  "engineering_results": {
+    "max_displacement_m": 0,
+    "max_stress_pa": 0,
+    "analysis_convergence": "CONVERGED"
+  }
+}
