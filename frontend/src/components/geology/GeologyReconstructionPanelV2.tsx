@@ -9,7 +9,7 @@
  *  - 估算: memory≈ N * 32 bytes; time≈ 基础系数 0.00008 * N 秒 (经验值，可后续校准)
  * 后续阶段将补齐: 质量评估(RMSEz/H)、回退、缓存、水头参数细节、预览/commit API 对接、钻孔数据联动等。
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, Tabs, Radio, Slider, InputNumber, Row, Col, Space, Switch, Tag, Button, Typography, Alert, Tooltip, Divider, Segmented, message, Upload, Table, Statistic, Popconfirm, Form, Input, Select } from 'antd';
 import { ExperimentOutlined, DeploymentUnitOutlined, DatabaseOutlined, ThunderboltOutlined, AimOutlined, CheckCircleTwoTone, WarningTwoTone, CloseCircleTwoTone, CloudUploadOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons';
 // Stage E: 3D 视口 (已移除内嵌预览)
@@ -24,6 +24,15 @@ const { Text, Title } = Typography;
 // ---------- 常量配置 ----------
 const STORAGE_KEY_BH = 'deepcad.geology.boreholes.v1';
 const STORAGE_KEY_BH_FN = 'deepcad.geology.boreholes.file.v1';
+// 持久化：锚杆配置
+const STORAGE_KEY_ANCHOR_COUNT = 'deepcad.geology.anchors.count.v1';
+const STORAGE_KEY_ANCHOR_LEVELS = 'deepcad.geology.anchors.levels.v1';
+const STORAGE_KEY_ANCHOR_TOTAL = 'deepcad.geology.anchors.total.v1';
+const STORAGE_KEY_ANCHOR_AROUND_MODE = 'deepcad.geology.anchors.around.mode.v1';
+const STORAGE_KEY_ANCHOR_AROUND_SPACING = 'deepcad.geology.anchors.around.spacing.v1';
+const STORAGE_KEY_ANCHOR_AROUND_DENSIFY = 'deepcad.geology.anchors.around.densify.v1';
+const STORAGE_KEY_ANCHOR_AROUND_FACTOR = 'deepcad.geology.anchors.around.factor.v1';
+const STORAGE_KEY_ANCHOR_AROUND_SPAN = 'deepcad.geology.anchors.around.span.v1';
 const RESOLUTION_PRESETS = {
   preview: { label: '预览', nx: 60, ny: 60, nz: 60 },
   standard: { label: '标准', nx: 80, ny: 80, nz: 80 },
@@ -127,17 +136,83 @@ const GeologyReconstructionPanelV2: React.FC = () => {
   const [anchorPlateSize, setAnchorPlateSize] = useState<number>(0.4);
   const [anchorPlateThk, setAnchorPlateThk] = useState<number>(0.05);
   const [anchorHeadSize, setAnchorHeadSize] = useState<number>(0.12);
-  // 自定义锚杆（逐层/逐排）数量与参数，默认0层=不显示
+  // 沿墙总根数（用于“沿基坑周边生成锚杆”）
+  const [anchorTotalCount, setAnchorTotalCount] = useState<number>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY_ANCHOR_TOTAL);
+    const n = saved ? Number(saved) : 10; return Number.isFinite(n) && n>0 ? Math.min(1000, n) : 10;
+  });
+  // 生成模式：按总根数 or 按间距
+  const [anchorAroundMode, setAnchorAroundMode] = useState<'byCount'|'bySpacing'>(()=>{
+    const v = localStorage.getItem(STORAGE_KEY_ANCHOR_AROUND_MODE); return (v==='bySpacing'||v==='byCount')? v : 'byCount';
+  });
+  const [anchorAroundSpacing, setAnchorAroundSpacing] = useState<number>(()=>{
+    const s = localStorage.getItem(STORAGE_KEY_ANCHOR_AROUND_SPACING); const n = s? Number(s): 2.0; return Number.isFinite(n)&&n>0.2? n: 2.0;
+  });
+  const [densifyCorners, setDensifyCorners] = useState<boolean>(()=> localStorage.getItem(STORAGE_KEY_ANCHOR_AROUND_DENSIFY) === '1');
+  const [densifyFactor, setDensifyFactor] = useState<number>(()=>{
+    const s = localStorage.getItem(STORAGE_KEY_ANCHOR_AROUND_FACTOR); const n = s? Number(s): 0.6; return (Number.isFinite(n) && n>0 && n<=1)? n: 0.6;
+  });
+  const [densifySpan, setDensifySpan] = useState<number>(()=>{
+    const s = localStorage.getItem(STORAGE_KEY_ANCHOR_AROUND_SPAN); const n = s? Number(s): 6; return Number.isFinite(n)&&n>0? n: 6;
+  });
+  // 自定义锚杆（逐层/逐排）数量与参数，默认10层；设置为0可不显示
   const [anchorLevelCount, setAnchorLevelCount] = useState<number>(10);
   const [anchorLevels, setAnchorLevels] = useState<Array<{ depth:number; length:number; diameter:number; spacing:number; angleDeg:number }>>(
     Array.from({ length: 10 }, () => ({ depth: 2, length: 8, diameter: 0.15, spacing: 2.0, angleDeg: 10 }))
   );
+  // 锚杆配置持久化：加载
+  useEffect(() => {
+    try {
+      const rawCount = localStorage.getItem(STORAGE_KEY_ANCHOR_COUNT);
+      if (rawCount != null) {
+        const countNum = Number(rawCount);
+        if (!Number.isNaN(countNum) && countNum >= 0) {
+          setAnchorLevelCount(Math.min(50, countNum));
+        }
+      }
+      const rawLevels = localStorage.getItem(STORAGE_KEY_ANCHOR_LEVELS);
+      if (rawLevels) {
+        const parsed = JSON.parse(rawLevels);
+        if (Array.isArray(parsed)) {
+          const normalized = parsed.map((l: any) => ({
+            depth: Number(l?.depth ?? 2),
+            length: Number(l?.length ?? 8),
+            diameter: Number(l?.diameter ?? 0.15),
+            spacing: Number(l?.spacing ?? 2.0),
+            angleDeg: Number(l?.angleDeg ?? 10),
+          }));
+          if (normalized.length > 0) setAnchorLevels(normalized);
+        }
+      }
+    } catch {}
+  }, []);
+  // 锚杆配置持久化：保存
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_ANCHOR_COUNT, String(anchorLevelCount));
+      // 仅保存需要的层数，避免无意义的大数组
+      const toSave = anchorLevels.slice(0, Math.max(0, Math.min(anchorLevelCount, 50)));
+      localStorage.setItem(STORAGE_KEY_ANCHOR_LEVELS, JSON.stringify(toSave));
+    } catch {}
+  }, [anchorLevelCount, anchorLevels]);
+  // 保存沿墙总根数
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY_ANCHOR_TOTAL, String(anchorTotalCount)); } catch {}
+  }, [anchorTotalCount]);
+  // 保存周边生成高级参数
+  useEffect(()=>{ try{ localStorage.setItem(STORAGE_KEY_ANCHOR_AROUND_MODE, anchorAroundMode); } catch{} },[anchorAroundMode]);
+  useEffect(()=>{ try{ localStorage.setItem(STORAGE_KEY_ANCHOR_AROUND_SPACING, String(anchorAroundSpacing)); } catch{} },[anchorAroundSpacing]);
+  useEffect(()=>{ try{ localStorage.setItem(STORAGE_KEY_ANCHOR_AROUND_DENSIFY, densifyCorners? '1':'0'); } catch{} },[densifyCorners]);
+  useEffect(()=>{ try{ localStorage.setItem(STORAGE_KEY_ANCHOR_AROUND_FACTOR, String(densifyFactor)); } catch{} },[densifyFactor]);
+  useEffect(()=>{ try{ localStorage.setItem(STORAGE_KEY_ANCHOR_AROUND_SPAN, String(densifySpan)); } catch{} },[densifySpan]);
   // 逐根锚杆：依赖墙段元数据（段索引、沿段偏距），默认空
   type AnchorItem = { segIndex:number; offset:number; depth:number; length:number; diameter:number; angleDeg:number };
   const [perAnchorList, setPerAnchorList] = useState<AnchorItem[]>([]);
   // 生成/清除地连墙
   const buildWall = () => {
     try {
+      // UI-only fallback: engine missing
+      if (!(window as any)?.__CAE_ENGINE__) { message.info('UI预览模式：未接入三维引擎，已模拟生成地连墙'); return; }
       const hasOutline = (window as any).__CAE_ENGINE__?.hasLastExcavationOutline?.();
       if (hasOutline) {
         message.info('已自动使用最近一次开挖轮廓作为墙体路径');
@@ -169,8 +244,10 @@ const GeologyReconstructionPanelV2: React.FC = () => {
       message.success('已生成地连墙');
     } catch (e:any) { message.error('生成失败: ' + e.message); }
   };
-  const clearWall = () => { try { (window as any).__CAE_ENGINE__?.removeDiaphragmWall?.(); message.success('已清除地连墙'); } catch {} };
+  const clearWall = () => { try { if (!(window as any)?.__CAE_ENGINE__) { message.info('UI预览模式：模拟清除地连墙'); return; } (window as any).__CAE_ENGINE__?.removeDiaphragmWall?.(); message.success('已清除地连墙'); } catch {} };
   const addAnchors = () => {
+  // UI-only fallback
+  if (!(window as any)?.__CAE_ENGINE__) { message.info('UI预览模式：未接入三维引擎，已模拟生成锚杆'); return; }
   const ok = (window as any).__CAE_ENGINE__?.addAnchorsOnWall?.({
       length: anchorLen,
       diameter: anchorDia,
@@ -185,7 +262,47 @@ const GeologyReconstructionPanelV2: React.FC = () => {
       try { const eng=(window as any).__CAE_ENGINE__; eng.focusAnchors?.(); eng.setAnchorsHighlight?.(true); setTimeout(()=>{ eng.setAnchorsHighlight?.(false); }, 2500);} catch {}
     } else message.warning('请先生成地连墙再布置锚杆');
   };
-  const clearAnchors = () => { try { (window as any).__CAE_ENGINE__?.removeAnchors?.(); message.success('已清除锚杆'); } catch {} };
+  const clearAnchors = () => { try { if (!(window as any)?.__CAE_ENGINE__) { message.info('UI预览模式：模拟清除锚杆'); return; } (window as any).__CAE_ENGINE__?.removeAnchors?.(); message.success('已清除锚杆'); } catch {} };
+
+  // 基于基坑周边的等距锚杆布置（高级：按总根数/间距、短段加密、多排）
+  const generateAnchorsAroundPit = () => {
+    try {
+      const eng = (window as any).__CAE_ENGINE__;
+      if (!eng) { message.info('UI预览模式：未接入三维引擎，已模拟生成周边锚杆'); return; }
+      if (!eng?.hasDiaphragmWall?.()) {
+        const hasOutline = eng?.hasLastExcavationOutline?.();
+        if (!hasOutline) { message.warning('未检测到开挖轮廓，请先生成地连墙或开挖'); return; }
+        eng?.addDiaphragmWall?.([], { thickness: 0.8, depth: 20, rotationAngleDeg: 0 }, { autoFit: true });
+      }
+      const segs = eng?.getWallSegmentsMeta?.() || [];
+      const perimeter = Array.isArray(segs) ? segs.reduce((s:number, seg:any)=> s + (Number(seg.length)||0), 0) : 0;
+      const baseSpacing = anchorAroundMode==='bySpacing'
+        ? Math.max(0.5, Number(anchorAroundSpacing)||2.0)
+        : (perimeter>0? Math.max(0.5, perimeter / Math.max(1, Number(anchorTotalCount)||10)) : Math.max(0.5, Number(anchorAroundSpacing)||2.0));
+      const items: Array<{ segIndex:number; offset:number; depth:number; length:number; diameter:number; angleDeg:number }> = [];
+      segs.forEach((seg:any, si:number) => {
+        const L = Number(seg.length)||0;
+        if (L<=0) return;
+        const segSpacing = densifyCorners && L<=densifySpan? Math.max(0.3, baseSpacing * densifyFactor) : baseSpacing;
+        const segCount = Math.max(1, Math.floor(L / segSpacing));
+        const step = L / segCount;
+        for (let j=0;j<segCount;j++){
+          const offset = (j + 0.5) * step;
+          for (let r=0; r<Math.max(1, anchorRows); r++){
+            const depth = Number(anchorStartOffset) + r * Number(anchorRowSpacing);
+            items.push({ segIndex: si, offset, depth, length: Number(anchorLen), diameter: Number(anchorDia), angleDeg: Number(anchorPitch) });
+          }
+        }
+      });
+      if (!items.length) { message.warning('未能计算有效的布置位置'); return; }
+      const ok = eng?.addWallAnchorsPerAnchor?.(items, { showHead: anchorShowHead, plateSize: anchorPlateSize, plateThickness: anchorPlateThk, headSize: anchorHeadSize });
+      if (ok){
+        const approxCount = Math.round(items.length / Math.max(1, anchorRows));
+        message.success(`沿基坑周边生成锚杆完成（约${approxCount}根，基准间距≈${baseSpacing.toFixed(2)}m${densifyCorners? '，短段加密':''}，排数×${Math.max(1, anchorRows)}）`);
+        try { eng.focusAnchors?.(); eng.setAnchorsHighlight?.(true); setTimeout(()=> eng.setAnchorsHighlight?.(false), 2000);} catch {}
+      } else message.warning('生成失败，请确认地连墙已存在');
+    } catch (e:any){ message.error('生成失败: ' + (e?.message||'未知错误')); }
+  };
 
   // --- 自定义锚杆（逐层） ---
   const updateAnchorLevel = (idx:number, key: keyof (typeof anchorLevels)[number], val:number) => {
@@ -205,7 +322,7 @@ const GeologyReconstructionPanelV2: React.FC = () => {
   };
   const applyAnchorsCustom = () => {
     const eng = (window as any).__CAE_ENGINE__ as any;
-    if (!eng) return;
+  if (!eng) { message.info('UI预览模式：未接入三维引擎，已保存自定义锚杆设置'); return; }
     if (anchorLevelCount <= 0) { eng.removeAnchors?.(); message.info('锚杆层数为0，已清除'); return; }
     const levels = anchorLevels.slice(0, anchorLevelCount).map(l => ({
       depth: Number(l?.depth ?? 0),
@@ -242,6 +359,7 @@ const GeologyReconstructionPanelV2: React.FC = () => {
   const applyPerAnchor = () => { 
     try { 
       const eng=(window as any).__CAE_ENGINE__;
+      if (!eng) { message.info('UI预览模式：未接入三维引擎，已保存逐根锚杆列表'); return; }
       eng?.addWallAnchorsPerAnchor?.(perAnchorList, { showHead: anchorShowHead, plateSize: anchorPlateSize, plateThickness: anchorPlateThk, headSize: anchorHeadSize }); 
       message.success('已应用逐根锚杆'); 
       try { eng.focusAnchors?.(); } catch {}
@@ -1313,6 +1431,9 @@ const GeologyReconstructionPanelV2: React.FC = () => {
             { key: 'support', label: '支护(地连墙)', children: (
               <Card size="small" style={{ background:'rgba(255,255,255,0.02)' }}>
                 <Space direction="vertical" size={8} style={{ width:'100%' }}>
+                  {!(window as any)?.__CAE_ENGINE__ && (
+                    <Alert type="warning" showIcon message="UI预览模式：未接入三维引擎，仅展示界面操作，不会生成三维模型" />
+                  )}
                   <Alert type="info" showIcon message="地连墙：沿路径生成墙板，自土层顶面向下延伸至设定深度。未提供路径时使用示例矩形。" />
                   <Row gutter={12}>
                     <Col span={8}><span style={{ color:'#bbb' }}>墙厚(m)</span><InputNumber min={0.1} max={10} step={0.1} value={wallThickness} onChange={(v)=> setWallThickness(v||0.8)} style={{ width:'100%' }} /></Col>
@@ -1354,7 +1475,42 @@ const GeologyReconstructionPanelV2: React.FC = () => {
                   </Row>
 
                   <Divider style={{ margin:'8px 0' }} />
-                  <Alert type="info" showIcon message="自定义锚杆：按道逐一设置深度/长度/直径/沿墙间距/倾角。默认数量为 0，不显示。" />
+                  <Alert type="info" showIcon message="沿基坑周边生成：支持按总根数或按间距布置，短段可加密，多排自动按排距下移。" />
+                  <Space direction="vertical" size={8} style={{ width:'100%' }}>
+                    <Space wrap>
+                      <span style={{ color:'#bbb' }}>模式</span>
+                      <Radio.Group size="small" value={anchorAroundMode} onChange={(e)=> setAnchorAroundMode(e.target.value)}>
+                        <Radio.Button value="byCount">按总根数</Radio.Button>
+                        <Radio.Button value="bySpacing">按间距</Radio.Button>
+                      </Radio.Group>
+                      {anchorAroundMode==='byCount' ? (
+                        <>
+                          <span style={{ color:'#bbb' }}>总根数</span>
+                          <InputNumber min={1} max={2000} value={anchorTotalCount} onChange={(v)=> setAnchorTotalCount(Number(v)||10)} />
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ color:'#bbb' }}>目标间距(m)</span>
+                          <InputNumber min={0.3} max={50} step={0.1} value={anchorAroundSpacing} onChange={(v)=> setAnchorAroundSpacing(Number(v)||2)} />
+                        </>
+                      )}
+                    </Space>
+                    <Space wrap>
+                      <span style={{ color:'#bbb' }}>短段加密</span>
+                      <Switch checked={densifyCorners} onChange={setDensifyCorners} />
+                      <span style={{ color:'#bbb' }}>阈值长度(m)</span>
+                      <InputNumber min={1} max={50} step={0.5} value={densifySpan} onChange={(v)=> setDensifySpan(Number(v)||6)} />
+                      <span style={{ color:'#bbb' }}>加密系数×</span>
+                      <InputNumber min={0.2} max={1} step={0.05} value={densifyFactor} onChange={(v)=> setDensifyFactor(Number(v)||0.6)} />
+                    </Space>
+                    <Space wrap>
+                      <Button type="primary" onClick={generateAnchorsAroundPit}>沿基坑周边生成锚杆</Button>
+                      <Button onClick={clearAnchors}>清除锚杆</Button>
+                    </Space>
+                  </Space>
+
+                  <Divider style={{ margin:'8px 0' }} />
+                  <Alert type="info" showIcon message="自定义锚杆：按道逐一设置深度/长度/直径/沿墙间距/倾角。默认数量为 10；设置为 0 可不显示。" />
                   <Space style={{ marginBottom:8 }}>
                     <span style={{ color:'#bbb' }}>锚杆数量</span>
                     <InputNumber min={0} max={50} value={anchorLevelCount} onChange={(v)=>{

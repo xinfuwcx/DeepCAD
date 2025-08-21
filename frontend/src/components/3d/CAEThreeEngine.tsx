@@ -264,7 +264,7 @@ export class CAEThreeEngineCore {
     let frameCount = 0;
     const animate = () => {
       if(!this.paused){
-        this.render();
+            this.render(); // Ensure rendering is called
       }
       frameCount++;
       if (frameCount % 300 === 0) {
@@ -1453,7 +1453,6 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
             if (group) {
               scene.remove(group);
               group.traverse((child: any) => {
-                try { child.geometry?.dispose?.(); } catch {}
                 try {
                   const m = child.material; if (Array.isArray(m)) m.forEach((mm:any)=>mm.dispose()); else m?.dispose?.();
                 } catch {}
@@ -1864,64 +1863,167 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
             const mat = new THREE.MeshPhysicalMaterial({ color: 0x5b6b7a, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide, metalness: 0, roughness: 0.9 });
             const edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthTest: true, depthWrite: false });
 
-            // 沿每段生成一块墙板（简单相交覆盖，转角处允许轻微重叠）
-            // 存储面板元数据（用于锚杆布置）
+            // 使用“中心线”偏移（距边线 thickness/2 的内偏）生成墙板，
+            // 在凸角处做 miter 相交，在凹角处做 butt 连接，避免外伸与重叠。
             const wallPanels: Array<{ center:THREE.Vector3; segLen:number; angle:number; along:THREE.Vector3; outward:THREE.Vector3 }> = [];
 
-            const buildSegment = (ax:number, ay:number, bx:number, by:number) => {
-              const axs = (ax - cx) * scale, ays = (ay - cy) * scale;
-              const bxs = (bx - cx) * scale, bys = (by - cy) * scale;
-              const dx = bxs - axs, dz = bys - ays; // 注意：y(地质) -> Three 的 z
-              const segLen = Math.max(1e-6, Math.hypot(dx, dz));
-              const angle = Math.atan2(dz, dx); // 绕Y旋转角
-              const geom = new THREE.BoxGeometry(segLen, depthWorld, thicknessScaled);
-              const mesh = new THREE.Mesh(geom, mat);
-              mesh.position.set((axs + bxs) / 2, -depthWorld/2, (ays + bys) / 2);
-              mesh.rotation.y = angle;
-              // 存入段元数据，便于后续布置锚杆
-              (mesh as any).userData.__wallSeg = {
-                segLen,
-                thickness: thicknessScaled,
-                angle,
-              };
-              group.add(mesh);
+            // 计算多边形有向面积，正(CCW)或负(CW)，用于确定“内侧在左还是右”
+            const getSignedArea = (poly: Array<{x:number;y:number}>) => {
+              let s = 0; for (let i=0;i<poly.length;i++){ const p=poly[i], q=poly[(i+1)%poly.length]; s += (p.x*q.y - q.x*p.y); } return s/2;
+            };
 
-              // 加边线，提升可见度
+            // 基于已修剪后的“中心线端点”构建墙板
+            const buildSegmentFromCuts = (sx:number, sz:number, ex:number, ez:number, isCCW:boolean) => {
+              const dx = ex - sx, dz = ez - sz;
+              const effLen = Math.max(0.02, Math.hypot(dx, dz));
+              const angle = Math.atan2(dz, dx);
+              const geom = new THREE.BoxGeometry(effLen, depthWorld, thicknessScaled);
+              const mesh = new THREE.Mesh(geom, mat);
+              const center = new THREE.Vector3((sx+ex)/2, -depthWorld/2, (sz+ez)/2);
+              
+              // 注意：传入的sx,sz,ex,ez已经是偏移后的中心线坐标，不需要再次偏移
+              mesh.position.copy(center);
+              mesh.rotation.y = angle;
+              const zSign = isCCW ? +1 : -1;
+              (mesh as any).userData.__wallSeg = { segLen: effLen, thickness: thicknessScaled, angle, zSign };
+              group.add(mesh);
               try {
                 const edges = new THREE.EdgesGeometry(geom);
                 const line = new THREE.LineSegments(edges, edgeMat);
-                line.position.copy(mesh.position);
-                line.rotation.copy(mesh.rotation as any);
-                line.renderOrder = 998;
-                group.add(line);
+                line.position.copy(mesh.position); line.rotation.copy(mesh.rotation as any); line.renderOrder = 998; group.add(line);
               } catch {}
-
-              // 计算“外侧”法向：以包围盒中心近似多边形内部方向
-              const midX = (axs + bxs) / 2; const midZ = (ays + bys) / 2;
+              
               const along = new THREE.Vector3(dx, 0, dz).normalize();
-              const nCandidate = new THREE.Vector3(-along.z, 0, along.x).normalize(); // 左法向
-              // 使用当前 poly 的旋转后 bbox 中心 (cx,cy) 相对该段中点来判断内外
-              const vToCenter = new THREE.Vector3((0), 0, (0));
-              vToCenter.set((0),0,(0));
-              vToCenter.x = - (0); // 保持编译器满意
-              // 实际向量：
-              const vecToBoxCenter = new THREE.Vector3(((rotMinX+rotMaxX)/2 - (ax+bx)/2)*scale, 0, ((rotMinY+rotMaxY)/2 - (ay+by)/2)*scale);
-              const dot = nCandidate.dot(vecToBoxCenter.normalize());
-              const outward = (dot > 0 ? nCandidate.clone().multiplyScalar(-1) : nCandidate).clone();
-              wallPanels.push({ center: new THREE.Vector3(midX, -depthWorld/2, midZ), segLen, angle, along: along.clone(), outward });
+              const outward = new THREE.Vector3(0,0,1).applyAxisAngle(new THREE.Vector3(0,1,0), angle).multiplyScalar(zSign);
+              wallPanels.push({ center, segLen: effLen, angle, along, outward });
             };
 
-            for (const poly of rotatedPolys) {
-              if (!poly || poly.length < 2) continue;
-              for (let i=0; i<poly.length-1; i++) {
-                const pA = poly[i]; const pB = poly[i+1];
-                buildSegment(pA.x, pA.y, pB.x, pB.y);
+            // 预处理：只使用一个“闭合且面积最大的轮廓”，过滤开放/退化路径，避免误将内部辅助线当作墙路径
+            const EPS = 1e-6;
+            const isSame = (a:{x:number;y:number}, b:{x:number;y:number}) => Math.hypot(a.x-b.x, a.y-b.y) < EPS;
+            const sanitizeClosed = (poly:Array<{x:number;y:number}>) => {
+              // 去除首尾重复点与连续重合点
+              const pts: Array<{x:number;y:number}> = [];
+              for (let i=0;i<poly.length;i++) {
+                const p = poly[i];
+                if (!pts.length || !isSame(pts[pts.length-1], p)) pts.push({x:p.x, y:p.y});
               }
-              // 若未闭合，自动补上首尾段，保证墙体围合
-              const first = poly[0]; const last = poly[poly.length-1];
-              const dxC = last.x - first.x; const dyC = last.y - first.y;
-              if (Math.hypot(dxC, dyC) > 1e-6) {
-                buildSegment(last.x, last.y, first.x, first.y);
+              if (pts.length>2 && isSame(pts[0], pts[pts.length-1])) pts.pop();
+              return pts;
+            };
+            const getSignedArea2D = (poly:Array<{x:number;y:number}>) => {
+              let s = 0; for (let i=0;i<poly.length;i++){ const p=poly[i], q=poly[(i+1)%poly.length]; s += (p.x*q.y - q.x*p.y); } return s/2; };
+            const closedCandidates: Array<Array<{x:number;y:number}>> = [];
+            for (const raw of rotatedPolys) {
+              const pts = sanitizeClosed(raw);
+              if (pts.length < 3) continue; // 开放或退化
+              // 粗略面积阈值，过小的噪声轮廓剔除
+              const area = Math.abs(getSignedArea2D(pts));
+              if (area < 1e-4) continue;
+              closedCandidates.push(pts);
+            }
+            // 仅保留面积最大的闭合多边形
+            let polysToUse: Array<Array<{x:number;y:number}>> = [];
+            if (closedCandidates.length) {
+              let idxMax = 0; let maxA = Math.abs(getSignedArea2D(closedCandidates[0]));
+              for (let i=1;i<closedCandidates.length;i++){ const a=Math.abs(getSignedArea2D(closedCandidates[i])); if (a>maxA){maxA=a; idxMax=i;} }
+              polysToUse = [closedCandidates[idxMax]];
+            } else {
+              // 若没有闭合轮廓，直接放弃生成，避免误差（上层会给出提示）
+              return;
+            }
+
+            for (const poly of polysToUse) {
+              if (!poly || poly.length < 2) continue;
+              const area = getSignedArea(poly);
+              const isCCW = area > 0;
+              const N = poly.length; const d = thicknessScaled/2;
+              // 缩放后的顶点（Three 的 x,z 平面）
+              const S: Array<{x:number;z:number}> = poly.map(p => ({ x: (p.x - cx)*scale, z: (p.y - cy)*scale }));
+              const next = (i:number)=> (i+1)%N, prev = (i:number)=> (i-1+N)%N;
+              // 每段的方向与法向（右侧为外侧）
+              const along: Array<THREE.Vector2> = []; const nOut: Array<THREE.Vector2> = []; const nIn: Array<THREE.Vector2> = [];
+              for (let i=0;i<N;i++){
+                const j = next(i);
+                const dx = S[j].x - S[i].x, dz = S[j].z - S[i].z;
+                const len = Math.max(1e-9, Math.hypot(dx,dz));
+                const a = new THREE.Vector2(dx/len, dz/len);
+                const right = new THREE.Vector2(a.y, -a.x); // 右侧
+                const out = isCCW ? right.clone() : right.clone().multiplyScalar(-1);
+                along.push(a); nOut.push(out); nIn.push(out.clone().multiplyScalar(-1));
+              }
+              // 顶点内角与凸/凹判定
+              const convex: boolean[] = new Array(N).fill(true);
+              const alphaArr: number[] = new Array(N).fill(Math.PI);
+              for (let i=0;i<N;i++){
+                const aPrev = along[prev(i)]; const aNow = along[i];
+                const cross = aPrev.x*aNow.y - aPrev.y*aNow.x; // 左转>0
+                const dot = aPrev.x*aNow.x + aPrev.y*aNow.y;
+                const turn = Math.atan2(cross, dot); // [-pi,pi]
+                const alpha = isCCW ? (Math.PI - turn) : (Math.PI + turn); // 内角
+                alphaArr[i] = Math.min(Math.PI*1.999, Math.max(Math.PI/180, alpha));
+                convex[i] = alphaArr[i] < Math.PI - 1e-6;
+              }
+              // 偏移线（中心线）：Li(t) = (Si + nOut_i * d) + t * along_i
+              const Lp: Array<THREE.Vector2> = []; const Ld: Array<THREE.Vector2> = [];
+              for (let i=0;i<N;i++){
+                const p = new THREE.Vector2(S[i].x + nOut[i].x * d, S[i].z + nOut[i].y * d);
+                const dir = along[i].clone();
+                Lp.push(p); Ld.push(dir);
+              }
+              // 凸角交点（miter），可能被 miter-limit 限制
+              const I: Array<THREE.Vector2|null> = new Array(N).fill(null);
+              const bevelT: Array<number> = new Array(N).fill(0); // 若启用 bevel，则为两侧修剪距离
+              const miterLimit = 4.0; // 可调：越小越钝
+              const intersect = (p1:THREE.Vector2,d1:THREE.Vector2,p2:THREE.Vector2,d2:THREE.Vector2):THREE.Vector2|null=>{
+                const det = d1.x*d2.y - d1.y*d2.x; if (Math.abs(det) < 1e-9) return null;
+                const rhsx = p2.x - p1.x, rhsy = p2.y - p1.y;
+                const t = (rhsx*d2.y - rhsy*d2.x) / det; // s,t 为沿各自方向的参数
+                return new THREE.Vector2(p1.x + d1.x*t, p1.y + d1.y*t);
+              };
+              for (let i=0;i<N;i++){
+                if (convex[i]){
+                  const k = prev(i);
+                  const m = d / Math.tan(alphaArr[i]/2);
+                  if (!isFinite(m) || m > miterLimit * d) {
+                    I[i] = null; bevelT[i] = Math.min(isFinite(m) ? m : miterLimit*d, miterLimit*d);
+                  } else {
+                    I[i] = intersect(Lp[k], Ld[k], Lp[i], Ld[i]);
+                  }
+                }
+              }
+              // 生成每段的起止“中心线端点”
+              const startCut: Array<THREE.Vector2> = new Array(N);
+              const endCut: Array<THREE.Vector2> = new Array(N);
+              for (let i=0;i<N;i++){
+                startCut[i] = new THREE.Vector2(Lp[i].x, Lp[i].y);
+                endCut[i] = new THREE.Vector2(Lp[next(i)].x, Lp[next(i)].y);
+              }
+              for (let i=0;i<N;i++){
+                const k = prev(i);
+                if (convex[i]){
+                  if (I[i]){
+                    // miter：两侧都使用同一交点
+                    startCut[i] = I[i]!.clone();
+                    endCut[k] = I[i]!.clone();
+                  } else {
+                    // bevel：按修剪距离沿各自方向裁切
+                    const t = bevelT[i];
+                    startCut[i] = new THREE.Vector2(Lp[i].x + Ld[i].x*t, Lp[i].y + Ld[i].y*t);
+                    endCut[k] = new THREE.Vector2(Lp[i].x - Ld[k].x*t, Lp[i].y - Ld[k].y*t);
+                  }
+                } else {
+                  // 凹角：butt 连接，使用 Lp[i] 作为两段公共端
+                  startCut[i] = new THREE.Vector2(Lp[i].x, Lp[i].y);
+                  endCut[k] = new THREE.Vector2(Lp[i].x, Lp[i].y);
+                }
+              }
+              // 按段构建
+              for (let i=0;i<N;i++){
+                const s = startCut[i], e = endCut[i];
+                const effLen = Math.hypot(e.x - s.x, e.y - s.y);
+                if (effLen < 0.02) continue; // 忽略过短面板
+                buildSegmentFromCuts(s.x, s.y, e.x, e.y, isCCW);
               }
             }
 
@@ -2023,12 +2125,12 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
             const segMeshes: THREE.Mesh[] = [];
             wallGroup.traverse((o:any)=>{ if(o.isMesh && o.userData && o.userData.__wallSeg) segMeshes.push(o); });
             for (const m of segMeshes) {
-              const seg = (m as any).userData.__wallSeg as { segLen:number; thickness:number; angle:number };
-              const segLen = seg.segLen; const thickness = seg.thickness;
+              const seg = (m as any).userData.__wallSeg as { segLen:number; thickness:number; angle:number; zSign:number };
+              const segLen = seg.segLen; const thickness = seg.thickness; const zSign = Math.sign(seg.zSign||1) || 1;
               if (segLen <= 0.01) continue;
               // 水平外法线（世界坐标）
-              const nWorldHoriz = new THREE.Vector3(0,0,1).applyQuaternion(m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize();
-              // 确定外侧：与指向中心向量相反
+              const nWorldHoriz = new THREE.Vector3(0,0,1).applyQuaternion(m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize().multiplyScalar(zSign);
+              // 确定外侧：与指向中心向量相反（zSign 已校正方向）
               const midLocal = new THREE.Vector3(0, -firstDepth, 0);
               const midWorld = m.localToWorld(midLocal.clone());
               const toCenter = centerWorld.clone().sub(midWorld).setY(0).normalize();
@@ -2049,7 +2151,6 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
                   const depth = firstDepth + lv*step;
                   const baseLocal = new THREE.Vector3(xLocal, -depth, thickness/2); // 从板外侧面出发（本地+Z）
                   // 若外侧被判为 -Z，则将局部Z取 -thickness/2
-                  const zSign = (outward.dot(new THREE.Vector3(0,0,1).applyQuaternion(m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize()) >= 0) ? 1 : -1;
                   baseLocal.z = zSign * thickness/2 + 0.01; // 微偏移避免重叠
                   const baseWorld = m.localToWorld(baseLocal.clone());
                   const rod = new THREE.Mesh(getCyl(length, dia/2), matRod);
@@ -2113,10 +2214,10 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
             const segMeshes: THREE.Mesh[] = [];
             wallGroup.traverse((o:any)=>{ if(o.isMesh && o.userData && o.userData.__wallSeg) segMeshes.push(o); });
             for (const m of segMeshes) {
-              const seg = (m as any).userData.__wallSeg as { segLen:number; thickness:number; angle:number };
-              const segLen = seg.segLen; const thickness = seg.thickness;
+              const seg = (m as any).userData.__wallSeg as { segLen:number; thickness:number; angle:number; zSign:number };
+              const segLen = seg.segLen; const thickness = seg.thickness; const zSign = Math.sign(seg.zSign||1) || 1;
               if (segLen <= 0.01) continue;
-              const nWorldHoriz = new THREE.Vector3(0,0,1).applyQuaternion(m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize();
+              const nWorldHoriz = new THREE.Vector3(0,0,1).applyQuaternion(m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize().multiplyScalar(zSign);
               const midWorld = m.localToWorld(new THREE.Vector3(0, 0, 0));
               const toCenter = centerWorld.clone().sub(midWorld).setY(0).normalize();
               let outwardHoriz = nWorldHoriz.clone(); if (outwardHoriz.dot(toCenter) > 0) outwardHoriz.multiplyScalar(-1);
@@ -2132,7 +2233,6 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
                 const count = Math.max(1, Math.floor(usableLen / spacing));
                 for (let i=0;i<count;i++){
                   const xLocal = -segLen/2 + spacing/2 + i*spacing;
-                  const zSign = (outwardHoriz.dot(new THREE.Vector3(0,0,1).applyQuaternion(m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize()) >= 0) ? 1 : -1;
                   const baseLocal = new THREE.Vector3(xLocal, -depth, zSign*thickness/2 + 0.01);
                   const baseWorld = m.localToWorld(baseLocal.clone());
                   const rod = new THREE.Mesh(getCyl(length, dia/2), matRod);
@@ -2219,8 +2319,8 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
             for (const a of anchors) {
               const segIdx = Math.max(0, Math.min(segMeshes.length-1, Math.floor(a.segIndex||0)));
               const m = segMeshes[segIdx]; if (!m) continue;
-              const seg = (m as any).userData.__wallSeg as { segLen:number; thickness:number; angle:number };
-              const segLen = seg.segLen; const thickness = seg.thickness;
+              const seg = (m as any).userData.__wallSeg as { segLen:number; thickness:number; angle:number; zSign:number };
+              const segLen = seg.segLen; const thickness = seg.thickness; const zSign = Math.sign(seg.zSign||1) || 1;
               const offset = Math.max(0.01, Math.min(segLen-0.01, Number(a.offset||0)));
               const depth = Math.max(0.01, Number(a.depth||1));
               const length = Math.max(0.1, Number(a.length||3));
@@ -2228,7 +2328,7 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
               const angle = (a.angleDeg ?? 10) * Math.PI / 180;
 
               // 计算外侧水平法线
-              const nWorldHoriz = new THREE.Vector3(0,0,1).applyQuaternion(m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize();
+              const nWorldHoriz = new THREE.Vector3(0,0,1).applyQuaternion(m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize().multiplyScalar(zSign);
               const midWorld = m.localToWorld(new THREE.Vector3(0, 0, 0));
               const toCenter = centerWorld.clone().sub(midWorld).setY(0).normalize();
               let outwardHoriz = nWorldHoriz.clone(); if (outwardHoriz.dot(toCenter) > 0) outwardHoriz.multiplyScalar(-1);
@@ -2237,7 +2337,6 @@ const CAEThreeEngineComponent: React.FC<CAEThreeEngineProps> = (props) => {
 
               // 段内横向位置（本地坐标的 X 轴）
               const xLocal = -segLen/2 + offset;
-              const zSign = (outwardHoriz.dot(new THREE.Vector3(0,0,1).applyQuaternion(m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize()) >= 0) ? 1 : -1;
               const baseLocal = new THREE.Vector3(xLocal, -depth, zSign*thickness/2 + 0.01);
               const baseWorld = m.localToWorld(baseLocal.clone());
               const rod = new THREE.Mesh(getCyl(length, dia/2), matRod);

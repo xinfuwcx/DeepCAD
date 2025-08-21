@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Row, Col, Select, Card, InputNumber, Divider, Tabs, Form, Table, Checkbox } from 'antd';
+import { Row, Col, Select, Card, InputNumber, Divider, Tabs, Form, Table, Checkbox, Button, message } from 'antd';
 import { SafetyOutlined, AimOutlined } from '@ant-design/icons';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -24,8 +24,11 @@ const SupportModule: React.FC<SupportModuleProps> = ({
   // status, disabled 目前未使用（保留 props 以兼容上层）
 }) => {
   // const [activePanel, setActivePanel] = useState<string | string[]>(['diaphragm']); // 预留折叠面板状态
-  const [anchorCount, setAnchorCount] = useState(20);
+  const [anchorCount, setAnchorCount] = useState(10);
   const [beamEnabled, setBeamEnabled] = useState(false);
+  // 地连墙参数（受控）
+  const [wallThicknessMm, setWallThicknessMm] = useState<number>(1200);
+  const [wallDepthM, setWallDepthM] = useState<number>(25);
 
   // 统一的内容容器样式，避免被底部操作区遮挡
   const contentContainerStyle: React.CSSProperties = {
@@ -57,6 +60,58 @@ const SupportModule: React.FC<SupportModuleProps> = ({
   React.useEffect(() => {
     setAnchorTableData(generateAnchorTableData(anchorCount));
   }, [anchorCount]);
+
+  // === 基于基坑周长的锚杆布置 ===
+  const ensureWallFromExcavation = () => {
+    try {
+      const eng = (window as any).__CAE_ENGINE__;
+      if (!eng) { message.error('引擎未就绪'); return false; }
+      if (eng?.hasDiaphragmWall?.()) return true;
+      const hasOutline = eng?.hasLastExcavationOutline?.();
+      if (!hasOutline) { message.warning('未检测到开挖轮廓，无法生成周边锚杆'); return false; }
+      message.info('已使用最近一次开挖轮廓生成地连墙');
+      // 直接用默认参数生成地连墙（厚0.8m，深20m）
+      eng?.addDiaphragmWall?.([], { thickness: 0.8, depth: 20, rotationAngleDeg: 0 }, { autoFit: true });
+      return true;
+    } catch { return false; }
+  };
+
+  const handleGenerateAnchorsAroundPit = () => {
+    const okWall = ensureWallFromExcavation();
+    if (!okWall) return;
+    try {
+      const eng = (window as any).__CAE_ENGINE__;
+      // 计算周长以推导沿墙间距
+      const segs = eng?.getWallSegmentsMeta?.() || [];
+      const perimeter = Array.isArray(segs) ? segs.reduce((s:number, seg:any)=> s + (Number(seg.length)||0), 0) : 0;
+      const count = Math.max(1, Number(anchorCount) || 10);
+      const spacing = perimeter > 0 ? Math.max(0.5, perimeter / count) : 2.0;
+      // 取表第一行做角度/长度等默认值
+      const first = anchorTableData[0] || {} as any;
+      const params = {
+        length: Number(first.anchorLength ?? 8),
+        diameter: 0.15,
+        pitchDeg: Number(first.angle ?? 10),
+        rows: 1,
+        startOffset: 1.5,
+        rowSpacing: 2.5,
+        spacing
+      };
+      const ok = eng?.addAnchorsOnWall?.(params, { showHead: true, plateSize: 0.4, plateThickness: 0.05, headSize: 0.12 });
+      if (ok) {
+        message.success(`已沿基坑周边生成锚杆，共约 ${count} 根 (间距≈${spacing.toFixed(2)}m)`);
+        try { eng.focusAnchors?.(); eng.setAnchorsHighlight?.(true); setTimeout(()=> eng.setAnchorsHighlight?.(false), 2000); } catch {}
+      } else {
+        message.warning('生成失败，请确认已存在地连墙');
+      }
+    } catch (e:any) {
+      message.error('生成失败: ' + (e?.message || '未知错误'));
+    }
+  };
+
+  const handleClearAnchors = () => {
+    try { (window as any).__CAE_ENGINE__?.removeAnchors?.(); message.success('已清除锚杆'); } catch {}
+  };
 
   // 表格列配置
   const anchorColumns = [
@@ -295,6 +350,25 @@ const SupportModule: React.FC<SupportModuleProps> = ({
 
   // 统计函数暂未使用已移除
 
+  // === 地连墙：生成/清除/定位 ===
+  const handleGenerateWall = () => {
+    try {
+      const eng = (window as any).__CAE_ENGINE__;
+      if (!eng) { message.error('引擎未就绪'); return; }
+      const hasOutline = eng?.hasLastExcavationOutline?.();
+      if (!hasOutline) { message.warning('未检测到开挖轮廓，请先完成开挖轮廓导入/生成'); return; }
+      const thicknessM = Math.max(0.1, Number(wallThicknessMm || 1200) / 1000);
+      const depthM = Math.max(0.5, Number(wallDepthM || 25));
+      eng?.addDiaphragmWall?.([], { thickness: thicknessM, depth: depthM, rotationAngleDeg: 0 }, { autoFit: true });
+      message.success(`已生成地连墙（厚度 ${thicknessM.toFixed(2)}m，深度 ${depthM.toFixed(1)}m）`);
+      try { eng.focusDiaphragmWall?.(); } catch {}
+    } catch (e:any) {
+      message.error('生成失败: ' + (e?.message || '未知错误'));
+    }
+  };
+  const handleClearWall = () => { try { (window as any).__CAE_ENGINE__?.removeDiaphragmWall?.(); message.success('已清除地连墙'); } catch {} };
+  const handleFocusWall = () => { const eng=(window as any).__CAE_ENGINE__; if (eng?.hasDiaphragmWall?.()) eng.focusDiaphragmWall?.(); else message.warning('未检测到地连墙'); };
+
   return (
     <div className="p-4">
       <Tabs defaultActiveKey="wall_anchor" type="card">
@@ -334,9 +408,13 @@ const SupportModule: React.FC<SupportModuleProps> = ({
                     label="厚度 (mm)"
                   >
                     <InputNumber
-                      defaultValue={1200}
-                                            size="large"
+                      value={wallThicknessMm}
+                      min={600}
+                      max={2000}
+                      step={50}
+                      size="large"
                       style={{ width: '100%' }}
+                      onChange={(v)=> setWallThicknessMm(Number(v)||1200)}
                     />
                   </Form.Item>
                 </Col>
@@ -345,9 +423,13 @@ const SupportModule: React.FC<SupportModuleProps> = ({
                     label="深度 (m)"
                   >
                     <InputNumber
-                      defaultValue={25}
-                                            size="large"
+                      value={wallDepthM}
+                      min={5}
+                      max={80}
+                      step={0.5}
+                      size="large"
                       style={{ width: '100%' }}
+                      onChange={(v)=> setWallDepthM(Number(v)||25)}
                     />
                   </Form.Item>
                 </Col>
@@ -368,6 +450,11 @@ const SupportModule: React.FC<SupportModuleProps> = ({
                   </Form.Item>
                 </Col>
               </Row>
+              <div style={{ display:'flex', gap:8, marginTop:8 }}>
+                <Button type="primary" onClick={handleGenerateWall}>生成地连墙</Button>
+                <Button onClick={handleClearWall}>清除</Button>
+                <Button onClick={handleFocusWall} icon={<AimOutlined />}>定位地连墙</Button>
+              </div>
             </Card>
 
             <Card
@@ -634,13 +721,13 @@ const SupportModule: React.FC<SupportModuleProps> = ({
                     label="锚杆数量"
                   >
                     <InputNumber
-                      defaultValue={20}
+                      value={anchorCount}
                       min={1}
                       max={200}
                       step={1}
                       size="large"
                       style={{ width: '100%' }}
-                      onChange={(value) => setAnchorCount(value || 20)}
+                      onChange={(value) => setAnchorCount(value || 10)}
                     />
                   </Form.Item>
                 </Col>
@@ -664,6 +751,11 @@ const SupportModule: React.FC<SupportModuleProps> = ({
                 sticky
               />
             </Card>
+
+            <div style={{ display:'flex', gap:12 }}>
+              <Button type="primary" onClick={handleGenerateAnchorsAroundPit}>沿基坑周边生成锚杆</Button>
+              <Button onClick={handleClearAnchors}>清除锚杆</Button>
+            </div>
 
 
 
