@@ -49,9 +49,10 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     set({ currentTime: t });
   },
   tick: () => {
-    const { playing, speed, lastTick, range, currentTime, loopSegment } = get();
+  const { playing, speed, lastTick, range, currentTime, loopSegment } = get();
     const now = performance.now();
-    if (!playing) { set({ lastTick: now }); return; }
+  // 当未播放时，不产生任何状态更新，避免在应用挂载阶段持续触发全局订阅渲染
+  if (!playing) { return; }
     const dtSec = (now - lastTick) / 1000 * speed;
     let next = currentTime + dtSec;
     const loop = loopSegment && loopSegment.enabled ? loopSegment : null;
@@ -60,7 +61,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     if (next > segmentEnd) {
       next = segmentStart; // loop segment
     }
-    set({ currentTime: next, lastTick: now });
+  set({ currentTime: next, lastTick: now });
   }
 }));
 

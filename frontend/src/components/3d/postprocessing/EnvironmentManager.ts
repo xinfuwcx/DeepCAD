@@ -49,7 +49,6 @@ export class EnvironmentManager {
   
   // 环境相关
   private currentEnvironment?: THREE.Texture;
-  private environmentIntensity: number = 1.0;
   private backgroundTexture?: THREE.Texture;
   
   // 加载器
@@ -108,8 +107,8 @@ export class EnvironmentManager {
     } = {}
   ) {
     this.scene = scene;
-    this.renderer = renderer;
-    this.pmremGenerator = new THREE.PMREMGenerator(renderer);
+  this.renderer = renderer;
+  this.pmremGenerator = new THREE.PMREMGenerator(this.renderer);
     this.pmremGenerator.compileEquirectangularShader();
 
     // 初始化加载器
@@ -118,17 +117,18 @@ export class EnvironmentManager {
 
     // 默认设置
     this.settings = {
-      enabled: true,
+      // 默认禁用环境与背景，遵循“去天空/去skybox”的全局策略；需要时显式开启
+      enabled: false,
       type: 'hdri',
       intensity: 1.0,
       rotation: 0,
       background: {
-        enabled: true,
+        enabled: false,
         blur: 0.1,
         opacity: 1.0
       },
       lighting: {
-        enabled: true,
+        enabled: false,
         intensity: 1.0,
         castShadows: true
       },
@@ -352,8 +352,8 @@ export class EnvironmentManager {
     const tempScene = new THREE.Scene();
     tempScene.add(this.skyMesh.clone());
 
-    const tempCamera = new THREE.PerspectiveCamera(90, 1, 0.1, 1000);
-    const envMap = this.pmremGenerator.fromScene(tempScene).texture;
+  // Render to envMap using PMREM without creating a dedicated camera reference
+  const envMap = this.pmremGenerator.fromScene(tempScene).texture;
 
     this.currentEnvironment = envMap;
     this.applyEnvironment();
@@ -450,12 +450,7 @@ export class EnvironmentManager {
   private createBlurredBackground(envMap: THREE.Texture): THREE.Texture {
     // 简单的背景模糊实现
     // 实际应用中可能需要更复杂的模糊算法
-    const blurMaterial = new THREE.MeshBasicMaterial({
-      map: envMap,
-      transparent: true,
-      opacity: this.settings.background.opacity
-    });
-
+  // Note: Simplified; real blur would render to target with shader pass
     return envMap; // 简化实现
   }
 

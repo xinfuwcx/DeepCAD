@@ -51,13 +51,13 @@ const setupProfessionalLighting = (scene: THREE.Scene) => {
   mainLight.shadow.bias = -0.0005;
   scene.add(mainLight);
 
-  // 填充光 - 减少阴影过重
-  const fillLight = new THREE.DirectionalLight(0x87ceeb, 0.4);
+  // 填充光 - 减少阴影过重（使用中性灰，避免天空蓝调）
+  const fillLight = new THREE.DirectionalLight(0x6b7280, 0.4);
   fillLight.position.set(-10, 5, -10);
   scene.add(fillLight);
 
-  // 半球光 - 模拟天空和地面反射
-  const hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x2d3748, 0.6);
+  // 半球光 - 使用中性顶/底色，避免“天空”视觉
+  const hemisphereLight = new THREE.HemisphereLight(0x4a5568, 0x2d3748, 0.5);
   scene.add(hemisphereLight);
 
   // 点光源 - 增加局部亮点
@@ -354,7 +354,7 @@ const ViewPort3D: React.FC<ViewPort3DProps> = ({
       // 初始化后处理效果
       postProcessingRef.current = new PostProcessingEffects(renderer, scene, camera);
       postProcessingRef.current.init();
-      postProcessingRef.current.addEnvironmentReflection();
+  // 默认禁用环境反射/天空盒，保持中性背景，避免“天空”视觉
 
       // 移除所有模式下的示例对象
       // if (mode === 'geometry') {

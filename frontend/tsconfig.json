@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+  "lib": ["ES2020", "DOM", "DOM.Iterable", "WebWorker"],
     "module": "ESNext",
     "skipLibCheck": true,
 
@@ -29,7 +29,8 @@
     "paths": {
   "@/*": ["./src/*"],
   "three": ["./src/shims/three-compat.ts"]
-    }
+  },
+  "types": ["vite/client", "@webgpu/types", "@types/webgl2"]
   },
   "include": ["src"],
   "exclude": [

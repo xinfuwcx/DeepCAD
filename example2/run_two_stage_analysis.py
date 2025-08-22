@@ -8,6 +8,7 @@
 import os
 import sys
 import json
+import math
 import numpy as np
 from pathlib import Path
 from typing import Dict, Any, List, Tuple
@@ -112,28 +113,78 @@ class TwoStageAnalysis:
         return materials
 
     def create_kratos_materials_json(self, materials: Dict[int, MaterialProperties]) -> str:
-        """创建Kratos材料配置文件（报告用，与实际求解一致：线弹性）"""
+        """创建Kratos材料配置文件 - 严格按FPN数据，正确映射摩尔库伦参数"""
 
-        # 直接按每个材料写入线弹性属性（与 KratosInterface 写入保持一致）
+        # 严格按FPN材料数据生成Kratos配置
         properties = []
         for mat in materials.values():
-            properties.append({
-                "model_part_name": f"Structure.MAT_{mat.id}",
-                "properties_id": mat.id,
-                "Material": {
-                    "constitutive_law": {"name": "LinearElastic3DLaw"},
-                    "Variables": {
-                        "DENSITY": float(mat.density),
-                        "YOUNG_MODULUS": float(mat.young_modulus),
-                        "POISSON_RATIO": float(mat.poisson_ratio)
-                    },
-                    "Tables": {}
-                }
-            })
+            # 检查是否有摩尔库伦参数
+            has_friction = hasattr(mat, 'friction_angle') and mat.friction_angle > 0
+            has_cohesion = hasattr(mat, 'cohesion') and mat.cohesion > 0
+
+            if has_friction and has_cohesion:
+                # 使用Kratos损伤版摩尔库伦本构（与当前系统兼容）
+                # 参数映射：FPN粘聚力 → Kratos屈服应力
+                phi_rad = math.radians(float(mat.friction_angle))
+                cohesion_pa = float(mat.cohesion)
+
+                # 使用标准摩尔-库伦屈服应力转换公式（Abaqus理论手册）
+                # σ_t = 2c × cos(φ) / (1 + sin(φ))
+                # σ_c = 2c × cos(φ) / (1 - sin(φ))
+                sin_phi = math.sin(phi_rad)
+                cos_phi = math.cos(phi_rad)
+                yield_tension = 2.0 * cohesion_pa * cos_phi / (1.0 + sin_phi)
+                yield_compression = 2.0 * cohesion_pa * cos_phi / (1.0 - sin_phi)
+
+                # 确保最小值
+                yield_tension = max(yield_tension, 1000.0)  # 最小1kPa
+                yield_compression = max(yield_compression, 10000.0)  # 最小10kPa
+
+                properties.append({
+                    "model_part_name": f"Structure.MAT_{mat.id}",
+                    "properties_id": mat.id,
+                    "Material": {
+                        "constitutive_law": {"name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"},
+                        "Variables": {
+                            "DENSITY": float(mat.density),
+                            "YOUNG_MODULUS": float(mat.young_modulus),
+                            "POISSON_RATIO": float(mat.poisson_ratio),
+                            "YIELD_STRESS_TENSION": yield_tension,
+                            "YIELD_STRESS_COMPRESSION": yield_compression,
+                            "FRICTION_ANGLE": float(mat.friction_angle),  # 度数，不转弧度
+                            "DILATANCY_ANGLE": max(0.0, float(mat.friction_angle) - 30.0),  # Bolton关系: ψ = φ - 30°
+                            "FRACTURE_ENERGY": 1000.0,
+                            "SOFTENING_TYPE": 1
+                        },
+                        "Tables": {}
+                    }
+                })
+                # 计算剪胀角和K比值用于显示
+                dilatancy_angle = max(0.0, float(mat.friction_angle) - 30.0)
+                K_ratio = yield_tension / yield_compression
+                theoretical_K = (1.0 - sin_phi) / (1.0 + sin_phi)
+
+                print(f"🎯 材料{mat.id}: 摩尔库伦本构 (φ={mat.friction_angle}°, c={mat.cohesion/1000:.1f}kPa)")
+                print(f"   → 拉伸屈服: {yield_tension/1000:.1f}kPa, 压缩屈服: {yield_compression/1000:.1f}kPa")
+                print(f"   → 剪胀角: {dilatancy_angle:.1f}° (Bolton), K比值: {K_ratio:.3f} (理论: {theoretical_K:.3f})")
+            else:
+                # 使用线弹性本构
+                properties.append({
+                    "model_part_name": f"Structure.MAT_{mat.id}",
+                    "properties_id": mat.id,
+                    "Material": {
+                        "constitutive_law": {"name": "LinearElastic3DLaw"},
+                        "Variables": {
+                            "DENSITY": float(mat.density),
+                            "YOUNG_MODULUS": float(mat.young_modulus),
+                            "POISSON_RATIO": float(mat.poisson_ratio)
+                        },
+                        "Tables": {}
+                    }
+                })
+                print(f"🎯 材料{mat.id}: 线弹性本构")
 
         materials_data = {"properties": properties}
-
-        print("🎯 使用线弹性材料模型（与FPN一致）")
 
         # 保存材料文件（报告目录）
         materials_file = self.output_dir / "materials.json"
@@ -253,9 +304,9 @@ class TwoStageAnalysis:
             # 2. 配置分析设置 - 线性静力 + AMGCL（按FPN“弹性材料、无锚杆”的意图）
             analysis_settings = AnalysisSettings(
                 analysis_type=AnalysisType.STATIC,
-                solver_type=SolverType.LINEAR,
-                max_iterations=1,
-                convergence_tolerance=1e-12,
+                solver_type=SolverType.NEWTON_RAPHSON,  # 非线性求解器
+                max_iterations=50,  # 非线性分析需要多次迭代
+                convergence_tolerance=1e-6,  # 适中的收敛容差
                 time_step=1.0,
                 end_time=1.0
             )
@@ -302,12 +353,12 @@ class TwoStageAnalysis:
             params_file = self.create_project_parameters(f"Stage_{stage_num}", stage_num)
 
             # 6. 运行分析
-            print(f"   执行线性静力求解(AMGCL)...")
+            print(f"   执行非线性静力求解(Newton-Raphson + AMGCL)...")
             print(f"   求解器配置:")
             print(f"     - 最大迭代次数: {analysis_settings.max_iterations}")
             print(f"     - 收敛容差: {analysis_settings.convergence_tolerance}")
             print(f"     - 线搜索: {'启用' if analysis_settings.solver_type != SolverType.LINEAR else '禁用'}")
-            print(f"     - 本构模型: 线弹性")
+            print(f"     - 本构模型: 摩尔-库伦非线性")
 
             success, results = self.kratos_interface.run_analysis()
 

@@ -1,0 +1,27 @@
+{
+  "node_count": 93497,
+  "model_bounds": {
+    "x_range": [
+      -211.63641,
+      188.3636
+    ],
+    "y_range": [
+      -71.546127,
+      398.45386
+    ],
+    "z_range": [
+      -43.746998,
+      26.253002
+    ]
+  },
+  "displacement": {
+    "max_magnitude": 0.0,
+    "mean_magnitude": 0.0,
+    "max_x": 0.0,
+    "max_y": 0.0,
+    "max_z": 0.0,
+    "min_x": 0.0,
+    "min_y": 0.0,
+    "min_z": 0.0
+  }
+}

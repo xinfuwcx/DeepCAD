@@ -1,0 +1,58 @@
+# DeepCAD-SCOUR Enhanced 增强版依赖包
+# Bridge Pier Scour Simulation System - Enhanced Version Dependencies
+
+# 核心依赖 (Core Dependencies)
+numpy>=1.20.0
+matplotlib>=3.5.0
+PyQt6>=6.4.0
+
+# 3D可视化 (3D Visualization)
+pyvista>=0.38.0
+vtk>=9.1.0
+
+# 网格生成 (Mesh Generation)  
+# gmsh>=4.8.0  # 需要单独安装 - Requires separate installation
+
+# 数值计算 (Numerical Computing)
+scipy>=1.8.0
+
+# 用户界面增强 (UI Enhancement)
+qtawesome>=1.2.0
+
+# 可选高性能依赖 (Optional High-Performance Dependencies)
+# numba>=0.56.0          # JIT编译加速 - JIT compilation acceleration
+# cupy>=10.0.0           # GPU加速计算 - GPU-accelerated computing (NVIDIA)
+# dask>=2022.0.0         # 并行计算 - Parallel computing
+
+# 开发和测试依赖 (Development and Testing Dependencies)
+pytest>=7.0.0
+pytest-qt>=4.0.0
+black>=22.0.0
+flake8>=4.0.0
+
+# 文档生成 (Documentation Generation)
+sphinx>=4.5.0
+sphinx-rtd-theme>=1.0.0
+
+# 打包和分发 (Packaging and Distribution)
+pyinstaller>=5.0.0
+setuptools>=60.0.0
+wheel>=0.37.0
+
+# 数据处理 (Data Processing)
+pandas>=1.4.0
+openpyxl>=3.0.0
+
+# 图像处理 (Image Processing)
+Pillow>=9.0.0
+
+# 网络和API (Network and API)
+requests>=2.27.0
+
+# 配置管理 (Configuration Management)
+pyyaml>=6.0.0
+toml>=0.10.0
+
+# 性能分析 (Performance Profiling)
+line_profiler>=3.5.0
+memory_profiler>=0.60.0

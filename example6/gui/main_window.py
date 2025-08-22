@@ -42,12 +42,17 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from core.empirical_solver import (
     EmpiricalScourSolver, ScourParameters, ScourResult, PierShape
 )
-from core.fenics_solver import (
-    FEniCSScourSolver, NumericalParameters, NumericalResult, TurbulenceModel
+from core.advanced_solver import (
+    AdvancedSolverManager, NumericalParameters, SolverResult as AdvancedSolverResult, 
+    TurbulenceModel, SolverType, create_default_numerical_parameters
 )
-from core.solver_manager import (
-    SolverManager, SolverConfiguration, SolverType, ComputationMode, ComparisonResult
+from core.gmsh_meshing import (
+    GMSHMeshGenerator, MeshParameters, PierGeometry, GeometryType,
+    create_default_mesh_parameters, create_circular_pier_geometry
 )
+from core.solver_manager import ComparisonResult
+from core.fenics_solver import NumericalResult
+from gui.enhanced_3d_viewport import Enhanced3DViewport
 
 # 可选依赖
 try:
@@ -63,31 +68,54 @@ try:
 except ImportError:
     QTA_AVAILABLE = False
 
+try:
+    import gmsh
+    GMSH_AVAILABLE = True
+except ImportError:
+    GMSH_AVAILABLE = False
+
+try:
+    import scipy
+    SCIPY_AVAILABLE = True
+except ImportError:
+    SCIPY_AVAILABLE = False
+
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import numpy as np
 
 
-class ComputationWorker(QRunnable):
-    """计算工作线程"""
+# 保留原始ComputationWorker作为向后兼容
+
+
+class AdvancedComputationWorker(QRunnable):
+    """高级计算工作线程"""
     
-    def __init__(self, solver_manager: SolverManager, scour_params: ScourParameters,
-                 numerical_params: Optional[NumericalParameters], solver_type: SolverType,
-                 callback_obj):
+    def __init__(self, solver_manager: AdvancedSolverManager, scour_params: ScourParameters,
+                 numerical_params: NumericalParameters, pier_geometry: PierGeometry,
+                 mesh_params: MeshParameters, callback_obj):
         super().__init__()
         self.solver_manager = solver_manager
         self.scour_params = scour_params
         self.numerical_params = numerical_params
-        self.solver_type = solver_type
+        self.pier_geometry = pier_geometry
+        self.mesh_params = mesh_params
         self.callback_obj = callback_obj
     
     def run(self):
-        """执行计算"""
+        """执行高级计算"""
         try:
-            result = self.solver_manager.solve(
-                self.scour_params, self.numerical_params, self.solver_type
+            # 生成网格
+            mesh = self.solver_manager.generate_mesh(self.pier_geometry, self.mesh_params)
+            if mesh is None:
+                raise Exception("网格生成失败")
+            
+            # 求解耦合系统
+            result = self.solver_manager.solve_coupled_system(
+                self.scour_params, self.numerical_params
             )
+            
             self.callback_obj.computation_finished.emit(result, None)
         except Exception as e:
             self.callback_obj.computation_finished.emit(None, str(e))
@@ -1130,10 +1158,15 @@ class ScourMainWindow(QMainWindow):
         self.setMinimumSize(1600, 1000)
         self.resize(1800, 1200)
         
-        # 初始化求解器管理器
-        self.solver_manager = SolverManager()
+        # 初始化高级求解器管理器
+        self.solver_manager = AdvancedSolverManager()
+        self.mesh_generator = GMSHMeshGenerator()
         self.computation_callback = ComputationCallback()
         self.computation_callback.computation_finished.connect(self.on_computation_finished)
+        
+        # 当前网格和几何
+        self.current_mesh = None
+        self.current_pier_geometry = None
         
         # 线程池
         self.thread_pool = QThreadPool()
@@ -1193,8 +1226,11 @@ class ScourMainWindow(QMainWindow):
         left_panel.setSizes([400, 300])
         main_splitter.addWidget(left_panel)
         
-        # 中间3D视图（占位）
-        self.viewer_3d = self.create_3d_viewer()
+        # 中间增强3D视图
+        self.viewer_3d = Enhanced3DViewport()
+        self.viewer_3d.viewport_clicked.connect(self.on_3d_viewport_clicked)
+        self.viewer_3d.viewport_selection_changed.connect(self.on_3d_selection_changed)
+        self.viewer_3d.animation_frame_changed.connect(self.on_animation_frame_changed)
         main_splitter.addWidget(self.viewer_3d)
         
         # 右侧结果面板
@@ -1214,7 +1250,25 @@ class ScourMainWindow(QMainWindow):
         # 添加计算控制区域
         self.setup_computation_controls()
     
-    def create_3d_viewer(self) -> QWidget:
+    def on_3d_viewport_clicked(self, point):
+        """3D视口点击事件"""
+        # 显示点击位置的详细信息
+        x, y, z = point
+        self.status_label.setText(f"点击位置: ({x:.2f}, {y:.2f}, {z:.2f})")
+    
+    def on_3d_selection_changed(self, data):
+        """3D视口选择变化事件"""
+        # 显示选中点的流场数据
+        if 'velocity_magnitude' in data:
+            vel_mag = data['velocity_magnitude']
+            self.status_label.setText(f"速度大小: {vel_mag:.3f} m/s")
+    
+    def on_animation_frame_changed(self, frame):
+        """动画帧变化事件"""
+        # 可以同步其他视图或显示时间信息
+        pass
+    
+    def create_3d_viewer_placeholder(self) -> QWidget:
         """创建3D视图区域"""
         viewer_widget = QWidget()
         layout = QVBoxLayout(viewer_widget)
@@ -1274,47 +1328,7 @@ class ScourMainWindow(QMainWindow):
         layout.addWidget(placeholder)
         self.plotter = None
     
-    def create_sample_scene(self):
-        """创建示例3D场景"""
-        if not hasattr(self, 'plotter') or self.plotter is None:
-            return
-        
-        try:
-            # 清空场景
-            self.plotter.clear()
-            
-            # 设置背景
-            self.plotter.set_background('white')
-            
-            # 添加桥墩（圆柱）
-            cylinder = pv.Cylinder(center=(0, 0, 0), direction=(0, 0, 1),
-                                 radius=1.0, height=6.0)
-            self.plotter.add_mesh(cylinder, color='lightgray', opacity=0.8, label='桥墩')
-            
-            # 添加河床
-            bed = pv.Plane(center=(0, 0, -2), direction=(0, 0, 1),
-                          i_size=20, j_size=15)
-            self.plotter.add_mesh(bed, color='sandybrown', opacity=0.6, label='河床')
-            
-            # 添加水面
-            water = pv.Plane(center=(0, 0, 3), direction=(0, 0, 1),
-                           i_size=20, j_size=15)
-            self.plotter.add_mesh(water, color='lightblue', opacity=0.3, label='水面')
-            
-            # 设置相机
-            self.plotter.camera_position = 'isometric'
-            self.plotter.show_axes()
-            
-            # 添加标题
-            self.plotter.add_text(
-                "桥墩浅蚀模拟 3D 视图",
-                position='upper_left',
-                font_size=12,
-                color='navy'
-            )
-            
-        except Exception as e:
-            print(f"创建3D场景失败: {e}")
+# 3D场景创建现在由Enhanced3DViewport处理
     
     def setup_computation_controls(self):
         """设置计算控制区域"""
@@ -1444,9 +1458,12 @@ class ScourMainWindow(QMainWindow):
         statusbar.addPermanentWidget(QLabel(" | "))
         
         # 求解器状态
-        solver_status = self.solver_manager.get_available_solvers()
-        status_text = f"经验: {'✓' if solver_status['empirical_solver'] else '✗'} " \
-                     f"数值: {'✓' if solver_status['numerical_solver'] else '✗'}"
+        # 检查各组件可用性
+        gmsh_available = "✓" if GMSH_AVAILABLE else "✗"
+        pyvista_available = "✓" if PYVISTA_AVAILABLE else "✗" 
+        scipy_available = "✓" if SCIPY_AVAILABLE else "✗"
+        
+        status_text = f"GMSH: {gmsh_available} PyVista: {pyvista_available} SciPy: {scipy_available}"
         self.solver_status_label = QLabel(status_text)
         statusbar.addPermanentWidget(self.solver_status_label)
         
@@ -1488,32 +1505,49 @@ class ScourMainWindow(QMainWindow):
             solver_config = self.solver_panel.get_current_config()
             solver_type_str = self.solver_panel.get_solver_type()
             
-            # 转换求解器类型
-            solver_type_map = {
-                "auto": SolverType.AUTO,
-                "empirical": SolverType.EMPIRICAL,
-                "numerical": SolverType.NUMERICAL,
-                "hybrid": SolverType.HYBRID
+            # 创建桥墩几何
+            shape_map = {
+                "circular": GeometryType.CIRCULAR_PIER,
+                "rectangular": GeometryType.RECTANGULAR_PIER,
+                "elliptical": GeometryType.ELLIPTICAL_PIER,
+                "complex": GeometryType.COMPLEX_PIER
             }
-            solver_type = solver_type_map.get(solver_type_str, SolverType.AUTO)
             
-            # 创建数值参数（如果需要）
-            numerical_params = None
-            if solver_type in [SolverType.NUMERICAL, SolverType.HYBRID, SolverType.AUTO]:
-                turbulence_map = {
-                    "k-epsilon": TurbulenceModel.K_EPSILON,
-                    "k-epsilon-rng": TurbulenceModel.K_EPSILON_RNG,
-                    "k-omega-sst": TurbulenceModel.K_OMEGA_SST,
-                    "spalart-allmaras": TurbulenceModel.SPALART_ALLMARAS
-                }
-                
-                numerical_params = NumericalParameters(
-                    mesh_resolution=solver_config['mesh_resolution'],
-                    time_step=solver_config['time_step'],
-                    turbulence_model=turbulence_map[solver_config['turbulence_model']],
-                    convergence_tolerance=solver_config['convergence_tolerance'],
-                    max_iterations=solver_config['max_iterations']
-                )
+            pier_shape_str = self.parameter_panel.pier_shape.currentText()
+            geometry_type = shape_map.get(pier_shape_str, GeometryType.CIRCULAR_PIER)
+            
+            self.current_pier_geometry = PierGeometry(
+                geometry_type=geometry_type,
+                diameter=scour_params.pier_diameter,
+                height=6.0,
+                position=(0.0, 0.0, 0.0),
+                rotation_angle=scour_params.pier_angle if hasattr(scour_params, 'pier_angle') else 0.0
+            )
+            
+            # 创建网格参数
+            mesh_params = create_default_mesh_parameters()
+            mesh_params.pier_mesh_size = solver_config['mesh_resolution']
+            mesh_params.domain_mesh_size = solver_config['mesh_resolution'] * 10
+            mesh_params.pier_diameter = scour_params.pier_diameter
+            mesh_params.water_depth = scour_params.water_depth
+            
+            # 创建数值参数
+            turbulence_map = {
+                "k-epsilon": TurbulenceModel.K_EPSILON,
+                "k-epsilon-rng": TurbulenceModel.K_EPSILON_RNG, 
+                "k-omega-sst": TurbulenceModel.K_OMEGA_SST,
+                "spalart-allmaras": TurbulenceModel.SPALART_ALLMARAS
+            }
+            
+            numerical_params = NumericalParameters(
+                mesh_resolution=solver_config['mesh_resolution'],
+                time_step=solver_config['time_step'],
+                turbulence_model=turbulence_map.get(solver_config['turbulence_model'], TurbulenceModel.K_OMEGA_SST),
+                convergence_tolerance=solver_config['convergence_tolerance'],
+                max_iterations=solver_config['max_iterations'],
+                enable_sediment_transport=True,
+                enable_bed_evolution=True
+            )
             
             # 更新UI状态
             self.start_button.setEnabled(False)
@@ -1526,9 +1560,9 @@ class ScourMainWindow(QMainWindow):
             self.results_panel.clear_results()
             
             # 创建计算工作线程
-            worker = ComputationWorker(
+            worker = AdvancedComputationWorker(
                 self.solver_manager, scour_params, numerical_params, 
-                solver_type, self.computation_callback
+                self.current_pier_geometry, mesh_params, self.computation_callback
             )
             
             # 启动计算
@@ -1559,6 +1593,13 @@ class ScourMainWindow(QMainWindow):
             
             # 更新3D视图（如果有结果）
             self.update_3d_visualization(result)
+            
+            # 更新3D视口的流场数据
+            if hasattr(result, 'velocity_field') and result.velocity_field is not None:
+                self.viewer_3d.update_flow_field(
+                    self.current_pier_geometry.diameter,
+                    self.parameter_panel.get_scour_parameters().flow_velocity
+                )
     
     def reset_computation_ui(self):
         """重置计算UI状态"""
@@ -1568,12 +1609,9 @@ class ScourMainWindow(QMainWindow):
     
     def update_3d_visualization(self, result):
         """更新3D可视化"""
-        if not hasattr(self, 'plotter') or self.plotter is None:
-            return
-        
         try:
-            # 这里可以根据结果更新3D场景
-            # 例如显示冲刷坑、流线等
+            # 使用增强的3D视口，它会自动处理结果可视化
+            # 结果数据已经通过update_flow_field传递给视口
             pass
         except Exception as e:
             print(f"3D可视化更新失败: {e}")

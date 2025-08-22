@@ -1,0 +1,76 @@
+{
+  "problem_data": {
+    "problem_name": "kratos_analysis",
+    "echo_level": 1,
+    "parallel_type": "OpenMP",
+    "start_time": 0.0,
+    "end_time": 1.0
+  },
+  "solver_settings": {
+    "solver_type": "Static",
+    "model_part_name": "Structure",
+    "domain_size": 3,
+    "echo_level": 1,
+    "analysis_type": "linear",
+    "rotation_dofs": false,
+    "model_import_settings": {
+      "input_type": "mdpa",
+      "input_filename": "kratos_analysis"
+    },
+    "material_import_settings": {
+      "materials_filename": "materials.json"
+    },
+    "time_stepping": {
+      "time_step": 0.1
+    },
+    "max_iteration": 100,
+    "line_search": false,
+    "convergence_criterion": "and_criterion",
+    "displacement_relative_tolerance": 1e-06,
+    "residual_relative_tolerance": 1e-06,
+    "displacement_absolute_tolerance": 1e-09,
+    "residual_absolute_tolerance": 1e-09,
+    "linear_solver_settings": {
+      "solver_type": "amgcl",
+      "tolerance": 1e-08,
+      "max_iteration": 1000,
+      "scaling": true,
+      "verbosity": 1,
+      "krylov_type": "gmres",
+      "smoother_type": "ilu0",
+      "coarsening_type": "smoothed_aggregation"
+    }
+  },
+  "processes": {
+    "constraints_process_list": [],
+    "loads_process_list": []
+  },
+  "output_processes": {
+    "vtk_output": [
+      {
+        "python_module": "vtk_output_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "VtkOutputProcess",
+        "Parameters": {
+          "model_part_name": "Structure",
+          "output_control_type": "step",
+          "output_interval": 1,
+          "file_format": "ascii",
+          "output_path": "data\\VTK_Output_Stage_1",
+          "save_output_files_in_folder": true,
+          "nodal_solution_step_data_variables": [
+            "DISPLACEMENT",
+            "REACTION",
+            "VELOCITY",
+            "ACCELERATION"
+          ],
+          "gauss_point_variables_in_elements": [
+            "CAUCHY_STRESS_TENSOR",
+            "GREEN_LAGRANGE_STRAIN_TENSOR",
+            "PLASTIC_STRAIN_TENSOR"
+          ]
+        }
+      }
+    ]
+  }
+}

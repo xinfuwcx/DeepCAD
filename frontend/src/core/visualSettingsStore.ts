@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 
 interface VisualSettingsState {
+  // 2.5D 平视倾斜视图（不启用建筑体）
+  twoPointFiveD: boolean;
+  // 新增：底图与布局
+  basemap: 'road' | 'satellite';
+  floatingUI: boolean;
   showEpicGlobe: boolean;
   showLegacyParticles: boolean;
   enablePostFX: boolean;
@@ -15,7 +20,6 @@ interface VisualSettingsState {
   // 新增：地图 HUD/特效
   showTechGrid: boolean; // 科技网格
   showCityGlow: boolean; // 城市辉光
-  showHorizonSky: boolean; // 天空穹/地平线渐变
   showScreenFog: boolean; // 屏幕空间雾
   showVignette: boolean; // 轻微暗角
   // 新增：地图天气表情叠加
@@ -43,6 +47,9 @@ function loadInitial(): Omit<VisualSettingsState, 'toggle' | 'set'> {
     if (raw) {
       const parsed = JSON.parse(raw);
       return {
+  twoPointFiveD: parsed.twoPointFiveD ?? true,
+  basemap: parsed.basemap ?? 'satellite',
+  floatingUI: parsed.floatingUI ?? true,
         showEpicGlobe: parsed.showEpicGlobe ?? true,
         showLegacyParticles: parsed.showLegacyParticles ?? true,
         enablePostFX: parsed.enablePostFX ?? false,
@@ -53,12 +60,11 @@ function loadInitial(): Omit<VisualSettingsState, 'toggle' | 'set'> {
   showHex: parsed.showHex ?? true,
   showTechGrid: parsed.showTechGrid ?? true,
   showCityGlow: parsed.showCityGlow ?? true,
-  showHorizonSky: parsed.showHorizonSky ?? true,
   showScreenFog: parsed.showScreenFog ?? false,
   showVignette: parsed.showVignette ?? true,
   showWeatherOverlay: parsed.showWeatherOverlay ?? true,
   showGlowPaths: parsed.showGlowPaths ?? true,
-  showLandmarkBeams: parsed.showLandmarkBeams ?? true,
+  showLandmarkBeams: parsed.showLandmarkBeams ?? false,
   buildingHeightFactor: parsed.buildingHeightFactor ?? 3,
   scanRingSpeed: parsed.scanRingSpeed ?? 1,
   flylineSpeed: parsed.flylineSpeed ?? 1,
@@ -69,6 +75,9 @@ function loadInitial(): Omit<VisualSettingsState, 'toggle' | 'set'> {
     }
   } catch {}
   return {
+  twoPointFiveD: true,
+  basemap: 'satellite',
+  floatingUI: true,
     showEpicGlobe: true,
     showLegacyParticles: true,
   enablePostFX: false,
@@ -79,12 +88,11 @@ function loadInitial(): Omit<VisualSettingsState, 'toggle' | 'set'> {
   showHex: true,
   showTechGrid: true,
   showCityGlow: true,
-  showHorizonSky: true,
   showScreenFog: false,
   showVignette: true,
   showWeatherOverlay: true,
   showGlowPaths: true,
-  showLandmarkBeams: true,
+  showLandmarkBeams: false,
   buildingHeightFactor: 3,
   scanRingSpeed: 1,
   flylineSpeed: 1,
@@ -102,8 +110,18 @@ export const useVisualSettingsStore = create<VisualSettingsState>((set, get) => 
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...get(), [key]: next })); } catch {}
   },
   set: (partial) => {
-    set(partial as any);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...get(), ...partial })); } catch {}
+    const current = get() as any;
+    const next: any = {};
+    let changed = false;
+    for (const k in partial) {
+      if (Object.prototype.hasOwnProperty.call(partial, k)) {
+        const nv = (partial as any)[k];
+        if (current[k] !== nv) { next[k] = nv; changed = true; }
+      }
+    }
+    if (!changed) return; // no-op if nothing changed
+    set(next as any);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, ...next })); } catch {}
   }
 }));
 

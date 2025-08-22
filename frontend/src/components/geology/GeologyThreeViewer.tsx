@@ -348,8 +348,8 @@ const GeologyThreeViewer: React.FC<GeologyThreeViewerProps> = ({
     directionalLight.shadow.camera.bottom = -100;
     sceneRef.current.add(directionalLight);
 
-    // 补充光 (模拟天空散射)
-    const hemisphereLight = new THREE.HemisphereLight(0x87CEEB, 0x8B4513, 0.3 * viewportSettings.lightIntensity);
+  // 补充光 (使用中性顶/底色，避免天空蓝调)
+  const hemisphereLight = new THREE.HemisphereLight(0x4a5568, 0x2d3748, 0.3 * viewportSettings.lightIntensity);
     sceneRef.current.add(hemisphereLight);
   }, [viewportSettings.lightIntensity]);
 

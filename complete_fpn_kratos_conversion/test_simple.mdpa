@@ -1,0 +1,22 @@
+Begin ModelPartData
+End ModelPartData
+Begin Properties 1
+End Properties
+Begin Nodes
+1 0.0 0.0 0.0
+2 1.0 0.0 0.0
+3 0.0 1.0 0.0
+4 0.0 0.0 1.0
+End Nodes
+Begin Elements SmallDisplacementElement3D4N
+1 1 1 2 3 4
+End Elements SmallDisplacementElement3D4N
+Begin NodalData DISPLACEMENT_X
+1 1 0.0
+End NodalData DISPLACEMENT_X
+Begin NodalData DISPLACEMENT_Y
+1 1 0.0
+End NodalData DISPLACEMENT_Y
+Begin NodalData DISPLACEMENT_Z
+1 1 0.0
+End NodalData DISPLACEMENT_Z

@@ -1,0 +1,16 @@
+Begin ModelPartData
+End ModelPartData
+
+Begin Properties 1
+End Properties
+
+Begin Nodes
+End Nodes
+
+Begin SubModelPart MAT_1
+  Begin SubModelPartNodes
+  End SubModelPartNodes
+  Begin SubModelPartElements
+  End SubModelPartElements
+End SubModelPart
+

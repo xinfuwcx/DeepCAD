@@ -1,0 +1,72 @@
+# DeepCAD-SCOUR 优化版依赖包
+# Optimized dependencies for DeepCAD-SCOUR system
+
+# 核心必需依赖 (Core Required Dependencies)
+PyQt6>=6.4.0
+numpy>=1.21.0
+matplotlib>=3.5.0
+
+# 数据处理 (Data Processing) - 核心功能需要
+pandas>=1.3.0
+
+# 科学计算 (Scientific Computing) - 用于高级计算
+scipy>=1.7.0
+
+# =====================================
+# 可选依赖 (Optional Dependencies)
+# 根据需要安装，不影响核心功能
+# =====================================
+
+# 3D可视化支持 (3D Visualization Support)
+# pip install "deepcad-scour[visualization]"
+pyvista>=0.37.0; extra == "visualization"
+pyvistaqt>=0.9.0; extra == "visualization"
+
+# 高级数值求解 (Advanced Numerical Solving)
+# pip install "deepcad-scour[advanced]"
+# 注意: FEniCS需要特殊安装，参考官方文档
+# fenics>=2019.1.0; extra == "advanced"
+
+# 性能监控 (Performance Monitoring)
+# pip install "deepcad-scour[performance]"
+psutil>=5.8.0; extra == "performance"
+
+# 开发和测试 (Development and Testing)
+# pip install "deepcad-scour[dev]"
+pytest>=7.0.0; extra == "dev"
+pytest-qt>=4.0.0; extra == "dev"
+black>=22.0.0; extra == "dev"
+flake8>=4.0.0; extra == "dev"
+
+# 数据格式支持 (Extended Data Format Support)
+# pip install "deepcad-scour[data]"
+openpyxl>=3.0.0; extra == "data"
+xlsxwriter>=3.0.0; extra == "data"
+
+# 图标支持 (Icon Support)
+# pip install "deepcad-scour[icons]"
+qtawesome>=1.2.0; extra == "icons"
+
+# =====================================
+# 安装示例 (Installation Examples)
+# =====================================
+
+# 基础版本 (只安装核心功能):
+# pip install -r requirements_optimized.txt
+
+# 完整版本 (安装所有可选功能):
+# pip install -r requirements_optimized.txt
+# pip install pyvista pyvistaqt psutil openpyxl qtawesome
+
+# 开发版本 (包含开发工具):
+# pip install -r requirements_optimized.txt
+# pip install pytest pytest-qt black flake8
+
+# =====================================
+# 兼容性说明 (Compatibility Notes)
+# =====================================
+
+# Python版本: 3.7+
+# 操作系统: Windows 10+, macOS 10.14+, Ubuntu 18.04+
+# 内存建议: 4GB以上
+# 硬盘空间: 500MB以上

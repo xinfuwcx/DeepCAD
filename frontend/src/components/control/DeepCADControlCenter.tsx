@@ -117,7 +117,9 @@ import TimelineControlPanel from '../../core/performance/TimelineControlPanel';
 // 新架构下的示例全局三维地球层（可选显示）
 import EpicGlobeScene from '../../core/EpicGlobeScene';
 import ProjectManagementPanel from '../project/ProjectManagementPanel';
+import FloatingQuickControlsPanel from './FloatingQuickControlsPanel';
 import { useVisualSettingsStore } from '../../core/visualSettingsStore';
+import { useShallow } from 'zustand/react/shallow';
 import { getProjects as fetchProjectItems, ProjectItem } from '../../services/projectService';
 import { useControlCenterStore } from '../../core/controlCenterStore';
 import { startProjectPolling, stopProjectPolling } from '../../services/projectPollingService';
@@ -153,6 +155,10 @@ interface SystemStats {
   averageProgress: number;
   criticalAlerts: number;
 }
+
+// 防重入：在 React 严格模式下，初次挂载阶段的 effect 可能被调用两次（装载-卸载-再装载）。
+// 使用模块级开关，避免 initializeMap 并发或重复初始化造成的循环与事件风暴。
+let __AMAP_INIT_IN_PROGRESS = false;
 
 export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onExit }) => {
   // —— 轻量主题与布局常量 ——
@@ -201,6 +207,11 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
   const beamCirclesRef = useRef<any[]>([]);
   const beamAnimTimerRef = useRef<number | null>(null);
   const glCustomLayerRef = useRef<any | null>(null);
+  // AMap 卫星/道路图层引用
+  const satLayerRef = useRef<any | null>(null);
+  const roadNetLayerRef = useRef<any | null>(null);
+  // 保持3D视角的定时器引用，便于清理
+  const maintain3DTimerRef = useRef<number | null>(null);
 
   // 清理 HUD 画布上的 ResizeObserver（避免内存泄漏）
   useEffect(() => {
@@ -215,19 +226,22 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
   // 状态管理
   const [isInitialized, setIsInitialized] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
-  const selectedProjectId = useControlCenterStore(s=>s.selectedProjectId);
-  const setSelectedProjectId = useControlCenterStore(s=>s.setSelectedProjectId);
-  const searchTerm = useControlCenterStore(s=>s.searchTerm);
-  const setSearchTerm = useControlCenterStore(s=>s.setSearchTerm);
-  const statusFilter = useControlCenterStore(s=>s.statusFilter);
-  const setStatusFilter = useControlCenterStore(s=>s.setStatusFilter);
-  const riskFilter = useControlCenterStore(s=>s.riskFilter);
-  const setRiskFilter = useControlCenterStore(s=>s.setRiskFilter);
+  const ctrl = useControlCenterStore(useShallow((s)=>({
+    selectedProjectId: s.selectedProjectId,
+    setSelectedProjectId: s.setSelectedProjectId,
+    searchTerm: s.searchTerm,
+    setSearchTerm: s.setSearchTerm,
+    statusFilter: s.statusFilter,
+    setStatusFilter: s.setStatusFilter,
+    riskFilter: s.riskFilter,
+    setRiskFilter: s.setRiskFilter,
+    showWeatherPanel: s.showWeatherPanel,
+    setShowWeatherPanel: s.setShowWeatherPanel,
+    showProjectDetails: s.showProjectDetails,
+    setShowProjectDetails: s.setShowProjectDetails,
+  })));
+  const { selectedProjectId, setSelectedProjectId, searchTerm, setSearchTerm, statusFilter, setStatusFilter, riskFilter, setRiskFilter, showWeatherPanel, setShowWeatherPanel, showProjectDetails, setShowProjectDetails } = ctrl;
   const [isFlying, setIsFlying] = useState(false);
-  const showWeatherPanel = useControlCenterStore(s=>s.showWeatherPanel);
-  const setShowWeatherPanel = useControlCenterStore(s=>s.setShowWeatherPanel);
-  const showProjectDetails = useControlCenterStore(s=>s.showProjectDetails);
-  const setShowProjectDetails = useControlCenterStore(s=>s.setShowProjectDetails);
   const [weatherDataMap, setWeatherDataMap] = useState<Map<string, WeatherData>>(new Map());
   const [systemStats, setSystemStats] = useState<SystemStats>({
     totalProjects: 0,
@@ -245,40 +259,87 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
   const [progressHistory, setProgressHistory] = useState<number[]>([]);
   // 浮动项目管理面板显示状态
   const [showFloatingProjectPanel, setShowFloatingProjectPanel] = useState(false);
+  const [showFloatingQuickPanel, setShowFloatingQuickPanel] = useState(false);
   const [is3DMode, setIs3DMode] = useState(true);
   const [currentPitch, setCurrentPitch] = useState(30);
+  // 防抖/去抖用：仅当值变化时才更新，避免事件风暴导致的级联渲染
+  const currentPitchRef = useRef(currentPitch);
+  const is3DModeRef = useRef(is3DMode);
+  useEffect(() => { currentPitchRef.current = currentPitch; }, [currentPitch]);
+  useEffect(() => { is3DModeRef.current = is3DMode; }, [is3DMode]);
   const [particles, setParticles] = useState<Array<{id: number, x: number, y: number, delay: number}>>([]);
+  // 延迟挂载背景（避免首帧 effect 链条产生的级联更新）
+  const [showBG, setShowBG] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setShowBG(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
   // 当高德地图不可用时，启用 Deck 独立模式，避免离线遮罩挡住可视层
   const [deckStandaloneMode, setDeckStandaloneMode] = useState(false);
+  const basemapSwitchingRef = useRef(false);
   // 影院模式 & 命令面板（提升交互质感）
   const [isCinematic, setIsCinematic] = useState(false);
   const cinematicTimerRef = useRef<number | null>(null);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [commandInput, setCommandInput] = useState('');
-  const showEpicGlobe = useVisualSettingsStore(s=>s.showEpicGlobe);
-  const showLegacyParticles = useVisualSettingsStore(s=>s.showLegacyParticles);
-  const enablePostFX = useVisualSettingsStore(s=>s.enablePostFX);
-  const showLayerDebugPanel = useVisualSettingsStore(s=>s.showLayerDebugPanel);
-  const theme = useVisualSettingsStore(s=>s.theme);
-  const minimalMode = useVisualSettingsStore(s=>s.minimalMode);
-  const showColumns = useVisualSettingsStore(s=>s.showColumns);
-  const showHex = useVisualSettingsStore(s=>s.showHex);
-  const showTechGrid = useVisualSettingsStore(s=> (s as any).showTechGrid);
-  const showCityGlow = useVisualSettingsStore(s=> (s as any).showCityGlow);
-  const showHorizonSky = useVisualSettingsStore(s=> (s as any).showHorizonSky);
-  const showScreenFog = useVisualSettingsStore(s=> (s as any).showScreenFog);
-  const showVignette = useVisualSettingsStore(s=> (s as any).showVignette);
-  const showWeatherOverlay = useVisualSettingsStore(s=> (s as any).showWeatherOverlay ?? true);
-  const showGlowPaths = useVisualSettingsStore(s=> (s as any).showGlowPaths ?? true);
-  const showLandmarkBeams = useVisualSettingsStore(s=> (s as any).showLandmarkBeams ?? true);
-  const buildingHeightFactor = useVisualSettingsStore(s=> (s as any).buildingHeightFactor ?? 3);
-  const scanRingSpeed = useVisualSettingsStore(s=> (s as any).scanRingSpeed ?? 1);
-  const flylineSpeed = useVisualSettingsStore(s=> (s as any).flylineSpeed ?? 1);
-  const flylineWidth = useVisualSettingsStore(s=> (s as any).flylineWidth ?? 2);
-  const flylineCount = useVisualSettingsStore(s=> (s as any).flylineCount ?? 10);
-  const beamGlowIntensity = useVisualSettingsStore(s=> (s as any).beamGlowIntensity ?? 1);
-  const toggle = useVisualSettingsStore(s=>s.toggle);
-  const setVisual = useVisualSettingsStore(s=>s.set);
+  const visual = useVisualSettingsStore(
+    useShallow((s: any) => ({
+      showEpicGlobe: s.showEpicGlobe,
+      showLegacyParticles: s.showLegacyParticles,
+      enablePostFX: s.enablePostFX,
+      showLayerDebugPanel: s.showLayerDebugPanel,
+      theme: s.theme,
+      minimalMode: s.minimalMode,
+      twoPointFiveD: s.twoPointFiveD ?? true,
+      basemap: s.basemap ?? 'satellite',
+      floatingUI: s.floatingUI ?? true,
+      showColumns: s.showColumns,
+      showHex: s.showHex,
+      showTechGrid: s.showTechGrid,
+      showCityGlow: s.showCityGlow,
+      showScreenFog: s.showScreenFog,
+      showVignette: s.showVignette,
+      showWeatherOverlay: s.showWeatherOverlay ?? true,
+      showGlowPaths: s.showGlowPaths ?? true,
+      showLandmarkBeams: s.showLandmarkBeams ?? true,
+      buildingHeightFactor: s.buildingHeightFactor ?? 3,
+      scanRingSpeed: s.scanRingSpeed ?? 1,
+      flylineSpeed: s.flylineSpeed ?? 1,
+      flylineWidth: s.flylineWidth ?? 2,
+      flylineCount: s.flylineCount ?? 10,
+      beamGlowIntensity: s.beamGlowIntensity ?? 1,
+      toggle: s.toggle,
+      set: s.set,
+    }))
+  );
+  const {
+    showEpicGlobe,
+    showLegacyParticles,
+    enablePostFX,
+    showLayerDebugPanel,
+    theme,
+    minimalMode,
+    twoPointFiveD,
+    basemap,
+    floatingUI,
+    showColumns,
+    showHex,
+    showTechGrid,
+    showCityGlow,
+    showScreenFog,
+    showVignette,
+    showWeatherOverlay,
+    showGlowPaths,
+    showLandmarkBeams,
+    buildingHeightFactor,
+    scanRingSpeed,
+    flylineSpeed,
+    flylineWidth,
+    flylineCount,
+    beamGlowIntensity,
+    toggle,
+  } = visual as any;
+  const setVisual = (visual as any).set as ((p: any) => void);
   // 从服务加载真实或本地化项目 -> 转换为统一结构
   const [loadedProjects, setLoadedProjects] = useState<ExcavationProject[] | null>(null);
   const selectedProject = useMemo(()=> (loadedProjects||[]).find(p=>p.id===selectedProjectId) || null, [loadedProjects, selectedProjectId]);
@@ -417,12 +478,45 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
   setProgressHistory(prev => [...prev.slice(-59), stats.averageProgress]);
   }, [projects]);
 
+  // 数据就绪后，自动定位到第一个项目，避免初始停留在默认北京中心（确保只触发一次）
+  const initialSelectStartedRef = useRef(false);
+  useEffect(() => {
+    if (!isInitialized) return;
+    const map = mapRef.current;
+    if (!map) return;
+    if (!loadedProjects || !loadedProjects.length) return;
+    if (selectedProjectId) return;
+    if (initialSelectStartedRef.current) return;
+    initialSelectStartedRef.current = true;
+    const p = loadedProjects[0];
+    try {
+      map.setZoomAndCenter(p.area && p.area > 1000 ? 15 : 16, [p.location.lng, p.location.lat], false, 1200);
+    } catch {
+      try { map.setCenter([p.location.lng, p.location.lat]); } catch {}
+    }
+    // 延迟到动画完成后再写入选中，避免在 effect mount 阶段立即触发 store 循环
+    let t: any = null;
+    const onEnd = () => {
+      if (t) { try { clearTimeout(t); } catch {} t = null; }
+      try { map.off('moveend', onEnd as any); map.off('zoomend', onEnd as any); } catch {}
+      try { setSelectedProjectId(p.id); } catch {}
+    };
+    try { map.on('moveend', onEnd as any); map.on('zoomend', onEnd as any); } catch {}
+    t = setTimeout(onEnd, 1800);
+    return () => { try { map.off('moveend', onEnd as any); map.off('zoomend', onEnd as any); } catch {}; if (t) { try { clearTimeout(t); } catch {} } };
+  }, [isInitialized, loadedProjects, selectedProjectId]);
+
 
   /**
    * 初始化高德地图 - 暗色科技风主题
    */
   const initializeMap = useCallback(async () => {
     if (!mapContainerRef.current || mapRef.current) return;
+    if (__AMAP_INIT_IN_PROGRESS) {
+      console.log('⏳ AMap 初始化已在进行中，跳过重复调用');
+      return;
+    }
+    __AMAP_INIT_IN_PROGRESS = true;
 
     try {
       // 如果配置禁用AMap，则直接进入离线模式（Deck.gl 独立控制 + OSM 瓦片）
@@ -431,11 +525,8 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         console.log('🛑 VITE_DISABLE_AMAP=true，跳过 AMap 加载，进入离线模式');
         setMapError('已启用离线模式（AMap已禁用）');
         setDeckStandaloneMode(true);
-        await initializeDeck({ controllerEnabled: true });
-        await loadProjectsWeatherData();
-        if (filteredProjects.length > 0 && filteredProjects[0]) {
-          setSelectedProjectId(filteredProjects[0].id);
-        }
+  await initializeDeck({ controllerEnabled: true });
+  await loadProjectsWeatherData();
         setIsInitialized(true);
         return;
       }
@@ -468,30 +559,46 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         ]
       });
 
-      // 创建高德地图实例 - 强制3D模式
+      // 以首个项目为默认中心（若无则回退北京），避免默认落在北京
+      const defaultCenter: [number, number] = filteredProjects[0]
+        ? [filteredProjects[0].location.lng, filteredProjects[0].location.lat]
+        : [116.4074, 39.9042];
+
+      // 创建高德地图实例 - 平面模式（禁用建筑体）
       const map = new AMap.Map(mapContainerRef.current, {
-        center: [116.4074, 39.9042], // 北京中心
-        zoom: 17, // 更高缩放级别
-        pitch: 70, // 更强烈的3D倾斜视角
-        viewMode: '3D', // 强制3D视图
-        // 统一暗色风格，兼顾 3D 兼容性
-        mapStyle: 'amap://styles/dark',
+        center: defaultCenter,
+  zoom: 16,
+  // 使用3D引擎便于 Deck.gl 同步：twoPointFiveD 时给一个小俯仰
+  pitch: twoPointFiveD ? 30 : 0,
+        viewMode: '3D',
+        // 道路底图走暗色样式；卫星底图不设置样式
+        mapStyle: (basemap === 'road') ? 'amap://styles/dark' : undefined as any,
         showLabel: true,
         showIndoorMap: false,
-        features: ['bg', 'road', 'building', 'point'],
-        // 强制3D配置
-        showBuildingBlock: true,
+        // 仅背景/道路/兴趣点；不绘制建筑
+        features: (basemap === 'road') ? ['bg', 'road', 'point'] : ['point'],
+        // 关闭建筑体渲染
+        showBuildingBlock: false,
         buildingAnimation: false,
         expandZoomRange: true,
         terrain: true,
         // 额外的3D配置
         rotateEnable: true,
         pitchEnable: true,
-        buildingTopColor: '#ffffff',
-        buildingSideColor: '#ddeeff'
+        // 建筑配色不再生效（已禁用建筑）
       });
 
       mapRef.current = map;
+
+      // 注入卫星/道路覆盖图层（仅卫星模式需要）
+      try {
+        if (basemap === 'satellite') {
+          satLayerRef.current = new (AMap as any).TileLayer.Satellite();
+          roadNetLayerRef.current = new (AMap as any).TileLayer.RoadNet({ opacity: 0.9 });
+          satLayerRef.current.setMap(map);
+          roadNetLayerRef.current.setMap(map);
+        }
+      } catch {}
 
       // 添加地图控件 - 3D控制
       const scale = new AMap.Scale({ position: 'LB' });
@@ -509,67 +616,18 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       });
       map.addControl(toolBar);
 
-      // 强制启用3D建筑物图层
+      // 保持平面视角，不加载建筑物图层
       map.on('complete', () => {
-        console.log('🗺️ 地图加载完成，开始设置3D效果...');
-
-        // 强制设置3D视角
-        map.setPitch(70);
-        map.setZoom(17);
-
-        // 添加3D建筑物图层
-  const buildings = new AMap.Buildings({
-          zooms: [10, 20],
-          zIndex: 10,
-          heightFactor: Math.max(1, Number(buildingHeightFactor) || 3), // 建筑物高度放大
-          visible: true,
-          // 3D建筑物样式
-          topColor: '#dfe7ff',
-          sideColor: '#a8c1ff'
-        });
-        map.add(buildings);
-  buildingsLayerRef.current = buildings;
-
-        // 强制显示建筑物
-        buildings.show();
-
-        // 强制设置3D视角 - 多重确保
-        setTimeout(() => {
-          map.setPitch(60);
+        try {
+          map.setPitch(twoPointFiveD ? 30 : 0);
           map.setZoom(16);
-          map.setCenter([116.4074, 39.9042]);
-          setCurrentPitch(60);
-          setIs3DMode(true);
-          console.log('🏢 3D视角已强制设置: pitch=60, zoom=16');
-        }, 1000);
-
-        // 再次确保3D效果
-  setTimeout(() => {
-          map.setPitch(60); // 保持60度，不要降低到45度
-          map.setZoom(17); // 提高缩放级别
-          setCurrentPitch(60);
-          setIs3DMode(true);
-          console.log('🏢 3D效果二次确认完成: pitch=60');
-        }, 3000);
-
-        // 添加定期检查机制，确保3D状态不被重置
-        const maintain3D = setInterval(() => {
-          const currentPitch = map.getPitch();
-          if (currentPitch < 30) {
-            map.setPitch(60);
-            setCurrentPitch(60);
-            setIs3DMode(true);
-            console.log('🔄 自动恢复3D视角: pitch=60');
-          }
-        }, 5000);
-
-        // 清理定时器
-        return () => clearInterval(maintain3D);
-
-        console.log('🏢 强制3D建筑物图层已加载，视角已设置');
+          setCurrentPitch(twoPointFiveD ? 30 : 0);
+          setIs3DMode(!!twoPointFiveD);
+        } catch {}
+        console.log('🗺️ 地图加载完成（平/2.5D 模式，无建筑物）');
       });
 
-      console.log('✅ 高德地图3D暗色主题加载完成');
+  console.log('✅ 高德地图加载完成（', basemap, '）');
 
   // 初始化Deck.gl可视化层
   await initializeDeck();
@@ -578,12 +636,9 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       // 使用高德天气API加载项目天气数据
       await loadProjectsWeatherData();
 
-      // 设置默认选中项目
-      if (filteredProjects.length > 0) {
-  if (filteredProjects[0]) setSelectedProjectId(filteredProjects[0].id);
-      }
+  // 默认选中项目的逻辑改为在初始化完成后、单独的 effect 中处理，避免初始化阶段触发循环更新
 
-      setIsInitialized(true);
+  setIsInitialized(true);
       console.log('🚀 大屏项目管理中心初始化完成');
 
     } catch (error) {
@@ -600,29 +655,70 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         console.error('❌ 离线 Deck.gl 初始化失败:', e);
       }
     }
-  }, [filteredProjects]);
+    finally {
+      // 若已成功创建了 mapRef.current，则后续即便再次调用也会因上方判定而返回。
+      // 这里将进度标记还原，允许「真实卸载后」的下一次进入重新初始化。
+      __AMAP_INIT_IN_PROGRESS = false;
+    }
+  }, []);
 
-  // 监听建筑高度倍率变化，重新应用 Buildings 图层
+  // 建筑体已禁用：若存在残留图层则移除
   useEffect(() => {
-    const AMapNS: any = (window as any).AMap;
-    if (!mapRef.current || !AMapNS || !AMapNS.Buildings) return;
+    const map = mapRef.current;
+    if (!map) return;
     try {
       if (buildingsLayerRef.current) {
-        try { mapRef.current.remove(buildingsLayerRef.current); } catch {}
+        try { map.remove(buildingsLayerRef.current); } catch {}
         buildingsLayerRef.current = null;
       }
-      const buildings = new AMapNS.Buildings({
-        zooms: [10, 20],
-        zIndex: 10,
-        heightFactor: Math.max(1, Number(buildingHeightFactor) || 3),
-        visible: true,
-        topColor: '#dfe7ff',
-        sideColor: '#a8c1ff'
-      });
-      mapRef.current.add(buildings);
-      buildingsLayerRef.current = buildings;
     } catch {}
   }, [buildingHeightFactor]);
+
+  // 当启用浮动UI时，默认打开浮动项目面板和快捷控制面板
+  const openedOnceRef = useRef(false);
+  useEffect(() => {
+    if (openedOnceRef.current) return;
+    if (floatingUI) {
+      setShowFloatingProjectPanel(true);
+      setShowFloatingQuickPanel(true);
+    }
+    openedOnceRef.current = true;
+  }, [floatingUI]);
+
+  // 底图切换响应：在不销毁地图的情况下切换卫星/道路
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (basemapSwitchingRef.current) return;
+    basemapSwitchingRef.current = true;
+    try {
+      // 清理旧图层
+      if (satLayerRef.current) { try { map.remove(satLayerRef.current); } catch {} satLayerRef.current = null; }
+      if (roadNetLayerRef.current) { try { map.remove(roadNetLayerRef.current); } catch {} roadNetLayerRef.current = null; }
+      if (basemap === 'satellite') {
+        // 卫星 + 道路叠加
+        try {
+          satLayerRef.current = new (window as any).AMap.TileLayer.Satellite();
+          roadNetLayerRef.current = new (window as any).AMap.TileLayer.RoadNet({ opacity: 0.9 });
+          satLayerRef.current.setMap(map);
+          roadNetLayerRef.current.setMap(map);
+        } catch {}
+        try { map.setMapStyle(undefined as any); } catch {}
+        try { map.setFeatures(['point']); } catch {}
+      } else {
+        // 道路暗色
+        try { map.setMapStyle('amap://styles/dark'); } catch {}
+        try { map.setFeatures(['bg', 'road', 'point']); } catch {}
+      }
+      // 同步一次 Deck 独立模式底图
+      if (deckStandaloneMode) {
+        initializeDeck({ controllerEnabled: true, forceStandalone: true });
+      }
+    } finally {
+      // 让出一帧，避免严格模式下的双调用导致的重复触发
+      setTimeout(() => { basemapSwitchingRef.current = false; }, 0);
+    }
+  }, [basemap]);
 
   /**
    * 获取项目状态颜色
@@ -665,10 +761,10 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         width: '100%',
         height: '100%',
         initialViewState: {
-          longitude: 116.4074,
-          latitude: 39.9042,
+          longitude: filteredProjects[0]?.location.lng ?? 116.4074,
+          latitude: filteredProjects[0]?.location.lat ?? 39.9042,
           zoom: 17,
-          pitch: 60, // 保持3D视角
+          pitch: twoPointFiveD ? 30 : 0, // 2.5D 轻俯仰（默认可为0表示纯2D）
           bearing: 0
         },
   controller: options?.controllerEnabled ?? false, // 地图失败时启用Deck交互控制
@@ -772,59 +868,27 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
   const baseLayers = deck.props.layers ? [...deck.props.layers] : [];
   // 独立模式判定：显式强制 或 已在独立模式状态 或 当前没有 AMap 实例
   const useStandalone = !!(options?.forceStandalone || deckStandaloneMode || !mapRef.current);
-  // 如果当前为 Deck 独立模式，插入 OSM 瓦片底图
+  // 如果当前为 Deck 独立模式，插入底图瓦片
       if (useStandalone) {
         try {
-          baseLayers.unshift(new (TileLayer as any)({
-            id: 'osm-tiles',
-            data: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            minZoom: 0,
-            maxZoom: 19,
-            tileSize: 256,
-            // 将每个瓦片渲染为位图覆盖到对应经纬度边界
-            renderSubLayers: (props: any) => {
-              const {
-                bbox: { west, south, east, north }
-              } = props.tile;
-              return new BitmapLayer(props, {
-                id: `${props.id}-bitmap`,
-                image: props.data,
-                bounds: [west, south, east, north]
-              });
-            }
-          }));
-          // 次级回退：Carto 暗色底图（如 OSM 被墙/限流）
-          baseLayers.unshift(new (TileLayer as any)({
-            id: 'carto-dark-tiles',
-            data: 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+          const mkTile = (id: string, url: string) => new (TileLayer as any)({
+            id,
+            data: url,
             minZoom: 0,
             maxZoom: 19,
             tileSize: 256,
             renderSubLayers: (props: any) => {
               const { bbox: { west, south, east, north } } = props.tile;
-              return new BitmapLayer(props, {
-                id: `${props.id}-bitmap`,
-                image: props.data,
-                bounds: [west, south, east, north]
-              });
+              return new BitmapLayer(props, { id: `${props.id}-bitmap`, image: props.data, bounds: [west, south, east, north] });
             }
-          }));
-          // 第三级回退：高德街道(暗色样式近似)，不依赖 AMap JS，仅拉瓦片
-          baseLayers.unshift(new (TileLayer as any)({
-            id: 'amap-dark-tiles',
-            data: 'https://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&style=7&x={x}&y={y}&z={z}',
-            minZoom: 0,
-            maxZoom: 19,
-            tileSize: 256,
-            renderSubLayers: (props: any) => {
-              const { bbox: { west, south, east, north } } = props.tile;
-              return new BitmapLayer(props, {
-                id: `${props.id}-bitmap`,
-                image: props.data,
-                bounds: [west, south, east, north]
-              });
-            }
-          }));
+          });
+          if (basemap === 'satellite') {
+            baseLayers.unshift(mkTile('amap-road-overlay', 'https://webrd02.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}'));
+            baseLayers.unshift(mkTile('amap-sat-tiles', 'https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}'));
+          } else {
+            baseLayers.unshift(mkTile('carto-dark-tiles', 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'));
+            baseLayers.unshift(mkTile('osm-tiles', 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'));
+          }
         } catch (e) {
           console.warn('TileLayer unavailable:', e);
         }
@@ -947,18 +1011,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       console.log('🎨 项目数据数量:', filteredProjects.length);
       console.log('🎨 天气数据数量:', weatherDataMap.size);
 
-      // 同步高德地图和Deck.gl的视图状态
-      if (mapRef.current) {
-        mapRef.current.on('mapmove', () => {
-          syncMapView();
-        });
-        mapRef.current.on('zoomchange', () => {
-          syncMapView();
-        });
-        mapRef.current.on('rotatechange', () => {
-          syncMapView();
-        });
-      }
+  // 事件监听在统一的防抖 useEffect 中绑定，避免重复绑定与风暴
 
   console.log('✅ 基坑项目可视化层初始化完成');
 
@@ -1000,11 +1053,11 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     try {
       const center = mapRef.current.getCenter();
       const zoom = mapRef.current.getZoom();
-      const pitch = mapRef.current.getPitch() || 60; // 默认保持3D视角
+  const pitch = mapRef.current.getPitch?.() ?? (twoPointFiveD ? 30 : 0);
       const rotation = mapRef.current.getRotation() || 0;
 
-      // 确保最小pitch值，保持3D效果
-      const safePitch = Math.max(pitch, 30);
+      // 直接同步 pitch（允许为0，保持平/2.5D）
+      const safePitch = Math.max(0, Math.min(40, pitch));
 
       deckRef.current.setProps({
         viewState: {
@@ -1016,13 +1069,18 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         }
       });
 
-      // 更新状态
+    // 更新状态（仅在变化时设置，避免无意义的再次渲染触发）
+    if (currentPitchRef.current !== safePitch) {
       setCurrentPitch(safePitch);
-      setIs3DMode(safePitch > 20);
+    }
+    const next3D = !!(twoPointFiveD && safePitch > 5);
+    if (is3DModeRef.current !== next3D) {
+      setIs3DMode(next3D);
+    }
     } catch (error) {
       console.warn('地图视图同步失败:', error);
     }
-  }, []);
+  }, [twoPointFiveD]);
 
   // —— 小工具：基于米的便捷经纬度偏移（近似） ——
   const metersToLngLatDelta = useCallback((meters: number, lat: number) => {
@@ -1195,17 +1253,32 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     if (!mapRef.current) return;
 
     mapRef.current.setZoomAndCenter(6, [116.4074, 39.9042], false, 1000);
-    // 确保重置后仍保持3D视角
+    // 重置后保持平/2.5D 视角
     setTimeout(() => {
       if (mapRef.current) {
-        mapRef.current.setPitch(45);
-        setCurrentPitch(45);
-        setIs3DMode(true);
+  const p = twoPointFiveD ? 30 : 0;
+        mapRef.current.setPitch(p);
+        setCurrentPitch(p);
+        setIs3DMode(twoPointFiveD);
       }
     }, 1200);
   setSelectedProjectId(null);
     setShowProjectDetails(false);
   }, []);
+
+  // 在 twoPointFiveD 开关变化时，确保地图俯仰与状态一致（防止偶发还原为0度）
+  useEffect(() => {
+    if (!mapRef.current) return;
+    try {
+  const desired = twoPointFiveD ? 30 : 0;
+      const cur = mapRef.current.getPitch?.() ?? 0;
+      if (Math.abs(cur - desired) > 1) {
+        mapRef.current.setPitch(desired);
+      }
+      setCurrentPitch(desired);
+      setIs3DMode(twoPointFiveD);
+    } catch {}
+  }, [twoPointFiveD]);
 
   /**
    * 获取项目统计信息
@@ -1356,6 +1429,23 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
 
   timeoutId = window.setTimeout(() => onEnd(), 3500); // 兜底
 
+    // 预先通过小步动画平滑调整旋转和俯仰以提升过渡观感
+  try {
+      const startRot = map.getRotation?.() ?? 0;
+      const targetRot = startRot + ((Math.random() > 0.5 ? 1 : -1) * 45);
+      const steps = 12;
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        const ease = t * (2 - t); // quadOut
+        setTimeout(() => {
+          try {
+            map.setRotation(startRot + (targetRot - startRot) * ease);
+            map.setPitch(twoPointFiveD ? 30 : 0);
+          } catch {}
+        }, i * 40);
+      }
+    } catch {}
+
     // 使用高德地图的平滑飞行动画
     try {
       map.setZoomAndCenter(
@@ -1376,7 +1466,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     setSelectedProjectId(project.id);
     setShowProjectDetails(true);
 
-  }, [isFlying, isCinematic, stopCinematicTour, setSelectedProjectId, setShowProjectDetails]);
+  }, [isFlying, isCinematic, stopCinematicTour, setSelectedProjectId, setShowProjectDetails, twoPointFiveD]);
 
   // —— 影院模式：自动巡航浏览重点项目 ——
   const startCinematicTour = useCallback(() => {
@@ -1389,8 +1479,8 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       const p = targets[i % targets.length];
       const zoom = p.area > 1500 ? 14 : 16;
       try {
-        mapRef.current!.setZoomAndCenter(zoom, [p.location.lng, p.location.lat], false, 2200);
-        const basePitch = minimalMode ? 50 : 65;
+  mapRef.current!.setZoomAndCenter(zoom, [p.location.lng, p.location.lat], false, 2200);
+  const basePitch = twoPointFiveD ? 30 : 0;
         const baseRot = (i * 60) % 360;
         setTimeout(() => {
           mapRef.current && mapRef.current.setPitch(basePitch);
@@ -1449,6 +1539,17 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       // 清理资源
       console.log('🧹 清理系统资源...');
 
+      // 清理保持3D视角的定时器
+      if (maintain3DTimerRef.current) {
+        try { window.clearInterval(maintain3DTimerRef.current); } catch {}
+        maintain3DTimerRef.current = null;
+      }
+      // 移除可能残留的自定义叠加画布
+      try {
+        const glow = document.getElementById('amap-scan-glow');
+        if (glow && glow.parentElement) glow.parentElement.removeChild(glow);
+      } catch {}
+
       if (deckRef.current) {
         try {
           deckRef.current.finalize();
@@ -1464,6 +1565,8 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           console.warn('地图清理失败:', error);
         }
       }
+  // 允许后续重新初始化
+  __AMAP_INIT_IN_PROGRESS = false;
     };
   }, [initializeMap]);
 
@@ -1725,24 +1828,34 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
     return ()=> stopProjectPolling();
   }, []);
 
-  // 性能优化：防抖更新地图视图
+  // 性能优化：防抖更新地图视图（并在卸载时移除监听）
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-
-    const debouncedSync = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
+    let timeoutId: number | null = null;
+    const handler = () => {
+      if (timeoutId) window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
         syncMapView();
       }, 100);
     };
 
-    if (mapRef.current) {
-      mapRef.current.on('mapmove', debouncedSync);
-      mapRef.current.on('zoomchange', debouncedSync);
+    const map = mapRef.current;
+    if (map) {
+      try {
+        map.on('mapmove', handler);
+        map.on('zoomchange', handler);
+        map.on('rotatechange', handler);
+      } catch {}
     }
 
     return () => {
-      clearTimeout(timeoutId);
+      if (timeoutId) window.clearTimeout(timeoutId);
+      if (map) {
+        try {
+          map.off('mapmove', handler);
+          map.off('zoomchange', handler);
+          map.off('rotatechange', handler);
+        } catch {}
+      }
     };
   }, [syncMapView]);
 
@@ -1793,17 +1906,18 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         setVisual({ minimalMode: !minimalMode });
       }
 
-      // 数字键快速缩放
+  // 数字键快速缩放（保持平面视角）
       if (event.key >= '1' && event.key <= '9') {
         const zoomLevel = parseInt(event.key) + 5; // 6-14级缩放
         mapRef.current?.setZoom(zoomLevel);
         // 确保缩放后保持3D效果
+    // 缩放后保持平/2.5D 视角
         setTimeout(() => {
           if (mapRef.current) {
-            const pitch = zoomLevel > 12 ? 65 : zoomLevel > 8 ? 55 : 45;
-            mapRef.current.setPitch(pitch);
-            setCurrentPitch(pitch);
-            setIs3DMode(true);
+  const p = twoPointFiveD ? 30 : 0;
+      mapRef.current.setPitch(p);
+      setCurrentPitch(p);
+      setIs3DMode(twoPointFiveD);
           }
         }, 300);
       }
@@ -1876,7 +1990,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
       animation: 'dreamyBackground 12s ease-in-out infinite alternate'
     }}>
       {/* 3D R3F 背景可视化 (新的统一渲染架构) */}
-  <BackgroundVisualization enableEffects={enablePostFX && !minimalMode} />
+  {showBG && (<BackgroundVisualization enableEffects={enablePostFX && !minimalMode} />)}
 
       {/* 可选：Epic Globe 场景（Layer 化示例） */}
       {showEpicGlobe && (
@@ -1950,7 +2064,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
   <RotatingHeadline stats={systemStats} />
       </motion.div>
 
-      {/* 🎮 3D视角控制 - 右上角 */}
+  {/* 🎮 视角/底图/面板 - 右上角 */}
       <motion.div
         initial={{ opacity: 0, x: 50 }}
         animate={{ opacity: 1, x: 0 }}
@@ -1988,6 +2102,29 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           </button>
 
           <button
+            onClick={() => {
+              setVisual({ basemap: basemap === 'satellite' ? 'road' : 'satellite' });
+              // 切换逻辑由 basemap useEffect 实时处理
+            }}
+            className="neon-border"
+            style={{
+              background: 'linear-gradient(45deg, rgba(0, 255, 180, 0.35) 0%, rgba(0, 160, 255, 0.35) 100%)',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#fff',
+              padding: '8px 12px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              transition: 'all 0.3s ease',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 0 15px rgba(0, 255, 255, 0.3)'
+            }}
+          >
+            🛰️ 底图: {basemap === 'satellite' ? '卫星' : '道路'}
+          </button>
+
+          <button
             onClick={() => { setShowCommandPalette(true); setCommandInput(''); }}
             className="neon-border"
             style={{
@@ -2007,13 +2144,15 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           <button
             onClick={() => {
               if (mapRef.current) {
-                const currentPitch = mapRef.current.getPitch();
-                const newPitch = currentPitch < 35 ? 70 : 45; // 在45度和70度之间切换，保持3D效果
-                mapRef.current.setPitch(newPitch);
-                mapRef.current.setZoom(17); // 确保缩放级别足够看到3D效果
-                setCurrentPitch(newPitch);
-                setIs3DMode(true); // 确保3D模式状态
-                console.log(`🏢 3D视角切换: ${currentPitch}° → ${newPitch}°`);
+                if (mapRef.current) {
+                  const next = !(twoPointFiveD);
+                  setVisual({ twoPointFiveD: next });
+                  const p = next ? 30 : 0;
+                  mapRef.current.setPitch(p);
+                  setCurrentPitch(p);
+                  setIs3DMode(next);
+                  console.log(next ? '🗺️ 切换为2.5D视图' : '🗺️ 切换为平面视图');
+                }
               }
             }}
             className="neon-border"
@@ -2039,8 +2178,28 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
               e.currentTarget.style.boxShadow = '0 0 15px rgba(0, 255, 255, 0.3)';
             }}
           >
-            🏢 3D视角: {currentPitch}°
+            🗺️ 视角: {currentPitch}° {twoPointFiveD ? '(2.5D)' : '(2D)'}
           </button>
+
+          {floatingUI && (
+            <button
+              onClick={() => setShowFloatingQuickPanel(v => !v)}
+              className="neon-border"
+              style={{
+                background: 'linear-gradient(45deg, rgba(0, 180, 255, 0.3) 0%, rgba(0, 255, 160, 0.3) 100%)',
+                border: 'none',
+                borderRadius: '8px',
+                color: '#fff',
+                padding: '8px 12px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                transition: 'all 0.3s ease',
+                backdropFilter: 'blur(10px)'
+              }}
+            >
+              🧩 快捷控制 {showFloatingQuickPanel ? '（隐藏）' : '（显示）'}
+            </button>
+          )}
 
           <button
             onClick={() => {
@@ -2105,8 +2264,8 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           minHeight: '400px' // 确保最小高度
         }}
       >
-        {/* 地图 HUD 画布：天空穹/城市辉光/科技网格（叠加在地图之上，Deck 之下） */}
-        {(showHorizonSky || showCityGlow || showTechGrid || showVignette || showScreenFog) && (
+  {/* 地图 HUD 画布：城市辉光/科技网格（叠加在地图之上，Deck 之下） */}
+  {(showCityGlow || showTechGrid || showVignette || showScreenFog) && (
           <canvas
             id="map-hud-canvas"
             style={{
@@ -2135,15 +2294,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
                 const ctx = el.getContext('2d');
                 if (!ctx) return;
                 ctx.clearRect(0, 0, w, h);
-                // 天空穹：上深下浅
-                if (showHorizonSky) {
-                  const g = ctx.createLinearGradient(0, 0, 0, h);
-                  g.addColorStop(0, 'rgba(4,12,24,0.85)');
-                  g.addColorStop(0.6, 'rgba(6,20,38,0.35)');
-                  g.addColorStop(1, 'rgba(8,28,48,0.15)');
-                  ctx.fillStyle = g;
-                  ctx.fillRect(0, 0, w, h);
-                }
+                // 天空穹已移除
                 // 城市辉光：中心椭圆光晕
                 if (showCityGlow) {
                   const cx = w * 0.5;
@@ -2364,8 +2515,9 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         </div>
       </motion.div>
 
-      {/* 左侧项目面板 - 大屏设计 */}
-    <motion.div
+      {/* 左侧项目面板 - 大屏设计（floatingUI=false时显示） */}
+    {!floatingUI && (
+      <motion.div
         initial={{ x: -400, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.8, ease: 'easeOut' }}
@@ -2596,9 +2748,11 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           ))}
         </div>
       </motion.div>
+    )}
 
-      {/* 右侧控制面板 - 大屏设计 */}
-    <motion.div
+      {/* 右侧控制面板 - 大屏设计（floatingUI=false时显示） */}
+    {!floatingUI && (
+      <motion.div
         initial={{ x: 400, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
@@ -2800,8 +2954,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
             <div style={{ marginTop: 6, borderTop: '1px dashed rgba(0,255,255,0.25)', paddingTop: 10 }}>
               <div style={{ color: '#0ff', fontSize: 12, marginBottom: 6 }}>地图特效（HUD）</div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                <input type="checkbox" checked={showHorizonSky} onChange={() => toggle('showHorizonSky')} style={{ accentColor: '#00ffff' }} />
-                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>天空穹渐变</span>
+                {/* 天空穹选项已移除 */}
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                 <input type="checkbox" checked={showCityGlow} onChange={() => toggle('showCityGlow')} style={{ accentColor: '#00ffff' }} />
@@ -2941,9 +3094,10 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
                     if (mapRef.current) {
                       mapRef.current.setZoom(6);
                       setTimeout(() => {
-                        mapRef.current?.setPitch(45);
-                        setCurrentPitch(45);
-                        setIs3DMode(true);
+                        const p = twoPointFiveD ? 30 : 0;
+                        mapRef.current?.setPitch(p);
+                        setCurrentPitch(p);
+                        setIs3DMode(twoPointFiveD);
                       }, 500);
                     }
                   }}
@@ -2974,9 +3128,10 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
                     if (mapRef.current) {
                       mapRef.current.setZoom(10);
                       setTimeout(() => {
-                        mapRef.current?.setPitch(55);
-                        setCurrentPitch(55);
-                        setIs3DMode(true);
+                        const p = twoPointFiveD ? 30 : 0;
+                        mapRef.current?.setPitch(p);
+                        setCurrentPitch(p);
+                        setIs3DMode(twoPointFiveD);
                       }, 500);
                     }
                   }}
@@ -3007,9 +3162,10 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
                     if (mapRef.current) {
                       mapRef.current.setZoom(15);
                       setTimeout(() => {
-                        mapRef.current?.setPitch(65);
-                        setCurrentPitch(65);
-                        setIs3DMode(true);
+                        const p = twoPointFiveD ? 30 : 0;
+                        mapRef.current?.setPitch(p);
+                        setCurrentPitch(p);
+                        setIs3DMode(twoPointFiveD);
                       }, 500);
                     }
                   }}
@@ -3040,6 +3196,7 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
           </div>
         </div>
       </motion.div>
+    )}
 
       {/* 底部状态栏 - 大屏设计 */}
       <motion.div
@@ -3198,8 +3355,24 @@ export const DeepCADControlCenter: React.FC<DeepCADControlCenterProps> = ({ onEx
         />
       )}
 
+      {floatingUI && showFloatingQuickPanel && (
+        <FloatingQuickControlsPanel onClose={() => setShowFloatingQuickPanel(false)} />
+      )}
+
   {/* 统一选中反馈 Toast */}
   <SelectionToast />
+
+      {/* 飞行过渡美化遮罩：降低背景对比，缓解切换突兀感 */}
+      <AnimatePresence>
+        {isFlying && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.35 }}
+            exit={{ opacity: 0 }}
+            style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,12,24,0.4) 60%, rgba(0,0,0,0.6) 100%)', backdropFilter: 'blur(2px)', zIndex: 2500, pointerEvents: 'none' }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* 飞行动画指示器 */}
       <AnimatePresence>

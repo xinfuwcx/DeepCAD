@@ -228,7 +228,7 @@ export const EnhancedEpicFlightDemo: React.FC<{
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [showWeather, setShowWeather] = useState(true);
   const [showWeatherViz, setShowWeatherViz] = useState(true);
-  const [showClouds, setShowClouds] = useState(true);
+  const [showClouds, setShowClouds] = useState(false); // 默认关闭云彩，避免天空视觉
   const [isFlying, setIsFlying] = useState(false);
 
   // 初始化Mapbox和Three.js
@@ -249,9 +249,9 @@ export const EnhancedEpicFlightDemo: React.FC<{
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     
-    // 设置场景
-    scene.background = new THREE.Color(0x87CEEB); // 天空蓝
-    scene.fog = new THREE.Fog(0x87CEEB, 500, 2000);
+  // 设置场景 - 使用中性深色以替代天空蓝
+  scene.background = new THREE.Color(0x0f1623);
+  scene.fog = new THREE.Fog(0x0f1623, 800, 3000);
     
     // 添加光照
     const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
@@ -269,11 +269,13 @@ export const EnhancedEpicFlightDemo: React.FC<{
     camera.lookAt(0, 0, 0);
     
     // 初始化云彩系统
-    const cloudSystem = new CloudSystem(scene);
+  const cloudSystem = new CloudSystem(scene);
+  // 默认隐藏云层以避免“天空”视觉
+  cloudSystem.setVisibility(false);
     
     // 添加地面
     const groundGeometry = new THREE.PlaneGeometry(4000, 4000);
-    const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x90EE90 });
+  const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x1d2735 });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
@@ -293,7 +295,7 @@ export const EnhancedEpicFlightDemo: React.FC<{
     const animate = () => {
       requestAnimationFrame(animate);
       
-      if (weatherData && cloudSystemRef.current) {
+  if (weatherData && cloudSystemRef.current && showClouds) {
         cloudSystemRef.current.updateClouds(
           weatherData.windSpeed,
           weatherData.windDirection,
@@ -686,7 +688,7 @@ export const EnhancedEpicFlightDemo: React.FC<{
               }}
               onWeatherUpdate={(weather) => {
                 setWeatherData(weather);
-                if (cloudSystemRef.current) {
+                if (cloudSystemRef.current && showClouds) {
                   cloudSystemRef.current.updateClouds(
                     weather.windSpeed,
                     weather.windDirection,

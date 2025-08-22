@@ -41,13 +41,13 @@ const DEFAULT_OPTIONS: Required<AbaqusAxisOptions> = {
 
 export class AbaqusStyleAxis {
   private options: Required<AbaqusAxisOptions>;
-  private container: HTMLDivElement;
-  private canvas: HTMLCanvasElement;
-  private context: CanvasRenderingContext2D;
-  private scene: THREE.Scene;
-  private camera: THREE.OrthographicCamera;
-  private renderer: THREE.WebGLRenderer;
-  private axisGroup: THREE.Group;
+  private container!: HTMLDivElement;
+  private canvas!: HTMLCanvasElement;
+  private context!: CanvasRenderingContext2D;
+  private scene!: THREE.Scene;
+  private camera!: THREE.OrthographicCamera;
+  private renderer!: THREE.WebGLRenderer;
+  private axisGroup!: THREE.Group;
   private mainCamera?: THREE.Camera;
   private isInitialized = false;
 

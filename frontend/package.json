@@ -5,9 +5,9 @@
   "description": "DeepCAD震撼3D地球控制中心 - NASA级渲染 + 双AI助手系统",
   "type": "module",
   "scripts": {
-  "dev": "vite --port 5310 --strictPort",
-  "port:free": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/free-port-5310.ps1 -Port 5310",
-  "dev:safe": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& { ./scripts/free-port-5310.ps1 -Port 5310; vite --port 5310 --strictPort }\"",
+    "dev": "vite --port 5310 --strictPort",
+    "port:free": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/free-port-5310.ps1 -Port 5310",
+    "dev:safe": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& { ./scripts/free-port-5310.ps1 -Port 5310; vite --port 5310 --strictPort }\"",
     "dev:5202": "vite --port 5202 --strictPort",
     "dev:5310": "vite --port 5310 --strictPort",
     "build": "vite build",
@@ -66,8 +66,8 @@
     "three": "0.165.0",
     "three-csg-ts": "3.2.0",
     "uuid": "11.1.0",
-  "zod": "^3.25.76",
-  "xlsx": "0.18.5",
+    "xlsx": "0.18.5",
+    "zod": "^3.25.76",
     "zustand": "^5.0.6"
   },
   "devDependencies": {
@@ -78,6 +78,7 @@
     "@types/d3": "7.4.3",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
+    "@types/webgl2": "0.0.11",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "@vitejs/plugin-react": "^4.7.0",

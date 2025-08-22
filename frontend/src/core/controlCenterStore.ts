@@ -31,19 +31,19 @@ function loadInitial(): Partial<ControlCenterState> {
   return {};
 }
 
-export const useControlCenterStore = create<ControlCenterState>((set) => ({
+export const useControlCenterStore = create<ControlCenterState>((set, get) => ({
   searchTerm: '',
   statusFilter: 'all',
   riskFilter: 'all',
   selectedProjectId: null,
   showWeatherPanel: true,
   showProjectDetails: false,
-  setSearchTerm: (v) => { set({ searchTerm: v }); persist(); },
-  setStatusFilter: (v) => { set({ statusFilter: v }); persist(); },
-  setRiskFilter: (v) => { set({ riskFilter: v }); persist(); },
-  setSelectedProjectId: (id) => { set({ selectedProjectId: id }); persist(); },
-  setShowWeatherPanel: (v) => { set({ showWeatherPanel: v }); persist(); },
-  setShowProjectDetails: (v) => { set({ showProjectDetails: v }); persist(); },
+  setSearchTerm: (v) => { if (get().searchTerm === v) return; set({ searchTerm: v }); persist(); },
+  setStatusFilter: (v) => { if (get().statusFilter === v) return; set({ statusFilter: v }); persist(); },
+  setRiskFilter: (v) => { if (get().riskFilter === v) return; set({ riskFilter: v }); persist(); },
+  setSelectedProjectId: (id) => { if (get().selectedProjectId === id) return; set({ selectedProjectId: id }); persist(); },
+  setShowWeatherPanel: (v) => { if (get().showWeatherPanel === v) return; set({ showWeatherPanel: v }); persist(); },
+  setShowProjectDetails: (v) => { if (get().showProjectDetails === v) return; set({ showProjectDetails: v }); persist(); },
   hydrate: () => { set(loadInitial() as any); }
 }));
 

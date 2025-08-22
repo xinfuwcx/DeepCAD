@@ -1901,6 +1901,11 @@
     fflate "~0.8.2"
     meshoptimizer "~0.22.0"
 
+"@types/webgl2@0.0.11":
+  version "0.0.11"
+  resolved "https://registry.npmjs.org/@types/webgl2/-/webgl2-0.0.11.tgz"
+  integrity sha512-LFa4je4lUbqDVRNeC2W1ZRM8dOgsGsm23MZO7m/EllCVg07yB65W3eUF4MAM+0LU9X6x/0NTrvXxAW0pmipNdw==
+
 "@types/webxr@*", "@types/webxr@^0.5.2":
   version "0.5.22"
   resolved "https://registry.npmjs.org/@types/webxr/-/webxr-0.5.22.tgz"

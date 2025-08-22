@@ -543,10 +543,12 @@ class KratosInterface:
 
     def _convert_cohesion_to_tension_yield(self, mat: MaterialProperties) -> float:
         """
-        将Midas GTS的COHESION参数转换为Kratos的YIELD_STRESS_TENSION
+        将FPN粘聚力转换为Kratos拉伸屈服应力
 
-        基于摩尔-库伦理论：τ = σ·tan(φ) + c
-        在纯拉伸状态下，抗拉强度约等于粘聚力的函数
+        基于摩尔-库伦屈服准则的标准转换公式：
+        σ_t = 2c × cos(φ) / (1 + sin(φ))
+
+        参考：Abaqus理论手册，摩尔-库伦模型
         """
         cohesion = getattr(mat, 'cohesion', 35000.0)  # Pa
         friction_angle = getattr(mat, 'friction_angle', 28.0)  # degrees
@@ -554,17 +556,21 @@ class KratosInterface:
         # 转换为弧度
         phi_rad = math.radians(friction_angle)
 
-        # 基于摩尔-库伦理论的转换
-        # 抗拉强度 ≈ 2*c*cos(φ)/(1+sin(φ))
-        tension_yield = 2.0 * cohesion * math.cos(phi_rad) / (1.0 + math.sin(phi_rad))
+        # 标准摩尔-库伦拉伸屈服应力公式
+        sin_phi = math.sin(phi_rad)
+        cos_phi = math.cos(phi_rad)
+        tension_yield = 2.0 * cohesion * cos_phi / (1.0 + sin_phi)
 
         return float(max(tension_yield, 1000.0))  # 最小值1kPa
 
     def _convert_cohesion_to_compression_yield(self, mat: MaterialProperties) -> float:
         """
-        将Midas GTS的COHESION参数转换为Kratos的YIELD_STRESS_COMPRESSION
+        将FPN粘聚力转换为Kratos压缩屈服应力
 
-        基于摩尔-库伦理论的压缩屈服强度
+        基于摩尔-库伦屈服准则的标准转换公式：
+        σ_c = 2c × cos(φ) / (1 - sin(φ))
+
+        参考：Abaqus理论手册，摩尔-库伦模型
         """
         cohesion = getattr(mat, 'cohesion', 35000.0)  # Pa
         friction_angle = getattr(mat, 'friction_angle', 28.0)  # degrees
@@ -572,60 +578,108 @@ class KratosInterface:
         # 转换为弧度
         phi_rad = math.radians(friction_angle)
 
-        # 基于摩尔-库伦理论的转换
-        # 抗压强度 ≈ 2*c*cos(φ)/(1-sin(φ))
-        compression_yield = 2.0 * cohesion * math.cos(phi_rad) / (1.0 - math.sin(phi_rad))
+        # 标准摩尔-库伦压缩屈服应力公式
+        sin_phi = math.sin(phi_rad)
+        cos_phi = math.cos(phi_rad)
+        compression_yield = 2.0 * cohesion * cos_phi / (1.0 - sin_phi)
 
         return float(max(compression_yield, 10000.0))  # 最小值10kPa
 
+    def _calculate_dilatancy_angle(self, friction_angle: float, density: float = 2000.0) -> float:
+        """
+        计算剪胀角，基于Bolton (1986) 经验关系
+
+        ψ = max(0, φ - 30°)  # 密实土
+        ψ = max(0, (φ - 30°) × 0.5)  # 松散土（密度 < 1800 kg/m³）
+
+        约束条件：0° ≤ ψ ≤ φ
+        """
+        # Bolton经验关系
+        dilatancy_base = max(0.0, friction_angle - 30.0)
+
+        # 密度修正
+        if density < 1800.0:  # 松散土
+            dilatancy_angle = dilatancy_base * 0.5
+        else:  # 密实土
+            dilatancy_angle = dilatancy_base
+
+        # 确保剪胀角不超过摩擦角
+        dilatancy_angle = min(dilatancy_angle, friction_angle)
+
+        return float(dilatancy_angle)
+
     def _write_materials(self, workdir: Path) -> Path:
-        """写出 Kratos materials.json，使用修正摩尔-库伦本构法则"""
-        # 使用实际的材料配置而不是硬编码
+        """写出 Kratos materials.json - 严格按FPN数据"""
         materials = []
 
-        # 土体材料 - 使用修正摩尔-库伦本构
+        # 严格按FPN材料数据生成Kratos配置，正确映射摩尔库伦参数
         if self.materials:
             for mat_id, mat in self.materials.items():
-                materials.append({
-                    "model_part_name": "Structure",
-                    "properties_id": mat_id,
-                    "Material": {
-                        "name": f"Soil_{mat.name}",
-                        "constitutive_law": {"name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"},
-                        "Variables": {
-                            "DENSITY": float(mat.density),
-                            "YOUNG_MODULUS": float(mat.young_modulus),
-                            "POISSON_RATIO": float(mat.poisson_ratio),
-                            # 从Midas GTS的COHESION转换为Kratos参数
-                            "YIELD_STRESS_TENSION": self._convert_cohesion_to_tension_yield(mat),
-                            "YIELD_STRESS_COMPRESSION": self._convert_cohesion_to_compression_yield(mat),
-                            "FRICTION_ANGLE": float(getattr(mat, 'friction_angle', 28.0)),  # 度
-                            # 不写入 DILATANCY_ANGLE（损伤版不接受该参数名）
-                            "FRACTURE_ENERGY": float(getattr(mat, 'fracture_energy', 1000.0)),
-                            "SOFTENING_TYPE": 1  # 指数软化
-                        },
-                        "Tables": {}
-                    }
-                })
-        else:
-            # 默认土体材料
+                # 检查是否有摩尔库伦参数
+                has_friction = hasattr(mat, 'friction_angle') and mat.friction_angle > 0
+                has_cohesion = hasattr(mat, 'cohesion') and mat.cohesion > 0
+
+                if has_friction and has_cohesion:
+                    # 使用Kratos损伤版摩尔库伦本构（与当前系统兼容）
+                    # 参数映射：FPN粘聚力 → Kratos屈服应力
+                    phi_rad = math.radians(float(mat.friction_angle))
+                    cohesion_pa = float(mat.cohesion)
+
+                    # 基于摩尔库伦准则计算屈服应力
+                    tan_factor = math.tan(math.pi/4 + phi_rad/2)
+                    yield_tension = max(cohesion_pa / tan_factor, 10000.0)  # 最小10kPa
+                    yield_compression = cohesion_pa * tan_factor * 2
+
+                    materials.append({
+                        "model_part_name": f"Structure.MAT_{mat_id}",
+                        "properties_id": mat_id,
+                        "Material": {
+                            "constitutive_law": {"name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"},
+                            "Variables": {
+                                "DENSITY": float(mat.density),
+                                "YOUNG_MODULUS": float(mat.young_modulus),
+                                "POISSON_RATIO": float(mat.poisson_ratio),
+                                "YIELD_STRESS_TENSION": yield_tension,
+                                "YIELD_STRESS_COMPRESSION": yield_compression,
+                                "FRICTION_ANGLE": float(mat.friction_angle),  # 度数，不转弧度
+                                "DILATANCY_ANGLE": max(0.0, float(mat.friction_angle) - 30.0),  # Bolton关系
+                                "FRACTURE_ENERGY": 1000.0,
+                                "SOFTENING_TYPE": 1
+                            },
+                            "Tables": {}
+                        }
+                    })
+                else:
+                    # 使用线弹性本构
+                    materials.append({
+                        "model_part_name": f"Structure.MAT_{mat_id}",
+                        "properties_id": mat_id,
+                        "Material": {
+                            "constitutive_law": {"name": "LinearElastic3DLaw"},
+                            "Variables": {
+                                "DENSITY": float(mat.density),
+                                "YOUNG_MODULUS": float(mat.young_modulus),
+                                "POISSON_RATIO": float(mat.poisson_ratio)
+                            },
+                            "Tables": {}
+                        }
+                    })
+
+        # 如果没有FPN材料数据，严格模式下报错
+        if not materials and self.strict_mode:
+            raise RuntimeError("严格模式下未找到FPN材料数据，无法生成材料配置")
+        elif not materials:
+            # 非严格模式下的默认材料
             materials.append({
                 "model_part_name": "Structure",
                 "properties_id": 1,
                 "Material": {
                     "name": "DefaultSoil",
-                    "constitutive_law": {"name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"},
+                    "constitutive_law": {"name": "LinearElastic3DLaw"},
                     "Variables": {
-                        "DENSITY": 1900.0,
+                        "DENSITY": 2000.0,
                         "YOUNG_MODULUS": 25e6,
-                        "POISSON_RATIO": 0.3,
-                        # 使用基于COHESION=35kPa的转换值
-                        "YIELD_STRESS_TENSION": 54000.0,  # 2*35000*cos(28°)/(1+sin(28°))
-                        "YIELD_STRESS_COMPRESSION": 120000.0,  # 2*35000*cos(28°)/(1-sin(28°))
-                        "FRICTION_ANGLE": 28.0,
-                        # 注意：Kratos不支持DILATANCY_ANGLE参数
-                        "FRACTURE_ENERGY": 1000.0,
-                        "SOFTENING_TYPE": 1
+                        "POISSON_RATIO": 0.3
                     },
                     "Tables": {}
                 }
@@ -911,7 +965,12 @@ class KratosInterface:
                             z_tol = abs(z_min) * 0.01 if z_min != 0 else 100
                             bottom_nodes = [n['id'] for n in all_nodes if abs(n['coordinates'][2] - z_min) <= z_tol]
                             if bottom_nodes:
-
+                                f.write("Begin SubModelPart BND_BOTTOM\n")
+                                f.write("  Begin SubModelPartNodes\n")
+                                for nid in bottom_nodes:
+                                    f.write(f"  {nid}\n")
+                                f.write("  End SubModelPartNodes\n")
+                                f.write("End SubModelPart\n\n")
                 except Exception:
                     pass
 
@@ -1008,25 +1067,70 @@ class KratosInterface:
             # 假设土体属性ID在 self.materials 中；Truss/Shell 的属性ID另行处理
             if mat_id in self.materials:
                 mat = self.materials[mat_id]
-                props.append({
-                    "model_part_name": f"Structure.MAT_{mat_id}",
-                    "properties_id": mat_id,
-                    "Material": {
-                        "constitutive_law": {"name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"},
-                        "Variables": {
-                            "DENSITY": float(mat.density),
-                            "YOUNG_MODULUS": float(mat.young_modulus),
-                            "POISSON_RATIO": float(mat.poisson_ratio),
-                            # 使用与当前损伤版Mohr-Coulomb兼容的参数名称（不写入剪胀角）
-                            "YIELD_STRESS_TENSION": float(getattr(mat, 'yield_stress_tension', 500000.0)),  # 默认500kPa
-                            "YIELD_STRESS_COMPRESSION": float(getattr(mat, 'yield_stress_compression', 8000000.0)),  # 默认8MPa
-                            "FRICTION_ANGLE": float(getattr(mat, 'friction_angle', 28.0)),  # 度数
-                            "FRACTURE_ENERGY": float(getattr(mat, 'fracture_energy', 1000.0)),  # 默认1000J/m²
-                            "SOFTENING_TYPE": 1  # 指数软化
-                        },
-                        "Tables": {}
-                    }
-                })
+                # 检查是否有摩尔库伦参数
+                has_friction = hasattr(mat, 'friction_angle') and mat.friction_angle > 0
+                has_cohesion = hasattr(mat, 'cohesion') and mat.cohesion > 0
+
+                if has_friction and has_cohesion:
+                    # 使用Kratos损伤版摩尔库伦本构（与当前系统兼容）
+                    # 参数映射：FPN粘聚力 → Kratos屈服应力（标准公式）
+                    phi_rad = math.radians(float(mat.friction_angle))
+                    cohesion_pa = float(mat.cohesion)
+                    density = getattr(mat, 'density', 2000.0)
+
+                    # 使用标准摩尔-库伦屈服应力转换公式
+                    sin_phi = math.sin(phi_rad)
+                    cos_phi = math.cos(phi_rad)
+                    yield_tension = 2.0 * cohesion_pa * cos_phi / (1.0 + sin_phi)
+                    yield_compression = 2.0 * cohesion_pa * cos_phi / (1.0 - sin_phi)
+
+                    # 确保最小值
+                    yield_tension = max(yield_tension, 1000.0)  # 最小1kPa
+                    yield_compression = max(yield_compression, 10000.0)  # 最小10kPa
+
+                    props.append({
+                        "model_part_name": f"Structure.MAT_{mat_id}",
+                        "properties_id": mat_id,
+                        "Material": {
+                            "constitutive_law": {"name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"},
+                            "Variables": {
+                                "DENSITY": float(mat.density),
+                                "YOUNG_MODULUS": float(mat.young_modulus),
+                                "POISSON_RATIO": float(mat.poisson_ratio),
+                                "YIELD_STRESS_TENSION": yield_tension,
+                                "YIELD_STRESS_COMPRESSION": yield_compression,
+                                "FRICTION_ANGLE": float(mat.friction_angle),  # 度数，不转弧度
+                                "DILATANCY_ANGLE": self._calculate_dilatancy_angle(float(mat.friction_angle), density),  # Bolton关系
+                                "FRACTURE_ENERGY": 1000.0,
+                                "SOFTENING_TYPE": 1
+                            },
+                            "Tables": {}
+                        }
+                    })
+                    # 计算剪胀角和K比值用于显示
+                    dilatancy_display = self._calculate_dilatancy_angle(float(mat.friction_angle), density)
+                    K_ratio = yield_tension / yield_compression
+                    theoretical_K = (1.0 - sin_phi) / (1.0 + sin_phi)
+
+                    print(f"🎯 材料{mat_id}: 摩尔库伦本构 (φ={mat.friction_angle}°, c={mat.cohesion/1000:.1f}kPa)")
+                    print(f"   → 拉伸屈服: {yield_tension/1000:.1f}kPa, 压缩屈服: {yield_compression/1000:.1f}kPa")
+                    print(f"   → 剪胀角: {dilatancy_display:.1f}° (Bolton关系), K比值: {K_ratio:.3f}")
+                else:
+                    # 使用线弹性本构
+                    props.append({
+                        "model_part_name": f"Structure.MAT_{mat_id}",
+                        "properties_id": mat_id,
+                        "Material": {
+                            "constitutive_law": {"name": "LinearElastic3DLaw"},
+                            "Variables": {
+                                "DENSITY": float(mat.density),
+                                "YOUNG_MODULUS": float(mat.young_modulus),
+                                "POISSON_RATIO": float(mat.poisson_ratio)
+                            },
+                            "Tables": {}
+                        }
+                    })
+                    print(f"🎯 材料{mat_id}: 线弹性本构")
         # Truss（锚杆）：截面面积 + 钢材参数（若 FPN PETRUSS 提供 area 则使用）
         if any(el.get('type') == 'TrussElement3D2N' for el in self.model_data.get('elements', [])):
             TRUSS_PROP_ID = 200000
@@ -1223,12 +1327,15 @@ class KratosInterface:
                 # 特例映射：若存在BSET 8 而阶段给的是1，则映射到8
                 if 1 in active_b and 8 in existing_ids:
                     effective = {8}
+                    print(f"✅ 边界组映射: BADD组1 → BSET组8")
                 # 若仅有单一边界组，则直接采用该组
                 elif len(existing_ids) == 1:
                     effective = set(existing_ids)
+                    print(f"✅ 边界组映射: 使用唯一组 {effective}")
             if effective:
                 active_b = effective
-        except Exception:
+        except Exception as e:
+            print(f"❌ 边界组映射失败: {e}")
             pass
         # 与 MDPA 写出一致：仅对被元素实际引用的节点进行分桶
         used_node_ids = set()
