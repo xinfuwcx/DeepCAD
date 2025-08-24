@@ -54,6 +54,16 @@ def test_fluid_dynamics():
         print(f"⚠️ FluidDynamicsApplication 不可用: {e}")
         return False
 
+def test_constitutive_laws():
+    """测试本构定律模块"""
+    try:
+        import KratosMultiphysics.ConstitutiveLawsApplication
+        print("✅ ConstitutiveLawsApplication 导入成功")
+        return True
+    except Exception as e:
+        print(f"⚠️ ConstitutiveLawsApplication 不可用: {e}")
+        return False
+
 def main():
     """主测试函数"""
     print("="*50)
@@ -64,7 +74,8 @@ def main():
         ("Kratos核心", test_kratos_core),
         ("地质力学", test_geo_mechanics),
         ("结构力学", test_structural_mechanics),
-        ("流体力学", test_fluid_dynamics)
+        ("流体力学", test_fluid_dynamics),
+        ("本构定律", test_constitutive_laws)
     ]
     
     results = []

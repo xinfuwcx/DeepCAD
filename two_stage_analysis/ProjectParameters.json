@@ -1,0 +1,573 @@
+{
+  "problem_data": {
+    "problem_name": "anchored_two_stage_cable_prestress",
+    "parallel_type": "OpenMP",
+    "echo_level": 2,
+    "start_time": 0.0,
+    "end_time": 2.0
+  },
+  "solver_settings": {
+    "solver_type": "Static",
+    "model_part_name": "Structure",
+    "domain_size": 3,
+    "echo_level": 2,
+    "analysis_type": "non_linear",
+    "model_import_settings": {
+      "input_type": "mdpa",
+      "input_filename": "two_stage"
+    },
+    "material_import_settings": {
+      "materials_filename": "Materials.json"
+    },
+    "time_stepping": {
+      "time_step": 0.25
+    },
+    "solving_strategy_settings": {
+      "type": "line_search",
+      "max_iteration": 50,
+      "convergence_criterion": "and_criterion",
+      "displacement_relative_tolerance": 0.001,
+      "residual_relative_tolerance": 0.001
+    }
+  },
+  "processes": {
+    "constraints_process_list": [
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.BOTTOM_SUPPORT",
+          "variable_name": "DISPLACEMENT",
+          "constrained": [
+            true,
+            true,
+            true
+          ],
+          "value": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interval": [
+            0.0,
+            "End"
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.BOUNDARY_8_111000",
+          "variable_name": "DISPLACEMENT",
+          "constrained": [
+            true,
+            true,
+            true
+          ],
+          "value": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interval": [
+            0.0,
+            "End"
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.BOUNDARY_8_100000",
+          "variable_name": "DISPLACEMENT",
+          "constrained": [
+            true,
+            false,
+            false
+          ],
+          "value": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interval": [
+            0.0,
+            "End"
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.BOUNDARY_8_010000",
+          "variable_name": "DISPLACEMENT",
+          "constrained": [
+            false,
+            true,
+            false
+          ],
+          "value": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interval": [
+            0.0,
+            "End"
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHOR_ENDS",
+          "variable_name": "DISPLACEMENT",
+          "constrained": [
+            true,
+            true,
+            true
+          ],
+          "value": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interval": [
+            0.0,
+            "End"
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS",
+          "variable_name": "DISPLACEMENT",
+          "constrained": [
+            false,
+            true,
+            false
+          ],
+          "value": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interval": [
+            0.0,
+            "End"
+          ]
+        }
+      }
+    ],
+    "loads_process_list": [
+      {
+        "python_module": "assign_vector_by_direction_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorByDirectionProcess",
+        "Parameters": {
+          "model_part_name": "Structure",
+          "variable_name": "VOLUME_ACCELERATION",
+          "modulus": 9.80665,
+          "direction": [
+            0.0,
+            -1.0,
+            0.0
+          ],
+          "constrained": false,
+          "interval": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 10000.0,
+          "interval": [
+            0.0,
+            "End"
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_345000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 3389410.824316305,
+          "interval": [
+            0.0,
+            0.25
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_345000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 6778821.64863261,
+          "interval": [
+            0.25,
+            0.5
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_345000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 10168232.472948916,
+          "interval": [
+            0.5,
+            0.75
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_345000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 13557643.29726522,
+          "interval": [
+            0.75,
+            1.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_360000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 3536776.5123300576,
+          "interval": [
+            0.0,
+            0.25
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_360000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 7073553.024660115,
+          "interval": [
+            0.25,
+            0.5
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_360000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 10610329.536990173,
+          "interval": [
+            0.5,
+            0.75
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_360000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 14147106.04932023,
+          "interval": [
+            0.75,
+            1.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_450000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 4420970.640412572,
+          "interval": [
+            0.0,
+            0.25
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_450000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 8841941.280825144,
+          "interval": [
+            0.25,
+            0.5
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_450000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 13262911.921237715,
+          "interval": [
+            0.5,
+            0.75
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_450000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 17683882.561650287,
+          "interval": [
+            0.75,
+            1.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_670000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 6582334.064614274,
+          "interval": [
+            0.0,
+            0.25
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_670000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 13164668.129228547,
+          "interval": [
+            0.25,
+            0.5
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_670000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 19747002.19384282,
+          "interval": [
+            0.5,
+            0.75
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_670000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 26329336.258457094,
+          "interval": [
+            0.75,
+            1.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_640000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 6287602.688586769,
+          "interval": [
+            0.0,
+            0.25
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_640000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 12575205.377173537,
+          "interval": [
+            0.25,
+            0.5
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_640000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 18862808.065760307,
+          "interval": [
+            0.5,
+            0.75
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_640000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 25150410.754347075,
+          "interval": [
+            0.75,
+            1.0
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_550000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 5403408.560504255,
+          "interval": [
+            0.0,
+            0.25
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_550000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 10806817.12100851,
+          "interval": [
+            0.25,
+            0.5
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_550000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 16210225.681512766,
+          "interval": [
+            0.5,
+            0.75
+          ]
+        }
+      },
+      {
+        "python_module": "assign_scalar_variable_to_elements_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignScalarVariableToElementsProcess",
+        "Parameters": {
+          "model_part_name": "Structure.ANCHORS_550000N",
+          "variable_name": "TRUSS_PRESTRESS_PK2",
+          "value": 21613634.24201702,
+          "interval": [
+            0.75,
+            1.0
+          ]
+        }
+      }
+    ]
+  },
+  "output_processes": {
+    "vtk_output": [
+      {
+        "python_module": "vtk_output_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "VtkOutputProcess",
+        "Parameters": {
+          "model_part_name": "Structure",
+          "output_control_type": "step",
+          "output_interval": 1,
+          "file_format": "ascii",
+          "output_precision": 7,
+          "output_sub_model_parts": true,
+          "output_path": "VTK_Output",
+          "save_output_files_in_folder": true,
+          "nodal_solution_step_data_variables": [
+            "DISPLACEMENT",
+            "REACTION"
+          ],
+          "element_data_value_variables": [
+            "VON_MISES_STRESS"
+          ]
+        }
+      }
+    ]
+  }
+}

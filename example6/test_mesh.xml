@@ -1,0 +1,21 @@
+<dolfin nsmap="{'dolfin': 'https://fenicsproject.org/'}">
+  <mesh celltype="tetrahedron" dim="3">
+    <vertices size="8">
+      <vertex index="0" x="0.0" y="0.0" z="0.0" />
+      <vertex index="1" x="1.0" y="0.0" z="0.0" />
+      <vertex index="2" x="1.0" y="1.0" z="0.0" />
+      <vertex index="3" x="0.0" y="1.0" z="0.0" />
+      <vertex index="4" x="0.0" y="0.0" z="1.0" />
+      <vertex index="5" x="1.0" y="0.0" z="1.0" />
+      <vertex index="6" x="1.0" y="1.0" z="1.0" />
+      <vertex index="7" x="0.0" y="1.0" z="1.0" />
+    </vertices>
+    <cells size="5">
+      <tetrahedron index="0" v0="0" v1="1" v2="2" v3="3" />
+      <tetrahedron index="1" v0="4" v1="5" v2="6" v3="7" />
+      <tetrahedron index="2" v0="0" v1="4" v2="7" v3="3" />
+      <tetrahedron index="3" v0="1" v1="5" v2="6" v3="2" />
+      <tetrahedron index="4" v0="0" v1="1" v2="5" v3="4" />
+    </cells>
+  </mesh>
+</dolfin>

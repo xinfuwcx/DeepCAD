@@ -14,13 +14,16 @@ pandas>=1.3.0
 matplotlib>=3.5.0
 seaborn>=0.11.0
 
-# 可选：3D可视化
+# 可选：3D可视化（专业版界面使用；未安装则自动降级为占位视图）
 pyvista>=0.37.0
 pyvistaqt>=0.9.0
 
-# 可选：FEniCS数值求解（需要单独安装）
-# fenics>=2019.1.0
-# mshr>=2019.1.0
+# 可选：FEniCS 数值求解
+# - 传统 FEniCS (dolfin+mshr) [Linux 推荐]：
+#   fenics>=2019.1.0
+#   mshr>=2019.1.0
+# - 或 FEniCSx (dolfinx) [Windows/跨平台，需改造求解器]：使用 example6/install_fenics.ps1
+# 未安装 FEniCS 时会自动使用简化数值模型，经验/混合模式仍可用。
 
 # 可选：图标库
 qtawesome>=1.2.0

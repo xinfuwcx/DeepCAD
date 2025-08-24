@@ -18,14 +18,24 @@ import time
 from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
 
-from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QSlider,
-    QComboBox, QPushButton, QSpinBox, QDoubleSpinBox, QCheckBox,
-    QGroupBox, QGridLayout, QSplitter, QProgressBar, QToolButton,
-    QButtonGroup, QRadioButton, QTabWidget
-)
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread, QObject
-from PyQt6.QtGui import QIcon, QColor, QPalette
+try:
+    from PyQt6.QtWidgets import (
+        QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QSlider,
+        QComboBox, QPushButton, QSpinBox, QDoubleSpinBox, QCheckBox,
+        QGroupBox, QGridLayout, QSplitter, QProgressBar, QToolButton,
+        QButtonGroup, QRadioButton, QTabWidget
+    )
+    from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread, QObject
+    from PyQt6.QtGui import QIcon, QColor, QPalette
+except ImportError:
+    from PyQt5.QtWidgets import (
+        QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QSlider,
+        QComboBox, QPushButton, QSpinBox, QDoubleSpinBox, QCheckBox,
+        QGroupBox, QGridLayout, QSplitter, QProgressBar, QToolButton,
+        QButtonGroup, QRadioButton, QTabWidget
+    )
+    from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QThread, QObject
+    from PyQt5.QtGui import QIcon, QColor, QPalette
 
 # PyVista和VTK导入
 try:
@@ -44,6 +54,34 @@ try:
     QTA_AVAILABLE = True
 except ImportError:
     QTA_AVAILABLE = False
+
+# Abaqus风格的3D视口配置 - 与界面协调
+ABAQUS_3D_CONFIG = {
+    'background': {
+        'gradient_top': [0.24, 0.24, 0.24],      # 与界面#3c3c3c协调的深灰
+        'gradient_bottom': [0.16, 0.16, 0.16],   # 更深的灰色#2a2a2a
+        'enable_gradient': True
+    },
+    'lighting': {
+        'ambient_light': 0.3,
+        'diffuse_light': 0.7,
+        'specular_light': 0.2,
+        'metallic': 0.1,
+        'roughness': 0.3,
+        'enable_shadows': True,
+        'enable_ssao': True  # Screen Space Ambient Occlusion
+    },
+    'camera': {
+        'initial_zoom': 1.2,
+        'parallel_projection': False,
+        'enable_anti_aliasing': True
+    },
+    'viewport': {
+        'min_width': 1200,
+        'min_height': 800,
+        'preferred_ratio': 3.0  # 3D视口占总界面的比例
+    }
+}
 
 
 class FlowFieldGenerator:
@@ -285,21 +323,27 @@ class Enhanced3DViewport(QFrame):
         layout.setSpacing(0)
         
         # 创建分割器
-        splitter = QSplitter(Qt.Orientation.Horizontal)
+        try:
+            splitter = QSplitter(Qt.Orientation.Horizontal)
+        except AttributeError:
+            splitter = QSplitter(Qt.Horizontal)
         
-        # 3D视图区域
+        # 3D视图区域 - 使用Abaqus级别的大尺寸
         self.viewer_frame = QFrame()
-        self.viewer_frame.setMinimumSize(600, 400)
+        min_width = ABAQUS_3D_CONFIG['viewport']['min_width']
+        min_height = ABAQUS_3D_CONFIG['viewport']['min_height']
+        self.viewer_frame.setMinimumSize(min_width, min_height)
         self.setup_3d_viewer()
         splitter.addWidget(self.viewer_frame)
         
-        # 控制面板
+        # 控制面板 - 紧凑化设计
         self.control_panel = self.create_control_panel()
-        self.control_panel.setMaximumWidth(300)
+        self.control_panel.setMaximumWidth(280)
         splitter.addWidget(self.control_panel)
         
-        # 设置分割比例
-        splitter.setSizes([800, 300])
+        # 设置分割比例 - 3D视口占主要空间
+        preferred_3d_width = int(min_width * ABAQUS_3D_CONFIG['viewport']['preferred_ratio'] / 4)
+        splitter.setSizes([preferred_3d_width, 280])
         layout.addWidget(splitter)
         
         # 底部时间轴控制
@@ -330,18 +374,86 @@ class Enhanced3DViewport(QFrame):
             self.create_fallback_viewer(viewer_layout)
     
     def setup_rendering_quality(self):
-        """设置高质量渲染"""
+        """设置Abaqus级别的高质量渲染"""
         if not hasattr(self, 'plotter'):
             return
+        
+        config = ABAQUS_3D_CONFIG
+        
+        try:
+            # 抗锯齿 - 最高质量
+            if config['camera']['enable_anti_aliasing']:
+                self.plotter.enable_anti_aliasing('ssaa')  # Super Sample Anti-Aliasing
             
-        # 抗锯齿
-        self.plotter.enable_anti_aliasing()
-        
-        # 设置背景渐变
-        self.plotter.set_background('#1e3a8a')
-        
-        # 启用深度测试
-        self.plotter.enable_depth_peeling(10)
+            # Abaqus风格渐变背景 - 修复PyVista语法
+            if config['background']['enable_gradient']:
+                top_color = config['background']['gradient_top']
+                bottom_color = config['background']['gradient_bottom']
+                # PyVista正确的渐变背景语法
+                try:
+                    # 新版PyVista语法
+                    self.plotter.set_background(color=top_color, color2=bottom_color)
+                except TypeError:
+                    # 旧版PyVista语法兼容
+                    try:
+                        self.plotter.set_background(top_color, bottom_color)
+                    except:
+                        # 降级为单色背景
+                        self.plotter.set_background([0.15, 0.17, 0.25])  # Abaqus深蓝灰
+            
+            # 专业级光照设置
+            light_config = config['lighting']
+            
+            # 移除默认光源
+            self.plotter.remove_all_lights()
+            
+            # 专业光照系统 - 兼容不同PyVista版本
+            try:
+                # 主光源 - 模拟Abaqus的工作室照明
+                main_light = pv.Light()
+                main_light.set_direction_angle(30, -30)
+                main_light.intensity = light_config['diffuse_light']
+                # 修复光照类型枚举问题
+                try:
+                    main_light.light_type = pv.LightType.SCENE_LIGHT
+                except:
+                    main_light.light_type = 2  # SCENE_LIGHT枚举值
+                self.plotter.add_light(main_light)
+                
+                # 环境光
+                ambient_light = pv.Light()
+                try:
+                    ambient_light.light_type = pv.LightType.AMBIENT_LIGHT
+                except:
+                    ambient_light.light_type = 3  # AMBIENT_LIGHT枚举值
+                ambient_light.intensity = light_config['ambient_light']
+                self.plotter.add_light(ambient_light)
+                
+            except Exception as e:
+                print(f"高级光照设置失败，使用默认光照: {e}")
+                # 降级到默认光照
+            
+            # 高级渲染特性
+            if light_config['enable_shadows']:
+                # self.plotter.enable_shadows()  # 如果支持阴影
+                pass
+                
+            # 深度缓冲和透明度
+            self.plotter.enable_depth_peeling(15)  # 更好的透明度渲染
+            
+            # 相机配置
+            camera_config = config['camera']
+            self.plotter.camera.zoom(camera_config['initial_zoom'])
+            self.plotter.camera.SetParallelProjection(camera_config['parallel_projection'])
+            
+            # 设置初始视角 - 类似Abaqus的isometric视图
+            self.plotter.view_isometric()
+            
+        except Exception as e:
+            print(f"高级渲染设置失败: {e}")
+            # 降级到基础设置
+            self.plotter.set_background([0.1, 0.1, 0.2])
+            self.plotter.enable_anti_aliasing()
         
         # 设置光照
         self.plotter.enable_shadows()
@@ -389,25 +501,29 @@ class Enhanced3DViewport(QFrame):
             print(f"创建3D场景失败: {e}")
     
     def add_pier_geometry(self):
-        """添加桥墩几何体"""
-        # 创建圆柱形桥墩
+        """添加桥墩几何体 - Abaqus级别材质"""
+        # 创建高精度圆柱形桥墩
         pier = pv.Cylinder(
             center=(0, 0, 1),
             direction=(0, 0, 1),
             radius=1.0,
             height=6.0,
-            resolution=32
+            resolution=64  # 更高精度
         )
         
-        # 添加材质
+        # 计算法线用于高级光照
+        pier = pier.compute_normals(split_vertices=True)
+        
+        # Abaqus风格的钢筋混凝土材质
         self.plotter.add_mesh(
             pier,
-            color='#4a5568',
-            pbr=True,
-            metallic=0.1,
-            roughness=0.5,
-            opacity=0.9,
-            name='pier'
+            color='#2c3e50',  # 深灰蓝色
+            pbr=True,  # 物理基础渲染
+            metallic=ABAQUS_3D_CONFIG['lighting']['metallic'],
+            roughness=ABAQUS_3D_CONFIG['lighting']['roughness'],
+            opacity=0.95,
+            smooth_shading=True,
+            name='pier_geometry'
         )
     
     def add_domain_geometry(self):
@@ -600,7 +716,10 @@ class Enhanced3DViewport(QFrame):
         opacity_group = QGroupBox("透明度")
         opacity_layout = QVBoxLayout(opacity_group)
         
-        self.opacity_slider = QSlider(Qt.Orientation.Horizontal)
+        try:
+            self.opacity_slider = QSlider(Qt.Orientation.Horizontal)
+        except AttributeError:
+            self.opacity_slider = QSlider(Qt.Horizontal)
         self.opacity_slider.setRange(10, 100)
         self.opacity_slider.setValue(80)
         self.opacity_slider.valueChanged.connect(self.change_opacity)
@@ -694,7 +813,10 @@ class Enhanced3DViewport(QFrame):
         layout.addWidget(self.play_button)
         
         # 时间滑块
-        self.time_slider = QSlider(Qt.Orientation.Horizontal)
+        try:
+            self.time_slider = QSlider(Qt.Orientation.Horizontal)
+        except AttributeError:
+            self.time_slider = QSlider(Qt.Horizontal)
         self.time_slider.setRange(0, 49)  # 50帧
         self.time_slider.setValue(0)
         self.time_slider.valueChanged.connect(self.set_animation_frame)
@@ -710,7 +832,10 @@ class Enhanced3DViewport(QFrame):
         speed_label.setStyleSheet("color: white;")
         layout.addWidget(speed_label)
         
-        self.speed_slider = QSlider(Qt.Orientation.Horizontal)
+        try:
+            self.speed_slider = QSlider(Qt.Orientation.Horizontal)
+        except AttributeError:
+            self.speed_slider = QSlider(Qt.Horizontal)
         self.speed_slider.setRange(50, 500)
         self.speed_slider.setValue(100)
         self.speed_slider.setFixedWidth(100)

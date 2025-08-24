@@ -31,7 +31,7 @@
     "residual_relative_tolerance": 0.0001,
     "residual_absolute_tolerance": 1e-09,
     "max_iteration": 20,
-    "rotation_dofs": false
+    "rotation_dofs": true
   },
   "processes": {
     "constraints_process_list": [
@@ -40,12 +40,104 @@
         "kratos_module": "KratosMultiphysics",
         "process_name": "AssignVectorVariableProcess",
         "Parameters": {
-          "model_part_name": "Structure.BOTTOM_SUPPORT",
+          "model_part_name": "Structure.BOUNDARY_GROUP_8_111000",
           "variable_name": "DISPLACEMENT",
           "constrained": [
             true,
             true,
             true
+          ],
+          "value": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interval": [
+            0.0,
+            "End"
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.BOUNDARY_GROUP_8_100000",
+          "variable_name": "DISPLACEMENT",
+          "constrained": [
+            true,
+            false,
+            false
+          ],
+          "value": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interval": [
+            0.0,
+            "End"
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.BOUNDARY_GROUP_8_010000",
+          "variable_name": "DISPLACEMENT",
+          "constrained": [
+            false,
+            true,
+            false
+          ],
+          "value": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interval": [
+            0.0,
+            "End"
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure",
+          "variable_name": "ROTATION",
+          "constrained": [
+            true,
+            true,
+            true
+          ],
+          "value": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interval": [
+            0.0,
+            "End"
+          ]
+        }
+      },
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.MAT_1",
+          "variable_name": "ROTATION",
+          "constrained": [
+            false,
+            false,
+            false
           ],
           "value": [
             0.0,
@@ -78,6 +170,38 @@
             0.0,
             "End"
           ]
+        }
+      },
+      {
+        "python_module": "assign_master_slave_constraints_to_neighbours_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignMasterSlaveConstraintsToNeighboursProcess",
+        "Parameters": {
+          "model_part_name": "Structure",
+          "slave_model_part_name": "Structure.ANCHOR_TO_SHELL",
+          "master_model_part_name": "Structure.MAT_1",
+          "variable_names": [
+            "DISPLACEMENT"
+          ],
+          "search_radius": 0.5,
+          "minimum_number_of_neighbouring_nodes": 3,
+          "reform_constraints_at_each_step": false
+        }
+      },
+      {
+        "python_module": "assign_master_slave_constraints_to_neighbours_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignMasterSlaveConstraintsToNeighboursProcess",
+        "Parameters": {
+          "model_part_name": "Structure",
+          "slave_model_part_name": "Structure.ANCHOR_TO_SOIL",
+          "master_model_part_name": "Structure.SOLID_HOST",
+          "variable_names": [
+            "DISPLACEMENT"
+          ],
+          "search_radius": 1.0,
+          "minimum_number_of_neighbouring_nodes": 3,
+          "reform_constraints_at_each_step": false
         }
       }
     ],

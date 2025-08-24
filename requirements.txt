@@ -35,3 +35,7 @@ requests>=2.25.0
 pytest>=6.0.0
 black>=22.0.0
 flake8>=4.0.0
+
+# Kratos 应用
+# KratosMultiphysics  # 核心通常单独安装或本地编译
+KratosConstitutiveLawsApplication  # 摩尔-库伦等本构模型常量与定律

@@ -493,6 +493,9 @@ class OptimizedFPNParser:
             'load_groups': {},
             'boundary_groups': {},
             'analysis_stages': [],
+            'stage_elements': {},      # 每个阶段的单元状态
+            'stage_loads': {},         # 每个阶段的载荷
+            'stage_boundaries': {},    # 每个阶段的边界条件
             'mesh_sets': {},
             'metadata': {
                 'encoding': encoding,

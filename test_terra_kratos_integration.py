@@ -166,7 +166,8 @@ def test_kratos_applications():
         "GeoMechanicsApplication", 
         "FluidDynamicsApplication",
         "FSIApplication",
-        "LinearSolversApplication"
+    "LinearSolversApplication",
+    "ConstitutiveLawsApplication"
     ]
     
     available_apps = []
@@ -200,7 +201,7 @@ async def main():
     integration_success = await test_terra_kratos_integration()
     
     print(f"\n🎯 测试总结:")
-    print(f"  Kratos应用可用: {len(available_apps)}/5")
+    print(f"  Kratos应用可用: {len(available_apps)}/{len(applications)}")
     print(f"  Terra集成状态: {'✅ 成功' if integration_success else '❌ 失败'}")
     
     if integration_success and len(available_apps) >= 3:

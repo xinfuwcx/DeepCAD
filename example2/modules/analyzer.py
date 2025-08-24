@@ -24,8 +24,8 @@ try:
     from core.kratos_interface import KratosInterface
     KRATOS_AVAILABLE = True
     print("✅ Kratos interface 导入成功")
-except ImportError as e:
-    print(f"❌ Kratos interface 导入失败: {e}")
+except Exception as e:
+    print(f"❌ Kratos interface 导入失败(已禁用Kratos功能): {e}")
     KRATOS_AVAILABLE = False
     # 不要抛出异常，允许程序继续运行但禁用分析功能
 

@@ -114,6 +114,9 @@ class PostProcessor:
         self.show_material_legend = True
         self._legend_actor_name = 'material_legend'
         self._metrics_actor_name = 'post_metrics_overlay'
+
+        # 标尺优化选项
+        self.optimize_scalar_bar = True
         self._legend_panel = None
         self.last_render_ms = 0.0
 
@@ -394,17 +397,192 @@ class PostProcessor:
     def extract_results_from_mesh(self) -> None:
         if not self.mesh:
             return
-        point_arrays = self.mesh.point_data
-        for name, data in point_arrays.items():
-            low = name.lower()
-            if low in ['displacement', 'displacements']:
-                self.results_data['displacement'] = data
-            elif low in ['stress', 'stresses']:
-                self.results_data['stress'] = data
-            elif low in ['strain', 'strains']:
-                self.results_data['strain'] = data
+        # 1) 首先从点数据读取 - 映射VTK字段到内部名称
+        try:
+            point_arrays = self.mesh.point_data
+            for name, data in point_arrays.items():
+                low = name.lower()
+                if low in ['displacement', 'displacements']:
+                    self.results_data['displacement'] = np.asarray(data)
+                elif low in ['reaction', 'reactions']:
+                    self.results_data['reaction'] = np.asarray(data)
+                elif low in ['velocity', 'velocities']:
+                    self.results_data['velocity'] = np.asarray(data)
+                elif low in ['acceleration', 'accelerations']:
+                    self.results_data['acceleration'] = np.asarray(data)
+                elif low in ['stress', 'stresses', 'von_mises', 'von_mises_stress']:
+                    self.results_data['stress'] = np.asarray(data)
+                elif low in ['strain', 'strains']:
+                    self.results_data['strain'] = np.asarray(data)
+        except Exception:
+            pass
+        # 2) 兼容VTK FIELD 数据（Kratos常把DISPLACEMENT写为FIELD）
+        try:
+            field_arrays = getattr(self.mesh, 'field_data', None)
+            if field_arrays:
+                for name, data in field_arrays.items():
+                    low = name.lower()
+                    # 点场：形状应为 (n_points, 3)
+                    if low in ['displacement', 'displacements']:
+                        arr = np.asarray(data)
+                        if arr.ndim == 2 and arr.shape[0] == self.mesh.n_points:
+                            self.results_data['displacement'] = arr
+                    # 单元或点的标量
+                    elif low in ['stress', 'stresses', 'von_mises', 'von_mises_stress']:
+                        self.results_data['stress'] = np.asarray(data).reshape(-1)
+                    elif low in ['strain', 'strains']:
+                        self.results_data['strain'] = np.asarray(data)
+        except Exception:
+            pass
+        # 3) 兼容 CELL_DATA（如 VON_MISES_STRESS）
+        try:
+            cell_arrays = self.mesh.cell_data
+            for name, data in cell_arrays.items():
+                low = name.lower()
+                if low in ['von_mises', 'von_mises_stress', 'stress', 'stresses']:
+                    self.results_data['stress'] = np.asarray(data).reshape(-1)
+        except Exception:
+            pass
+
+        # 4) 尝试从高斯点数据提取应力并插值到节点
+        try:
+            self._extract_stress_from_gauss_points()
+        except Exception as e:
+            print(f"高斯点应力提取失败: {e}")
+
         if not self.time_steps:
             self.time_steps = [1.0]
+
+    def _extract_stress_from_gauss_points(self):
+        """从高斯点应力数据外推到节点 - 增强版算法"""
+        try:
+            # 1. 检查多种应力数据格式
+            stress_data = self._find_stress_data()
+            if stress_data is None:
+                print("未找到应力数据")
+                return
+
+            stress_array, data_location, data_name = stress_data
+            print(f"找到应力数据: {data_name}, 位置: {data_location}, shape: {stress_array.shape}")
+
+            # 2. 根据数据位置选择处理方法
+            if data_location == 'cell':
+                nodal_stress = self._extrapolate_cell_to_node_stress(stress_array)
+            elif data_location == 'point':
+                nodal_stress = stress_array  # 已经在节点上
+            else:
+                print(f"不支持的数据位置: {data_location}")
+                return
+
+            # 3. 存储结果
+            if nodal_stress is not None:
+                self.results_data['stress'] = nodal_stress
+                print(f"✅ 成功外推应力到节点，范围: [{nodal_stress.min():.2f}, {nodal_stress.max():.2f}] Pa")
+
+        except Exception as e:
+            print(f"应力外推失败: {e}")
+
+    def _find_stress_data(self):
+        """查找各种格式的应力数据"""
+        # 检查点数据
+        for name, data in self.mesh.point_data.items():
+            if self._is_stress_field(name):
+                return np.asarray(data), 'point', name
+
+        # 检查单元数据
+        for name, data in self.mesh.cell_data.items():
+            if self._is_stress_field(name):
+                return np.asarray(data), 'cell', name
+
+        # 检查字段数据
+        if hasattr(self.mesh, 'field_data'):
+            for name, data in self.mesh.field_data.items():
+                if self._is_stress_field(name):
+                    return np.asarray(data), 'field', name
+
+        return None
+
+    def _is_stress_field(self, name: str) -> bool:
+        """判断是否为应力字段"""
+        name_upper = name.upper()
+        stress_keywords = [
+            'STRESS', 'VON_MISES', 'CAUCHY_STRESS', 'STRESS_TENSOR',
+            'PRINCIPAL_STRESS', 'EFFECTIVE_STRESS'
+        ]
+        return any(keyword in name_upper for keyword in stress_keywords)
+
+    def _extrapolate_cell_to_node_stress(self, cell_stress_data):
+        """将单元应力外推到节点 - 改进算法"""
+        try:
+            # 处理应力张量数据
+            if cell_stress_data.ndim == 2 and cell_stress_data.shape[1] >= 6:
+                # 计算von Mises应力
+                von_mises = self._calculate_von_mises_stress(cell_stress_data)
+            elif cell_stress_data.ndim == 1:
+                # 已经是标量应力
+                von_mises = cell_stress_data
+            else:
+                print(f"不支持的应力数据格式: shape={cell_stress_data.shape}")
+                return None
+
+            # 外推到节点
+            nodal_stress = np.zeros(self.mesh.n_points)
+            node_weights = np.zeros(self.mesh.n_points)
+
+            # 遍历所有单元
+            for cell_id in range(self.mesh.n_cells):
+                if cell_id >= len(von_mises):
+                    continue
+
+                cell_stress = von_mises[cell_id]
+                cell = self.mesh.get_cell(cell_id)
+
+                # 获取单元节点
+                if hasattr(cell, 'point_ids'):
+                    point_ids = cell.point_ids
+                elif hasattr(cell, 'GetPointIds'):
+                    point_ids = [cell.GetPointIds().GetId(i) for i in range(cell.GetNumberOfPoints())]
+                else:
+                    continue
+
+                # 简单平均外推（可以改进为基于形函数的外推）
+                for point_id in point_ids:
+                    if point_id < len(nodal_stress):
+                        nodal_stress[point_id] += cell_stress
+                        node_weights[point_id] += 1.0
+
+            # 归一化
+            mask = node_weights > 0
+            nodal_stress[mask] /= node_weights[mask]
+
+            return nodal_stress
+
+        except Exception as e:
+            print(f"单元到节点外推失败: {e}")
+            return None
+
+    def _calculate_von_mises_stress(self, stress_tensor):
+        """计算von Mises应力"""
+        try:
+            # 应力张量格式: [σxx, σyy, σzz, σxy, σyz, σxz]
+            sxx = stress_tensor[:, 0]
+            syy = stress_tensor[:, 1]
+            szz = stress_tensor[:, 2]
+            sxy = stress_tensor[:, 3] if stress_tensor.shape[1] > 3 else np.zeros_like(sxx)
+            syz = stress_tensor[:, 4] if stress_tensor.shape[1] > 4 else np.zeros_like(sxx)
+            sxz = stress_tensor[:, 5] if stress_tensor.shape[1] > 5 else np.zeros_like(sxx)
+
+            # von Mises应力公式
+            von_mises = np.sqrt(0.5 * (
+                (sxx - syy)**2 + (syy - szz)**2 + (szz - sxx)**2 +
+                6 * (sxy**2 + syz**2 + sxz**2)
+            ))
+
+            return von_mises
+
+        except Exception as e:
+            print(f"von Mises应力计算失败: {e}")
+            return None
 
     # ---------- 显示 ----------
     def display_results(self) -> None:
@@ -491,22 +669,7 @@ class PostProcessor:
         _t0 = time.time()
         if scalar_field is not None and self.show_contour:
             colormap = self.get_professional_colormap(self.current_result_type)
-            scalar_bar_args = {
-                'title': scalar_name,
-                'title_font_size': 14,
-                'label_font_size': 12,
-                'n_labels': 8,
-                'italic': False,
-                'fmt': '%.3f',
-                'font_family': 'arial',
-                'shadow': True,
-                'width': 0.08,
-                'height': 0.75,
-                'position_x': 0.9,
-                'position_y': 0.125,
-                'color': 'black',
-                'background_color': 'white',
-            }
+            scalar_bar_args = self.get_optimized_scalar_bar_args(scalar_name, scalar_field)
             self.plotter.add_mesh(
                 mesh_to_plot,
                 scalars=scalar_name,
@@ -617,6 +780,75 @@ class PostProcessor:
             'velocity': 'jet',
         }
         return colormap_mapping.get(result_type, 'rainbow')
+
+    def get_optimized_scalar_bar_args(self, scalar_name: str, scalar_field) -> dict:
+        """获取优化的标尺参数"""
+        import numpy as np
+
+        # 计算数据范围和合适的格式
+        try:
+            data_min = float(np.min(scalar_field))
+            data_max = float(np.max(scalar_field))
+            data_range = data_max - data_min
+
+            # 根据数据范围选择格式 - 优化显示避免重叠
+            if data_range < 0.001:
+                fmt = '%.1e'  # 简化科学计数法
+                n_labels = 4
+            elif data_range < 0.1:
+                fmt = '%.3f'  # 减少小数位
+                n_labels = 5
+            elif data_range < 10:
+                fmt = '%.2f'
+                n_labels = 5
+            elif data_range < 1000:
+                fmt = '%.1f'
+                n_labels = 6
+            else:
+                fmt = '%.0f'  # 整数显示
+                n_labels = 6
+
+        except Exception:
+            fmt = '%.3f'
+            n_labels = 6
+
+        # 优化的标尺参数 - 进一步缩小避免遮挡
+        if self.optimize_scalar_bar:
+            return {
+                'title': scalar_name,
+                'title_font_size': 12,  # 进一步减小标题字体
+                'label_font_size': 9,   # 进一步减小标签字体
+                'n_labels': min(n_labels, 5),  # 进一步限制标签数量
+                'italic': False,
+                'fmt': fmt,
+                'font_family': 'arial',
+                'shadow': False,
+                'width': 0.08,   # 缩小宽度
+                'height': 0.6,   # 缩小高度
+                'position_x': 0.91,  # 更靠右，避免遮挡模型
+                'position_y': 0.2,   # 稍微上移
+                'color': 'black',
+                'background_color': 'white',
+                'vertical': True,
+            }
+        else:
+            # 默认参数
+            return {
+                'title': scalar_name,
+                'title_font_size': 14,
+                'label_font_size': 12,
+                'n_labels': n_labels,
+                'italic': False,
+                'fmt': fmt,
+                'font_family': 'arial',
+                'shadow': True,
+                'width': 0.08,
+                'height': 0.75,
+                'position_x': 0.9,
+                'position_y': 0.125,
+                'color': 'black',
+                'background_color': 'white',
+            }
 
     def get_display_info(self) -> str:
         if not self.mesh:

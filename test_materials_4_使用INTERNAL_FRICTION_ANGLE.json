@@ -1,0 +1,26 @@
+{
+  "properties": [
+    {
+      "model_part_name": "Structure.MAT_3",
+      "properties_id": 3,
+      "Material": {
+        "constitutive_law": {
+          "name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 5000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 1988.45,
+          "INTERNAL_FRICTION_ANGLE": 0.4537856055185257,
+          "DILATANCY_ANGLE": 0.0,
+          "COHESION": 9000.0,
+          "YIELD_STRESS_TENSION": 18000.0,
+          "YIELD_STRESS_COMPRESSION": 45000.0,
+          "SOFTENING_TYPE": 0,
+          "FRACTURE_ENERGY": 100.0
+        },
+        "Tables": {}
+      }
+    }
+  ]
+}

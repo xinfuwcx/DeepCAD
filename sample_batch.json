@@ -1,0 +1,23 @@
+[
+  {
+    "pier_diameter": 2.0,
+    "flow_velocity": 1.5,
+    "water_depth": 4.0,
+    "d50": 0.8,
+    "pier_shape": "圆形"
+  },
+  {
+    "pier_diameter": 3.0,
+    "flow_velocity": 1.2,
+    "water_depth": 8.0,
+    "d50": 0.5,
+    "pier_shape": "矩形"
+  },
+  {
+    "pier_diameter": 1.8,
+    "flow_velocity": 2.2,
+    "water_depth": 3.5,
+    "d50": 1.2,
+    "pier_shape": "圆形"
+  }
+]

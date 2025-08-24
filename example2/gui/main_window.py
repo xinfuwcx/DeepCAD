@@ -252,17 +252,7 @@ class MainWindow(QMainWindow):
         physics_layout.addLayout(group_layout)
         layout.addWidget(physics_group)
 
-        # 分析步选择
-        analysis_group = QGroupBox("📊 分析步")
-        analysis_group.setFont(QFont("Microsoft YaHei", 9, QFont.Weight.Bold))
-        analysis_layout = QVBoxLayout(analysis_group)
-        analysis_layout.setSpacing(3)
 
-        self.analysis_stage_combo = QComboBox()
-        self.analysis_stage_combo.addItem("初始状态")
-        analysis_layout.addWidget(self.analysis_stage_combo)
-
-        layout.addWidget(analysis_group)
 
         # 重要：显示控制组
         display_group = QGroupBox("👁️ 显示控制")
@@ -655,6 +645,22 @@ class MainWindow(QMainWindow):
         load_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         load_layout = QVBoxLayout(load_group)
 
+        # 分析步选择
+        stage_layout = QHBoxLayout()
+        stage_layout.addWidget(QLabel("分析步:"))
+        self.stage_combo = QComboBox()
+        self.stage_combo.addItem("阶段1 - 初始分析", "stage_1")
+        self.stage_combo.addItem("阶段2 - 后续分析", "stage_2")
+        self.stage_combo.currentTextChanged.connect(self.on_stage_changed)
+        stage_layout.addWidget(self.stage_combo)
+
+        # 自动加载按钮
+        self.auto_load_btn = QPushButton("🔄 自动加载")
+        self.auto_load_btn.clicked.connect(self.auto_load_current_stage)
+        stage_layout.addWidget(self.auto_load_btn)
+
+        load_layout.addLayout(stage_layout)
+
         self.load_results_btn = QPushButton("📥 加载结果文件")
         self.results_info_label = QLabel("未加载结果")
         self.results_info_label.setStyleSheet("color: gray;")
@@ -670,9 +676,9 @@ class MainWindow(QMainWindow):
         result_layout = QVBoxLayout(result_group)
 
         self.result_type = QComboBox()
-        # 仅保留当前实现支持的类型：位移/应力
+        # 根据VTK文件中的实际字段设置选项
         self.result_type.addItems([
-            "位移", "应力"
+            "位移", "反力", "速度", "加速度"
         ])
         result_layout.addWidget(self.result_type)
 
@@ -722,10 +728,15 @@ class MainWindow(QMainWindow):
         self.show_deformed.setChecked(True)
         display_layout.addRow(self.show_deformed)
 
+        # 变形比例控制
+        deform_layout = QHBoxLayout()
         self.deform_scale = QSlider(Qt.Horizontal)
         self.deform_scale.setRange(1, 100)
         self.deform_scale.setValue(10)
-        display_layout.addRow("变形比例:", self.deform_scale)
+        self.deform_scale_label = QLabel("10.0x")
+        deform_layout.addWidget(self.deform_scale)
+        deform_layout.addWidget(self.deform_scale_label)
+        display_layout.addRow("变形比例:", deform_layout)
 
         self.show_contour = QCheckBox("显示云图")
         self.show_contour.setChecked(True)
@@ -734,6 +745,12 @@ class MainWindow(QMainWindow):
         # 勾选变化时刷新结果显示
         self.show_deformed.stateChanged.connect(lambda _: self.postprocessor.set_show_deformed(self.show_deformed.isChecked()))
         self.show_contour.stateChanged.connect(lambda _: self.postprocessor.set_show_contour(self.show_contour.isChecked()))
+
+        # 变形比例滑块连接
+        def update_deform_scale(value):
+            self.deform_scale_label.setText(f"{value}.0x")
+            self.postprocessor.set_deformation_scale(value)
+        self.deform_scale.valueChanged.connect(update_deform_scale)
 
         self.show_wireframe = QCheckBox("显示线框")
         display_layout.addRow(self.show_wireframe)
@@ -891,6 +908,8 @@ class MainWindow(QMainWindow):
         postprocess_action.setIcon(self.style().standardIcon(self.style().SP_ComputerIcon))
         toolbar.addAction(postprocess_action)
 
+
+
     def create_status_bar(self):
         """创建状态栏"""
         statusbar = self.statusBar()
@@ -981,11 +1000,10 @@ class MainWindow(QMainWindow):
         self.demo_mesh_btn.clicked.connect(self.generate_demo_mesh)
         self.refresh_3d_btn.clicked.connect(self.refresh_3d_viewport)
 
-        # 物理组和分析步选择连接
+        # 物理组连接
         self.material_group_combo.currentTextChanged.connect(self.on_material_group_changed)
         self.load_group_combo.currentTextChanged.connect(self.on_load_group_changed)
         self.boundary_group_combo.currentTextChanged.connect(self.on_boundary_group_changed)
-        self.analysis_stage_combo.currentTextChanged.connect(self.on_analysis_stage_changed)
 
         # 显示模式切换连接
         self.wireframe_btn.clicked.connect(self.set_wireframe_mode)
@@ -1116,6 +1134,12 @@ class MainWindow(QMainWindow):
         if index < len(tab_names):
             self.module_status.setText(tab_names[index])
             self.status_label.setText(f"切换到{tab_names[index]}模块")
+
+            # 根据当前标签页显示/隐藏分析步控件
+            if hasattr(self, 'stage_label') and hasattr(self, 'stage_combo'):
+                is_postprocessor = (index == 2)  # 后处理是第3个标签页(索引2)
+                self.stage_label.setVisible(is_postprocessor)
+                self.stage_combo.setVisible(is_postprocessor)
 
     def new_project(self):
         """新建项目"""
@@ -2202,6 +2226,53 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"⚠️ 控件状态切换失败: {e}")
 
+    def on_stage_changed(self):
+        """分析步切换事件"""
+        try:
+            current_stage = self.stage_combo.currentData()
+            self.status_label.setText(f"切换到{self.stage_combo.currentText()}")
+            print(f"🔄 用户切换到分析步: {current_stage}")
+        except Exception as e:
+            print(f"分析步切换失败: {e}")
+
+    def auto_load_current_stage(self):
+        """自动加载当前选择的分析步结果"""
+        try:
+            current_stage = self.stage_combo.currentData()
+
+            # 构建VTK文件路径（使用12点左右计算的真实结果）
+            from pathlib import Path
+            root = Path(__file__).resolve().parents[2]
+            if current_stage == 'stage_1':
+                vtk_path = root / 'temp_kratos_analysis' / 'data' / 'VTK_Output_Stage_1' / 'Structure_0_1.vtk'
+            else:  # stage_2
+                vtk_path = root / 'temp_kratos_analysis' / 'data' / 'VTK_Output_Stage_2' / 'Structure_0_1.vtk'
+
+            if not vtk_path.exists():
+                self.status_label.setText(f"❌ VTK文件不存在: {vtk_path}")
+                return
+
+            # 切换到后处理标签页
+            for i in range(self.workflow_tabs.count()):
+                if "后处理" in self.workflow_tabs.tabText(i):
+                    self.workflow_tabs.setCurrentIndex(i)
+                    break
+
+            # 加载VTK结果
+            self.postprocessor.load_results(str(vtk_path))
+
+            # 更新状态
+            stage_name = self.stage_combo.currentText()
+            self.results_info_label.setText(f"已加载: {vtk_path.name} ({stage_name})")
+            self.results_info_label.setStyleSheet("color: green;")
+            self.status_label.setText(f"✅ {stage_name}结果加载完成")
+
+            print(f"✅ 成功加载{stage_name}结果: {vtk_path}")
+
+        except Exception as e:
+            self.status_label.setText(f"❌ 自动加载失败: {e}")
+            print(f"❌ 自动加载失败: {e}")
+
 
 class DisplayUpdateThread(QThread):
     """专用的显示更新线程"""
@@ -2240,3 +2311,5 @@ class DisplayUpdateThread(QThread):
                 self.error.emit("预处理器无display_mesh方法")
         except Exception as e:
             self.error.emit(str(e))
+
+

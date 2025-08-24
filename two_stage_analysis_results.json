@@ -1,0 +1,37 @@
+{
+  "project_name": "深基坑两阶段开挖分析",
+  "analysis_type": "multi_stage_excavation",
+  "constitutive_model": "损伤版摩尔-库伦塑性",
+  "stages": [
+    {
+      "name": "阶段1 - 初始开挖",
+      "description": "第一阶段开挖和支护安装",
+      "vtk_file": "E:\\DeepCAD\\multi_stage_kratos_conversion\\stage_1\\VTK_Output\\Structure_0_1.vtk",
+      "elements": 140194,
+      "nodes": 93497,
+      "computation_time": "1713.78秒"
+    },
+    {
+      "name": "阶段2 - 进一步开挖",
+      "description": "第二阶段开挖至最终状态",
+      "vtk_file": "E:\\DeepCAD\\multi_stage_kratos_conversion\\stage_2\\VTK_Output\\Structure_0_1.vtk",
+      "elements": 134987,
+      "nodes": 93497,
+      "computation_time": "1232.49秒"
+    }
+  ],
+  "materials": {
+    "total_materials": 11,
+    "soil_types": [
+      "粉质粘土",
+      "粉土"
+    ],
+    "constitutive_law": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D"
+  },
+  "analysis_summary": {
+    "total_time": "2946.27秒",
+    "convergence": "部分收敛（达到最大迭代次数）",
+    "status": "分析完成",
+    "recommendation": "建议使用ParaView查看详细结果"
+  }
+}

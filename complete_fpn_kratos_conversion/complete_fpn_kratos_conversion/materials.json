@@ -1,6 +1,22 @@
 {
   "properties": [
     {
+      "model_part_name": "Structure.MAT_1",
+      "properties_id": 1,
+      "Material": {
+        "constitutive_law": {
+          "name": "LinearElastic3DLaw"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 30000000000.0,
+          "POISSON_RATIO": 0.2,
+          "DENSITY": 2549.2905324448207,
+          "THICKNESS": 0.2
+        },
+        "Tables": {}
+      }
+    },
+    {
       "model_part_name": "Structure.MAT_2",
       "properties_id": 2,
       "Material": {
@@ -11,13 +27,18 @@
           "YOUNG_MODULUS": 15000000.0,
           "POISSON_RATIO": 0.3,
           "DENSITY": 2039.4324259558566,
-          "YIELD_STRESS_TENSION": 40000.0,
-          "YIELD_STRESS_COMPRESSION": 40000.0,
-          "FRICTION_ANGLE": 0.0,
-          "DILATANCY_ANGLE": 0.0,
+          "FRICTION_ANGLE": 32.0,
+          "DILATANCY_ANGLE": 12.8,
           "COHESION": 20000.0,
           "SOFTENING_TYPE": 0,
-          "FRACTURE_ENERGY": 100.0
+          "FRACTURE_ENERGY": 100.0,
+          "YIELD_STRESS_TENSION": 40000.0,
+          "YIELD_STRESS_COMPRESSION": 200000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
         },
         "Tables": {}
       }
@@ -33,13 +54,18 @@
           "YOUNG_MODULUS": 5000000.0,
           "POISSON_RATIO": 0.3,
           "DENSITY": 1988.4466153069602,
-          "YIELD_STRESS_TENSION": 11247.648334367896,
-          "YIELD_STRESS_COMPRESSION": 28806.02152273891,
           "FRICTION_ANGLE": 26.0,
-          "DILATANCY_ANGLE": 0.0,
+          "DILATANCY_ANGLE": 10.4,
           "COHESION": 9000.0,
           "SOFTENING_TYPE": 0,
-          "FRACTURE_ENERGY": 100.0
+          "FRACTURE_ENERGY": 100.0,
+          "YIELD_STRESS_TENSION": 18000.0,
+          "YIELD_STRESS_COMPRESSION": 90000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
         },
         "Tables": {}
       }
@@ -55,13 +81,18 @@
           "YOUNG_MODULUS": 5000000.0,
           "POISSON_RATIO": 0.3,
           "DENSITY": 1947.657966787843,
-          "YIELD_STRESS_TENSION": 12988.151863950212,
-          "YIELD_STRESS_COMPRESSION": 30797.299276291655,
           "FRICTION_ANGLE": 24.0,
-          "DILATANCY_ANGLE": 0.0,
+          "DILATANCY_ANGLE": 9.600000000000001,
           "COHESION": 10000.0,
           "SOFTENING_TYPE": 0,
-          "FRACTURE_ENERGY": 100.0
+          "FRACTURE_ENERGY": 100.0,
+          "YIELD_STRESS_TENSION": 20000.0,
+          "YIELD_STRESS_COMPRESSION": 100000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
         },
         "Tables": {}
       }
@@ -77,13 +108,18 @@
           "YOUNG_MODULUS": 5000000.0,
           "POISSON_RATIO": 0.3,
           "DENSITY": 2121.0097229940907,
-          "YIELD_STRESS_TENSION": 17537.221437903092,
-          "YIELD_STRESS_COMPRESSION": 38546.58518133124,
           "FRICTION_ANGLE": 22.0,
-          "DILATANCY_ANGLE": 0.0,
+          "DILATANCY_ANGLE": 8.8,
           "COHESION": 13000.0,
           "SOFTENING_TYPE": 0,
-          "FRACTURE_ENERGY": 100.0
+          "FRACTURE_ENERGY": 100.0,
+          "YIELD_STRESS_TENSION": 26000.0,
+          "YIELD_STRESS_COMPRESSION": 130000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
         },
         "Tables": {}
       }
@@ -99,13 +135,18 @@
           "YOUNG_MODULUS": 40000000.0,
           "POISSON_RATIO": 0.3,
           "DENSITY": 1988.4466153069602,
-          "YIELD_STRESS_TENSION": 42000.0,
-          "YIELD_STRESS_COMPRESSION": 42000.0,
-          "FRICTION_ANGLE": 0.0,
-          "DILATANCY_ANGLE": 0.0,
+          "FRICTION_ANGLE": 38.0,
+          "DILATANCY_ANGLE": 15.200000000000001,
           "COHESION": 21000.0,
           "SOFTENING_TYPE": 0,
-          "FRACTURE_ENERGY": 100.0
+          "FRACTURE_ENERGY": 100.0,
+          "YIELD_STRESS_TENSION": 42000.0,
+          "YIELD_STRESS_COMPRESSION": 210000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
         },
         "Tables": {}
       }
@@ -121,13 +162,18 @@
           "YOUNG_MODULUS": 8000000.0,
           "POISSON_RATIO": 0.3,
           "DENSITY": 2121.0097229940907,
-          "YIELD_STRESS_TENSION": 39064.28132533586,
-          "YIELD_STRESS_COMPRESSION": 63997.081609653935,
           "FRICTION_ANGLE": 14.0,
-          "DILATANCY_ANGLE": 0.0,
+          "DILATANCY_ANGLE": 5.6000000000000005,
           "COHESION": 25000.0,
           "SOFTENING_TYPE": 0,
-          "FRACTURE_ENERGY": 100.0
+          "FRACTURE_ENERGY": 100.0,
+          "YIELD_STRESS_TENSION": 50000.0,
+          "YIELD_STRESS_COMPRESSION": 250000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
         },
         "Tables": {}
       }
@@ -143,13 +189,18 @@
           "YOUNG_MODULUS": 9000000.0,
           "POISSON_RATIO": 0.3,
           "DENSITY": 2110.8125608643118,
-          "YIELD_STRESS_TENSION": 28336.843821147308,
-          "YIELD_STRESS_COMPRESSION": 59322.06178676463,
           "FRICTION_ANGLE": 20.7,
-          "DILATANCY_ANGLE": 0.0,
+          "DILATANCY_ANGLE": 8.28,
           "COHESION": 20500.0,
           "SOFTENING_TYPE": 0,
-          "FRACTURE_ENERGY": 100.0
+          "FRACTURE_ENERGY": 100.0,
+          "YIELD_STRESS_TENSION": 41000.0,
+          "YIELD_STRESS_COMPRESSION": 205000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
         },
         "Tables": {}
       }
@@ -165,13 +216,18 @@
           "YOUNG_MODULUS": 9000000.0,
           "POISSON_RATIO": 0.3,
           "DENSITY": 2059.8267502154154,
-          "YIELD_STRESS_TENSION": 18532.79571347936,
-          "YIELD_STRESS_COMPRESSION": 42303.38542121723,
           "FRICTION_ANGLE": 23.0,
-          "DILATANCY_ANGLE": 0.0,
+          "DILATANCY_ANGLE": 9.200000000000001,
           "COHESION": 14000.0,
           "SOFTENING_TYPE": 0,
-          "FRACTURE_ENERGY": 100.0
+          "FRACTURE_ENERGY": 100.0,
+          "YIELD_STRESS_TENSION": 28000.0,
+          "YIELD_STRESS_COMPRESSION": 140000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
         },
         "Tables": {}
       }
@@ -187,13 +243,18 @@
           "YOUNG_MODULUS": 40000000.0,
           "POISSON_RATIO": 0.3,
           "DENSITY": 2141.4040472536494,
-          "YIELD_STRESS_TENSION": 70000.0,
-          "YIELD_STRESS_COMPRESSION": 70000.0,
-          "FRICTION_ANGLE": 0.0,
-          "DILATANCY_ANGLE": 0.0,
+          "FRICTION_ANGLE": 38.0,
+          "DILATANCY_ANGLE": 15.200000000000001,
           "COHESION": 35000.0,
           "SOFTENING_TYPE": 0,
-          "FRACTURE_ENERGY": 100.0
+          "FRACTURE_ENERGY": 100.0,
+          "YIELD_STRESS_TENSION": 70000.0,
+          "YIELD_STRESS_COMPRESSION": 350000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
         },
         "Tables": {}
       }
@@ -209,13 +270,18 @@
           "YOUNG_MODULUS": 12000000.0,
           "POISSON_RATIO": 0.3,
           "DENSITY": 2059.8267502154154,
-          "YIELD_STRESS_TENSION": 22079.85816871536,
-          "YIELD_STRESS_COMPRESSION": 52355.408769695816,
           "FRICTION_ANGLE": 24.0,
-          "DILATANCY_ANGLE": 0.0,
+          "DILATANCY_ANGLE": 9.600000000000001,
           "COHESION": 17000.0,
           "SOFTENING_TYPE": 0,
-          "FRACTURE_ENERGY": 100.0
+          "FRACTURE_ENERGY": 100.0,
+          "YIELD_STRESS_TENSION": 34000.0,
+          "YIELD_STRESS_COMPRESSION": 170000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
         },
         "Tables": {}
       }
@@ -231,13 +297,34 @@
           "YOUNG_MODULUS": 20000000.0,
           "POISSON_RATIO": 0.3,
           "DENSITY": 2070.0239123451943,
-          "YIELD_STRESS_TENSION": 52000.0,
-          "YIELD_STRESS_COMPRESSION": 52000.0,
-          "FRICTION_ANGLE": 0.0,
-          "DILATANCY_ANGLE": 0.0,
+          "FRICTION_ANGLE": 32.0,
+          "DILATANCY_ANGLE": 12.8,
           "COHESION": 26000.0,
           "SOFTENING_TYPE": 0,
-          "FRACTURE_ENERGY": 100.0
+          "FRACTURE_ENERGY": 100.0,
+          "YIELD_STRESS_TENSION": 52000.0,
+          "YIELD_STRESS_COMPRESSION": 260000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_13",
+      "properties_id": 13,
+      "Material": {
+        "constitutive_law": {
+          "name": "TrussConstitutiveLaw"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 206000000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 8004.772271876737,
+          "CROSS_AREA": 0.0254469005
         },
         "Tables": {}
       }

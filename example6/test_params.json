@@ -1,0 +1,10 @@
+{
+  "pier_diameter": 2.0,
+  "flow_velocity": 1.5,
+  "water_depth": 4.0,
+  "d50": 0.5,
+  "water_density": 1000.0,
+  "sediment_density": 2650.0,
+  "gravity": 9.81,
+  "mesh_file": "example6/test_mesh.msh"
+}

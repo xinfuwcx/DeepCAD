@@ -1,0 +1,279 @@
+{
+  "properties": [
+    {
+      "model_part_name": "Structure.MAT_2",
+      "properties_id": 2,
+      "Material": {
+        "constitutive_law": {
+          "name": "SmallStrainIsotropicPlasticity3DModifiedMohrCoulombModifiedMohrCoulomb"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 15000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 2039.43,
+          "FRICTION_ANGLE": 35.0,
+          "DILATANCY_ANGLE": 0.0,
+          "COHESION": 20000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ],
+          "YIELD_STRESS_TENSION": 20822.682022069854,
+          "YIELD_STRESS_COMPRESSION": 76839.28507884663
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_3",
+      "properties_id": 3,
+      "Material": {
+        "constitutive_law": {
+          "name": "SmallStrainIsotropicPlasticity3DModifiedMohrCoulombModifiedMohrCoulomb"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 5000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 1988.45,
+          "FRICTION_ANGLE": 26.0,
+          "DILATANCY_ANGLE": 0.0,
+          "COHESION": 9000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ],
+          "YIELD_STRESS_TENSION": 11247.648334367896,
+          "YIELD_STRESS_COMPRESSION": 28806.02152273891
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_4",
+      "properties_id": 4,
+      "Material": {
+        "constitutive_law": {
+          "name": "SmallStrainIsotropicPlasticity3DModifiedMohrCoulombModifiedMohrCoulomb"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 5000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 1947.66,
+          "FRICTION_ANGLE": 24.0,
+          "DILATANCY_ANGLE": 0.0,
+          "COHESION": 10000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ],
+          "YIELD_STRESS_TENSION": 12988.151863950212,
+          "YIELD_STRESS_COMPRESSION": 30797.299276291655
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_5",
+      "properties_id": 5,
+      "Material": {
+        "constitutive_law": {
+          "name": "SmallStrainIsotropicPlasticity3DModifiedMohrCoulombModifiedMohrCoulomb"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 5000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 2121.01,
+          "FRICTION_ANGLE": 22.0,
+          "DILATANCY_ANGLE": 0.0,
+          "COHESION": 13000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ],
+          "YIELD_STRESS_TENSION": 17537.221437903092,
+          "YIELD_STRESS_COMPRESSION": 38546.58518133124
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_6",
+      "properties_id": 6,
+      "Material": {
+        "constitutive_law": {
+          "name": "SmallStrainIsotropicPlasticity3DModifiedMohrCoulombModifiedMohrCoulomb"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 40000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 1988.45,
+          "FRICTION_ANGLE": 35.0,
+          "DILATANCY_ANGLE": 0.0,
+          "COHESION": 21000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ],
+          "YIELD_STRESS_TENSION": 21863.816123173347,
+          "YIELD_STRESS_COMPRESSION": 80681.24933278895
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_7",
+      "properties_id": 7,
+      "Material": {
+        "constitutive_law": {
+          "name": "SmallStrainIsotropicPlasticity3DModifiedMohrCoulombModifiedMohrCoulomb"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 8000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 2121.01,
+          "FRICTION_ANGLE": 16.0,
+          "DILATANCY_ANGLE": 0.0,
+          "COHESION": 25000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ],
+          "YIELD_STRESS_TENSION": 37677.702505139714,
+          "YIELD_STRESS_COMPRESSION": 66352.24108102049
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_8",
+      "properties_id": 8,
+      "Material": {
+        "constitutive_law": {
+          "name": "SmallStrainIsotropicPlasticity3DModifiedMohrCoulombModifiedMohrCoulomb"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 9000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 2110.81,
+          "FRICTION_ANGLE": 20.7,
+          "DILATANCY_ANGLE": 0.0,
+          "COHESION": 20500.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ],
+          "YIELD_STRESS_TENSION": 28336.843821147308,
+          "YIELD_STRESS_COMPRESSION": 59322.06178676463
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_9",
+      "properties_id": 9,
+      "Material": {
+        "constitutive_law": {
+          "name": "SmallStrainIsotropicPlasticity3DModifiedMohrCoulombModifiedMohrCoulomb"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 9000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 2059.83,
+          "FRICTION_ANGLE": 23.0,
+          "DILATANCY_ANGLE": 0.0,
+          "COHESION": 14000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ],
+          "YIELD_STRESS_TENSION": 18532.79571347936,
+          "YIELD_STRESS_COMPRESSION": 42303.38542121723
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_10",
+      "properties_id": 10,
+      "Material": {
+        "constitutive_law": {
+          "name": "SmallStrainIsotropicPlasticity3DModifiedMohrCoulombModifiedMohrCoulomb"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 40000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 2141.4,
+          "FRICTION_ANGLE": 35.0,
+          "DILATANCY_ANGLE": 0.0,
+          "COHESION": 35000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ],
+          "YIELD_STRESS_TENSION": 36439.69353862224,
+          "YIELD_STRESS_COMPRESSION": 134468.7488879816
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_11",
+      "properties_id": 11,
+      "Material": {
+        "constitutive_law": {
+          "name": "SmallStrainIsotropicPlasticity3DModifiedMohrCoulombModifiedMohrCoulomb"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 12000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 2059.83,
+          "FRICTION_ANGLE": 24.0,
+          "DILATANCY_ANGLE": 0.0,
+          "COHESION": 17000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ],
+          "YIELD_STRESS_TENSION": 22079.85816871536,
+          "YIELD_STRESS_COMPRESSION": 52355.408769695816
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_12",
+      "properties_id": 12,
+      "Material": {
+        "constitutive_law": {
+          "name": "SmallStrainIsotropicPlasticity3DModifiedMohrCoulombModifiedMohrCoulomb"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 20000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 2070.02,
+          "FRICTION_ANGLE": 35.0,
+          "DILATANCY_ANGLE": 0.0,
+          "COHESION": 26000.0,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ],
+          "YIELD_STRESS_TENSION": 27069.486628690807,
+          "YIELD_STRESS_COMPRESSION": 99891.07060250061
+        },
+        "Tables": {}
+      }
+    }
+  ]
+}

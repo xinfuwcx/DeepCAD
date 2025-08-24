@@ -17,7 +17,7 @@
       "input_filename": "stage_2_analysis"
     },
     "material_import_settings": {
-      "materials_filename": "materials.json"
+      "materials_filename": "StructuralMaterials.json"
     },
     "time_stepping": {
       "time_step": 1.0
@@ -64,27 +64,7 @@
         }
       }
     ],
-    "loads_process_list": [
-      {
-        "python_module": "assign_vector_by_direction_process",
-        "kratos_module": "KratosMultiphysics",
-        "process_name": "AssignVectorByDirectionProcess",
-        "Parameters": {
-          "model_part_name": "Structure",
-          "variable_name": "BODY_FORCE",
-          "modulus": 98.0665,
-          "direction": [
-            0.0,
-            0.0,
-            -1.0
-          ],
-          "interval": [
-            0.0,
-            "End"
-          ]
-        }
-      }
-    ]
+    "loads_process_list": []
   },
   "output_processes": {
     "vtk_output": [
@@ -111,6 +91,12 @@
           "condition_data_value_variables": []
         }
       }
+    ]
+  },
+  "import_modules": {
+    "applications": [
+      "KratosMultiphysics.StructuralMechanicsApplication",
+      "KratosMultiphysics.ConstitutiveLawsApplication"
     ]
   }
 }

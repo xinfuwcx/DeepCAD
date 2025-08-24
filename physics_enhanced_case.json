@@ -1,0 +1,33 @@
+{
+  "pier_diameter": 2.0,
+  "pier_shape": "circular", 
+  "flow_velocity": 3.0,
+  "water_depth": 5.0,
+  "d50": 0.2,
+  "approach_angle": 0.0,
+  "sediment_density": 2650.0,
+  "water_density": 1000.0,
+  "gravity": 9.81,
+  "geometry": {
+    "pier_diameter": 2.0,
+    "water_depth": 5.0,
+    "domain_size": [40.0, 10.0]
+  },
+  "boundary_conditions": {
+    "inlet_velocity": 3.0
+  },
+  "sediment": {
+    "d50": 0.2,
+    "sediment_density": 2650.0
+  },
+  "mesh_quality": "medium", 
+  "mesh_resolution": "medium",
+  "time_step": 0.1,
+  "max_iterations": 50,
+  "convergence_tolerance": 1e-5,
+  "output_dir": "outputs",
+  "use_advanced": true,
+  "use_gmsh": false,
+  "use_fenics": true,
+  "use_pyvista": true
+}

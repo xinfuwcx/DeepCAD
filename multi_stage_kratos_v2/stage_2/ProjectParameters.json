@@ -1,0 +1,128 @@
+{
+  "problem_data": {
+    "problem_name": "第一层开挖_analysis",
+    "parallel_type": "OpenMP",
+    "echo_level": 1,
+    "start_time": 0.0,
+    "end_time": 1.0
+  },
+  "solver_settings": {
+    "solver_type": "Static",
+    "model_part_name": "Structure",
+    "domain_size": 3,
+    "echo_level": 1,
+    "analysis_type": "non_linear",
+    "model_import_settings": {
+      "input_type": "mdpa",
+      "input_filename": "stage_1_analysis"
+    },
+    "material_import_settings": {
+      "materials_filename": "StructuralMaterials.json"
+    },
+    "time_stepping": {
+      "time_step": 1.0
+    },
+    "line_search": false,
+    "convergence_criterion": "residual_criterion",
+    "displacement_relative_tolerance": 0.0001,
+    "displacement_absolute_tolerance": 1e-09,
+    "residual_relative_tolerance": 0.0001,
+    "residual_absolute_tolerance": 1e-09,
+    "max_iteration": 20,
+    "use_old_stiffness_in_first_iteration": false,
+    "problem_domain_sub_model_part_list": [
+      "Structure"
+    ],
+    "processes_sub_model_part_list": [
+      "BOTTOM_SUPPORT"
+    ]
+  },
+  "processes": {
+    "constraints_process_list": [
+      {
+        "python_module": "assign_vector_variable_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorVariableProcess",
+        "Parameters": {
+          "model_part_name": "Structure.BOTTOM_SUPPORT",
+          "variable_name": "DISPLACEMENT",
+          "constrained": [
+            true,
+            true,
+            true
+          ],
+          "value": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interval": [
+            0.0,
+            "End"
+          ]
+        }
+      }
+    ],
+    "loads_process_list": [
+      {
+        "python_module": "assign_vector_by_direction_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "AssignVectorByDirectionProcess",
+        "Parameters": {
+          "model_part_name": "Structure",
+          "variable_name": "VOLUME_ACCELERATION",
+          "modulus": 9.80665,
+          "direction": [
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "constrained": false,
+          "interval": [
+            0.0,
+            "End"
+          ]
+        }
+      }
+    ]
+  },
+  "output_processes": {
+    "vtk_output": [
+      {
+        "python_module": "vtk_output_process",
+        "kratos_module": "KratosMultiphysics",
+        "process_name": "VtkOutputProcess",
+        "Parameters": {
+          "model_part_name": "Structure",
+          "output_control_type": "step",
+          "output_interval": 1,
+          "file_format": "ascii",
+          "output_precision": 7,
+          "output_sub_model_parts": false,
+          "output_path": "data\\VTK_Output_第一层开挖",
+          "save_output_files_in_folder": true,
+          "nodal_solution_step_data_variables": [
+            "DISPLACEMENT",
+            "REACTION",
+            "VELOCITY",
+            "ACCELERATION"
+          ],
+          "gauss_point_variables_in_elements": [
+            "CAUCHY_STRESS_TENSOR",
+            "GREEN_LAGRANGE_STRAIN_TENSOR",
+            "PLASTIC_STRAIN_TENSOR"
+          ],
+          "element_data_value_variables": [
+            "VON_MISES_STRESS"
+          ]
+        }
+      }
+    ]
+  },
+  "import_modules": {
+    "applications": [
+      "KratosMultiphysics.StructuralMechanicsApplication",
+      "KratosMultiphysics.ConstitutiveLawsApplication"
+    ]
+  }
+}

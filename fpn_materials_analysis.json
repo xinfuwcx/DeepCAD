@@ -1,0 +1,177 @@
+{
+  "1": {
+    "id": 1,
+    "name": "C30",
+    "properties": {
+      "type": "soil",
+      "E": 30000000000.0,
+      "NU": 0.2,
+      "DENSITY": 2549.2905324448207,
+      "POROSITY": 0.5
+    }
+  },
+  "2": {
+    "id": 2,
+    "name": "2细砂",
+    "properties": {
+      "type": "soil",
+      "E": 15000000.0,
+      "NU": 0.3,
+      "DENSITY": 2039.4324259558566,
+      "POROSITY": 0.5,
+      "FRICTION_ANGLE": 0.0,
+      "COHESION": 20000.0
+    }
+  },
+  "3": {
+    "id": 3,
+    "name": "3粉质粘土",
+    "properties": {
+      "type": "soil",
+      "E": 5000000.0,
+      "NU": 0.3,
+      "DENSITY": 1988.4466153069602,
+      "POROSITY": 0.5,
+      "FRICTION_ANGLE": 26.0,
+      "COHESION": 9000.0
+    }
+  },
+  "4": {
+    "id": 4,
+    "name": "4粉质粘土",
+    "properties": {
+      "type": "soil",
+      "E": 5000000.0,
+      "NU": 0.3,
+      "DENSITY": 1947.657966787843,
+      "POROSITY": 0.5,
+      "FRICTION_ANGLE": 24.0,
+      "COHESION": 10000.0
+    }
+  },
+  "5": {
+    "id": 5,
+    "name": "5粉质粘土",
+    "properties": {
+      "type": "soil",
+      "E": 5000000.0,
+      "NU": 0.3,
+      "DENSITY": 2121.0097229940907,
+      "POROSITY": 0.5,
+      "FRICTION_ANGLE": 22.0,
+      "COHESION": 13000.0
+    }
+  },
+  "6": {
+    "id": 6,
+    "name": "6卵石",
+    "properties": {
+      "type": "soil",
+      "E": 40000000.0,
+      "NU": 0.3,
+      "DENSITY": 1988.4466153069602,
+      "POROSITY": 0.5,
+      "FRICTION_ANGLE": 0.0,
+      "COHESION": 21000.0
+    }
+  },
+  "7": {
+    "id": 7,
+    "name": "7粉质粘土",
+    "properties": {
+      "type": "soil",
+      "E": 8000000.0,
+      "NU": 0.3,
+      "DENSITY": 2121.0097229940907,
+      "POROSITY": 0.5,
+      "FRICTION_ANGLE": 14.0,
+      "COHESION": 25000.0
+    }
+  },
+  "8": {
+    "id": 8,
+    "name": "9粉质粘土",
+    "properties": {
+      "type": "soil",
+      "E": 9000000.0,
+      "NU": 0.3,
+      "DENSITY": 2110.8125608643118,
+      "POROSITY": 0.5,
+      "FRICTION_ANGLE": 20.7,
+      "COHESION": 20500.0
+    }
+  },
+  "9": {
+    "id": 9,
+    "name": "11重粉质粘土",
+    "properties": {
+      "type": "soil",
+      "E": 9000000.0,
+      "NU": 0.3,
+      "DENSITY": 2059.8267502154154,
+      "POROSITY": 0.5,
+      "FRICTION_ANGLE": 23.0,
+      "COHESION": 14000.0
+    }
+  },
+  "10": {
+    "id": 10,
+    "name": "13卵石",
+    "properties": {
+      "type": "soil",
+      "E": 40000000.0,
+      "NU": 0.3,
+      "DENSITY": 2141.4040472536494,
+      "POROSITY": 0.5,
+      "FRICTION_ANGLE": 0.0,
+      "COHESION": 35000.0
+    }
+  },
+  "11": {
+    "id": 11,
+    "name": "14粉质粘土",
+    "properties": {
+      "type": "soil",
+      "E": 12000000.0,
+      "NU": 0.3,
+      "DENSITY": 2059.8267502154154,
+      "POROSITY": 0.5,
+      "FRICTION_ANGLE": 24.0,
+      "COHESION": 17000.0
+    }
+  },
+  "12": {
+    "id": 12,
+    "name": "15细砂",
+    "properties": {
+      "type": "soil",
+      "E": 20000000.0,
+      "NU": 0.3,
+      "DENSITY": 2070.0239123451943,
+      "POROSITY": 0.5,
+      "FRICTION_ANGLE": 0.0,
+      "COHESION": 26000.0
+    }
+  },
+  "13": {
+    "id": 13,
+    "name": "锚杆",
+    "properties": {
+      "type": "soil",
+      "E": 206000000000.0,
+      "NU": 0.3,
+      "DENSITY": 8004.772271876737,
+      "POROSITY": 0.5
+    }
+  },
+  "14": {
+    "id": 14,
+    "name": "2细砂修正",
+    "properties": {
+      "type": "soil",
+      "NU": 0.3,
+      "DENSITY": 2039.4324259558566,
+      "POROSITY": 0.5
+    }
+  }
+}

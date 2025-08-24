@@ -60,6 +60,12 @@ class KratosApplicationManager:
                 'status': 'compiled',  # 根据状态报告已编译
                 'priority': 'critical',
                 'description': '线性求解器'
+            },
+            'ConstitutiveLawsApplication': {
+                'package': 'KratosConstitutiveLawsApplication',
+                'status': 'needed',
+                'priority': 'high',
+                'description': '本构定律与材料常量（摩尔-库伦等）'
             }
         }
         

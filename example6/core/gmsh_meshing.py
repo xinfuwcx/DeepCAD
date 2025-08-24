@@ -123,7 +123,7 @@ class GMSHMeshGenerator:
     
     def create_flow_domain_mesh(self, pier_geometry: PierGeometry, 
                                mesh_params: MeshParameters) -> Optional[pv.UnstructuredGrid]:
-        """创建流域网格"""
+        """创建流域网格（基于 gmsh.geo API，保留用于兼容）"""
         if not self.gmsh_initialized:
             print("GMSH未正确初始化")
             return None
@@ -150,6 +150,89 @@ class GMSHMeshGenerator:
             
         except Exception as e:
             print(f"网格生成失败: {e}")
+            return None
+
+    def create_flow_domain_mesh_occ(self, pier_geometry: PierGeometry,
+                                    mesh_params: MeshParameters,
+                                    dim: int = 2) -> Optional[pv.UnstructuredGrid]:
+        """使用 OCC 几何内核创建计算域并生成网格
+
+        - 2D: 矩形域减去圆/矩形桥墩
+        - 3D: 盒域减去圆柱/棱柱（后续可扩展）
+        """
+        if not self.gmsh_initialized:
+            print("GMSH未正确初始化")
+            return None
+
+        try:
+            gmsh.clear()
+            gmsh.model.add("ScourFlowDomainOCC")
+
+            L = mesh_params.domain_length
+            W = mesh_params.domain_width
+            H = mesh_params.domain_height
+            h_water = mesh_params.water_depth
+
+            cx, cy, cz = pier_geometry.position
+            angle = np.radians(pier_geometry.rotation_angle)
+
+            # 1) 使用 OCC 构造域和桥墩实体
+            occ = gmsh.model.occ
+
+            if dim == 2:
+                # 2D 矩形域（位于 z=0 平面）
+                rect = occ.addRectangle(-L/2, -W/2, 0.0, L, W, tag=-1)
+
+                if pier_geometry.geometry_type == GeometryType.CIRCULAR_PIER:
+                    pier = occ.addDisk(cx, cy, 0.0, pier_geometry.diameter/2, pier_geometry.diameter/2, angle=0.0, tag=-1)
+                elif pier_geometry.geometry_type == GeometryType.RECTANGULAR_PIER:
+                    # 通过添加矩形并可选旋转
+                    pier = occ.addRectangle(cx - pier_geometry.length/2, cy - pier_geometry.width/2, 0.0,
+                                            pier_geometry.length, pier_geometry.width, tag=-1)
+                    if pier_geometry.rotation_angle != 0.0:
+                        occ.rotate([(2, pier)], cx, cy, 0.0, 0.0, 0.0, 1.0, angle)
+                else:
+                    # 椭圆近似为圆盘
+                    pier = occ.addDisk(cx, cy, 0.0, pier_geometry.diameter/2, max(pier_geometry.width, 1e-6), angle=0.0, tag=-1)
+
+                # 布尔差：域 - 桥墩
+                cut_entities, _ = occ.cut([(2, rect)], [(2, pier)], removeObject=True, removeTool=True)
+                occ.synchronize()
+
+                # 网格尺寸控制（点/边）
+                gmsh.option.setNumber("Mesh.MeshSizeMin", mesh_params.pier_mesh_size * 0.1)
+                gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_params.domain_mesh_size)
+                gmsh.model.mesh.generate(2)
+
+            else:
+                # 3D 盒域
+                box = occ.addBox(-L/2, -W/2, -2.0, L, W, h_water + 2.0)
+
+                if pier_geometry.geometry_type == GeometryType.CIRCULAR_PIER:
+                    cyl = occ.addCylinder(cx, cy, cz, 0, 0, pier_geometry.height, pier_geometry.diameter/2)
+                elif pier_geometry.geometry_type == GeometryType.RECTANGULAR_PIER:
+                    # 拉伸矩形
+                    base = occ.addRectangle(cx - pier_geometry.length/2, cy - pier_geometry.width/2, cz,
+                                            pier_geometry.length, pier_geometry.width)
+                    extruded = occ.extrude([(2, base)], 0, 0, pier_geometry.height)
+                    cyl = extruded[1][1]  # 取拉伸后的体
+                else:
+                    cyl = occ.addCylinder(cx, cy, cz, 0, 0, pier_geometry.height, max(pier_geometry.width, 1e-6))
+
+                cut_entities, _ = occ.cut([(3, box)], [(3, cyl)], removeObject=True, removeTool=True)
+                occ.synchronize()
+
+                gmsh.option.setNumber("Mesh.MeshSizeMin", mesh_params.pier_mesh_size * 0.1)
+                gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_params.domain_mesh_size)
+                gmsh.model.mesh.generate(3)
+
+            # 导出到 PyVista
+            mesh = self._convert_to_pyvista()
+            self.current_mesh = mesh
+            return mesh
+
+        except Exception as e:
+            print(f"OCC几何/网格生成失败: {e}")
             return None
     
     def _create_domain_geometry(self, pier_geometry: PierGeometry, 

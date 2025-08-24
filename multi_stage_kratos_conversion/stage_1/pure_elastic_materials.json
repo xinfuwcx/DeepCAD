@@ -1,0 +1,224 @@
+{
+  "properties": [
+    {
+      "model_part_name": "Structure.MAT_2",
+      "properties_id": 2,
+      "Material": {
+        "constitutive_law": {
+          "name": "LinearElastic3DLaw"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 15000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 2039.43,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_3",
+      "properties_id": 3,
+      "Material": {
+        "constitutive_law": {
+          "name": "LinearElastic3DLaw"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 5000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 1988.45,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_4",
+      "properties_id": 4,
+      "Material": {
+        "constitutive_law": {
+          "name": "LinearElastic3DLaw"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 5000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 1947.66,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_5",
+      "properties_id": 5,
+      "Material": {
+        "constitutive_law": {
+          "name": "LinearElastic3DLaw"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 5000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 2121.01,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_6",
+      "properties_id": 6,
+      "Material": {
+        "constitutive_law": {
+          "name": "LinearElastic3DLaw"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 40000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 1988.45,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_7",
+      "properties_id": 7,
+      "Material": {
+        "constitutive_law": {
+          "name": "LinearElastic3DLaw"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 8000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 2121.01,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_8",
+      "properties_id": 8,
+      "Material": {
+        "constitutive_law": {
+          "name": "LinearElastic3DLaw"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 9000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 2110.81,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_9",
+      "properties_id": 9,
+      "Material": {
+        "constitutive_law": {
+          "name": "LinearElastic3DLaw"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 9000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 2059.83,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_10",
+      "properties_id": 10,
+      "Material": {
+        "constitutive_law": {
+          "name": "LinearElastic3DLaw"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 40000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 2141.4,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_11",
+      "properties_id": 11,
+      "Material": {
+        "constitutive_law": {
+          "name": "LinearElastic3DLaw"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 12000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 2059.83,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
+        },
+        "Tables": {}
+      }
+    },
+    {
+      "model_part_name": "Structure.MAT_12",
+      "properties_id": 12,
+      "Material": {
+        "constitutive_law": {
+          "name": "LinearElastic3DLaw"
+        },
+        "Variables": {
+          "YOUNG_MODULUS": 20000000.0,
+          "POISSON_RATIO": 0.3,
+          "DENSITY": 2070.02,
+          "VOLUME_ACCELERATION": [
+            0.0,
+            0.0,
+            -9.81
+          ]
+        },
+        "Tables": {}
+      }
+    }
+  ]
+}
