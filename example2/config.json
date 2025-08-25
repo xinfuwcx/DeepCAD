@@ -1,0 +1,61 @@
+{
+  "project": {
+    "name": "Example2",
+    "description": "MIDAS模型桌面计算程序",
+    "version": "1.0.0",
+    "author": "DeepCAD Team"
+  },
+  "ui": {
+    "theme": "modern",
+    "language": "zh_CN",
+    "auto_save": true,
+    "auto_save_interval": 300,
+    "show_splash": true,
+    "remember_window_state": true
+  },
+  "performance": {
+    "max_mesh_cells_for_edges": 500000,
+    "max_mesh_cells_for_realtime": 100000,
+    "render_fps_target": 30,
+    "memory_warning_threshold": 4096,
+    "async_display_update": true,
+    "cache_3d_geometry": true
+  },
+  "analysis": {
+    "default_solver": "newton_raphson",
+    "max_iterations": 100,
+    "convergence_tolerance": 1e-6,
+    "auto_detect_material_types": true,
+    "enable_nonlinear_analysis": true,
+    "parallel_processing": false
+  },
+  "visualization": {
+    "default_background": "gradient_blue",
+    "show_material_legend": true,
+    "show_coordinate_axes": true,
+    "enable_shadows": false,
+    "anti_aliasing": true,
+    "transparency_alpha": 0.7
+  },
+  "file_paths": {
+    "default_project_dir": "./projects",
+    "temp_analysis_dir": "./temp_kratos_analysis",
+    "export_dir": "./exports",
+    "log_dir": "./logs"
+  },
+  "kratos": {
+    "auto_detect": true,
+    "installation_path": "",
+    "applications": [
+      "StructuralMechanicsApplication",
+      "ConstitutiveLawsApplication"
+    ],
+    "default_constitutive_law": "LinearElasticPlaneStrain2DLaw"
+  },
+  "debug": {
+    "enable_console_output": true,
+    "log_level": "INFO",
+    "show_performance_metrics": true,
+    "enable_error_reporting": true
+  }
+}

@@ -23,6 +23,9 @@ from PyQt6.QtGui import QIcon, QFont, QPixmap, QPalette, QColor, QAction
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+# 配置管理器
+from example2.utils.config_manager import get_config
+
 # 优先使用稳定版本；若主实现不可用，则回退到 dev_archive 的备份实现
 try:
     from example2.modules.preprocessor import PreProcessor
@@ -39,10 +42,26 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        # 加载配置
+        self.config = get_config()
+        
+        # 应用窗口设置
+        self.setWindowTitle(f"{self.config.get('project.name', 'Example2')} - {self.config.get('project.description', 'MIDAS模型计算程序')} v{self.config.get('project.version', '1.0')}")
+        
+        # 设置窗口大小
+        self.setGeometry(100, 100, 1600, 1000)
+        
+        # 记住窗口状态
+        if self.config.get('ui.remember_window_state', True):
+            self._restore_window_state()
+
         # 初始化模块
         self.preprocessor = PreProcessor()
         self.analyzer = Analyzer()
         self.postprocessor = PostProcessor()
+
+        # 应用性能配置到模块
+        self._apply_performance_settings()
 
         # 初始化多线程操作管理器
         try:
@@ -59,9 +78,82 @@ class MainWindow(QMainWindow):
         self.init_ui()
         self.setup_connections()
 
+    def _apply_performance_settings(self):
+        """应用性能配置到各模块"""
+        try:
+            perf_config = self.config.get_performance_config()
+            
+            # 应用到前处理器
+            if hasattr(self.preprocessor, 'max_cells_for_edges'):
+                self.preprocessor.max_cells_for_edges = perf_config.get('max_mesh_cells_for_edges', 500000)
+            
+            if hasattr(self.preprocessor, 'enable_async_display'):
+                self.preprocessor.enable_async_display = perf_config.get('async_display_update', True)
+            
+            # 应用到分析器
+            analysis_config = self.config.get_analysis_config()
+            if hasattr(self.analyzer, 'max_iterations'):
+                self.analyzer.max_iterations = analysis_config.get('max_iterations', 100)
+            
+            if hasattr(self.analyzer, 'convergence_tolerance'):
+                self.analyzer.convergence_tolerance = analysis_config.get('convergence_tolerance', 1e-6)
+            
+            print("✅ 性能配置已应用到各模块")
+            
+        except Exception as e:
+            print(f"⚠️ 应用性能配置失败: {e}")
+
+    def _restore_window_state(self):
+        """恢复窗口状态"""
+        try:
+            from PyQt6.QtCore import QSettings
+            settings = QSettings()
+            
+            # 恢复窗口几何
+            geometry = settings.value("geometry")
+            if geometry:
+                self.restoreGeometry(geometry)
+            
+            # 恢复窗口状态
+            window_state = settings.value("windowState")
+            if window_state:
+                self.restoreState(window_state)
+                
+        except Exception as e:
+            print(f"⚠️ 恢复窗口状态失败: {e}")
+
+    def closeEvent(self, event):
+        """窗口关闭事件"""
+        try:
+            if self.config.get('ui.remember_window_state', True):
+                self._save_window_state()
+            
+            # 保存配置
+            self.config.save()
+            
+            # 清理资源
+            if hasattr(self, 'preprocessor') and self.preprocessor:
+                if hasattr(self.preprocessor, 'cleanup'):
+                    self.preprocessor.cleanup()
+            
+            event.accept()
+            
+        except Exception as e:
+            print(f"⚠️ 窗口关闭处理失败: {e}")
+            event.accept()
+
+    def _save_window_state(self):
+        """保存窗口状态"""
+        try:
+            from PyQt6.QtCore import QSettings
+            settings = QSettings()
+            settings.setValue("geometry", self.saveGeometry())
+            settings.setValue("windowState", self.saveState())
+        except Exception as e:
+            print(f"⚠️ 保存窗口状态失败: {e}")
+
     def init_ui(self):
         """初始化用户界面"""
-        self.setWindowTitle("Example2 - DeepCAD系统测试程序 v1.0")
         self.setGeometry(100, 100, 1600, 1000)
 
         # 设置窗口图标
@@ -884,8 +976,24 @@ class MainWindow(QMainWindow):
         # 帮助菜单
         help_menu = menubar.addMenu("帮助")
 
-        about_action = QAction("关于", self)
-        help_menu.addAction(about_action)
+        user_guide_action = QAction("📚 用户指南", self)
+        user_guide_action.setShortcut("F1")
+        user_guide_action.triggered.connect(self.show_user_guide)
+        help_menu.addAction(user_guide_action)
+
+        quick_start_action = QAction("🚀 快速开始", self)
+        quick_start_action.triggered.connect(self.show_quick_start)
+        help_menu.addAction(quick_start_action)
+
+    shortcuts_action = QAction("⌨️ 快捷键", self)
+    shortcuts_action.triggered.connect(self.show_shortcuts)
+    help_menu.addAction(shortcuts_action)
+
+    help_menu.addSeparator()
+
+    about_action = QAction("ℹ️ 关于", self)
+    about_action.triggered.connect(self.show_about)
+    help_menu.addAction(about_action)
 
     def create_tool_bar(self):
         """创建工具栏"""
@@ -928,12 +1036,17 @@ class MainWindow(QMainWindow):
         statusbar = self.statusBar()
 
         # 状态标签
-        self.status_label = QLabel("DeepCAD系统就绪")
+        self.status_label = QLabel("Example2 MIDAS模型计算程序就绪 - 版本 1.0")
         statusbar.addWidget(self.status_label)
 
         # 模块状态
         self.module_status = QLabel("前处理")
         statusbar.addPermanentWidget(self.module_status)
+
+        # Kratos状态指示器
+        self.kratos_status_indicator = QLabel("🔴 Kratos")
+        self.kratos_status_indicator.setToolTip("Kratos引擎状态：红色=未连接，绿色=已连接")
+        statusbar.addPermanentWidget(self.kratos_status_indicator)
 
         # 内存使用
         self.memory_label = QLabel("内存: 0 MB")
@@ -942,17 +1055,34 @@ class MainWindow(QMainWindow):
         # FPS与网格信息
         self.fps_label = QLabel("FPS: 0.0")
         statusbar.addPermanentWidget(self.fps_label)
-        self.mesh_label = QLabel("Mesh: 0 / 0")
+        self.mesh_label = QLabel("网格: 0节点/0单元")
         statusbar.addPermanentWidget(self.mesh_label)
 
         # 启动状态刷新计时器
         try:
             self._status_timer = QTimer(self)
-            self._status_timer.setInterval(500)
+            self._status_timer.setInterval(1000)  # 降低到1秒更新一次，减少性能消耗
             self._status_timer.timeout.connect(self._update_status_metrics)
             self._status_timer.start()
         except Exception:
             pass
+
+        # 初始化Kratos状态检查
+        self._check_kratos_status()
+
+    def _check_kratos_status(self):
+        """检查Kratos引擎状态"""
+        try:
+            from example2.core.kratos_interface import KRATOS_AVAILABLE
+            if KRATOS_AVAILABLE:
+                self.kratos_status_indicator.setText("🟢 Kratos")
+                self.kratos_status_indicator.setToolTip("Kratos引擎已连接并可用")
+            else:
+                self.kratos_status_indicator.setText("🔴 Kratos")
+                self.kratos_status_indicator.setToolTip("Kratos引擎不可用，分析功能受限")
+        except Exception:
+            self.kratos_status_indicator.setText("⚠️ Kratos")
+            self.kratos_status_indicator.setToolTip("Kratos引擎状态未知")
 
     def _update_status_metrics(self):
         """定期刷新状态栏指标(FPS/内存/网格规模)"""
@@ -964,12 +1094,12 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-        # Mesh stats
+        # Mesh stats with better formatting
         try:
             info = self.preprocessor.get_mesh_info() if hasattr(self.preprocessor, 'get_mesh_info') else {}
             npts = info.get('n_points', 0)
             ncells = info.get('n_cells', 0)
-            self.mesh_label.setText(f"Mesh: {npts} / {ncells}")
+            self.mesh_label.setText(f"网格: {npts:,}节点/{ncells:,}单元")
         except Exception:
             pass
 
@@ -1689,6 +1819,39 @@ class MainWindow(QMainWindow):
         """停止动画"""
         self.postprocessor.stop_animation()
         self.status_label.setText("动画已停止")
+
+    # 帮助菜单处理
+    def show_user_guide(self):
+        """显示用户指南"""
+        try:
+            from .help_system import show_help
+            show_help(self)
+        except Exception as e:
+            QMessageBox.information(self, "用户指南", f"帮助系统不可用: {e}")
+
+    def show_quick_start(self):
+        """显示快速开始提示"""
+        QMessageBox.information(
+            self,
+            "快速开始",
+            "1) 前处理: 导入FPN并检查模型\n2) 分析: 设置参数并运行\n3) 后处理: 加载结果并查看云图"
+        )
+
+    def show_shortcuts(self):
+        """显示快捷键"""
+        QMessageBox.information(
+            self,
+            "快捷键",
+            "Ctrl+I: 导入FPN\nCtrl+G: 生成网格\nCtrl+R: 刷新视图\nF1: 用户指南"
+        )
+
+    def show_about(self):
+        """显示关于对话框"""
+        QMessageBox.information(
+            self,
+            "关于 Example2",
+            "Example2 MIDAS模型计算程序\n版本 1.0\n\n基于PyQt6和PyVista，集成Kratos Multiphysics"
+        )
 
     # 新增方法：物理组和分析步选择
     def update_physics_combos(self):

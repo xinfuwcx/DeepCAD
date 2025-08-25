@@ -35,6 +35,14 @@ except ImportError:
     PYVISTA_AVAILABLE = False
     print("PyVista not available - 3D flow visualization disabled")
 
+# FEniCS for numerical analysis
+try:
+    from core.fenics_solver import FEniCSScourSolver, NumericalParameters, NumericalResult
+    FENICS_SOLVER_AVAILABLE = True
+except ImportError as e:
+    FENICS_SOLVER_AVAILABLE = False
+    print(f"FEniCS solver not available: {e}")
+
 # 添加路径
 current_dir = Path(__file__).parent
 sys.path.insert(0, str(current_dir))
@@ -652,111 +660,349 @@ class ProfessionalVisualizationPanel(QWidget):
         return widget
     
     def create_flow_analysis(self):
-        """创建流场分析视图 - 包含PyVista 3D可视化"""
+        """创建流场分析视图 - 重新设计，清晰直观"""
         widget = QWidget()
-        layout = QHBoxLayout(widget)
+        main_layout = QVBoxLayout(widget)
         
-        # 左侧控制面板
+        # 顶部操作指南
+        guide_widget = self.create_flow_analysis_guide()
+        main_layout.addWidget(guide_widget)
+        
+        # 主要内容区域
+        content_layout = QHBoxLayout()
+        
+        # 左侧控制面板 - 重新设计
+        control_panel = self.create_flow_control_panel()
+        content_layout.addWidget(control_panel)
+        
+        # 右侧可视化区域
+        viz_area = self.create_flow_visualization_area(widget)
+        content_layout.addWidget(viz_area, 1)
+        
+        main_layout.addLayout(content_layout)
+        
+        return widget
+    
+    def create_flow_analysis_guide(self):
+        """创建流场分析操作指南"""
+        guide_widget = QWidget()
+        guide_layout = QHBoxLayout(guide_widget)
+        guide_widget.setMaximumHeight(80)
+        guide_widget.setStyleSheet("""
+            QWidget {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #E3F2FD, stop:1 #BBDEFB);
+                border: 1px solid #90CAF9;
+                border-radius: 8px;
+                margin: 5px;
+            }
+        """)
+        
+        # 标题和说明
+        title_label = QLabel("🌊 流场详析")
+        title_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #1976D2;")
+        
+        guide_label = QLabel("分析桥墩周围的流体动力学特性，包括速度分布、压力场、涡量等")
+        guide_label.setStyleSheet("color: #424242; margin-top: 5px;")
+        
+        guide_text_layout = QVBoxLayout()
+        guide_text_layout.addWidget(title_label)
+        guide_text_layout.addWidget(guide_label)
+        
+        guide_layout.addLayout(guide_text_layout)
+        guide_layout.addStretch()
+        
+        # 快速操作按钮
+        self.quick_start_btn = QPushButton("▶ 开始分析")
+        self.quick_start_btn.setStyleSheet("""
+            QPushButton {
+                background: #2196F3;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                font-weight: bold;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background: #1976D2;
+            }
+        """)
+        self.quick_start_btn.clicked.connect(self.start_flow_analysis)
+        guide_layout.addWidget(self.quick_start_btn)
+        
+        return guide_widget
+    
+    def create_flow_control_panel(self):
+        """创建简化的控制面板"""
         control_panel = QWidget()
+        control_panel.setFixedWidth(320)
         control_layout = QVBoxLayout(control_panel)
-        control_panel.setFixedWidth(280)
+        control_panel.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                border: 2px solid #E0E0E0;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 8px 0 8px;
+                color: #1976D2;
+            }
+        """)
         
-        # 流场参数显示
-        params_group = QGroupBox("流场参数")
-        params_layout = QGridLayout(params_group)
+        # 1. 分析模式选择 - 简化
+        mode_group = QGroupBox("📊 分析模式")
+        mode_layout = QVBoxLayout(mode_group)
         
-        params_layout.addWidget(QLabel("雷诺数:"), 0, 0)
-        self.reynolds_label = QLabel("--")
-        params_layout.addWidget(self.reynolds_label, 0, 1)
+        self.analysis_mode = QComboBox()
+        self.analysis_mode.addItems([
+            "💨 基础流场分析",
+            "🔬 详细数值分析 (FEniCS)",
+            "📈 对比分析模式"
+        ])
+        self.analysis_mode.setStyleSheet("QComboBox { padding: 8px; font-size: 14px; }")
+        mode_layout.addWidget(self.analysis_mode)
         
-        params_layout.addWidget(QLabel("弗劳德数:"), 1, 0)
-        self.froude_label = QLabel("--")
-        params_layout.addWidget(self.froude_label, 1, 1)
+        # 模式说明
+        self.mode_description = QLabel("快速分析桥墩周围的基本流场特性")
+        self.mode_description.setStyleSheet("color: #666; font-size: 12px; margin: 5px;")
+        self.mode_description.setWordWrap(True)
+        mode_layout.addWidget(self.mode_description)
         
-        params_layout.addWidget(QLabel("最大流速:"), 2, 0)
-        self.max_velocity_label = QLabel("--")
-        params_layout.addWidget(self.max_velocity_label, 2, 1)
+        self.analysis_mode.currentTextChanged.connect(self.update_mode_description)
+        control_layout.addWidget(mode_group)
         
-        params_layout.addWidget(QLabel("湍流强度:"), 3, 0)
-        self.turbulence_label = QLabel("--")
-        params_layout.addWidget(self.turbulence_label, 3, 1)
-        
-        control_layout.addWidget(params_group)
-        
-        # 3D可视化选项
-        viz_group = QGroupBox("3D可视化选项")
+        # 2. 可视化内容 - 简化为核心选项
+        viz_group = QGroupBox("👁️ 显示内容")
         viz_layout = QVBoxLayout(viz_group)
         
-        self.show_velocity_vectors = QCheckBox("速度矢量场")
-        self.show_velocity_vectors.setChecked(True)
-        self.show_velocity_vectors.toggled.connect(self.update_flow_visualization)
+        # 主要显示选项
+        main_options_layout = QHBoxLayout()
         
-        self.show_pressure_field = QCheckBox("压力场")
-        self.show_pressure_field.setChecked(False)
-        self.show_pressure_field.toggled.connect(self.update_flow_visualization)
+        self.show_flow_field = QCheckBox("流场")
+        self.show_flow_field.setChecked(True)
+        self.show_flow_field.toggled.connect(self.update_flow_display)
+        main_options_layout.addWidget(self.show_flow_field)
         
-        self.show_vorticity_field = QCheckBox("涡量场")
-        self.show_vorticity_field.setChecked(False)
-        self.show_vorticity_field.toggled.connect(self.update_flow_visualization)
+        self.show_pier = QCheckBox("桥墩")
+        self.show_pier.setChecked(True)
+        self.show_pier.toggled.connect(self.update_flow_display)
+        main_options_layout.addWidget(self.show_pier)
         
-        self.show_streamlines = QCheckBox("流线")
-        self.show_streamlines.setChecked(True)
-        self.show_streamlines.toggled.connect(self.update_flow_visualization)
+        self.show_riverbed = QCheckBox("河床")
+        self.show_riverbed.setChecked(True)
+        self.show_riverbed.toggled.connect(self.update_flow_display)
+        main_options_layout.addWidget(self.show_riverbed)
         
-        self.show_pier_geometry = QCheckBox("桥墩几何体")
-        self.show_pier_geometry.setChecked(True)
-        self.show_pier_geometry.toggled.connect(self.update_flow_visualization)
+        viz_layout.addLayout(main_options_layout)
         
-        viz_layout.addWidget(self.show_velocity_vectors)
-        viz_layout.addWidget(self.show_pressure_field)
-        viz_layout.addWidget(self.show_vorticity_field)
-        viz_layout.addWidget(self.show_streamlines)
-        viz_layout.addWidget(self.show_pier_geometry)
+        # 流场类型选择
+        flow_type_layout = QHBoxLayout()
+        flow_type_layout.addWidget(QLabel("流场类型:"))
         
-        # 矢量密度控制
-        density_label = QLabel("矢量密度:")
-        viz_layout.addWidget(density_label)
-        self.vector_density_slider = QSlider(Qt.Orientation.Horizontal)
-        self.vector_density_slider.setRange(10, 100)
-        self.vector_density_slider.setValue(30)
-        self.vector_density_slider.valueChanged.connect(self.update_flow_visualization)
-        viz_layout.addWidget(self.vector_density_slider)
+        self.flow_type = QComboBox()
+        self.flow_type.addItems(["速度场", "压力场", "涡量场"])
+        self.flow_type.currentTextChanged.connect(self.update_flow_display)
+        flow_type_layout.addWidget(self.flow_type)
+        
+        viz_layout.addLayout(flow_type_layout)
+        
+        # 显示质量控制
+        quality_layout = QHBoxLayout()
+        quality_layout.addWidget(QLabel("显示质量:"))
+        
+        self.display_quality = QComboBox()
+        self.display_quality.addItems(["快速", "标准", "高质量"])
+        self.display_quality.setCurrentText("标准")
+        self.display_quality.currentTextChanged.connect(self.update_flow_display)
+        quality_layout.addWidget(self.display_quality)
+        
+        viz_layout.addLayout(quality_layout)
         
         control_layout.addWidget(viz_group)
         
-        # 视图控制
-        view_group = QGroupBox("视图控制")
-        view_layout = QVBoxLayout(view_group)
+        # 3. 分析参数 - 只显示关键参数
+        params_group = QGroupBox("⚙️ 分析参数")
+        params_layout = QGridLayout(params_group)
         
-        reset_view_btn = QPushButton("重置视图")
-        reset_view_btn.clicked.connect(self.reset_flow_view)
-        view_layout.addWidget(reset_view_btn)
+        # 基础参数显示
+        params_layout.addWidget(QLabel("雷诺数:"), 0, 0)
+        self.reynolds_display = QLabel("--")
+        self.reynolds_display.setStyleSheet("font-weight: bold; color: #2196F3;")
+        params_layout.addWidget(self.reynolds_display, 0, 1)
         
-        save_flow_btn = QPushButton("保存流场图像")
-        save_flow_btn.clicked.connect(self.save_flow_visualization)
-        view_layout.addWidget(save_flow_btn)
+        params_layout.addWidget(QLabel("弗劳德数:"), 1, 0)
+        self.froude_display = QLabel("--")
+        self.froude_display.setStyleSheet("font-weight: bold; color: #2196F3;")
+        params_layout.addWidget(self.froude_display, 1, 1)
         
-        control_layout.addWidget(view_group)
+        # 高级参数（可折叠）
+        self.show_advanced_params = QCheckBox("显示高级参数")
+        params_layout.addWidget(self.show_advanced_params, 2, 0, 1, 2)
+        
+        # 高级参数组件（初始隐藏）
+        self.advanced_params_widget = QWidget()
+        advanced_layout = QGridLayout(self.advanced_params_widget)
+        
+        advanced_layout.addWidget(QLabel("最大流速:"), 0, 0)
+        self.max_velocity_display = QLabel("--")
+        advanced_layout.addWidget(self.max_velocity_display, 0, 1)
+        
+        advanced_layout.addWidget(QLabel("湍流强度:"), 1, 0)
+        self.turbulence_display = QLabel("--")
+        advanced_layout.addWidget(self.turbulence_display, 1, 1)
+        
+        params_layout.addWidget(self.advanced_params_widget, 3, 0, 1, 2)
+        self.advanced_params_widget.setVisible(False)
+        
+        self.show_advanced_params.toggled.connect(self.advanced_params_widget.setVisible)
+        
+        control_layout.addWidget(params_group)
+        
+        # 4. 操作按钮 - 集中管理
+        actions_group = QGroupBox("🛠️ 操作")
+        actions_layout = QVBoxLayout(actions_group)
+        
+        # 主要操作按钮
+        self.analyze_btn = QPushButton("🔍 开始流场分析")
+        self.analyze_btn.setStyleSheet("""
+            QPushButton {
+                background: #2196F3;
+                color: white;
+                border: none;
+                padding: 12px;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 14px;
+            }
+            QPushButton:hover { background: #1976D2; }
+        """)
+        self.analyze_btn.clicked.connect(self.run_flow_analysis)
+        actions_layout.addWidget(self.analyze_btn)
+        
+        # 次要操作按钮组
+        secondary_actions = QHBoxLayout()
+        
+        self.save_image_btn = QPushButton("💾 保存")
+        self.save_image_btn.clicked.connect(self.save_flow_visualization)
+        secondary_actions.addWidget(self.save_image_btn)
+        
+        self.reset_view_btn = QPushButton("🔄 重置")
+        self.reset_view_btn.clicked.connect(self.reset_flow_view)
+        secondary_actions.addWidget(self.reset_view_btn)
+        
+        self.help_btn = QPushButton("❓ 帮助")
+        self.help_btn.clicked.connect(self.show_flow_analysis_help)
+        secondary_actions.addWidget(self.help_btn)
+        
+        # 设置次要按钮样式
+        for btn in [self.save_image_btn, self.reset_view_btn, self.help_btn]:
+            btn.setStyleSheet("""
+                QPushButton {
+                    background: #F5F5F5;
+                    border: 1px solid #E0E0E0;
+                    padding: 8px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                }
+                QPushButton:hover { background: #EEEEEE; }
+            """)
+        
+        actions_layout.addLayout(secondary_actions)
+        
+        control_layout.addWidget(actions_group)
+        
+        # 5. 状态显示
+        status_group = QGroupBox("📊 分析状态")
+        status_layout = QVBoxLayout(status_group)
+        
+        self.analysis_status = QLabel("准备就绪")
+        self.analysis_status.setStyleSheet("color: #4CAF50; font-weight: bold;")
+        status_layout.addWidget(self.analysis_status)
+        
+        # 进度条
+        self.analysis_progress = QProgressBar()
+        self.analysis_progress.setVisible(False)
+        status_layout.addWidget(self.analysis_progress)
+        
+        control_layout.addWidget(status_group)
+        
         control_layout.addStretch()
         
-        layout.addWidget(control_panel)
+        return control_panel
+    
+    def create_flow_visualization_area(self, parent):
+        """创建可视化区域"""
+        viz_widget = QWidget()
+        viz_layout = QVBoxLayout(viz_widget)
         
-        # 右侧PyVista 3D视图
+        # 可视化标题栏
+        title_bar = QWidget()
+        title_layout = QHBoxLayout(title_bar)
+        title_bar.setMaximumHeight(40)
+        title_bar.setStyleSheet("background: #FAFAFA; border-bottom: 1px solid #E0E0E0;")
+        
+        viz_title = QLabel("3D 流场可视化")
+        viz_title.setStyleSheet("font-weight: bold; font-size: 14px; color: #424242;")
+        title_layout.addWidget(viz_title)
+        title_layout.addStretch()
+        
+        # 视图控制按钮
+        view_controls = QHBoxLayout()
+        
+        self.view_xy_btn = QPushButton("XY")
+        self.view_xz_btn = QPushButton("XZ") 
+        self.view_3d_btn = QPushButton("3D")
+        
+        for btn in [self.view_xy_btn, self.view_xz_btn, self.view_3d_btn]:
+            btn.setFixedSize(30, 25)
+            btn.setStyleSheet("""
+                QPushButton {
+                    background: #E3F2FD;
+                    border: 1px solid #90CAF9;
+                    border-radius: 3px;
+                    font-size: 10px;
+                }
+                QPushButton:hover { background: #BBDEFB; }
+                QPushButton:checked { background: #2196F3; color: white; }
+            """)
+            btn.setCheckable(True)
+            view_controls.addWidget(btn)
+        
+        self.view_3d_btn.setChecked(True)
+        
+        title_layout.addLayout(view_controls)
+        viz_layout.addWidget(title_bar)
+        
+        # PyVista 3D 渲染区域
         if PYVISTA_AVAILABLE:
-            self.flow_plotter = pvqt.QtInteractor(widget)
-            self.flow_plotter.setMinimumSize(600, 400)
-            layout.addWidget(self.flow_plotter, 1)
+            self.flow_plotter = pvqt.QtInteractor(viz_widget)
+            viz_layout.addWidget(self.flow_plotter)
             self.setup_flow_scene()
         else:
-            # 如果PyVista不可用，显示提示
+            # 备用显示
             fallback_widget = QWidget()
             fallback_layout = QVBoxLayout(fallback_widget)
-            fallback_label = QLabel("PyVista 3D可视化不可用\n请安装PyVista和pyvistaqt包")
+            fallback_layout.addStretch()
+            
+            fallback_label = QLabel("🔧 3D可视化功能不可用")
             fallback_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            fallback_label.setStyleSheet("font-size: 16px; color: #757575;")
             fallback_layout.addWidget(fallback_label)
-            layout.addWidget(fallback_widget, 1)
+            
+            help_label = QLabel("请安装 PyVista 和 pyvistaqt 以启用3D流场可视化")
+            help_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            help_label.setStyleSheet("font-size: 12px; color: #BDBDBD; margin-top: 10px;")
+            fallback_layout.addWidget(help_label)
+            
+            fallback_layout.addStretch()
+            viz_layout.addWidget(fallback_widget)
         
-        return widget
+        return viz_widget
     
     def setup_flow_scene(self):
         """初始化3D流场场景"""
@@ -805,6 +1051,18 @@ class ProfessionalVisualizationPanel(QWidget):
         
         # 创建桥墩几何体
         self.create_pier_geometry()
+        
+        # 创建冲刷坑几何体
+        self.create_scour_hole()
+        
+        # 创建河床地形
+        self.create_riverbed_terrain()
+        
+        # 初始化动画相关变量
+        self.animation_time = 0.0
+        self.animation_timer = QTimer()
+        self.animation_timer.timeout.connect(self.update_animation)
+        self.is_animating = False
     
     def calculate_flow_field(self, X, Y, Z):
         """计算3D流场"""
@@ -881,6 +1139,124 @@ class ProfessionalVisualizationPanel(QWidget):
         # 添加材质属性
         self.pier_mesh['pier_id'] = np.ones(self.pier_mesh.n_points)
     
+    def create_scour_hole(self):
+        """创建冲刷坑几何体"""
+        if not PYVISTA_AVAILABLE:
+            return
+            
+        # 冲刷坑参数（默认值）
+        scour_depth = 2.0  # m
+        scour_length = 8.0  # m
+        scour_width = 6.0   # m
+        
+        # 创建椭球形冲刷坑
+        x = np.linspace(-scour_length/2, scour_length/2, 40)
+        y = np.linspace(-scour_width/2, scour_width/2, 30)
+        X_scour, Y_scour = np.meshgrid(x, y)
+        
+        # 椭球公式：计算冲刷坑深度
+        a, b = scour_length/2, scour_width/2
+        r_normalized = np.sqrt((X_scour/a)**2 + (Y_scour/b)**2)
+        
+        # 创建平滑的冲刷坑表面
+        Z_scour = np.where(
+            r_normalized <= 1.0,
+            -scour_depth * (1 - r_normalized**2)**0.5,  # 椭球表面
+            0  # 河床平面
+        )
+        
+        # 创建结构化表面网格 (需要3D维度)
+        self.scour_hole_mesh = pv.StructuredGrid()
+        points = np.c_[X_scour.ravel(), Y_scour.ravel(), Z_scour.ravel()]
+        self.scour_hole_mesh.points = points
+        # 添加第三维度为1（表面网格）
+        self.scour_hole_mesh.dimensions = (*X_scour.shape, 1)
+        
+        # 添加属性数据
+        self.scour_hole_mesh.point_data['elevation'] = Z_scour.ravel()
+        self.scour_hole_mesh.point_data['scour_depth'] = -Z_scour.ravel()
+        
+        print(f"冲刷坑已创建: 深度 {scour_depth}m, 长度 {scour_length}m, 宽度 {scour_width}m")
+    
+    def create_riverbed_terrain(self):
+        """创建河床地形"""
+        if not PYVISTA_AVAILABLE:
+            return
+            
+        # 河床范围更大
+        x_bed = np.linspace(-12, 12, 60)
+        y_bed = np.linspace(-8, 8, 50)
+        X_bed, Y_bed = np.meshgrid(x_bed, y_bed)
+        
+        # 创建自然起伏的河床地形
+        Z_bed = (
+            0.2 * np.sin(0.3 * X_bed) * np.cos(0.2 * Y_bed) +  # 大尺度起伏
+            0.1 * np.sin(X_bed) * np.cos(1.5 * Y_bed) +        # 中尺度波纹
+            0.05 * np.sin(3 * X_bed) * np.cos(2 * Y_bed)       # 小尺度粗糙度
+        ) - 0.5  # 整体下移
+        
+        # 在桥墩周围集成冲刷效应
+        pier_distance = np.sqrt(X_bed**2 + Y_bed**2)
+        scour_influence = np.where(
+            pier_distance < 4.0,
+            -1.0 * np.exp(-(pier_distance/2.0)**2),  # 桥墩周围的冲刷影响
+            0
+        )
+        
+        Z_bed += scour_influence
+        
+        # 创建河床网格
+        self.riverbed_mesh = pv.StructuredGrid()
+        bed_points = np.c_[X_bed.ravel(), Y_bed.ravel(), Z_bed.ravel()]
+        self.riverbed_mesh.points = bed_points
+        self.riverbed_mesh.dimensions = (*X_bed.shape, 1)
+        
+        # 计算河床属性
+        bed_slope = np.gradient(Z_bed, axis=0)**2 + np.gradient(Z_bed, axis=1)**2
+        bed_roughness = 0.01 + 0.005 * np.random.random(Z_bed.shape)  # Manning粗糙度
+        
+        self.riverbed_mesh.point_data['elevation'] = Z_bed.ravel()
+        self.riverbed_mesh.point_data['slope'] = bed_slope.ravel()
+        self.riverbed_mesh.point_data['roughness'] = bed_roughness.ravel()
+        
+        print("河床地形已创建")
+        
+    def update_scour_geometry(self, scour_result):
+        """根据计算结果更新冲刷坑几何"""
+        if not PYVISTA_AVAILABLE or not scour_result:
+            return
+            
+        try:
+            # 使用实际计算结果更新冲刷坑
+            actual_depth = scour_result.scour_depth if hasattr(scour_result, 'scour_depth') else 2.0
+            actual_width = scour_result.scour_width if hasattr(scour_result, 'scour_width') else 6.0
+            
+            # 重新计算冲刷坑几何
+            x = np.linspace(-actual_width, actual_width, 40)
+            y = np.linspace(-actual_width*0.8, actual_width*0.8, 30)
+            X_scour, Y_scour = np.meshgrid(x, y)
+            
+            a, b = actual_width, actual_width*0.8
+            r_normalized = np.sqrt((X_scour/a)**2 + (Y_scour/b)**2)
+            
+            Z_scour = np.where(
+                r_normalized <= 1.0,
+                -actual_depth * (1 - r_normalized**2)**0.5,
+                0
+            )
+            
+            # 更新冲刷坑网格
+            points = np.c_[X_scour.ravel(), Y_scour.ravel(), Z_scour.ravel()]
+            self.scour_hole_mesh.points = points
+            self.scour_hole_mesh.dimensions = (*X_scour.shape, 1)
+            self.scour_hole_mesh.point_data['elevation'] = Z_scour.ravel()
+            self.scour_hole_mesh.point_data['scour_depth'] = -Z_scour.ravel()
+            
+            print(f"冲刷坑已更新: 深度 {actual_depth:.2f}m, 宽度 {actual_width:.2f}m")
+            
+        except Exception as e:
+            print(f"冲刷几何更新失败: {e}")
+    
     def update_flow_visualization(self):
         """更新流场可视化"""
         if not PYVISTA_AVAILABLE or not hasattr(self, 'flow_mesh'):
@@ -890,16 +1266,57 @@ class ProfessionalVisualizationPanel(QWidget):
         self.flow_plotter.clear_actors()
         
         # 显示桥墩几何体
-        if self.show_pier_geometry.isChecked():
+        if self.show_pier.isChecked():
             self.flow_plotter.add_mesh(
                 self.pier_mesh, color='#4a4a4a', opacity=0.9, 
                 smooth_shading=True, show_edges=False
             )
         
-        # 显示速度矢量场
-        if self.show_velocity_vectors.isChecked():
+        # 显示河床地形（COMSOL风格地形着色）
+        if self.show_riverbed.isChecked() and hasattr(self, 'riverbed_mesh'):
+            self.flow_plotter.add_mesh(
+                self.riverbed_mesh, 
+                scalars='elevation',
+                cmap='terrain',
+                opacity=0.7,
+                smooth_shading=True,
+                show_edges=False,
+                scalar_bar_args={
+                    'title': '河床高程 (m)', 
+                    'color': 'white',
+                    'position_x': 0.02,
+                    'position_y': 0.1,
+                    'width': 0.05,
+                    'height': 0.7
+                }
+            )
+        
+        # 显示冲刷坑（突出显示）
+        if hasattr(self, 'scour_hole_mesh'):
+            self.flow_plotter.add_mesh(
+                self.scour_hole_mesh,
+                scalars='scour_depth', 
+                cmap='Reds',
+                opacity=0.8,
+                smooth_shading=True,
+                show_edges=True,
+                edge_color='darkred',
+                line_width=1,
+                scalar_bar_args={
+                    'title': '冲刷深度 (m)', 
+                    'color': 'white',
+                    'position_x': 0.92,
+                    'position_y': 0.1,
+                    'width': 0.05,
+                    'height': 0.7
+                }
+            )
+        
+        # 显示速度矢量场 - 根据流场类型决定
+        flow_type = self.flow_type.currentText() if hasattr(self, 'flow_type') else "速度场"
+        if self.show_flow_field.isChecked() and "速度" in flow_type:
             # 创建稀疏的矢量场
-            step = max(1, 100 - self.vector_density_slider.value())
+            step = max(1, 100 - 50)  # 使用默认密度
             sparse_mesh = self.flow_mesh.extract_points(
                 np.arange(0, self.flow_mesh.n_points, step)
             )
@@ -913,7 +1330,7 @@ class ProfessionalVisualizationPanel(QWidget):
             )
         
         # 显示压力场等值面
-        if self.show_pressure_field.isChecked():
+        if self.show_flow_field.isChecked() and "压力" in flow_type:
             # 创建压力等值面
             iso_surface = self.flow_mesh.contour(scalars='pressure', isosurfaces=8)
             self.flow_plotter.add_mesh(
@@ -922,7 +1339,7 @@ class ProfessionalVisualizationPanel(QWidget):
             )
         
         # 显示涡量场
-        if self.show_vorticity_field.isChecked():
+        if self.show_flow_field.isChecked() and "涡量" in flow_type:
             # 涡量等值面
             vorticity_surface = self.flow_mesh.contour(scalars='vorticity', isosurfaces=6)
             self.flow_plotter.add_mesh(
@@ -933,19 +1350,49 @@ class ProfessionalVisualizationPanel(QWidget):
         # 显示流线
         if self.show_streamlines.isChecked():
             try:
-                # 创建种子点
-                seed_points = pv.Sphere(radius=1, center=(-4, 0, 0))
-                streamlines = self.flow_mesh.streamlines_from_source(
-                    source=seed_points, vectors='velocity',
-                    max_steps=500, initial_step_length=0.1
-                )
-                self.flow_plotter.add_mesh(
-                    streamlines, color='yellow', opacity=0.9, line_width=2
-                )
+                # 创建多个种子点位置 - 入流区域
+                seed_centers = [(-6, -2, 0), (-6, 0, 0), (-6, 2, 0), 
+                              (-6, -1, 1), (-6, 1, 1), (-6, 0, -1)]
+                
+                for i, center in enumerate(seed_centers):
+                    # 为每个位置创建小的种子球
+                    seed_points = pv.Sphere(radius=0.3, center=center, phi_resolution=8, theta_resolution=8)
+                    try:
+                        streamlines = self.flow_mesh.streamlines_from_source(
+                            source=seed_points, vectors='velocity',
+                            max_steps=300, initial_step_length=0.05,
+                            max_step_length=0.2, integration_direction='forward'
+                        )
+                        
+                        # 为不同流线使用不同颜色
+                        colors = ['cyan', 'yellow', 'lime', 'orange', 'magenta', 'white']
+                        color = colors[i % len(colors)]
+                        
+                        self.flow_plotter.add_mesh(
+                            streamlines, color=color, opacity=0.8, line_width=1.5,
+                            render_lines_as_tubes=True, line_width_tube=0.02
+                        )
+                    except Exception as e:
+                        print(f"流线 {i} 生成失败: {e}")
+                        continue
+                        
             except Exception as e:
-                print(f"流线生成失败: {e}")
-                # 如果流线失败，显示简化的流场指示
-                pass
+                print(f"流线生成总体失败: {e}")
+                # 备用简化流线显示
+                try:
+                    # 使用点云方式显示流向
+                    step = 8
+                    sparse_mesh = self.flow_mesh.extract_points(
+                        np.arange(0, self.flow_mesh.n_points, step)
+                    )
+                    # 创建简单的流向指示
+                    arrows = sparse_mesh.glyph(orient='velocity', scale='velocity_magnitude', 
+                                             factor=0.1, geom=pv.Arrow())
+                    self.flow_plotter.add_mesh(
+                        arrows, color='yellow', opacity=0.6
+                    )
+                except:
+                    pass
         
         # 重新渲染
         self.flow_plotter.render()
@@ -967,6 +1414,1296 @@ class ProfessionalVisualizationPanel(QWidget):
             if filename:
                 self.flow_plotter.screenshot(filename, window_size=[1920, 1080])
                 self.statusBar().showMessage(f"流场图像已保存: {filename}")
+    
+    def toggle_animation(self):
+        """切换动画状态"""
+        if not PYVISTA_AVAILABLE:
+            return
+            
+        if self.animation_enabled.isChecked():
+            self.start_animation()
+        else:
+            self.stop_animation()
+    
+    def start_animation(self):
+        """开始动画"""
+        if not PYVISTA_AVAILABLE or self.is_animating:
+            return
+            
+        self.is_animating = True
+        animation_interval = self.anim_speed_slider.value()
+        self.animation_timer.start(animation_interval)
+        print("流场动画已启动")
+    
+    def stop_animation(self):
+        """停止动画"""
+        if not PYVISTA_AVAILABLE:
+            return
+            
+        self.is_animating = False
+        self.animation_timer.stop()
+        print("流场动画已停止")
+    
+    def update_animation(self):
+        """更新动画帧"""
+        if not PYVISTA_AVAILABLE or not hasattr(self, 'flow_mesh'):
+            return
+            
+        # 更新动画时间
+        time_step = self.time_step_slider.value() * 0.01
+        self.animation_time += time_step
+        
+        # 重新计算带时间变化的流场
+        self.update_animated_flow_field()
+        
+        # 更新可视化（只更新需要的部分以提高性能）
+        self.update_flow_visualization_animated()
+    
+    def update_animated_flow_field(self):
+        """更新带时间变化的流场数据"""
+        if not PYVISTA_AVAILABLE or not hasattr(self, 'flow_mesh'):
+            return
+            
+        # 获取当前的静态流场数据
+        static_u = self.flow_mesh.point_data['u_velocity'].reshape(-1)
+        static_v = self.flow_mesh.point_data['v_velocity'].reshape(-1)
+        static_w = self.flow_mesh.point_data['w_velocity'].reshape(-1)
+        
+        # 添加时间变化的湍流波动
+        n_points = len(static_u)
+        time_factor = np.sin(self.animation_time)
+        
+        # 创建湍流脉动
+        turbulent_u = static_u + 0.1 * np.sin(0.5 * self.animation_time + np.arange(n_points) * 0.01) * static_u
+        turbulent_v = static_v + 0.1 * np.cos(0.3 * self.animation_time + np.arange(n_points) * 0.015) * static_v
+        turbulent_w = static_w + 0.08 * np.sin(0.7 * self.animation_time + np.arange(n_points) * 0.02) * static_w
+        
+        # 更新速度场数据
+        self.flow_mesh.point_data['velocity'] = np.c_[turbulent_u, turbulent_v, turbulent_w]
+        self.flow_mesh.point_data['velocity_magnitude'] = np.sqrt(
+            turbulent_u**2 + turbulent_v**2 + turbulent_w**2
+        )
+        
+        # 更新压力场（简化）
+        speed_squared = turbulent_u**2 + turbulent_v**2 + turbulent_w**2
+        pressure_variation = 500 * np.sin(0.2 * self.animation_time)  # 压力波动
+        self.flow_mesh.point_data['pressure'] = (
+            self.flow_mesh.point_data['pressure'] + pressure_variation * np.sin(np.arange(n_points) * 0.1)
+        )
+    
+    def update_flow_visualization_animated(self):
+        """更新动画可视化（优化性能）"""
+        if not PYVISTA_AVAILABLE or not hasattr(self, 'flow_mesh'):
+            return
+            
+        # 只更新速度矢量和流线，其他保持不变以提高性能
+        flow_type = self.flow_type.currentText() if hasattr(self, 'flow_type') else "速度场"
+        if self.show_flow_field.isChecked() and "速度" in flow_type:
+            # 移除旧的矢量
+            actors_to_remove = []
+            for actor in self.flow_plotter.renderer.actors.values():
+                if hasattr(actor, '_vector_arrows'):
+                    actors_to_remove.append(actor)
+            
+            for actor in actors_to_remove:
+                self.flow_plotter.remove_actor(actor)
+            
+            # 添加新的矢量场
+            step = max(1, 120 - 50)  # 使用默认密度
+            sparse_mesh = self.flow_mesh.extract_points(
+                np.arange(0, self.flow_mesh.n_points, step)
+            )
+            
+            arrows = sparse_mesh.glyph(orient='velocity', scale='velocity_magnitude', 
+                                     factor=0.3, geom=pv.Arrow())
+            actor = self.flow_plotter.add_mesh(
+                arrows, cmap='turbo', opacity=0.8,
+                scalar_bar_args={'title': '速度 (m/s)', 'color': 'white'}
+            )
+            actor._vector_arrows = True  # 标记用于识别
+        
+        # 重新渲染
+        self.flow_plotter.render()
+    
+    def update_section_plane(self):
+        """更新截面位置显示"""
+        if not hasattr(self, 'section_position_slider'):
+            return
+            
+        position_value = self.section_position_slider.value() * 0.1  # 转换为实际坐标
+        section_type = self.section_type.currentText() if hasattr(self, 'section_type') else "XY平面 (水平)"
+        
+        if "XY平面" in section_type:
+            self.section_pos_label.setText(f"Z = {position_value:.1f} m")
+        elif "XZ平面" in section_type:
+            self.section_pos_label.setText(f"Y = {position_value:.1f} m")
+        elif "YZ平面" in section_type:
+            self.section_pos_label.setText(f"X = {position_value:.1f} m")
+        else:
+            self.section_pos_label.setText(f"位置 = {position_value:.1f}")
+    
+    def show_section_plane(self):
+        """显示截面平面"""
+        if not PYVISTA_AVAILABLE or not hasattr(self, 'flow_mesh'):
+            return
+            
+        try:
+            # 隐藏之前的截面
+            self.hide_section_plane()
+            
+            # 获取截面参数
+            position = self.section_position_slider.value() * 0.1
+            section_type = self.section_type.currentText()
+            
+            if "XY平面" in section_type:
+                # 水平截面 (Z = position)
+                normal = (0, 0, 1)
+                origin = (0, 0, position)
+            elif "XZ平面" in section_type:
+                # 纵向截面 (Y = position)
+                normal = (0, 1, 0)
+                origin = (0, position, 0)
+            elif "YZ平面" in section_type:
+                # 横向截面 (X = position)
+                normal = (1, 0, 0)
+                origin = (position, 0, 0)
+            else:
+                # 默认水平截面
+                normal = (0, 0, 1)
+                origin = (0, 0, position)
+            
+            # 创建截面
+            section_mesh = self.flow_mesh.slice(normal=normal, origin=origin)
+            
+            if section_mesh.n_points > 0:
+                # 显示截面（使用速度大小着色）
+                self.section_actor = self.flow_plotter.add_mesh(
+                    section_mesh, 
+                    scalars='velocity_magnitude',
+                    cmap='turbo',
+                    opacity=0.8,
+                    show_edges=True,
+                    edge_color='white',
+                    line_width=0.5,
+                    scalar_bar_args={
+                        'title': '截面速度 (m/s)', 
+                        'color': 'white',
+                        'position_x': 0.85,
+                        'position_y': 0.1,
+                        'width': 0.05,
+                        'height': 0.7
+                    }
+                )
+                
+                # 在截面上添加速度矢量
+                if section_mesh.n_points < 5000:  # 只在点数不太多时添加矢量
+                    step = max(1, section_mesh.n_points // 500)
+                    sparse_section = section_mesh.extract_points(
+                        np.arange(0, section_mesh.n_points, step)
+                    )
+                    
+                    arrows = sparse_section.glyph(
+                        orient='velocity', 
+                        scale='velocity_magnitude',
+                        factor=0.2, 
+                        geom=pv.Arrow()
+                    )
+                    
+                    self.section_vector_actor = self.flow_plotter.add_mesh(
+                        arrows, 
+                        color='red', 
+                        opacity=0.9,
+                        line_width=1
+                    )
+                
+                self.flow_plotter.render()
+                print(f"截面已显示: {section_type} at {position:.1f}")
+            else:
+                print("截面位置无数据点")
+                
+        except Exception as e:
+            print(f"截面显示失败: {e}")
+    
+    def hide_section_plane(self):
+        """隐藏截面平面"""
+        if not PYVISTA_AVAILABLE:
+            return
+            
+        try:
+            if hasattr(self, 'section_actor') and self.section_actor:
+                self.flow_plotter.remove_actor(self.section_actor)
+                self.section_actor = None
+                
+            if hasattr(self, 'section_vector_actor') and self.section_vector_actor:
+                self.flow_plotter.remove_actor(self.section_vector_actor)
+                self.section_vector_actor = None
+                
+            self.flow_plotter.render()
+            print("截面已隐藏")
+            
+        except Exception as e:
+            print(f"截面隐藏失败: {e}")
+    
+    def export_section_data(self):
+        """导出截面数据"""
+        if not PYVISTA_AVAILABLE or not hasattr(self, 'flow_mesh'):
+            return
+            
+        try:
+            from PyQt6.QtWidgets import QFileDialog
+            
+            # 获取截面
+            position = self.section_position_slider.value() * 0.1
+            section_type = self.section_type.currentText()
+            
+            if "XY平面" in section_type:
+                normal = (0, 0, 1)
+                origin = (0, 0, position)
+                axis_name = "Z"
+            elif "XZ平面" in section_type:
+                normal = (0, 1, 0)
+                origin = (0, position, 0)
+                axis_name = "Y"
+            elif "YZ平面" in section_type:
+                normal = (1, 0, 0)
+                origin = (position, 0, 0)
+                axis_name = "X"
+            else:
+                normal = (0, 0, 1)
+                origin = (0, 0, position)
+                axis_name = "Z"
+            
+            section_mesh = self.flow_mesh.slice(normal=normal, origin=origin)
+            
+            if section_mesh.n_points == 0:
+                print("截面无数据点，无法导出")
+                return
+            
+            # 选择保存文件
+            filename, _ = QFileDialog.getSaveFileName(
+                self, f"导出截面数据 ({axis_name}={position:.1f}m)", 
+                f"section_{axis_name}_{position:.1f}m.csv",
+                "CSV files (*.csv);;VTK files (*.vtk);;All files (*.*)"
+            )
+            
+            if filename:
+                if filename.endswith('.vtk'):
+                    # 保存为VTK格式
+                    section_mesh.save(filename)
+                else:
+                    # 保存为CSV格式
+                    points = section_mesh.points
+                    velocity = section_mesh.point_data['velocity']
+                    velocity_mag = section_mesh.point_data['velocity_magnitude']
+                    pressure = section_mesh.point_data['pressure']
+                    
+                    # 创建数据数组
+                    data_array = np.column_stack([
+                        points[:, 0], points[:, 1], points[:, 2],  # XYZ坐标
+                        velocity[:, 0], velocity[:, 1], velocity[:, 2],  # UVW速度分量
+                        velocity_mag, pressure  # 速度大小和压力
+                    ])
+                    
+                    # 保存CSV
+                    header = 'X,Y,Z,U,V,W,VelocityMagnitude,Pressure'
+                    np.savetxt(filename, data_array, delimiter=',', header=header, comments='')
+                
+                print(f"截面数据已导出: {filename}")
+                if hasattr(self, 'statusBar'):
+                    self.statusBar().showMessage(f"截面数据已导出: {filename}")
+                    
+        except Exception as e:
+            print(f"截面数据导出失败: {e}")
+    
+    # 新界面的事件处理方法
+    def start_flow_analysis(self):
+        """快速开始流场分析"""
+        self.analysis_status.setText("正在初始化...")
+        self.analysis_progress.setVisible(True)
+        self.analysis_progress.setValue(0)
+        
+        mode = self.analysis_mode.currentText()
+        if "基础流场" in mode:
+            self.run_basic_flow_analysis()
+        elif "FEniCS" in mode:
+            self.run_fenics_analysis()
+        elif "对比分析" in mode:
+            self.run_comparison_analysis()
+    
+    def update_mode_description(self, mode_text):
+        """更新分析模式说明"""
+        if "基础流场" in mode_text:
+            desc = "使用经验公式快速分析基本流场特性，适用于初步评估"
+        elif "FEniCS" in mode_text:
+            desc = "使用有限元数值方法进行精确分析，需要更多计算时间"
+        elif "对比分析" in mode_text:
+            desc = "同时运行经验公式和数值方法，对比分析两种结果的差异"
+        else:
+            desc = "选择合适的分析模式"
+        
+        self.mode_description.setText(desc)
+    
+    def update_flow_display(self):
+        """更新流场显示"""
+        if not PYVISTA_AVAILABLE or not hasattr(self, 'flow_plotter'):
+            return
+        
+        try:
+            # 根据用户选择更新显示内容
+            flow_type = self.flow_type.currentText()
+            quality = self.display_quality.currentText()
+            
+            # 设置显示质量
+            quality_settings = {
+                "快速": {"resolution": 20, "density": 10},
+                "标准": {"resolution": 40, "density": 30}, 
+                "高质量": {"resolution": 80, "density": 60}
+            }
+            
+            current_settings = quality_settings.get(quality, quality_settings["标准"])
+            
+            # 更新可视化
+            self.update_flow_visualization()
+            
+        except Exception as e:
+            print(f"显示更新失败: {e}")
+    
+    def run_basic_flow_analysis(self):
+        """运行基础流场分析"""
+        try:
+            self.analysis_status.setText("正在进行基础流场分析...")
+            self.analysis_progress.setValue(25)
+            
+            # 尝试获取主窗口参数，如果失败则使用默认参数
+            params = None
+            try:
+                # 尝试从主窗口获取参数
+                main_window = self.parent()
+                while main_window and not hasattr(main_window, 'get_current_parameters'):
+                    main_window = main_window.parent()
+                
+                if main_window and hasattr(main_window, 'get_current_parameters'):
+                    params = main_window.get_current_parameters()
+                    print("使用主窗口参数")
+            except:
+                pass
+            
+            # 如果获取失败，使用默认参数
+            if params is None:
+                from core.empirical_solver import create_test_parameters
+                params = create_test_parameters()
+                print("使用默认测试参数")
+            
+            self.analysis_progress.setValue(50)
+            
+            # 运行经验公式计算
+            from core.empirical_solver import EmpiricalScourSolver
+            solver = EmpiricalScourSolver()
+            raw_result = solver.solve(params)
+            
+            # 处理不同方法的结果，选择一个作为主要结果
+            if isinstance(raw_result, dict):
+                # 如果返回的是多个方法的结果字典，选择HEC-18作为主要结果
+                main_method = 'HEC-18'  # 优先使用HEC-18
+                if main_method in raw_result:
+                    result = raw_result[main_method]
+                else:
+                    # 如果没有HEC-18，使用第一个可用的方法
+                    result = list(raw_result.values())[0]
+                
+                # 确保result是正确的格式
+                if not isinstance(result, dict):
+                    result = {'scour_depth': result, 'success': True}
+                
+                # 添加计算的流体参数
+                if 'reynolds_number' not in result:
+                    # 计算雷诺数和弗劳德数
+                    V = params.flow_velocity
+                    D = params.pier_diameter  
+                    H = params.water_depth
+                    nu = 1e-6  # 水的运动粘度
+                    g = 9.81
+                    
+                    result['reynolds_number'] = V * D / nu
+                    result['froude_number'] = V / (g * H)**0.5
+                
+                result['success'] = True
+            else:
+                result = raw_result
+            
+            self.analysis_progress.setValue(75)
+            
+            # 更新显示
+            self.update_flow_parameters(result)
+            
+            self.analysis_progress.setValue(100)
+            self.analysis_status.setText("基础分析完成")
+            
+            # 隐藏进度条
+            QTimer.singleShot(2000, lambda: self.analysis_progress.setVisible(False))
+            
+        except Exception as e:
+            self.analysis_status.setText(f"分析失败: {e}")
+            print(f"基础流场分析失败: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def run_comparison_analysis(self):
+        """运行对比分析"""
+        try:
+            self.analysis_status.setText("正在进行对比分析...")
+            self.analysis_progress.setValue(10)
+            
+            # 尝试获取主窗口参数，如果失败则使用默认参数
+            params = None
+            try:
+                # 尝试从主窗口获取参数
+                main_window = self.parent()
+                while main_window and not hasattr(main_window, 'get_current_parameters'):
+                    main_window = main_window.parent()
+                
+                if main_window and hasattr(main_window, 'get_current_parameters'):
+                    params = main_window.get_current_parameters()
+            except:
+                pass
+            
+            # 如果获取失败，使用默认参数
+            if params is None:
+                from core.empirical_solver import create_test_parameters
+                params = create_test_parameters()
+            
+            self.analysis_progress.setValue(30)
+            
+            # 运行经验公式
+            empirical_result = self.get_empirical_results(params)
+            self.analysis_progress.setValue(60)
+            
+            # 尝试运行FEniCS（如果可用）
+            if FENICS_SOLVER_AVAILABLE:
+                fenics_result = self.run_fenics_calculation(params)
+                self.analysis_progress.setValue(90)
+                
+                # 显示对比结果
+                self.show_comparison_analysis(empirical_result, fenics_result)
+            else:
+                self.analysis_status.setText("FEniCS不可用，仅显示经验公式结果")
+                self.update_flow_parameters(empirical_result)
+            
+            self.analysis_progress.setValue(100)
+            self.analysis_status.setText("对比分析完成")
+            
+            QTimer.singleShot(2000, lambda: self.analysis_progress.setVisible(False))
+            
+        except Exception as e:
+            self.analysis_status.setText(f"对比分析失败: {e}")
+            print(f"对比分析失败: {e}")
+    
+    def run_flow_analysis(self):
+        """统一的流场分析入口"""
+        self.start_flow_analysis()
+    
+    def show_flow_analysis_help(self):
+        """显示流场分析帮助"""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        help_text = """
+🌊 流场详析帮助
+
+📊 分析模式：
+• 基础流场分析：使用HEC-18经验公式，计算速度快
+• 详细数值分析：使用FEniCS有限元方法，精度更高
+• 对比分析模式：同时运行两种方法并对比结果
+
+👁️ 显示内容：
+• 流场：显示速度矢量、压力或涡量分布
+• 桥墩：显示3D桥墩几何体
+• 河床：显示河床地形和冲刷坑
+
+⚙️ 分析参数：
+• 雷诺数：判断流动状态（层流/湍流）
+• 弗劳德数：评估重力波效应
+• 高级参数：包含更多详细的流动特性参数
+
+🛠️ 操作说明：
+1. 选择分析模式
+2. 调整显示内容和质量
+3. 点击"开始流场分析"
+4. 查看3D可视化结果
+5. 使用保存功能导出结果
+
+💡 提示：
+• 基础分析适用于快速评估
+• 数值分析适用于精确计算
+• 对比分析有助于验证结果可靠性
+        """
+        
+        QMessageBox.information(self, "流场分析帮助", help_text.strip())
+    
+    def update_flow_parameters(self, result):
+        """更新流场参数显示 - 兼容新旧界面"""
+        try:
+            # 处理不同格式的结果（字典或对象）
+            if isinstance(result, dict):
+                # 如果是字典格式，转换为对象形式以兼容
+                class ResultObj:
+                    def __init__(self, data):
+                        for key, value in data.items():
+                            setattr(self, key, value)
+                        # 设置默认属性
+                        if not hasattr(self, 'success'):
+                            self.success = True
+                        if not hasattr(self, 'reynolds_number'):
+                            self.reynolds_number = data.get('Re', 5e5)
+                        if not hasattr(self, 'froude_number'):
+                            self.froude_number = data.get('Fr', 0.3)
+                
+                result = ResultObj(result)
+            
+            # 检查结果是否成功
+            success = getattr(result, 'success', True)
+            if not success:
+                return
+            
+            # 获取数值，提供默认值
+            reynolds = getattr(result, 'reynolds_number', 5e5)
+            froude = getattr(result, 'froude_number', 0.3)
+            
+            # 新界面的参数显示
+            if hasattr(self, 'reynolds_display'):
+                self.reynolds_display.setText(f"{reynolds:.0f}")
+            if hasattr(self, 'froude_display'):
+                self.froude_display.setText(f"{froude:.3f}")
+            if hasattr(self, 'max_velocity_display'):
+                max_velocity = froude * (9.81 * 4.0)**0.5
+                self.max_velocity_display.setText(f"{max_velocity:.2f} m/s")
+            if hasattr(self, 'turbulence_display'):
+                turbulence_intensity = min(0.15, 0.05 + 1e-5 * reynolds**0.5)
+                self.turbulence_display.setText(f"{turbulence_intensity:.3f}")
+            
+            # 旧界面兼容（如果存在）
+            if hasattr(self, 'reynolds_label'):
+                self.reynolds_label.setText(f"{reynolds:.0f}")
+            if hasattr(self, 'froude_label'):
+                self.froude_label.setText(f"{froude:.3f}")
+            if hasattr(self, 'max_velocity_label'):
+                max_velocity = froude * (9.81 * 4.0)**0.5
+                self.max_velocity_label.setText(f"{max_velocity:.2f} m/s")
+            if hasattr(self, 'turbulence_label'):
+                turbulence_intensity = min(0.15, 0.05 + 1e-5 * reynolds**0.5)
+                self.turbulence_label.setText(f"{turbulence_intensity:.3f}")
+            
+            # 更新PyVista可视化
+            if PYVISTA_AVAILABLE and hasattr(self, 'flow_mesh'):
+                try:
+                    self.update_flow_with_parameters(result)
+                    self.update_scour_geometry(result)
+                except Exception as e:
+                    print(f"PyVista更新失败: {e}")
+            
+            print(f"流场参数已更新 - Re: {reynolds:.0f}, Fr: {froude:.3f}")
+            
+        except Exception as e:
+            print(f"参数更新失败: {e}")
+    
+    def run_fenics_calculation(self, params):
+        """运行FEniCS计算（用于对比分析）"""
+        if not FENICS_SOLVER_AVAILABLE:
+            raise RuntimeError("FEniCS求解器不可用")
+        
+        # 创建数值参数
+        numerical_params = NumericalParameters(
+            mesh_resolution=0.1,
+            convergence_tolerance=1e-5,
+            max_iterations=50
+        )
+        
+        # 创建求解器并求解
+        fenics_solver = FEniCSScourSolver()
+        return fenics_solver.solve(params, numerical_params)
+    
+    def run_fenics_analysis(self):
+        """运行FEniCS数值分析"""
+        if not FENICS_SOLVER_AVAILABLE:
+            print("FEniCS求解器不可用")
+            return
+            
+        try:
+            from PyQt6.QtWidgets import QProgressDialog, QMessageBox
+            from PyQt6.QtCore import QThread, pyqtSignal
+            
+            # 显示进度对话框
+            progress = QProgressDialog("正在运行FEniCS数值分析...", "取消", 0, 100, self)
+            progress.setWindowModality(Qt.WindowModality.WindowModal)
+            progress.show()
+            
+            # 获取当前输入参数
+            if hasattr(self, 'parent') and hasattr(self.parent(), 'get_current_parameters'):
+                scour_params = self.parent().get_current_parameters()
+            else:
+                # 使用默认参数
+                from core.empirical_solver import create_test_parameters
+                scour_params = create_test_parameters()
+            
+            progress.setValue(10)
+            
+            # 获取FEniCS参数
+            mesh_resolution = self.mesh_resolution_slider.value() / 100.0  # 转换为米
+            tolerance_text = self.convergence_tolerance.currentText()
+            tolerance = float(tolerance_text.split()[0])  # 提取数值部分
+            
+            numerical_params = NumericalParameters(
+                mesh_resolution=mesh_resolution,
+                convergence_tolerance=tolerance,
+                max_iterations=50,
+                time_step=0.1,
+                total_time=3600.0
+            )
+            
+            progress.setValue(30)
+            
+            # 创建FEniCS求解器
+            fenics_solver = FEniCSScourSolver()
+            
+            progress.setValue(50)
+            
+            print(f"开始FEniCS分析 - 网格分辨率: {mesh_resolution:.3f}m, 收敛精度: {tolerance}")
+            
+            # 运行FEniCS分析
+            fenics_result = fenics_solver.solve(scour_params, numerical_params)
+            
+            progress.setValue(80)
+            
+            # 更新界面显示FEniCS结果
+            self.update_fenics_results(fenics_result)
+            
+            # 如果选择了对比分析，同时运行经验公式
+            if self.calculation_method.currentText() == "对比分析":
+                # 获取经验公式结果
+                empirical_result = self.get_empirical_results(scour_params)
+                self.show_comparison_analysis(empirical_result, fenics_result)
+            
+            progress.setValue(100)
+            progress.close()
+            
+            # 显示成功消息
+            QMessageBox.information(self, "FEniCS分析完成", 
+                                   f"数值分析已完成\n"
+                                   f"冲刷深度: {fenics_result.scour_depth:.3f} m\n"
+                                   f"计算时间: {fenics_result.computation_time:.2f} s\n"
+                                   f"收敛: {'是' if fenics_result.convergence_achieved else '否'}")
+            
+            # 更新PyVista可视化
+            if PYVISTA_AVAILABLE and hasattr(self, 'flow_mesh'):
+                self.update_flow_with_fenics_results(fenics_result)
+                
+        except Exception as e:
+            if 'progress' in locals():
+                progress.close()
+            print(f"FEniCS分析失败: {e}")
+            if hasattr(self, 'statusBar'):
+                self.statusBar().showMessage(f"FEniCS分析失败: {e}")
+    
+    def update_fenics_results(self, fenics_result: 'NumericalResult'):
+        """更新界面显示FEniCS结果"""
+        try:
+            # 更新流场参数显示
+            if hasattr(self, 'reynolds_label'):
+                self.reynolds_label.setText(f"{fenics_result.reynolds_number:.0f}")
+            if hasattr(self, 'froude_label'):
+                self.froude_label.setText(f"{fenics_result.froude_number:.3f}")
+            if hasattr(self, 'max_velocity_label'):
+                self.max_velocity_label.setText(f"{fenics_result.max_velocity:.2f} m/s")
+                
+            # 计算湍流强度
+            if fenics_result.reynolds_number > 0:
+                turbulence_intensity = min(0.15, 0.05 + 1e-5 * fenics_result.reynolds_number**0.5)
+                if hasattr(self, 'turbulence_label'):
+                    self.turbulence_label.setText(f"{turbulence_intensity:.3f}")
+            
+            print(f"FEniCS结果已更新 - 冲刷深度: {fenics_result.scour_depth:.3f}m")
+            
+        except Exception as e:
+            print(f"FEniCS结果更新失败: {e}")
+    
+    def get_empirical_results(self, scour_params):
+        """获取经验公式计算结果"""
+        try:
+            from core.empirical_solver import EmpiricalScourSolver
+            empirical_solver = EmpiricalScourSolver()
+            return empirical_solver.solve(scour_params)
+        except Exception as e:
+            print(f"经验公式计算失败: {e}")
+            return None
+    
+    def show_comparison_analysis(self, empirical_result, fenics_result):
+        """显示对比分析结果"""
+        try:
+            from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit
+            
+            dialog = QDialog(self)
+            dialog.setWindowTitle("FEniCS vs 经验公式 - 对比分析")
+            dialog.setMinimumSize(600, 400)
+            
+            layout = QVBoxLayout(dialog)
+            
+            # 标题
+            title = QLabel("数值解与经验公式对比分析")
+            title.setStyleSheet("font-size: 16px; font-weight: bold; color: #2196F3; margin-bottom: 10px;")
+            layout.addWidget(title)
+            
+            # 对比表格
+            comparison_layout = QHBoxLayout()
+            
+            # 经验公式结果
+            empirical_text = QTextEdit()
+            empirical_text.setMaximumHeight(200)
+            empirical_text.setReadOnly(True)
+            empirical_content = f"""
+📊 经验公式结果 (HEC-18)
+━━━━━━━━━━━━━━━━━━━━━━
+• 冲刷深度: {empirical_result.scour_depth:.3f} m
+• 冲刷宽度: {empirical_result.scour_width:.3f} m  
+• 平衡时间: {empirical_result.equilibrium_time:.1f} h
+• 雷诺数: {empirical_result.reynolds_number:.0f}
+• 弗劳德数: {empirical_result.froude_number:.3f}
+• 置信度: {empirical_result.confidence:.2f}
+• 计算方法: {empirical_result.method}
+            """
+            empirical_text.setPlainText(empirical_content.strip())
+            comparison_layout.addWidget(empirical_text)
+            
+            # FEniCS结果
+            fenics_text = QTextEdit()
+            fenics_text.setMaximumHeight(200)
+            fenics_text.setReadOnly(True)
+            fenics_content = f"""
+🔬 FEniCS数值解
+━━━━━━━━━━━━━━━━━━━━━━
+• 冲刷深度: {fenics_result.scour_depth:.3f} m
+• 冲刷宽度: {fenics_result.scour_width:.3f} m
+• 冲刷体积: {fenics_result.scour_volume:.3f} m³
+• 平衡时间: {fenics_result.equilibrium_time:.1f} h
+• 雷诺数: {fenics_result.reynolds_number:.0f}
+• 弗劳德数: {fenics_result.froude_number:.3f}
+• 最大剪应力: {fenics_result.max_shear_stress:.1f} Pa
+• 计算时间: {fenics_result.computation_time:.2f} s
+• 收敛状态: {'已收敛' if fenics_result.convergence_achieved else '未收敛'}
+            """
+            fenics_text.setPlainText(fenics_content.strip())
+            comparison_layout.addWidget(fenics_text)
+            
+            layout.addLayout(comparison_layout)
+            
+            # 差异分析
+            analysis_text = QTextEdit()
+            analysis_text.setReadOnly(True)
+            
+            # 计算差异
+            depth_diff = abs(fenics_result.scour_depth - empirical_result.scour_depth)
+            depth_ratio = depth_diff / empirical_result.scour_depth * 100 if empirical_result.scour_depth > 0 else 0
+            
+            analysis_content = f"""
+📈 对比分析结果
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• 冲刷深度差异: {depth_diff:.3f} m ({depth_ratio:.1f}%)
+• FEniCS/经验公式比值: {fenics_result.scour_depth/empirical_result.scour_depth:.3f}
+
+💡 工程建议:
+• 当差异 < 10%: 两种方法结果一致性良好
+• 当差异 10-20%: 建议采用更保守的结果
+• 当差异 > 20%: 需要进一步验证输入参数和边界条件
+
+🔍 方法特点:
+• 经验公式: 基于大量工程数据，计算快速，适用性广
+• FEniCS数值解: 基于物理原理，考虑流场细节，精度较高
+
+⚠️ 注意事项:
+数值方法的精度受网格质量、边界条件设置等因素影响，
+建议结合工程经验进行综合判断。
+            """
+            
+            analysis_text.setPlainText(analysis_content.strip())
+            layout.addWidget(analysis_text)
+            
+            dialog.exec()
+            
+        except Exception as e:
+            print(f"对比分析显示失败: {e}")
+    
+    def update_flow_with_fenics_results(self, fenics_result):
+        """使用FEniCS结果更新PyVista流场可视化"""
+        if not PYVISTA_AVAILABLE or not hasattr(self, 'flow_mesh'):
+            return
+            
+        try:
+            # 更新冲刷几何
+            self.update_scour_geometry(fenics_result)
+            
+            # 更新流场参数
+            x = np.linspace(-8, 8, 40)
+            y = np.linspace(-4, 12, 32)  
+            z = np.linspace(-2, 4, 24)
+            X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+            
+            # 使用FEniCS结果的实际参数重新计算流场
+            self.calculate_flow_field_with_fenics_params(X, Y, Z, fenics_result)
+            
+            # 更新可视化
+            self.update_flow_visualization()
+            
+            print("PyVista可视化已更新FEniCS结果")
+            
+        except Exception as e:
+            print(f"PyVista FEniCS结果更新失败: {e}")
+    
+    def calculate_flow_field_with_fenics_params(self, X, Y, Z, fenics_result):
+        """使用FEniCS结果参数计算流场"""
+        if not PYVISTA_AVAILABLE:
+            return
+            
+        # 桥墩参数（使用FEniCS计算的实际值）
+        pier_x, pier_y, pier_z = 0, 0, -0.5
+        pier_radius = fenics_result.scour_depth * 0.6  # 根据冲刷深度调整影响半径
+        
+        # 使用FEniCS计算的最大流速
+        U_inf = fenics_result.max_velocity
+        
+        # 距桥墩中心距离
+        dx = X - pier_x
+        dy = Y - pier_y  
+        R = np.sqrt(dx**2 + dy**2)
+        
+        # 初始化速度场
+        u = np.full_like(X, U_inf * 0.8)  # 稍微降低基础流速
+        v = np.zeros_like(Y)
+        w = np.zeros_like(Z)
+        pressure = np.zeros_like(X)
+        
+        # 应用圆柱绕流修正（增强版本）
+        mask = R > pier_radius
+        
+        # 势流解
+        theta = np.arctan2(dy, dx)
+        u[mask] = U_inf * (1 - pier_radius**2 / R[mask]**2 * np.cos(2*theta[mask]))
+        v[mask] = -U_inf * pier_radius**2 / R[mask]**2 * np.sin(2*theta[mask])
+        
+        # 深度效应
+        depth_factor = np.tanh((Z + 2) / 2)
+        u *= depth_factor
+        v *= depth_factor
+        
+        # 增强的湍流扰动（基于FEniCS结果）
+        if hasattr(fenics_result, 'max_shear_stress') and fenics_result.max_shear_stress > 0:
+            turbulence_intensity = min(0.2, fenics_result.max_shear_stress / 1000.0)
+        else:
+            turbulence_intensity = 0.1
+        
+        u += turbulence_intensity * U_inf * np.sin(3*theta) * np.exp(-0.3*(R-pier_radius))
+        v += turbulence_intensity * U_inf * np.cos(3*theta) * np.exp(-0.3*(R-pier_radius))
+        w += turbulence_intensity * U_inf * np.sin(2*np.pi*Z) * np.exp(-0.2*R)
+        
+        # 桥墩内部设置为0
+        u[~mask] = 0
+        v[~mask] = 0
+        w[~mask] = 0
+        
+        # 计算压力场（考虑FEniCS的剪切应力）
+        speed_squared = u**2 + v**2 + w**2
+        rho = 1000
+        base_pressure = 0.5 * rho * (U_inf**2 - speed_squared)
+        
+        # 添加剪切应力的影响
+        if hasattr(fenics_result, 'max_shear_stress'):
+            shear_influence = fenics_result.max_shear_stress * np.exp(-R/pier_radius)
+            pressure = base_pressure + shear_influence
+        else:
+            pressure = base_pressure
+        
+        # 计算涡量
+        vorticity_z = np.gradient(v, axis=0) - np.gradient(u, axis=1)
+        
+        # 更新网格数据
+        self.flow_mesh.point_data['velocity'] = np.c_[u.ravel(), v.ravel(), w.ravel()]
+        self.flow_mesh.point_data['velocity_magnitude'] = np.sqrt(speed_squared).ravel()
+        self.flow_mesh.point_data['pressure'] = pressure.ravel()
+        self.flow_mesh.point_data['vorticity'] = vorticity_z.ravel()
+        self.flow_mesh.point_data['u_velocity'] = u.ravel()
+        self.flow_mesh.point_data['v_velocity'] = v.ravel()
+        self.flow_mesh.point_data['w_velocity'] = w.ravel()
+    
+    def generate_professional_report(self):
+        """生成COMSOL风格的专业分析报告"""
+        try:
+            from PyQt6.QtWidgets import QFileDialog, QProgressDialog
+            from PyQt6.QtCore import QThread, pyqtSignal
+            import datetime
+            import json
+            
+            # 选择报告保存位置
+            filename, _ = QFileDialog.getSaveFileName(
+                self, "生成专业分析报告", 
+                f"桥墩冲刷分析报告_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.html",
+                "HTML报告 (*.html);;PDF报告 (*.pdf);;所有文件 (*.*)"
+            )
+            
+            if not filename:
+                return
+            
+            # 显示进度对话框
+            progress = QProgressDialog("正在生成专业报告...", "取消", 0, 100, self)
+            progress.setWindowModality(Qt.WindowModality.WindowModal)
+            progress.show()
+            
+            # 收集当前分析数据
+            report_data = self.collect_analysis_data()
+            
+            # 生成报告
+            if filename.endswith('.pdf'):
+                self.generate_pdf_report(filename, report_data, progress)
+            else:
+                self.generate_html_report(filename, report_data, progress)
+            
+            progress.close()
+            print(f"专业报告已生成: {filename}")
+            
+            if hasattr(self, 'statusBar'):
+                self.statusBar().showMessage(f"专业报告已生成: {filename}")
+                
+        except Exception as e:
+            print(f"报告生成失败: {e}")
+    
+    def collect_analysis_data(self):
+        """收集分析数据用于报告生成"""
+        data = {
+            'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'project_info': {
+                'name': 'Bridge Pier Scour Analysis',
+                'version': 'DeepCAD-SCOUR Professional Enhanced v3.1',
+                'analyst': 'Professional Analysis System'
+            },
+            'parameters': {},
+            'results': {},
+            'flow_field': {},
+            'visualizations': []
+        }
+        
+        # 收集流场参数
+        try:
+            data['flow_field'] = {
+                'reynolds_number': self.reynolds_label.text() if hasattr(self, 'reynolds_label') else '--',
+                'froude_number': self.froude_label.text() if hasattr(self, 'froude_label') else '--', 
+                'max_velocity': self.max_velocity_label.text() if hasattr(self, 'max_velocity_label') else '--',
+                'turbulence_intensity': self.turbulence_label.text() if hasattr(self, 'turbulence_label') else '--'
+            }
+        except:
+            pass
+        
+        # 收集3D可视化截图
+        if PYVISTA_AVAILABLE and hasattr(self, 'flow_plotter'):
+            try:
+                # 主3D视图
+                main_view_path = 'temp_main_view.png'
+                self.flow_plotter.screenshot(main_view_path)
+                data['visualizations'].append({
+                    'name': '3D Flow Visualization',
+                    'path': main_view_path,
+                    'description': '三维流场可视化 - 显示速度场、压力分布和冲刷几何'
+                })
+                
+                # 截面视图
+                if hasattr(self, 'section_actor') and self.section_actor:
+                    section_view_path = 'temp_section_view.png'
+                    self.flow_plotter.screenshot(section_view_path)
+                    data['visualizations'].append({
+                        'name': 'Section Analysis',
+                        'path': section_view_path,
+                        'description': '流场截面分析 - 显示特定截面的流场分布'
+                    })
+            except Exception as e:
+                print(f"可视化截图失败: {e}")
+        
+        return data
+    
+    def generate_html_report(self, filename, data, progress):
+        """生成HTML专业报告"""
+        progress.setValue(20)
+        
+        # COMSOL风格的HTML模板
+        html_template = """
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>桥墩冲刷分析专业报告</title>
+    <style>
+        body {{
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #333;
+        }}
+        
+        .header {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }}
+        
+        .header h1 {{
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }}
+        
+        .header p {{
+            margin: 10px 0 0 0;
+            font-size: 1.2em;
+            opacity: 0.9;
+        }}
+        
+        .container {{
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+        }}
+        
+        .section {{
+            margin-bottom: 40px;
+            border-left: 4px solid #667eea;
+            padding-left: 20px;
+        }}
+        
+        .section h2 {{
+            color: #667eea;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }}
+        
+        .parameter-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }}
+        
+        .parameter-card {{
+            background: linear-gradient(135deg, #f8fafc 0%, #e3f2fd 100%);
+            border: 1px solid #e1e8ed;
+            border-radius: 8px;
+            padding: 20px;
+            transition: transform 0.3s ease;
+        }}
+        
+        .parameter-card:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }}
+        
+        .parameter-label {{
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 5px;
+        }}
+        
+        .parameter-value {{
+            font-size: 1.3em;
+            color: #333;
+            font-weight: 500;
+        }}
+        
+        .visualization-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin: 30px 0;
+        }}
+        
+        .viz-card {{
+            background: white;
+            border: 2px solid #e1e8ed;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease;
+        }}
+        
+        .viz-card:hover {{
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }}
+        
+        .viz-card img {{
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+        }}
+        
+        .viz-card-content {{
+            padding: 20px;
+        }}
+        
+        .viz-card h3 {{
+            margin: 0 0 10px 0;
+            color: #667eea;
+            font-size: 1.3em;
+        }}
+        
+        .viz-card p {{
+            margin: 0;
+            color: #666;
+            line-height: 1.5;
+        }}
+        
+        .footer {{
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 10px;
+            color: #666;
+        }}
+        
+        .timestamp {{
+            color: #999;
+            font-size: 0.9em;
+        }}
+        
+        .logo {{
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">DeepCAD-SCOUR Professional</div>
+        <h1>桥墩冲刷分析专业报告</h1>
+        <p>Bridge Pier Scour Analysis Professional Report</p>
+        <p class="timestamp">生成时间: {timestamp}</p>
+    </div>
+    
+    <div class="container">
+        <div class="section">
+            <h2>📊 项目信息</h2>
+            <div class="parameter-grid">
+                <div class="parameter-card">
+                    <div class="parameter-label">项目名称</div>
+                    <div class="parameter-value">{project_name}</div>
+                </div>
+                <div class="parameter-card">
+                    <div class="parameter-label">分析软件</div>
+                    <div class="parameter-value">{software_version}</div>
+                </div>
+                <div class="parameter-card">
+                    <div class="parameter-label">分析师</div>
+                    <div class="parameter-value">{analyst}</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>🌊 流场分析参数</h2>
+            <div class="parameter-grid">
+                <div class="parameter-card">
+                    <div class="parameter-label">雷诺数 (Re)</div>
+                    <div class="parameter-value">{reynolds_number}</div>
+                </div>
+                <div class="parameter-card">
+                    <div class="parameter-label">弗劳德数 (Fr)</div>
+                    <div class="parameter-value">{froude_number}</div>
+                </div>
+                <div class="parameter-card">
+                    <div class="parameter-label">最大流速</div>
+                    <div class="parameter-value">{max_velocity}</div>
+                </div>
+                <div class="parameter-card">
+                    <div class="parameter-label">湍流强度</div>
+                    <div class="parameter-value">{turbulence_intensity}</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>📈 分析结果可视化</h2>
+            <div class="visualization-grid">
+                {visualizations_html}
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>💡 专业建议</h2>
+            <div class="parameter-card">
+                <p style="line-height: 1.8; font-size: 1.1em;">
+                    基于当前分析结果，建议采取以下措施：<br><br>
+                    • <strong>监测方案：</strong>定期检查桥墩周围冲刷情况，建立长期监测体系<br>
+                    • <strong>防护措施：</strong>根据冲刷深度评估结果，考虑安装抛石防护或其他工程措施<br>
+                    • <strong>维护建议：</strong>制定针对性的维护计划，确保桥梁结构安全<br>
+                    • <strong>应急预案：</strong>建立完善的应急响应机制，应对极端水文条件
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p><strong>DeepCAD-SCOUR Professional Enhanced v3.1</strong></p>
+        <p>© 2024 Advanced Bridge Engineering Analysis System</p>
+        <p class="timestamp">本报告由专业CFD分析系统自动生成</p>
+    </div>
+</body>
+</html>
+        """
+        
+        progress.setValue(50)
+        
+        # 生成可视化HTML
+        visualizations_html = ""
+        for viz in data['visualizations']:
+            visualizations_html += f"""
+            <div class="viz-card">
+                <img src="{viz['path']}" alt="{viz['name']}" />
+                <div class="viz-card-content">
+                    <h3>{viz['name']}</h3>
+                    <p>{viz['description']}</p>
+                </div>
+            </div>
+            """
+        
+        progress.setValue(80)
+        
+        # 填充数据
+        html_content = html_template.format(
+            timestamp=data['timestamp'],
+            project_name=data['project_info']['name'],
+            software_version=data['project_info']['version'],
+            analyst=data['project_info']['analyst'],
+            reynolds_number=data['flow_field'].get('reynolds_number', '--'),
+            froude_number=data['flow_field'].get('froude_number', '--'),
+            max_velocity=data['flow_field'].get('max_velocity', '--'),
+            turbulence_intensity=data['flow_field'].get('turbulence_intensity', '--'),
+            visualizations_html=visualizations_html
+        )
+        
+        # 写入文件
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        
+        progress.setValue(100)
     
     def update_section_views(self):
         """更新剖面视图"""
@@ -1036,29 +2773,7 @@ class ProfessionalVisualizationPanel(QWidget):
         self.xy_canvas.draw()
         self.xz_canvas.draw()
     
-    def update_flow_parameters(self, result):
-        """更新流场参数显示"""
-        if result and result.success:
-            self.reynolds_label.setText(f"{result.reynolds_number:.0f}")
-            self.froude_label.setText(f"{result.froude_number:.3f}")
-            
-            # 估算最大流速
-            max_velocity = result.froude_number * (9.81 * 4.0)**0.5  # 假设水深4m
-            self.max_velocity_label.setText(f"{max_velocity:.2f} m/s")
-            
-            # 估算湍流强度（基于雷诺数）
-            if result.reynolds_number > 0:
-                turbulence_intensity = min(0.15, 0.05 + 1e-5 * result.reynolds_number**0.5)
-                self.turbulence_label.setText(f"{turbulence_intensity:.3f}")
-            else:
-                self.turbulence_label.setText("--")
-            
-            # 更新PyVista流场可视化（如果可用）
-            if PYVISTA_AVAILABLE and hasattr(self, 'flow_mesh'):
-                try:
-                    self.update_flow_with_parameters(result)
-                except Exception as e:
-                    print(f"PyVista更新失败: {e}")
+    # 删除重复的方法，使用前面更完善的版本
     
     def update_flow_with_parameters(self, result):
         """使用计算结果更新PyVista流场"""

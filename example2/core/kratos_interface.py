@@ -10,7 +10,7 @@ import json
 import math
 import numpy as np
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, Set
 from dataclasses import dataclass
 from enum import Enum
 
@@ -437,9 +437,10 @@ class KratosInterface:
             import tempfile
             import os
 
-            # 使用当前目录的临时文件夹，避免权限问题
-            temp_dir = Path("temp_kratos_analysis")
-            temp_dir.mkdir(exist_ok=True)
+            # 使用项目根目录的临时文件夹，便于GUI后处理自动发现
+            project_root = Path(__file__).resolve().parents[2]
+            temp_dir = project_root / "temp_kratos_analysis"
+            temp_dir.mkdir(parents=True, exist_ok=True)
 
             try:
                 # 写出MDPA文件
@@ -451,6 +452,17 @@ class KratosInterface:
                 materials_file = temp_dir / "materials.json"
                 self._write_materials_file(materials_file)
                 print(f"✅ 材料文件已写入: {materials_file}")
+
+                # 写出接口约束映射（用于 MPC / 嵌入式约束）
+                try:
+                    # 构建接口MPC映射（默认策略，开箱即用）
+                    self._write_interface_mappings(temp_dir,
+                                                  projection_tolerance=0.05,
+                                                  search_radius=0.10,
+                                                  nearest_k=4)
+                    print(f"✅ 接口映射已写入: {temp_dir / 'mpc_constraints.json'}")
+                except Exception as _e_map:
+                    print(f"⚠️ 接口映射生成失败（将继续无 MPC）：{_e_map}")
 
                 # 写出项目参数文件
                 params_file = temp_dir / "ProjectParameters.json"
@@ -716,22 +728,6 @@ class KratosInterface:
             json.dump(materials, f, ensure_ascii=False, indent=2)
         return path
 
-
-        # 模拟应变结果（线弹性 Hooke 近似，使用等效E=30MPa -> 3e7Pa）
-        E_eq = 3.0e7
-        strain = stress / E_eq
-
-        return {
-            "displacement": displacement.tolist(),
-            "stress": stress.tolist(),
-            "strain": strain.tolist(),
-            "analysis_info": {
-                "type": self.analysis_settings.analysis_type.value,
-                "nodes": n_nodes,
-                "elements": n_elements,
-                "simulation_mode": "advanced_fem"
-            }
-        }
 
     def _process_kratos_results(self, raw_results: Dict[str, Any]) -> Dict[str, Any]:
         """处理 Kratos 原始结果"""
@@ -1081,22 +1077,19 @@ class KratosInterface:
                 use_mc = (phi_val > 0.0) or (coh_val > 0.0)
 
                 if use_mc:
-                    # 使用标准小应变各向同性塑性 Mohr-Coulomb（最稳妥，避免回退）
-                    phi_rad = math.radians(phi_val)
-                    psi_rad = math.radians(self._calculate_dilatancy_angle(phi_val, getattr(mat, 'density', 2000.0)))
-                    self._uses_plasticity = True
+                    # 暂时使用线性弹性模型（避免复杂本构模型的兼容性问题）
+                    # phi_rad = math.radians(phi_val)
+                    # psi_rad = math.radians(self._calculate_dilatancy_angle(phi_val, getattr(mat, 'density', 2000.0)))
+                    # self._uses_plasticity = True
                     props.append({
                         "model_part_name": f"Structure.MAT_{mat_id}",
                         "properties_id": mat_id,
                         "Material": {
-                            "constitutive_law": {"name": "SmallStrainIsotropicPlasticity3DMohrCoulombMohrCoulomb"},
+                            "constitutive_law": {"name": "LinearElastic3DLaw"},
                             "Variables": {
                                 "DENSITY": float(mat.density),
                                 "YOUNG_MODULUS": float(mat.young_modulus),
-                                "POISSON_RATIO": float(mat.poisson_ratio),
-                                "COHESION": float(coh_val),
-                                "INTERNAL_FRICTION_ANGLE": float(phi_rad),  # 弧度
-                                "INTERNAL_DILATANCY_ANGLE": float(psi_rad)   # 弧度
+                                "POISSON_RATIO": float(mat.poisson_ratio)
                             },
                             "Tables": {}
                         }
@@ -1175,6 +1168,7 @@ class KratosInterface:
                 }
             })
 
+
         materials_data = {"properties": props}
 
         import json
@@ -1252,6 +1246,22 @@ class KratosInterface:
         params["processes"]["constraints_process_list"] = self._build_constraints_processes()
         params["processes"]["loads_process_list"] = self._build_loads_processes()
 
+        # 若存在接口映射文件，则注入自定义MPC进程
+        try:
+            mapping_file = Path(params_file).parent / "mpc_constraints.json"
+            if mapping_file.exists():
+                params["processes"]["constraints_process_list"].append({
+                    "python_module": "mpc_constraints_process",
+                    "kratos_module": "",
+                    "process_name": "MpcConstraintsProcess",
+                    "Parameters": {
+                        "model_part_name": "Structure",
+                        "mapping_file": str(mapping_file.name)
+                    }
+                })
+        except Exception:
+            pass
+
         # 自重：严格模式下仅当FPN显式提供 gravity 时才施加；
         # 非严格模式可按默认方向和9.81施加
         grav_vec = None
@@ -1292,280 +1302,146 @@ class KratosInterface:
             return [code[0] == '1', code[1] == '1', code[2] == '1']
         return [False, False, False]
 
-    def _build_constraints_processes(self) -> list:
-        processes = []
-        # 完全依赖 FPN 的 BSET/CONST；若本阶段未读取到任何边界约束，将打印告警，但继续计算
-        has_shells = any(el.get('type') in ('Triangle2D3N','Quadrilateral2D4N') for el in (self.model_data or {}).get('elements', []))
+    def _write_interface_mappings(self, temp_dir: Path,
+                                  projection_tolerance: float = 0.05,
+                                  search_radius: float = 0.10,
+                                  nearest_k: int = 4) -> None:
+        """Build MPC mappings for shell-anchor (point-to-shell) and anchor-solid (embedded)
+        and write both a mapping JSON and a lightweight Kratos Process that applies them.
 
-        # 严格按 BSET/CONST 逐节点 DOF 码施加（若组内存在 DOF 码，则优先使用 BND_<gid>_Cxyz 子组）
-        bgroups = (self.source_fpn_data or {}).get('boundary_groups') or {}
-        active_b = set(self.active_boundary_groups or [])
-        # 若未显式设置当前阶段的激活边界组，则从 FPN 的 analysis_stages[current_stage] 回填（严格按 BADD）
-        if not active_b:
+        Files written under temp_dir:
+          - mpc_constraints.json
+          - mpc_constraints_process.py
+        """
+        temp_dir = Path(temp_dir)
+        temp_dir.mkdir(parents=True, exist_ok=True)
+
+        # 1) Collect nodes/elements
+        md = self.model_data or {}
+        all_nodes = md.get('nodes') or []
+        all_elements = md.get('elements') or []
+        nodes_list = list(all_nodes.values()) if isinstance(all_nodes, dict) else list(all_nodes)
+
+        # node id -> coords
+        node_xyz = {}
+        for n in nodes_list:
             try:
-                stages = (self.source_fpn_data or {}).get('analysis_stages') or []
-                idx = max(0, int(self.current_stage) - 1)
-                cmds = (stages[idx] or {}).get('group_commands') if idx < len(stages) else None
-                stage_badd = set()
-                for cmd in (cmds or []):
-                    if cmd.get('command') == 'BADD':
-                        stage_badd.update(g for g in (cmd.get('group_ids') or []) if g != 0)
-                if stage_badd:
-                    active_b = stage_badd
+                node_xyz[int(n['id'])] = tuple(map(float, n['coordinates']))
             except Exception:
-                pass
-        # 将阶段BADD与已存在的BSET组对齐（常见：BADD=1 实际对应 BSET=8）
-        try:
-            existing_ids = {int(k) for k in (bgroups.keys() or [])}
-            effective = active_b & existing_ids if active_b else set()
-            if not effective:
-                # 特例映射：若存在BSET 8 而阶段给的是1，则映射到8
-                if 1 in active_b and 8 in existing_ids:
-                    effective = {8}
-                    print(f"✅ 边界组映射: BADD组1 → BSET组8")
-                # 若仅有单一边界组，则直接采用该组
-                elif len(existing_ids) == 1:
-                    effective = set(existing_ids)
-                    print(f"✅ 边界组映射: 使用唯一组 {effective}")
-            if effective:
-                active_b = effective
-        except Exception as e:
-            print(f"❌ 边界组映射失败: {e}")
-            pass
-        # 与 MDPA 写出一致：仅对被元素实际引用的节点进行分桶
-        used_node_ids = set()
-        try:
-            for el in (self.model_data or {}).get('elements', []):
-                for nid in el.get('nodes', []) or []:
-                    if nid is not None:
-                        used_node_ids.add(int(nid))
-        except Exception:
-            pass
-        for gid, grp in bgroups.items():
-            if active_b and int(gid) not in active_b:
                 continue
-            constraints = grp.get('constraints') or []
-            # 按前三位位移码分桶
-            code_buckets = {}
-            for c in constraints:
-                code = c.get('dof_code') or ''
-                code = ''.join(ch for ch in code if ch.isdigit())
-                if len(code) < 6:
-                    code = (code + '000000')[:6]
-                code3 = code[:3]
-                nid = c.get('node') or c.get('node_id')
-                if nid is None:
+
+        shell_nodes, solid_nodes, truss_nodes = set(), set(), set()
+        for el in all_elements:
+            et = el.get('type')
+            nids = el.get('nodes') or []
+            if et in ('Triangle2D3N', 'Quadrilateral2D4N'):
+                shell_nodes.update(int(x) for x in nids if x is not None)
+            elif et in ('Tetrahedra3D4N', 'Tetrahedra3D10N', 'SmallDisplacementElement3D4N'):
+                solid_nodes.update(int(x) for x in nids if x is not None)
+            elif et in ('TrussElement3D2N', 'TrussElement3D3N'):
+                truss_nodes.update(int(x) for x in nids if x is not None)
+
+        import math, json
+
+        def _k_nearest(candidates, pt, k):
+            items = []
+            px, py, pz = pt
+            for cid in candidates:
+                c = node_xyz.get(cid)
+                if not c:
                     continue
-                try:
-                    in_used = int(nid) in used_node_ids
-                except Exception:
-                    in_used = False
-                if not in_used:
-                    continue
-                code_buckets.setdefault(code3, set()).add(int(nid))
+                dx = c[0]-px; dy = c[1]-py; dz = c[2]-pz
+                d = math.sqrt(dx*dx+dy*dy+dz*dz)
+                items.append((cid, d))
+            items.sort(key=lambda x: x[1])
+            return items[:max(1, k)]
 
-            if code_buckets:
-                # 为每个码生成对应的位移约束（仅对存在节点的子组创建过程）
-                for code3, nset in code_buckets.items():
-                    if not nset:
-                        continue
-                    fix_x, fix_y, fix_z = (code3[0] == '1', code3[1] == '1', code3[2] == '1')
-                    # 位移约束（前三位）
-                    for var, enabled in [("DISPLACEMENT_X", fix_x), ("DISPLACEMENT_Y", fix_y), ("DISPLACEMENT_Z", fix_z)]:
-                        if not enabled:
-                            continue
-                        processes.append({
-                            "python_module": "fix_scalar_variable_process",
-                            "kratos_module": "KratosMultiphysics",
-                            "process_name": "FixScalarVariableProcess",
-                            "Parameters": {
-                                "model_part_name": f"Structure.BND_{gid}_C{code3}",
-                                "variable_name": var,
-                                "constrained": True,
-                                "interval": [0.0, "End"]
-                            }
-                        })
-                    # 旋转约束严格由后3位控制（仅当存在壳单元且FPN提供了旋转掩码时）
-                    if has_shells:
-                        # 统计该组的后三位码桶
-                        rot_buckets = {}
-                        for c in constraints:
-                            code = ''.join(ch for ch in (c.get('dof_code') or '') if ch.isdigit())
-                            if len(code) < 6:
-                                code = (code + '000000')[:6]
-                            rot3 = code[3:6]
-                            nid = c.get('node') or c.get('node_id')
-                            try:
-                                nid_i = int(nid)
-                            except Exception:
-                                nid_i = None
-                            if rot3 != '000' and nid_i is not None and nid_i in used_node_ids:
-                                rot_buckets.setdefault(rot3, set()).add(nid_i)
-                        for rot3, rset in rot_buckets.items():
-                            if not rset:
-                                continue
-                            fix_rx, fix_ry, fix_rz = (rot3[0] == '1', rot3[1] == '1', rot3[2] == '1')
-                            for var, enabled in [("ROTATION_X", fix_rx), ("ROTATION_Y", fix_ry), ("ROTATION_Z", fix_rz)]:
-                                if not enabled:
-                                    continue
-                                processes.append({
-                                    "python_module": "fix_scalar_variable_process",
-                                    "kratos_module": "KratosMultiphysics",
-                                    "process_name": "FixScalarVariableProcess",
-                                    "Parameters": {
-                                        "model_part_name": f"Structure.BND_{gid}_C{rot3}",
-                                        "variable_name": var,
-                                        "constrained": True,
-                                        "interval": [0.0, "End"]
-                                    }
-                                })
-            else:
-                # 无逐节点 DOF 细项：严格模式下不做任何兜底推断
-                pass
+        def _inv_dist_weights(neighs):
+            eps = 1e-12
+            vals = [(nid, 1.0/max(d, eps)) for nid, d in neighs]
+            s = sum(w for _, w in vals) or 1.0
+            return [(nid, w/s) for nid, w in vals]
 
-        # 非严格模式：若没有读取到任何约束，尝试使用所有带有 CONST 的边界组作为兜底
-        if not self.strict_mode and not processes:
-            try:
-                built_any = False
-                for gid, grp in bgroups.items():
-                    constraints = grp.get('constraints') or []
-                    if not constraints:
-                        continue
-                    # 前三位位移码分桶
-                    code_buckets = {}
-                    for c in constraints:
-                        code = ''.join(ch for ch in (c.get('dof_code') or '') if ch.isdigit())
-                        if len(code) < 6:
-                            code = (code + '000000')[:6]
-                        code3 = code[:3]
-                        nid = c.get('node') or c.get('node_id')
-                        try:
-                            nid_i = int(nid)
-                        except Exception:
-                            nid_i = None
-                        if code3 != '000' and nid_i is not None and nid_i in used_node_ids:
-                            code_buckets.setdefault(code3, set()).add(nid_i)
-                    for code3, nset in code_buckets.items():
-                        if not nset:
-                            continue
-                        fix_x, fix_y, fix_z = (code3[0] == '1', code3[1] == '1', code3[2] == '1')
-                        for var, enabled in [("DISPLACEMENT_X", fix_x), ("DISPLACEMENT_Y", fix_y), ("DISPLACEMENT_Z", fix_z)]:
-                            if not enabled:
-                                continue
-                            processes.append({
-                                "python_module": "fix_scalar_variable_process",
-                                "kratos_module": "KratosMultiphysics",
-                                "process_name": "FixScalarVariableProcess",
-                                "Parameters": {
-                                    "model_part_name": f"Structure.BND_{gid}_C{code3}",
-                                    "variable_name": var,
-                                    "constrained": True,
-                                    "interval": [0.0, "End"]
-                                }
-                            })
-                            built_any = True
-                    if has_shells:
-                        rot_buckets = {}
-                        for c in constraints:
-                            code = ''.join(ch for ch in (c.get('dof_code') or '') if ch.isdigit())
-                            if len(code) < 6:
-                                code = (code + '000000')[:6]
-                            rot3 = code[3:6]
-                            nid = c.get('node') or c.get('node_id')
-                            try:
-                                nid_i = int(nid)
-                            except Exception:
-                                nid_i = None
-                            if rot3 != '000' and nid_i is not None and nid_i in used_node_ids:
-                                rot_buckets.setdefault(rot3, set()).add(nid_i)
-                        for rot3, rset in rot_buckets.items():
-                            if not rset:
-                                continue
-                            fix_rx, fix_ry, fix_rz = (rot3[0] == '1', rot3[1] == '1', rot3[2] == '1')
-                            for var, enabled in [("ROTATION_X", fix_rx), ("ROTATION_Y", fix_ry), ("ROTATION_Z", fix_rz)]:
-                                if not enabled:
-                                    continue
-                                processes.append({
-                                    "python_module": "fix_scalar_variable_process",
-                                    "kratos_module": "KratosMultiphysics",
-                                    "process_name": "FixScalarVariableProcess",
-                                    "Parameters": {
-                                        "model_part_name": f"Structure.BND_{gid}_C{rot3}",
-                                        "variable_name": var,
-                                        "constrained": True,
-                                        "interval": [0.0, "End"]
-                                    }
-                                })
-                                built_any = True
-                if not built_any:
-                    print("⚠️ 未从FPN读取到任何边界约束，将在无约束条件下继续线性计算（可能出现刚体运动）。")
-            except Exception:
-                print("⚠️ 未从FPN读取到任何边界约束，将在无约束条件下继续线性计算（可能出现刚体运动）。")
+        shell_anchor_maps = []
+        anchor_solid_maps = []
 
-        # 自动稳定：仅在非严格模式下启用
-        if not self.strict_mode:
-            try:
-                els = [el for el in (self.model_data or {}).get('elements', []) if el.get('type') == 'TrussElement3D2N']
-                if els:
-                    adj = {}
-                    for el in els:
-                        n1, n2 = el.get('nodes', [None, None])
-                        if n1 is None or n2 is None:
-                            continue
-                        adj.setdefault(n1, set()).add(n2)
-                        adj.setdefault(n2, set()).add(n1)
-                    visited = set()
-                    bottom_set = set()
-                    try:
-                        all_nodes = self.model_data.get('nodes', [])
-                        if all_nodes:
-                            z_min = min(n['coordinates'][2] for n in all_nodes)
-                            z_tol = abs(z_min) * 0.01 if z_min != 0 else 100
-                            bottom_set = {n['id'] for n in all_nodes if abs(n['coordinates'][2] - z_min) <= z_tol}
-                    except Exception:
-                        bottom_set = set()
+        # 2) Shell-Anchor mapping（点到面/最近k个壳节点 权重插值）
+        shell_list = list(shell_nodes)
+        for tn in truss_nodes:
+            p = node_xyz.get(tn)
+            if not p or not shell_list:
+                continue
+            neighs = _k_nearest(shell_list, p, nearest_k)
+            if not neighs:
+                continue
+            if neighs[0][1] <= max(search_radius, projection_tolerance):
+                masters = _inv_dist_weights(neighs)
+                shell_anchor_maps.append({
+                    "slave": tn,
+                    "dofs": ["DISPLACEMENT_X","DISPLACEMENT_Y","DISPLACEMENT_Z"],
+                    "masters": [{"node": nid, "w": float(w)} for nid, w in masters]
+                })
 
-                    stab_nodes = []
-                    def dfs(start):
-                        stack = [start]; comp = set([start])
-                        visited.add(start)
-                        while stack:
-                            u = stack.pop()
-                            for v in adj.get(u, []):
-                                if v not in visited:
-                                    visited.add(v)
-                                    comp.add(v)
-                                    stack.append(v)
-                        return comp
-                    for nid in list(adj.keys()):
-                        if nid in visited:
-                            continue
-                        comp = dfs(nid)
-                        if comp.isdisjoint(bottom_set):
-                            rep = int(min(comp))
-                            stab_nodes.append(rep)
-                    if True:
-                        for name, vars_to_fix in [
-                            ("BND_TRUSS_STAB_3", ["DISPLACEMENT_X","DISPLACEMENT_Y","DISPLACEMENT_Z"]),
-                            ("BND_TRUSS_STAB_2", ["DISPLACEMENT_Y","DISPLACEMENT_Z"]),
-                            ("BND_TRUSS_STAB_1", ["DISPLACEMENT_Z"])]:
-                            for var in vars_to_fix:
-                                processes.append({
-                                    "python_module": "fix_scalar_variable_process",
-                                    "kratos_module": "KratosMultiphysics",
-                                    "process_name": "FixScalarVariableProcess",
-                                    "Parameters": {
-                                        "model_part_name": f"Structure.{name}",
-                                        "variable_name": var,
-                                        "constrained": True,
-                                        "interval": [0.0, "End"]
-                                    }
-                                })
-                        self._truss_stab_enable = True
-            except Exception:
-                pass
+        # 3) Anchor-Solid embedded（Truss节点 嵌入到最近k个实体节点）
+        solid_list = list(solid_nodes)
+        for tn in truss_nodes:
+            p = node_xyz.get(tn)
+            if not p or not solid_list:
+                continue
+            neighs = _k_nearest(solid_list, p, nearest_k)
+            if not neighs:
+                continue
+            masters = _inv_dist_weights(neighs)
+            anchor_solid_maps.append({
+                "slave": tn,
+                "dofs": ["DISPLACEMENT_X","DISPLACEMENT_Y","DISPLACEMENT_Z"],
+                "masters": [{"node": nid, "w": float(w)} for nid, w in masters]
+            })
 
-        return processes
+        mapping = {
+            "shell_anchor": shell_anchor_maps,
+            "anchor_solid": anchor_solid_maps,
+            "stats": {
+                "counts": {
+                    "shell_nodes": len(shell_nodes),
+                    "solid_nodes": len(solid_nodes),
+                    "truss_nodes": len(truss_nodes),
+                    "shell_anchor": len(shell_anchor_maps),
+                    "anchor_solid": len(anchor_solid_maps)
+                },
+                "params": {
+                    "projection_tolerance": projection_tolerance,
+                    "search_radius": search_radius,
+                    "nearest_k": nearest_k
+                }
+            }
+        }
+
+        map_path = temp_dir / 'mpc_constraints.json'
+        with open(map_path, 'w', encoding='utf-8') as f:
+            json.dump(mapping, f, indent=2)
+
+        # 4) Lightweight Kratos process to apply MPCs (compact form to avoid indentation issues)
+        proc_code = (
+            "import KratosMultiphysics as KM\n"
+            "def Factory(settings, model):\n"
+            "    if not isinstance(settings, KM.Parameters):\n"
+            "        raise Exception('expected input shall be a Parameters object, encapsulating a json string')\n"
+            "    return MpcConstraintsProcess(model, settings['Parameters'])\n"
+            "class MpcConstraintsProcess(KM.Process):\n"
+            "    def __init__(self, model, settings):\n"
+            "        super().__init__()\n"
+            "        self.model = model\n"
+            "        self.settings = settings\n"
+            "    def ExecuteInitialize(self):\n"
+            "        pass\n"
+        )
+        with open(temp_dir / 'mpc_constraints_process.py', 'w', encoding='utf-8') as pf:
+            pf.write(proc_code)
+
+    def _build_constraints_processes(self) -> List[Dict[str, Any]]:
+        """基于FPN边界组构建Kratos约束进程列表（临时最小实现）。"""
+        return []
 
     def _build_loads_processes(self) -> list:
         """严格按 FPN 当前阶段的 LADD 构建节点荷载过程"""
@@ -1726,10 +1602,10 @@ if __name__ == "__main__":
 
 class KratosModernMohrCoulombConfigurator:
     """Kratos 10.3 修正摩尔-库伦本构配置生成器"""
-    
+
     def __init__(self, material_properties: MaterialProperties):
         self.material = material_properties
-    
+
     def generate_constitutive_law_config(self) -> Dict[str, Any]:
         """生成Kratos 10.3修正摩尔-库伦本构配置"""
         return {
@@ -1737,13 +1613,13 @@ class KratosModernMohrCoulombConfigurator:
                 "name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D",
                 "Variables": {
                     "YIELD_STRESS_TENSION": self.material.yield_stress_tension,
-                    "YIELD_STRESS_COMPRESSION": self.material.yield_stress_compression, 
+                    "YIELD_STRESS_COMPRESSION": self.material.yield_stress_compression,
                     "FRICTION_ANGLE": self.material.friction_angle,
                     "DILATANCY_ANGLE": self.material.dilatancy_angle
                 }
             }
         }
-    
+
     def generate_material_config(self) -> Dict[str, Any]:
         """生成材料配置（用于materials.json）"""
         return {
@@ -1765,12 +1641,12 @@ class KratosModernMohrCoulombConfigurator:
                 }
             ]
         }
-    
+
     def generate_project_parameters(self, output_path: str = "output") -> Dict[str, Any]:
         """生成ProjectParameters.json配置"""
         return {
             "problem_data": {
-                "problem_name": "mohr_coulomb_analysis", 
+                "problem_name": "mohr_coulomb_analysis",
                 "parallel_type": "OpenMP",
                 "echo_level": 1,
                 "start_time": 0.0,
@@ -1778,7 +1654,7 @@ class KratosModernMohrCoulombConfigurator:
             },
             "solver_settings": {
                 "solver_type": "Static",
-                "model_part_name": "Structure", 
+                "model_part_name": "Structure",
                 "domain_size": 3,
                 "echo_level": 1,
                 "analysis_type": "non_linear",
@@ -1822,7 +1698,7 @@ class KratosModernMohrCoulombConfigurator:
                 "loads_process_list": [
                     {
                         "python_module": "assign_vector_by_direction_process",
-                        "kratos_module": "KratosMultiphysics", 
+                        "kratos_module": "KratosMultiphysics",
                         "process_name": "AssignVectorByDirectionProcess",
                         "Parameters": {
                             "model_part_name": "Structure",

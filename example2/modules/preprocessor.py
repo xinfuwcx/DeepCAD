@@ -84,13 +84,50 @@ class PreProcessor:
         self._rendering: bool = False
 
         # 视口叠加：材料图例与性能指标
-        self.show_material_legend: bool = True
+        self.show_material_legend: bool = False
         self.last_render_ms: float = 0.0
         self._metrics_actor_names = {'legend': 'material_legend', 'metrics': 'metrics_overlay'}
         self._legend_panel = None
 
         # 创建/配置视图（轻量级模式）
         self.create_viewer_widget()
+        
+    # ---------- 识别/分类辅助 ----------
+    def _get_material_ids_by_keywords(self, keywords: List[str]) -> List[int]:
+        """根据材料名称中的关键字查找材料ID（兼容中文/英文）。
+        - keywords: 关键字列表，例如 ['地连墙','围护墙','diaphragm']
+        返回匹配的材料ID列表（去重，升序）。
+        """
+        mids: List[int] = []
+        try:
+            if not self.fpn_data:
+                return mids
+            mats = self.fpn_data.get('materials') or {}
+            if isinstance(mats, dict):
+                for k, v in mats.items():
+                    try:
+                        name = str(v.get('name', '')).lower()
+                        if not name:
+                            continue
+                        # 支持中文匹配：同时用原字符串做一次包含判断
+                        raw_name = str(v.get('name', ''))
+                        for kw in keywords:
+                            if kw.lower() in name or kw in raw_name:
+                                try:
+                                    mids.append(int(k))
+                                    break
+                                except Exception:
+                                    pass
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+        # 去重排序
+        try:
+            mids = sorted(list({int(x) for x in mids}))
+        except Exception:
+            pass
+        return mids
 
     # ---------- 视图 ----------
     def create_viewer_widget(self) -> QWidget:
@@ -2030,9 +2067,16 @@ class PreProcessor:
         - 大模型自动外表面提取 + 默认关闭边框显示
         - 写入MaterialID到cell_data便于分层显示
         """
+        print(f"🔧 开始从FPN数据创建网格...")
+        print(f"FPN数据类型: {type(fpn_data)}")
+        if fpn_data:
+            print(f"FPN数据键: {list(fpn_data.keys())}")
+            print(f"节点数: {len(fpn_data.get('nodes', []))}")
+            print(f"单元数: {len(fpn_data.get('elements', []))}")
+
         try:
             if not PYVISTA_AVAILABLE:
-                print("PyVista不可用，无法创建网格")
+                print("❌ PyVista不可用，无法创建网格")
                 return
 
             print("🔄 开始从FPN数据创建优化网格...")
@@ -2044,12 +2088,36 @@ class PreProcessor:
             if not nodes:
                 raise ValueError("FPN中未找到节点数据")
 
-            # 处理单元数据（兼容 dict/list）
+            # 处理单元数据（兼容 dict/list，合并体单元和板单元）
             elements = fpn_data.get('elements', [])
             if isinstance(elements, dict):
                 elements = list(elements.values())
+
+            # 🔧 修复：合并板单元（地连墙/隧道衬砌）
+            plate_elements = fpn_data.get('plate_elements', [])
+            if isinstance(plate_elements, dict):
+                plate_elements = list(plate_elements.values())
+
+            # 转换板单元格式以兼容现有处理逻辑
+            shell_props = fpn_data.get('shell_properties', {})
+            for plate in plate_elements:
+                if isinstance(plate, dict):
+                    plate_nodes = plate.get('nodes', [])  # 修复：使用不同的变量名
+                    if len(plate_nodes) == 3:
+                        plate['type'] = 'Triangle2D3N'
+                    elif len(plate_nodes) == 4:
+                        plate['type'] = 'Quadrilateral2D4N'
+
+                    # 🔧 修复：通过PSHELL属性ID查找真实材料ID
+                    prop_id = plate.get('prop_id', 1)
+                    shell_prop = shell_props.get(prop_id, {})
+                    # 从PSHELL属性中获取材料ID
+                    material_id = shell_prop.get('material_id', 1)
+                    plate['material_id'] = material_id
+                    elements.append(plate)
+
             if not elements:
-                raise ValueError("FPN中未找到单元数据")
+                raise ValueError("FPN中未找到单元数据（体单元+板单元）")
 
             print(f"📊 原始数据: {len(nodes)} 个节点, {len(elements)} 个单元")
 
@@ -2144,17 +2212,33 @@ class PreProcessor:
                     # 判定单元类型并写入VTK类型编码
                     etype_raw = str(elem.get('type', '')).lower()
                     vtk_type = None
-                    # 优先依据节点数量推断（常见体单元）
-                    if len(mapped_nodes) == 4:
+
+                    # 🔧 修复：优先基于类型字段判断，避免壳单元被误判为体单元
+                    if 'triangle2d3n' in etype_raw or etype_raw == 'triangle':
+                        vtk_type = 5   # VTK_TRIANGLE
+                    elif 'quadrilateral2d4n' in etype_raw or 'quad' in etype_raw:
+                        vtk_type = 9   # VTK_QUAD
+                    elif 'tetrahedra3d4n' in etype_raw or 'tetra' in etype_raw:
                         vtk_type = 10  # VTK_TETRA
+                    elif 'hexahedra3d8n' in etype_raw or 'hexa' in etype_raw or 'hex' in etype_raw:
+                        vtk_type = 12  # VTK_HEXAHEDRON
+                    elif 'wedge' in etype_raw or 'penta' in etype_raw:
+                        vtk_type = 13  # VTK_WEDGE
+                    elif 'truss' in etype_raw or 'line' in etype_raw:
+                        vtk_type = 3   # VTK_LINE
+                    # 兜底：基于节点数量推断（但优先考虑壳单元）
+                    elif len(mapped_nodes) == 3:
+                        vtk_type = 5   # VTK_TRIANGLE
+                    elif len(mapped_nodes) == 4:
+                        # 默认优先判断为四边形壳单元，除非明确是体单元
+                        if 'smalldisplacement' in etype_raw or 'solid' in etype_raw:
+                            vtk_type = 10  # VTK_TETRA
+                        else:
+                            vtk_type = 9   # VTK_QUAD（壳单元）
                     elif len(mapped_nodes) == 8:
                         vtk_type = 12  # VTK_HEXAHEDRON
                     elif len(mapped_nodes) == 6:
                         vtk_type = 13  # VTK_WEDGE
-                    elif len(mapped_nodes) == 3:
-                        vtk_type = 5   # VTK_TRIANGLE
-                    elif len(mapped_nodes) == 4 and ('quad' in etype_raw):
-                        vtk_type = 9   # VTK_QUAD
 
                     # 若未能推断，尝试基于类型字段
                     if vtk_type is None:
@@ -2322,6 +2406,11 @@ class PreProcessor:
                 self._is_big_model = False
 
             print(f"🎯 成功创建网格: {self.mesh.n_points} 点, {self.mesh.n_cells} 单元/面")
+
+            # 强制显示网格（确保用户能看到结果）
+            print("🎨 强制显示网格...")
+            self.display_mesh()
+
             # 在显示前应用LOD策略，避免大模型直接重负载渲染
             try:
                 self._apply_lod()
@@ -2488,8 +2577,13 @@ class PreProcessor:
             # 设置当前分析步为第一个
             self.current_stage_index = 0
 
-            # 显示网格
-            self.display_mesh()
+            print(f"✅ 网格创建完成，准备显示...")
+            # 确保网格被显示
+            if self.mesh:
+                print("🎨 最终显示网格...")
+                self.display_mesh()
+            else:
+                print("❌ 网格对象为空，无法显示")
 
         except Exception as e:
             # 🔧 网格创建失败时的异常处理
@@ -3046,8 +3140,14 @@ class PreProcessor:
 
     def display_mesh(self):
         """强制显示工程构件 - 紧急修复版"""
-        if not PYVISTA_AVAILABLE or not self.mesh:
+        if not PYVISTA_AVAILABLE:
+            print("❌ PyVista不可用，无法显示网格")
             return
+        if not self.mesh:
+            print("❌ 网格对象为空，无法显示")
+            return
+
+        print(f"🎨 开始显示网格: {self.mesh.n_points} 节点, {self.mesh.n_cells} 单元")
 
         # 清除现有内容
         self.plotter.clear()
@@ -3057,13 +3157,7 @@ class PreProcessor:
         import time
         _t0 = time.time()
 
-        # 🔧 STEP 1: 显示主体网格
-        self._display_main_mesh_safe()
-
-        # 🔧 STEP 2: 强制显示关键工程构件（无视保护状态）
-        self._force_display_engineering_components()
-
-        # 🔧 STEP 3: 根据显示模式显示网格
+        # 🔧 根据显示模式显示网格（统一入口，避免重复clear）
         if self.display_mode == 'transparent':
             self.display_transparent_layers()
         elif self.display_mode == 'wireframe':
@@ -3072,6 +3166,9 @@ class PreProcessor:
             self.display_solid_mode()
         else:
             self.display_transparent_layers()  # 默认半透明
+
+        # 🔧 STEP 2: 强制显示关键工程构件（叠加在主网格之上）
+        self._force_display_engineering_components()
 
         # 叠加显示：板元（TRIA/QUAD）
         try:
@@ -3305,9 +3402,9 @@ class PreProcessor:
             return
             
         try:
-            # 🔧 修复：清空现有显示，避免重叠
-            self.plotter.clear()
-            self.set_abaqus_style_background()
+            # 🔧 修复：不再重复清空（display_mesh已经清空过了）
+            # self.plotter.clear()  # 注释掉，避免双重清除
+            # self.set_abaqus_style_background()  # 背景已在display_mesh中设置
             
             # 🔧 关键修复：配置PyVista透明度渲染
             try:
@@ -3324,14 +3421,22 @@ class PreProcessor:
             
             # 🔧 修复：根据复选框状态决定显示内容
             if hasattr(self.mesh, 'cell_data') and 'MaterialID' in self.mesh.cell_data:
+                print(f"🔍 检测到MaterialID数据，材料种类: {len(np.unique(self.mesh.cell_data['MaterialID']))}")
                 # 🔧 关键修复：检查土体显示开关
-                if getattr(self, 'show_soil', True):
+                show_soil_flag = getattr(self, 'show_soil', True)
+                print(f"🔍 土体显示开关: {show_soil_flag}")
+                if show_soil_flag:
+                    print("✅ 开始显示材料分层...")
                     self._display_material_layers_transparent()
                 else:
                     print("🚫 土体显示已关闭，跳过土体渲染")
             else:
                 # 回退：整体半透明显示
-                if getattr(self, 'show_soil', True):
+                print("🔍 未检测到MaterialID，使用整体半透明显示")
+                show_soil_flag = getattr(self, 'show_soil', True)
+                print(f"🔍 土体显示开关: {show_soil_flag}")
+                if show_soil_flag:
+                    print("✅ 添加整体半透明网格...")
                     self.plotter.add_mesh(
                         self.mesh,
                         opacity=0.6,
@@ -3340,7 +3445,15 @@ class PreProcessor:
                         lighting=True,
                         name='transparent_mesh'
                     )
-                
+                    print("✅ 整体半透明网格添加完成")
+
+                    # 确保相机视角合适
+                    try:
+                        self.plotter.reset_camera()
+                        print("✅ 相机视角已重置")
+                    except Exception as e:
+                        print(f"⚠️ 相机重置失败: {e}")
+
             # 🔧 修复：工程构件分别控制
             if getattr(self, 'show_diaphragm_wall', True):
                 self._render_diaphragm_wall_only()
@@ -3366,8 +3479,17 @@ class PreProcessor:
         try:
             if hasattr(self, 'mesh') and 'MaterialID' in self.mesh.cell_data:
                 mat_ids = self.mesh.cell_data['MaterialID']
-                # 🔧 修复：地连墙是混凝土材料ID 12
-                wall_mask = np.isin(mat_ids, [12])
+                # 🔧 修复：地连墙使用材料ID=1，通过单元类型区分
+                # 查找三角形单元（VTK_TRIANGLE=5）且材料ID=1的单元
+                if hasattr(self.mesh, 'celltypes'):
+                    cell_types = self.mesh.celltypes
+                    # 地连墙：材料ID=1 + 三角形单元类型
+                    wall_mask = (mat_ids == 1) & (cell_types == 5)  # VTK_TRIANGLE
+                else:
+                    # 兜底：基于材料名称识别
+                    name_based_ids = self._get_material_ids_by_keywords(['地连墙', '围护墙', '地下连续墙', 'diaphragm'])
+                    candidate_ids = set(name_based_ids) | {1}  # 1 是实际的地连墙材料ID
+                    wall_mask = np.isin(mat_ids, list(candidate_ids))
                 if np.any(wall_mask):
                     wall_mesh = self.mesh.extract_cells(wall_mask)
                     # 🎨 专业地连墙外观
@@ -3384,7 +3506,9 @@ class PreProcessor:
                         smooth_shading=True,
                         name='diaphragm_wall_only'
                     )
-                    print(f"✅ 地连墙独立显示: {wall_mesh.n_cells}单元")
+                    print(f"✅ 地连墙独立显示: {wall_mesh.n_cells}单元 (材料ID=1, 三角形)")
+                else:
+                    print("⚠️ 未找到地连墙单元 (材料ID=1 + 三角形)")
         except Exception as e:
             print(f"地连墙独立渲染失败: {e}")
             
@@ -3412,8 +3536,10 @@ class PreProcessor:
         try:
             if hasattr(self, 'mesh') and 'MaterialID' in self.mesh.cell_data:
                 mat_ids = self.mesh.cell_data['MaterialID']
-                # 🔧 修复：桩基是材料ID 10 (Concrete Pile)
-                pile_mask = np.isin(mat_ids, [10])
+                # 通过名称识别“桩”，并保留ID=10作为后备
+                name_based_ids = self._get_material_ids_by_keywords(['桩', '灌注桩', 'pile'])
+                candidate_ids = set(name_based_ids) | {10}
+                pile_mask = np.isin(mat_ids, list(candidate_ids))
                 if np.any(pile_mask):
                     pile_mesh = self.mesh.extract_cells(pile_mask)
                     # 🎨 专业桩基外观
@@ -3525,6 +3651,13 @@ class PreProcessor:
                     
         except Exception as e:
             print(f"❌ 材料分层显示失败: {e}")
+
+        # 确保相机视角合适
+        try:
+            self.plotter.reset_camera()
+            print("✅ 材料分层显示完成，相机视角已重置")
+        except Exception as e:
+            print(f"⚠️ 相机重置失败: {e}")
             
     def _get_safe_material_color(self, mat_id):
         """获取安全的材料颜色"""
@@ -5646,23 +5779,42 @@ class PreProcessor:
         if PYVISTA_AVAILABLE and self.plotter:
             self.plotter.reset_camera()
 
-    def set_wireframe_mode(self):
-        """设置线框模式"""
-        if PYVISTA_AVAILABLE and self.plotter:
-            try:
-                actor = self.plotter.renderer.actors['main_mesh']
-                actor.GetProperty().SetRepresentationToWireframe()
-            except:
-                pass
+    def _render_plates_internal(self):
+        """内部板元渲染函数"""
+        try:
+            if self._plates_cached is None:
+                self._plates_cached = self._build_plate_geometry()
+            pdata = self._plates_cached
+            if pdata is not None and pdata.n_cells > 0:
+                # 若存在名为“衬砌/lining”的板属性，则采用更接近衬砌的配色
+                color = 'lightsteelblue'
+                try:
+                    props = (self.fpn_data or {}).get('shell_properties') or {}
+                    has_lining = False
+                    if isinstance(props, dict):
+                        for _pid, info in props.items():
+                            nm = str(info.get('name', '')).lower()
+                            raw = str(info.get('name', ''))
+                            if 'lining' in nm or ('衬砌' in raw):
+                                has_lining = True
+                                break
+                    if has_lining:
+                        color = 'lightgray'
+                except Exception:
+                    pass
 
-    def set_solid_mode(self):
-        """设置实体模式"""
-        if PYVISTA_AVAILABLE and self.plotter:
-            try:
-                actor = self.plotter.renderer.actors['main_mesh']
-                actor.GetProperty().SetRepresentationToSurface()
-            except:
-                pass
+                if PYVISTA_AVAILABLE and self.plotter:
+                    self.plotter.add_mesh(
+                        pdata,
+                        color=color,
+                        opacity=0.75,
+                        show_edges=True,
+                        edge_color='darkblue',
+                        line_width=0.8,
+                        name='plate_elements',
+                    )
+        except Exception as e:
+            print(f"渲染板元失败: {e}")
 
     def _display_main_mesh(self):
         """显示主体网格，根据显示模式和复选框状态（智能边框优化 + 异步渲染）"""

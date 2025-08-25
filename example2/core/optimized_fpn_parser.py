@@ -686,13 +686,14 @@ class OptimizedFPNParser:
                             pass
 
                     elif line.startswith(('PSHELL')):
-                        # 板属性：PSHELL, PropId, Name, ... 厚度通常在参数7或8位
+                        # 板属性：PSHELL, PropId, Name, MaterialId, ... 厚度通常在参数7或8位
                         current_section = "shell_properties"
                         try:
                             parts = [p.strip() for p in line.split(',')]
-                            if len(parts) >= 3:
+                            if len(parts) >= 4:
                                 pid = int(parts[1])
                                 name = parts[2]
+                                material_id = int(parts[3]) if parts[3] else 1  # 第4个字段是材料ID
                                 thickness = None
                                 try:
                                     # 常见：..., 1, 0, -1, 1, 0.8, 1., 1., 1., ...
@@ -701,7 +702,7 @@ class OptimizedFPNParser:
                                 except Exception:
                                     thickness = None
                                 result['shell_properties'][pid] = {
-                                    'id': pid, 'name': name, 'thickness': thickness
+                                    'id': pid, 'name': name, 'material_id': material_id, 'thickness': thickness
                                 }
                         except Exception:
                             pass
