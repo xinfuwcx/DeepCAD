@@ -1282,9 +1282,9 @@ class KratosInterface:
                 }
             })
 
-    import json
-    with open(params_file, 'w') as f:
-        json.dump(params, f, indent=2)
+        import json
+        with open(params_file, 'w') as f:
+            json.dump(params, f, indent=2)
 
     def _bools_from_dof_code(self, code: str):
         code = (code or '').strip()

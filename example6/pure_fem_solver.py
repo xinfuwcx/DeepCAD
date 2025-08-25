@@ -33,7 +33,7 @@ class PureFEMSolver:
         
     def create_mesh(self, pier_diameter=2.0, domain_length=10.0, domain_height=4.0, nx=20, ny=10):
         """创建简单的矩形域网格"""
-        print(f"🕸️ 创建网格: {nx}x{ny}...")
+        print(f"Creating mesh: {nx}x{ny}...")
         
         # 创建节点
         x = np.linspace(-domain_length/2, domain_length/2, nx)
@@ -62,14 +62,14 @@ class PureFEMSolver:
                 pier_nodes.append(i)
         
         self.pier_nodes = pier_nodes
-        print(f"✅ 网格创建完成: {len(self.nodes)} 节点, {len(self.elements)} 单元")
-        print(f"   桥墩内部节点: {len(pier_nodes)}")
+        print(f"Mesh complete: {len(self.nodes)} nodes, {len(self.elements)} elements")
+        print(f"   Pier interior nodes: {len(pier_nodes)}")
         
         return self.nodes, self.elements
     
     def solve_stokes_flow(self, inlet_velocity=1.2, viscosity=1e-3, density=1000.0):
         """求解Stokes流动方程（简化的Navier-Stokes）"""
-        print("🌊 求解Stokes流动...")
+        print("Solving Stokes flow...")
         
         n_nodes = len(self.nodes)
         
@@ -118,12 +118,12 @@ class PureFEMSolver:
         self.viscosity = viscosity
         self.density = density
         
-        print("✅ Stokes流动求解完成")
+        print("Stokes flow solve complete")
         return velocity, pressure
     
     def calculate_shear_stress(self):
         """计算剪切应力"""
-        print("⚡ 计算剪切应力...")
+        print("Calculating shear stress...")
         
         shear_stress = np.zeros(len(self.nodes))
         
@@ -142,20 +142,21 @@ class PureFEMSolver:
                 # 基于势流理论的剪切应力
                 if r > 0.01:
                     # 切向速度梯度
-                    dudr = -2 * self.inlet_velocity * np.sin(np.arctan2(y, x)) / r
+                    inlet_vel = getattr(self, 'inlet_velocity', 1.2)
+                    dudr = -2 * inlet_vel * np.sin(np.arctan2(y, x)) / r
                     shear_stress[i] = self.viscosity * abs(dudr)
                 else:
                     shear_stress[i] = 0
         
         self.shear_stress = shear_stress
         max_shear = np.max(shear_stress)
-        print(f"✅ 最大剪切应力: {max_shear:.2f} Pa")
+        print(f"Max shear stress: {max_shear:.2f} Pa")
         
         return shear_stress
     
     def calculate_scour_depth(self, d50=0.6e-3, rho_s=2650):
         """基于Shields理论计算冲刷深度"""
-        print("🏗️ 计算冲刷深度...")
+        print("Calculating scour depth...")
         
         # 基本参数
         g = 9.81
@@ -197,16 +198,16 @@ class PureFEMSolver:
             'excess_shields_ratio': float(excess_shields if theta_shields > theta_cr else 0)
         }
         
-        print(f"✅ 冲刷分析完成:")
-        print(f"   冲刷深度: {scour_depth:.3f} m")
-        print(f"   Shields参数: {theta_shields:.4f}")
-        print(f"   临界Shields: {theta_cr:.4f}")
+        print(f"Scour analysis complete:")
+        print(f"   Scour depth: {scour_depth:.3f} m")
+        print(f"   Shields parameter: {theta_shields:.4f}")
+        print(f"   Critical Shields: {theta_cr:.4f}")
         
         return scour_depth
     
     def save_results(self, output_dir="fem_output"):
         """保存计算结果"""
-        print("💾 保存结果...")
+        print("Saving results...")
         
         os.makedirs(output_dir, exist_ok=True)
         
@@ -229,7 +230,7 @@ class PureFEMSolver:
         if PYVISTA_AVAILABLE:
             self.save_vtk(output_dir)
         
-        print(f"✅ 结果保存到: {output_dir}/")
+        print(f"Results saved to: {output_dir}/")
         
     def save_vtk(self, output_dir):
         """保存VTK格式结果"""
@@ -253,7 +254,7 @@ class PureFEMSolver:
             
             # 保存
             mesh.save(f"{output_dir}/fem_results.vtk")
-            print("✅ VTK文件保存成功")
+            print("VTK file saved successfully")
             
         except Exception as e:
             print(f"⚠️ VTK保存失败: {e}")

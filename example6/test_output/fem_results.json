@@ -1,0 +1,17 @@
+{
+  "timestamp": "2025-08-24T22:00:23.522222",
+  "solver": "Pure Python FEM",
+  "results": {
+    "scour_depth": 0.0,
+    "max_shear_stress": 0.0024,
+    "shields_parameter": 0.000247119513174559,
+    "critical_shields": 0.028608296632852345,
+    "max_velocity": 1.7333333333333334,
+    "excess_shields_ratio": 0.0
+  },
+  "mesh_info": {
+    "n_nodes": 99,
+    "n_elements": 80,
+    "pier_nodes": 3
+  }
+}
