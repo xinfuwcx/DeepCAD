@@ -1,0 +1,29 @@
+{
+  "shell_anchor": [],
+  "anchor_solid": [],
+  "algorithm_info": {
+    "type": "Kratos Native K-Nearest Neighbors",
+    "utility": "AssignMasterSlaveConstraintsToNeighboursUtility",
+    "implementation": "Simplified version using k-nearest with inverse distance weighting"
+  },
+  "stats": {
+    "counts": {
+      "total_anchor_endpoints": 0,
+      "processed_endpoints": 100,
+      "successful_constraints": 0,
+      "shell_nodes": 0,
+      "truss_elements": 0
+    },
+    "params": {
+      "search_radius": 20.0,
+      "nearest_k": 8,
+      "min_weight_threshold": 0.01,
+      "max_masters_per_slave": 4
+    },
+    "coverage": {
+      "target": 2934,
+      "actual": 0,
+      "percentage": 0
+    }
+  }
+}

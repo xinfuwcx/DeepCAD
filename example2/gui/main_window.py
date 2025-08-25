@@ -77,6 +77,9 @@ class MainWindow(QMainWindow):
 
         self.init_ui()
         self.setup_connections()
+        
+        # 确保窗口标题正确设置（防止被其他模块覆盖）
+        self.setWindowTitle("MIDAS模型计算程序v1.0")
 
     def _apply_performance_settings(self):
         """应用性能配置到各模块"""
@@ -985,15 +988,15 @@ class MainWindow(QMainWindow):
         quick_start_action.triggered.connect(self.show_quick_start)
         help_menu.addAction(quick_start_action)
 
-    shortcuts_action = QAction("⌨️ 快捷键", self)
-    shortcuts_action.triggered.connect(self.show_shortcuts)
-    help_menu.addAction(shortcuts_action)
+        shortcuts_action = QAction("⌨️ 快捷键", self)
+        shortcuts_action.triggered.connect(self.show_shortcuts)
+        help_menu.addAction(shortcuts_action)
 
-    help_menu.addSeparator()
+        help_menu.addSeparator()
 
-    about_action = QAction("ℹ️ 关于", self)
-    about_action.triggered.connect(self.show_about)
-    help_menu.addAction(about_action)
+        about_action = QAction("ℹ️ 关于", self)
+        about_action.triggered.connect(self.show_about)
+        help_menu.addAction(about_action)
 
     def create_tool_bar(self):
         """创建工具栏"""

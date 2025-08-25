@@ -425,7 +425,7 @@ class PreProcessor:
             
             # 欢迎信息
             self.plotter.add_text(
-                "DeepCAD Transparent Layers\nReady",
+                "系统就绪",
                 position='upper_left',
                 font_size=12,
                 color='cyan'
@@ -459,7 +459,7 @@ class PreProcessor:
             return
         try:
             self.plotter.add_text(
-                "DeepCAD Transparent Layers\nReady",
+                "系统就绪",
                 position='upper_left',
                 font_size=12,
                 color='cyan',

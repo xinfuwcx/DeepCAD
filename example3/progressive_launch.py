@@ -20,27 +20,27 @@ def safe_import(module_name, description):
             from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QSplitter, QFrame
             from PyQt6.QtCore import Qt, QTimer, pyqtSignal
             from PyQt6.QtGui import QFont, QColor
-            print(f"  ✓ {description} loaded successfully")
+            print(f"  OK {description} loaded successfully")
             return True, locals()
         elif module_name == "abaqus_theme":
             sys.path.append(os.path.dirname(__file__))
             from abaqus_style_theme import AbaqusStyleTheme
-            print(f"  ✓ {description} loaded successfully")  
+            print(f"  OK {description} loaded successfully")  
             return True, locals()
         elif module_name == "gempy_modules":
             try:
                 import gempy as gp
                 import numpy as np  
                 import pandas as pd
-                print(f"  ✓ {description} loaded successfully")
+                print(f"  OK {description} loaded successfully")
                 return True, locals()
             except ImportError:
-                print(f"  ⚠ {description} not available (GemPy not installed)")
+                print(f"  WARNING {description} not available (GemPy not installed)")
                 return False, {}
         else:
             return False, {}
     except Exception as e:
-        print(f"  ✗ {description} failed: {e}")
+        print(f"  ERROR {description} failed: {e}")
         return False, {}
 
 class ProgressiveInterface(QMainWindow):
@@ -102,23 +102,23 @@ class ProgressiveInterface(QMainWindow):
         layout.setSpacing(15)
         
         # 标题
-        title = QLabel("🎯 Professional Control Panel")
+        title = QLabel("Professional Control Panel")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet("font-size: 16px; font-weight: bold; color: #3b82f6; padding: 10px;")
         layout.addWidget(title)
         
         # 模块状态
-        status_text = "📊 Module Status:\n"
+        status_text = "Module Status:\n"
         if 'PyQt6_widgets' in self.available_modules:
-            status_text += "✓ PyQt6 Interface: Active\n"
+            status_text += "+ PyQt6 Interface: Active\n"
         if 'abaqus_theme' in self.available_modules:
-            status_text += "✓ ABAQUS Theme: Loaded\n"
+            status_text += "+ ABAQUS Theme: Loaded\n"
         else:
-            status_text += "⚠ ABAQUS Theme: Fallback Mode\n"
+            status_text += "! ABAQUS Theme: Fallback Mode\n"
         if 'gempy_modules' in self.available_modules:
-            status_text += "✓ GemPy Engine: Available\n"
+            status_text += "+ GemPy Engine: Available\n"
         else:
-            status_text += "⚠ GemPy Engine: Simulation Mode\n"
+            status_text += "! GemPy Engine: Simulation Mode\n"
             
         status_label = QLabel(status_text)
         status_label.setStyleSheet("""
@@ -134,10 +134,10 @@ class ProgressiveInterface(QMainWindow):
         
         # 功能按钮
         buttons = [
-            ("🔨 Build Geological Model", self.build_model),
-            ("🌍 Gravity Analysis", self.gravity_analysis),
-            ("📐 Volume Calculation", self.volume_analysis),
-            ("💾 Export Results", self.export_results)
+            ("Build Geological Model", self.build_model),
+            ("Gravity Analysis", self.gravity_analysis),
+            ("Volume Calculation", self.volume_analysis),
+            ("Export Results", self.export_results)
         ]
         
         for btn_text, callback in buttons:
@@ -176,7 +176,7 @@ class ProgressiveInterface(QMainWindow):
         layout.setContentsMargins(15, 15, 15, 15)
         
         # 标题
-        title = QLabel("🌋 Professional 3D Geological Viewport")
+        title = QLabel("Professional 3D Geological Viewport")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet("font-size: 18px; font-weight: bold; color: #3b82f6; padding: 10px;")
         layout.addWidget(title)
@@ -187,24 +187,24 @@ class ProgressiveInterface(QMainWindow):
         display_area.setMinimumHeight(500)
         
         if 'gempy_modules' in self.available_modules:
-            display_text = """🏔️ Professional 3D Geological Modeling Workspace
+            display_text = """Professional 3D Geological Modeling Workspace
 
-✨ ABAQUS-Level Ultimate Visual Experience
-🎯 Real-time Interactive 3D Rendering
-🔬 Advanced Geological Structure Visualization  
-📊 Professional Cross-Section Analysis
+ABAQUS-Level Ultimate Visual Experience
+Real-time Interactive 3D Rendering
+Advanced Geological Structure Visualization  
+Professional Cross-Section Analysis
 
-⚡ GemPy Engine: Ready
-🎨 3D Visualization: Standby
-🔧 Professional Tools: Active
+GemPy Engine: Ready
+3D Visualization: Standby
+Professional Tools: Active
 
 Ready for geological modeling workflows..."""
         else:
-            display_text = """🏔️ Professional Geological Modeling Workspace
+            display_text = """Professional Geological Modeling Workspace
 
-✨ ABAQUS-Level Interface Active
-🎯 Professional Simulation Mode
-⚠️ GemPy Engine: Not Available
+ABAQUS-Level Interface Active
+Professional Simulation Mode
+WARNING: GemPy Engine Not Available
 
 Install GemPy for full functionality:
 pip install gempy
@@ -235,27 +235,27 @@ Current Mode: Professional Interface Demo"""
         menubar = self.menuBar()
         
         # 文件菜单
-        file_menu = menubar.addMenu("📁 File")
-        file_menu.addAction("🆕 New Project", self.new_project)
-        file_menu.addAction("📂 Open Project", self.open_project)
-        file_menu.addAction("💾 Save Project", self.save_project)
+        file_menu = menubar.addMenu("File")
+        file_menu.addAction("New Project", self.new_project)
+        file_menu.addAction("Open Project", self.open_project)
+        file_menu.addAction("Save Project", self.save_project)
         file_menu.addSeparator()
-        file_menu.addAction("📤 Export Results", self.export_results)
+        file_menu.addAction("Export Results", self.export_results)
         
         # 模型菜单
-        model_menu = menubar.addMenu("🏗️ Model")
-        model_menu.addAction("⚙️ Model Settings", self.model_settings)
-        model_menu.addAction("🔨 Build Model", self.build_model)
+        model_menu = menubar.addMenu("Model")
+        model_menu.addAction("Model Settings", self.model_settings)
+        model_menu.addAction("Build Model", self.build_model)
         
         # 分析菜单  
-        analysis_menu = menubar.addMenu("🔬 Analysis")
-        analysis_menu.addAction("🌍 Gravity Analysis", self.gravity_analysis)
-        analysis_menu.addAction("📐 Volume Analysis", self.volume_analysis)
+        analysis_menu = menubar.addMenu("Analysis")
+        analysis_menu.addAction("Gravity Analysis", self.gravity_analysis)
+        analysis_menu.addAction("Volume Analysis", self.volume_analysis)
         
         # 帮助菜单
-        help_menu = menubar.addMenu("❓ Help")
-        help_menu.addAction("📖 User Manual", self.show_manual)
-        help_menu.addAction("ℹ️ About", self.show_about)
+        help_menu = menubar.addMenu("Help")
+        help_menu.addAction("User Manual", self.show_manual)
+        help_menu.addAction("About", self.show_about)
     
     def apply_fallback_style(self):
         """应用备用样式"""
@@ -282,15 +282,15 @@ Current Mode: Professional Interface Demo"""
     
     # 功能方法
     def build_model(self):
-        self.update_viewport("🔨 Building geological model...", "Building professional 3D geological model using advanced algorithms...")
+        self.update_viewport("Building geological model...", "Building professional 3D geological model using advanced algorithms...")
         self.statusBar().showMessage("Building geological model...")
         
     def gravity_analysis(self):
-        self.update_viewport("🌍 Computing gravity field...", "Performing gravity analysis using professional algorithms...")
+        self.update_viewport("Computing gravity field...", "Performing gravity analysis using professional algorithms...")
         self.statusBar().showMessage("Computing gravity analysis...")
         
     def volume_analysis(self):
-        self.update_viewport("📐 Calculating volumes...", "Analyzing formation volumes using advanced integration methods...")
+        self.update_viewport("Calculating volumes...", "Analyzing formation volumes using advanced integration methods...")
         self.statusBar().showMessage("Calculating formation volumes...")
         
     def export_results(self):
@@ -320,13 +320,13 @@ Current Mode: Professional Interface Demo"""
     
     def update_viewport(self, title, description):
         """更新视窗显示"""
-        display_text = f"""🌋 {title}
+        display_text = f"""{title}
 
 {description}
 
-📊 Professional Status: Active
-✨ ABAQUS-Level Processing
-🎯 Advanced Algorithms Engaged
+Professional Status: Active
+ABAQUS-Level Processing
+Advanced Algorithms Engaged
 
 Processing completed successfully."""
         
@@ -372,7 +372,7 @@ def main():
     window = ProgressiveInterface(available_modules)
     window.show()
     
-    print("✓ GemPy Ultimate ABAQUS Professional launched successfully!")
+    print("GemPy Ultimate ABAQUS Professional launched successfully!")
     print("Professional geological modeling interface is ready")
     print("========================================================")
     

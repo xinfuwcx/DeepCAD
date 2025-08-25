@@ -127,11 +127,11 @@ def start_application():
         main_window = MainWindow()
         main_window.show()
         
-        print("✅ Example2 启动成功！")
+        print("Example2 启动成功！")
         print("\n" + "="*60)
-        print("🎯 Example2 - MIDAS模型桌面计算程序")
-        print("📋 功能：前处理 → 分析计算 → 后处理")
-        print("🔧 支持：FPN导入、Kratos分析、结果可视化")
+        print("Example2 - MIDAS模型桌面计算程序")
+        print("功能：前处理 → 分析计算 → 后处理")
+        print("支持：FPN导入、Kratos分析、结果可视化")
         print("="*60 + "\n")
         
         # 运行应用程序
@@ -150,8 +150,8 @@ def start_application():
 def main():
     """主函数"""
     print("="*60)
-    print("🎯 Example2 - MIDAS模型桌面计算程序")
-    print("💡 专业基坑分析软件")
+    print("Example2 - MIDAS模型桌面计算程序")
+    print("专业基坑分析软件")
     print("="*60)
     
     # 设置环境

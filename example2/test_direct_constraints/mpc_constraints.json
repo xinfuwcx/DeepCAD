@@ -1,0 +1,20 @@
+{
+  "shell_anchor": [],
+  "anchor_solid": [],
+  "stats": {
+    "counts": {
+      "shell_nodes": 1354,
+      "solid_nodes": 26087,
+      "truss_free_nodes": 0,
+      "truss_bonded_nodes": 0,
+      "anchor_head_nodes": 0,
+      "shell_anchor": 0,
+      "anchor_solid": 0
+    },
+    "params": {
+      "projection_tolerance": 2.0,
+      "search_radius": 10.0,
+      "nearest_k": 4
+    }
+  }
+}

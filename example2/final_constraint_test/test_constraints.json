@@ -1,0 +1,113 @@
+{
+  "shell_anchor": [
+    {
+      "slave": 3001,
+      "dofs": [
+        "DISPLACEMENT_X",
+        "DISPLACEMENT_Y",
+        "DISPLACEMENT_Z"
+      ],
+      "masters": [
+        {
+          "node": 1001,
+          "w": 0.42857142857142855
+        },
+        {
+          "node": 1002,
+          "w": 0.42857142857142855
+        },
+        {
+          "node": 1003,
+          "w": 0.14285714285714285
+        }
+      ]
+    }
+  ],
+  "anchor_solid": [
+    {
+      "slave": 3005,
+      "dofs": [
+        "DISPLACEMENT_X",
+        "DISPLACEMENT_Y",
+        "DISPLACEMENT_Z"
+      ],
+      "masters": [
+        {
+          "node": 2003,
+          "w": 0.5724638592469784
+        },
+        {
+          "node": 2002,
+          "w": 0.17088684900056403
+        },
+        {
+          "node": 2004,
+          "w": 0.17088684900056403
+        },
+        {
+          "node": 2001,
+          "w": 0.08576244275189354
+        }
+      ]
+    },
+    {
+      "slave": 3006,
+      "dofs": [
+        "DISPLACEMENT_X",
+        "DISPLACEMENT_Y",
+        "DISPLACEMENT_Z"
+      ],
+      "masters": [
+        {
+          "node": 2004,
+          "w": 0.8030683865066547
+        },
+        {
+          "node": 2005,
+          "w": 0.07990829108560513
+        },
+        {
+          "node": 2003,
+          "w": 0.07692000094262129
+        },
+        {
+          "node": 2002,
+          "w": 0.04010332146511892
+        }
+      ]
+    },
+    {
+      "slave": 3007,
+      "dofs": [
+        "DISPLACEMENT_X",
+        "DISPLACEMENT_Y",
+        "DISPLACEMENT_Z"
+      ],
+      "masters": [
+        {
+          "node": 2005,
+          "w": 0.8458337933255865
+        },
+        {
+          "node": 2004,
+          "w": 0.08416360810953483
+        },
+        {
+          "node": 2003,
+          "w": 0.041823789335208146
+        },
+        {
+          "node": 2002,
+          "w": 0.02817880922967054
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "shell_nodes": 3,
+    "solid_nodes": 5,
+    "truss_free_nodes": 4,
+    "truss_bonded_nodes": 3,
+    "anchor_head_nodes": 1
+  }
+}

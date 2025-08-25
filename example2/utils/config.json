@@ -1,0 +1,18 @@
+{
+  "project": {
+    "name": "Example2",
+    "version": "1.0.0"
+  },
+  "ui": {
+    "theme": "modern",
+    "language": "zh_CN"
+  },
+  "performance": {
+    "max_mesh_cells_for_edges": 500000,
+    "async_display_update": true
+  },
+  "analysis": {
+    "max_iterations": 100,
+    "convergence_tolerance": 1e-06
+  }
+}
