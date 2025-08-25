@@ -449,6 +449,19 @@ class MainWindow(QMainWindow):
         steps_layout.addWidget(QLabel("施工步序:"))
         steps_layout.addWidget(self.steps_list)
 
+        # 分析步选择（用于与FPN导入后的分析步进行联动）
+        stage_layout = QHBoxLayout()
+        stage_layout.addWidget(QLabel("分析步:"))
+        from PyQt6.QtWidgets import QComboBox  # 已在文件顶部导入，这里仅防编辑器补全
+        self.analysis_stage_combo = QComboBox()
+        self.analysis_stage_combo.addItem("初始状态")
+        try:
+            self.analysis_stage_combo.currentTextChanged.connect(self.on_analysis_stage_changed)
+        except Exception:
+            pass
+        stage_layout.addWidget(self.analysis_stage_combo)
+        steps_layout.addLayout(stage_layout)
+
         layout.addWidget(steps_group)
 
         # 求解参数组 (简化，只展示关键参数)
@@ -1770,18 +1783,19 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-        # 更新分析步
-        self.analysis_stage_combo.clear()
-        self.analysis_stage_combo.addItem("初始状态")
-        analysis_stages = fpn_data.get('analysis_stages', [])
-        for stage in analysis_stages:
-            if isinstance(stage, dict):
-                stage_name = stage.get('name', f'分析步 {stage.get("id", "?")}')
-                stage_id = stage.get('id', '?')
-                self.analysis_stage_combo.addItem(f"{stage_name} (ID: {stage_id})")
-            else:
-                # 处理stage不是字典的情况(例如直接是ID)
-                self.analysis_stage_combo.addItem(f"分析步 ID: {stage}")
+        # 更新分析步（兼容：仅当控件存在时才填充）
+        if hasattr(self, 'analysis_stage_combo'):
+            self.analysis_stage_combo.clear()
+            self.analysis_stage_combo.addItem("初始状态")
+            analysis_stages = fpn_data.get('analysis_stages', [])
+            for stage in analysis_stages:
+                if isinstance(stage, dict):
+                    stage_name = stage.get('name', f'分析步 {stage.get("id", "?")}')
+                    stage_id = stage.get('id', '?')
+                    self.analysis_stage_combo.addItem(f"{stage_name} (ID: {stage_id})")
+                else:
+                    # 处理stage不是字典的情况(例如直接是ID)
+                    self.analysis_stage_combo.addItem(f"分析步 ID: {stage}")
 
     def on_material_group_changed(self, text):
         """材料组选择改变"""
