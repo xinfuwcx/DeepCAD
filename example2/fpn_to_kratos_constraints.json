@@ -1,0 +1,14 @@
+{
+  "constraints": [],
+  "summary": {
+    "total": 0,
+    "mpc": 0,
+    "embedded": 0
+  },
+  "parameters": {
+    "search_radius": 20.0,
+    "nearest_k": 8,
+    "projection_tolerance": 5.0
+  },
+  "timestamp": "1756167473.2098901"
+}

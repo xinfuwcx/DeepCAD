@@ -1,0 +1,104 @@
+{
+  "test_time": "2025-08-26",
+  "converted_materials": {
+    "1": {
+      "name": "填土",
+      "kratos_properties": {
+        "material_id": 1,
+        "material_name": "填土",
+        "DENSITY": 1800.0,
+        "YOUNG_MODULUS": 25000000.0,
+        "POISSON_RATIO": 0.35,
+        "COHESION": 20.0,
+        "INTERNAL_FRICTION_ANGLE": 0.4363323129985824,
+        "INTERNAL_DILATANCY_ANGLE": 0.13962634015954636,
+        "YIELD_STRESS_TENSION": 500000.0,
+        "YIELD_STRESS_COMPRESSION": 8000000.0
+      },
+      "constitutive_law": {
+        "constitutive_law": {
+          "name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D",
+          "Variables": {
+            "YIELD_STRESS_TENSION": 500000.0,
+            "YIELD_STRESS_COMPRESSION": 8000000.0,
+            "FRICTION_ANGLE": 25.0,
+            "DILATANCY_ANGLE": 8.0
+          }
+        },
+        "properties": {
+          "DENSITY": 1800.0,
+          "YOUNG_MODULUS": 25000000.0,
+          "POISSON_RATIO": 0.35
+        }
+      }
+    },
+    "2": {
+      "name": "粉质粘土",
+      "kratos_properties": {
+        "material_id": 2,
+        "material_name": "粉质粘土",
+        "DENSITY": 1900.0,
+        "YOUNG_MODULUS": 25000000.0,
+        "POISSON_RATIO": 0.3,
+        "COHESION": 35.0,
+        "INTERNAL_FRICTION_ANGLE": 0.4886921905584123,
+        "INTERNAL_DILATANCY_ANGLE": 0.13962634015954636,
+        "YIELD_STRESS_TENSION": 500000.0,
+        "YIELD_STRESS_COMPRESSION": 8000000.0
+      },
+      "constitutive_law": {
+        "constitutive_law": {
+          "name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D",
+          "Variables": {
+            "YIELD_STRESS_TENSION": 500000.0,
+            "YIELD_STRESS_COMPRESSION": 8000000.0,
+            "FRICTION_ANGLE": 28.0,
+            "DILATANCY_ANGLE": 8.0
+          }
+        },
+        "properties": {
+          "DENSITY": 1900.0,
+          "YOUNG_MODULUS": 25000000.0,
+          "POISSON_RATIO": 0.3
+        }
+      }
+    },
+    "13": {
+      "name": "锚杆钢材",
+      "kratos_properties": {
+        "material_id": 13,
+        "material_name": "锚杆钢材",
+        "DENSITY": 2000.0,
+        "YOUNG_MODULUS": 25000000.0,
+        "POISSON_RATIO": 0.3,
+        "COHESION": 35000.0,
+        "INTERNAL_FRICTION_ANGLE": 0.4886921905584123,
+        "INTERNAL_DILATANCY_ANGLE": 0.13962634015954636,
+        "YIELD_STRESS_TENSION": 400000.0,
+        "YIELD_STRESS_COMPRESSION": 8000000.0
+      },
+      "constitutive_law": {
+        "constitutive_law": {
+          "name": "SmallStrainDplusDminusDamageModifiedMohrCoulombVonMises3D",
+          "Variables": {
+            "YIELD_STRESS_TENSION": 400000.0,
+            "YIELD_STRESS_COMPRESSION": 8000000.0,
+            "FRICTION_ANGLE": 28.0,
+            "DILATANCY_ANGLE": 8.0
+          }
+        },
+        "properties": {
+          "DENSITY": 2000.0,
+          "YOUNG_MODULUS": 25000000.0,
+          "POISSON_RATIO": 0.3
+        }
+      }
+    }
+  },
+  "test_results": {
+    "parameter_mapping": true,
+    "validation": true,
+    "default_creation": true,
+    "fpn_parsing": true
+  }
+}

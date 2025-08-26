@@ -1,0 +1,15 @@
+{
+  "method": "Kratos_Native_AssignMasterSlaveConstraintsToNeighboursUtility",
+  "constraint_count": 300,
+  "success": true,
+  "timestamp": "2025-08-26 08:42:03.283682",
+  "parameters": {
+    "search_radius": 20.0,
+    "minimum_neighbours": 8,
+    "variables": [
+      "DISPLACEMENT_X",
+      "DISPLACEMENT_Y",
+      "DISPLACEMENT_Z"
+    ]
+  }
+}

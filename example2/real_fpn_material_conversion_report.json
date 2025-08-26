@@ -1,0 +1,261 @@
+{
+  "fpn_file": "两阶段-全锚杆-摩尔库伦.fpn",
+  "conversion_time": "2025-08-26",
+  "total_materials": 14,
+  "successful_conversions": 14,
+  "success_rate": 100.0,
+  "results": [
+    {
+      "material_id": 1,
+      "original_name": "C30",
+      "converted_name": "C30",
+      "success": true,
+      "kratos_properties": {
+        "material_id": 1,
+        "material_name": "C30",
+        "DENSITY": 2549.2905324448207,
+        "YOUNG_MODULUS": 25000000.0,
+        "POISSON_RATIO": 0.2,
+        "COHESION": 35000.0,
+        "INTERNAL_FRICTION_ANGLE": 0.4886921905584123,
+        "INTERNAL_DILATANCY_ANGLE": 0.13962634015954636,
+        "YIELD_STRESS_TENSION": 500000.0,
+        "YIELD_STRESS_COMPRESSION": 8000000.0
+      }
+    },
+    {
+      "material_id": 2,
+      "original_name": "2细砂",
+      "converted_name": "2细砂",
+      "success": true,
+      "kratos_properties": {
+        "material_id": 2,
+        "material_name": "2细砂",
+        "DENSITY": 2039.4324259558566,
+        "YOUNG_MODULUS": 25000000.0,
+        "POISSON_RATIO": 0.3,
+        "COHESION": 35000.0,
+        "INTERNAL_FRICTION_ANGLE": 0.0,
+        "INTERNAL_DILATANCY_ANGLE": 0.13962634015954636,
+        "YIELD_STRESS_TENSION": 500000.0,
+        "YIELD_STRESS_COMPRESSION": 8000000.0
+      }
+    },
+    {
+      "material_id": 3,
+      "original_name": "3粉质粘土",
+      "converted_name": "3粉质粘土",
+      "success": true,
+      "kratos_properties": {
+        "material_id": 3,
+        "material_name": "3粉质粘土",
+        "DENSITY": 1988.4466153069602,
+        "YOUNG_MODULUS": 25000000.0,
+        "POISSON_RATIO": 0.3,
+        "COHESION": 35000.0,
+        "INTERNAL_FRICTION_ANGLE": 0.4537856055185257,
+        "INTERNAL_DILATANCY_ANGLE": 0.13962634015954636,
+        "YIELD_STRESS_TENSION": 500000.0,
+        "YIELD_STRESS_COMPRESSION": 8000000.0
+      }
+    },
+    {
+      "material_id": 4,
+      "original_name": "4粉质粘土",
+      "converted_name": "4粉质粘土",
+      "success": true,
+      "kratos_properties": {
+        "material_id": 4,
+        "material_name": "4粉质粘土",
+        "DENSITY": 1947.657966787843,
+        "YOUNG_MODULUS": 25000000.0,
+        "POISSON_RATIO": 0.3,
+        "COHESION": 35000.0,
+        "INTERNAL_FRICTION_ANGLE": 0.4188790204786391,
+        "INTERNAL_DILATANCY_ANGLE": 0.13962634015954636,
+        "YIELD_STRESS_TENSION": 500000.0,
+        "YIELD_STRESS_COMPRESSION": 8000000.0
+      }
+    },
+    {
+      "material_id": 5,
+      "original_name": "5粉质粘土",
+      "converted_name": "5粉质粘土",
+      "success": true,
+      "kratos_properties": {
+        "material_id": 5,
+        "material_name": "5粉质粘土",
+        "DENSITY": 2121.0097229940907,
+        "YOUNG_MODULUS": 25000000.0,
+        "POISSON_RATIO": 0.3,
+        "COHESION": 35000.0,
+        "INTERNAL_FRICTION_ANGLE": 0.3839724354387525,
+        "INTERNAL_DILATANCY_ANGLE": 0.13962634015954636,
+        "YIELD_STRESS_TENSION": 500000.0,
+        "YIELD_STRESS_COMPRESSION": 8000000.0
+      }
+    },
+    {
+      "material_id": 6,
+      "original_name": "6卵石",
+      "converted_name": "6卵石",
+      "success": true,
+      "kratos_properties": {
+        "material_id": 6,
+        "material_name": "6卵石",
+        "DENSITY": 1988.4466153069602,
+        "YOUNG_MODULUS": 25000000.0,
+        "POISSON_RATIO": 0.3,
+        "COHESION": 35000.0,
+        "INTERNAL_FRICTION_ANGLE": 0.0,
+        "INTERNAL_DILATANCY_ANGLE": 0.13962634015954636,
+        "YIELD_STRESS_TENSION": 500000.0,
+        "YIELD_STRESS_COMPRESSION": 8000000.0
+      }
+    },
+    {
+      "material_id": 7,
+      "original_name": "7粉质粘土",
+      "converted_name": "7粉质粘土",
+      "success": true,
+      "kratos_properties": {
+        "material_id": 7,
+        "material_name": "7粉质粘土",
+        "DENSITY": 2121.0097229940907,
+        "YOUNG_MODULUS": 25000000.0,
+        "POISSON_RATIO": 0.3,
+        "COHESION": 35000.0,
+        "INTERNAL_FRICTION_ANGLE": 0.24434609527920614,
+        "INTERNAL_DILATANCY_ANGLE": 0.13962634015954636,
+        "YIELD_STRESS_TENSION": 500000.0,
+        "YIELD_STRESS_COMPRESSION": 8000000.0
+      }
+    },
+    {
+      "material_id": 8,
+      "original_name": "9粉质粘土",
+      "converted_name": "9粉质粘土",
+      "success": true,
+      "kratos_properties": {
+        "material_id": 8,
+        "material_name": "9粉质粘土",
+        "DENSITY": 2110.8125608643118,
+        "YOUNG_MODULUS": 25000000.0,
+        "POISSON_RATIO": 0.3,
+        "COHESION": 35000.0,
+        "INTERNAL_FRICTION_ANGLE": 0.3612831551628262,
+        "INTERNAL_DILATANCY_ANGLE": 0.13962634015954636,
+        "YIELD_STRESS_TENSION": 500000.0,
+        "YIELD_STRESS_COMPRESSION": 8000000.0
+      }
+    },
+    {
+      "material_id": 9,
+      "original_name": "11重粉质粘土",
+      "converted_name": "11重粉质粘土",
+      "success": true,
+      "kratos_properties": {
+        "material_id": 9,
+        "material_name": "11重粉质粘土",
+        "DENSITY": 2059.8267502154154,
+        "YOUNG_MODULUS": 25000000.0,
+        "POISSON_RATIO": 0.3,
+        "COHESION": 35000.0,
+        "INTERNAL_FRICTION_ANGLE": 0.4014257279586958,
+        "INTERNAL_DILATANCY_ANGLE": 0.13962634015954636,
+        "YIELD_STRESS_TENSION": 500000.0,
+        "YIELD_STRESS_COMPRESSION": 8000000.0
+      }
+    },
+    {
+      "material_id": 10,
+      "original_name": "13卵石",
+      "converted_name": "13卵石",
+      "success": true,
+      "kratos_properties": {
+        "material_id": 10,
+        "material_name": "13卵石",
+        "DENSITY": 2141.4040472536494,
+        "YOUNG_MODULUS": 25000000.0,
+        "POISSON_RATIO": 0.3,
+        "COHESION": 35000.0,
+        "INTERNAL_FRICTION_ANGLE": 0.0,
+        "INTERNAL_DILATANCY_ANGLE": 0.13962634015954636,
+        "YIELD_STRESS_TENSION": 500000.0,
+        "YIELD_STRESS_COMPRESSION": 8000000.0
+      }
+    },
+    {
+      "material_id": 11,
+      "original_name": "14粉质粘土",
+      "converted_name": "14粉质粘土",
+      "success": true,
+      "kratos_properties": {
+        "material_id": 11,
+        "material_name": "14粉质粘土",
+        "DENSITY": 2059.8267502154154,
+        "YOUNG_MODULUS": 25000000.0,
+        "POISSON_RATIO": 0.3,
+        "COHESION": 35000.0,
+        "INTERNAL_FRICTION_ANGLE": 0.4188790204786391,
+        "INTERNAL_DILATANCY_ANGLE": 0.13962634015954636,
+        "YIELD_STRESS_TENSION": 500000.0,
+        "YIELD_STRESS_COMPRESSION": 8000000.0
+      }
+    },
+    {
+      "material_id": 12,
+      "original_name": "15细砂",
+      "converted_name": "15细砂",
+      "success": true,
+      "kratos_properties": {
+        "material_id": 12,
+        "material_name": "15细砂",
+        "DENSITY": 2070.0239123451943,
+        "YOUNG_MODULUS": 25000000.0,
+        "POISSON_RATIO": 0.3,
+        "COHESION": 35000.0,
+        "INTERNAL_FRICTION_ANGLE": 0.0,
+        "INTERNAL_DILATANCY_ANGLE": 0.13962634015954636,
+        "YIELD_STRESS_TENSION": 500000.0,
+        "YIELD_STRESS_COMPRESSION": 8000000.0
+      }
+    },
+    {
+      "material_id": 13,
+      "original_name": "锚杆",
+      "converted_name": "锚杆",
+      "success": true,
+      "kratos_properties": {
+        "material_id": 13,
+        "material_name": "锚杆",
+        "DENSITY": 2000.0,
+        "YOUNG_MODULUS": 25000000.0,
+        "POISSON_RATIO": 0.3,
+        "COHESION": 35000.0,
+        "INTERNAL_FRICTION_ANGLE": 0.4886921905584123,
+        "INTERNAL_DILATANCY_ANGLE": 0.13962634015954636,
+        "YIELD_STRESS_TENSION": 500000.0,
+        "YIELD_STRESS_COMPRESSION": 8000000.0
+      }
+    },
+    {
+      "material_id": 14,
+      "original_name": "2细砂修正",
+      "converted_name": "2细砂修正",
+      "success": true,
+      "kratos_properties": {
+        "material_id": 14,
+        "material_name": "2细砂修正",
+        "DENSITY": 2039.4324259558566,
+        "YOUNG_MODULUS": 25000000.0,
+        "POISSON_RATIO": 0.3,
+        "COHESION": 35000.0,
+        "INTERNAL_FRICTION_ANGLE": 0.4886921905584123,
+        "INTERNAL_DILATANCY_ANGLE": 0.13962634015954636,
+        "YIELD_STRESS_TENSION": 500000.0,
+        "YIELD_STRESS_COMPRESSION": 8000000.0
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "timestamp": "2025-08-26 08:42:03.472112",
+  "fpn_data_summary": {
+    "total_nodes": 93497,
+    "body_elements": 140194,
+    "line_elements": 64476,
+    "plate_elements": 2516
+  },
+  "extracted_data": {
+    "anchor_elements": 64476,
+    "anchor_nodes": 67410,
+    "wall_elements": 2516,
+    "soil_elements": 140194,
+    "master_nodes": 26087
+  },
+  "constraints": {
+    "total_generated": 300,
+    "expected": 2934,
+    "coverage_rate": 10.224948875255624
+  },
+  "verification": {
+    "data_integrity": true,
+    "constraint_coverage": 10.224948875255624,
+    "expected_constraints": 2934,
+    "actual_constraints": 300
+  }
+}
